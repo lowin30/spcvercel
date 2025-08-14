@@ -1,0 +1,164 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Plus, Loader2 } from "lucide-react"
+import { formatDate } from "@/lib/date-utils"
+import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+
+export default function PresupuestosBasePage() {
+  const [presupuestosBase, setPresupuestosBase] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [userDetails, setUserDetails] = useState<any>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true)
+        const supabase = createBrowserSupabaseClient()
+        
+        if (!supabase) {
+          setError("No se pudo inicializar el cliente de Supabase")
+          return
+        }
+
+        // Verificar sesión de usuario
+        const sessionResponse = await supabase.auth.getSession()
+        const session = sessionResponse.data.session
+        
+        if (!session) {
+          router.push("/login")
+          return
+        }
+        
+        // Obtener detalles del usuario
+        const userResponse = await supabase
+          .from("usuarios")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+          
+        const userData = userResponse.data
+        const userError = userResponse.error
+          
+        if (userError) {
+          console.error("Error al obtener detalles del usuario:", userError)
+          setError("Error al obtener detalles del usuario")
+          return
+        }
+        
+        setUserDetails(userData)
+        
+        // Solo supervisores y admins pueden acceder a esta página
+        if (userData?.rol !== "supervisor" && userData?.rol !== "admin") {
+          router.push("/dashboard")
+          return
+        }
+
+        // Construir la consulta base
+        const presupuestosBaseQuery = supabase
+          .from("presupuestos_base")
+          .select(`
+            *,
+            tareas (id, titulo, code),
+            usuarios (email, nombre)
+          `)
+          .order('created_at', { ascending: false })
+
+        // Si es supervisor, filtrar solo sus presupuestos
+        const filteredQuery = userData?.rol === "supervisor" 
+          ? presupuestosBaseQuery.eq("id_supervisor", session.user.id)
+          : presupuestosBaseQuery
+
+        // Ejecutar la consulta
+        const presupuestosBaseResponse = await filteredQuery
+        
+        if (presupuestosBaseResponse.error) {
+          console.error("Error al cargar presupuestos base:", presupuestosBaseResponse.error)
+          setError("Error al cargar presupuestos base")
+          return
+        }
+        
+        setPresupuestosBase(presupuestosBaseResponse.data || [])
+        setLoading(false)
+      } catch (err) {
+        console.error("Error al cargar datos:", err)
+        setError("Error al cargar datos")
+        setLoading(false)
+      }
+    }
+    
+    loadData()
+  }, [router])
+
+  if (loading) {
+    return (
+      <div className="container py-6">
+        <div className="flex justify-center items-center h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Cargando presupuestos base...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container py-6">
+        <div className="bg-red-50 p-4 rounded-md mb-4">
+          <h2 className="text-red-800 text-lg font-medium">Error</h2>
+          <p className="text-red-700">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Presupuestos Base</h1>
+          <p className="text-muted-foreground">
+            Plantillas de presupuesto que se pueden reutilizar.
+          </p>
+        </div>
+        <Link href="/dashboard/presupuestos-base/nuevo">
+          <Button size="sm">
+            <Plus className="mr-1 h-4 w-4" />
+            Nuevo Presupuesto Base
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {presupuestosBase && presupuestosBase.length > 0 ? (
+          presupuestosBase.map((presupuesto) => (
+            <Link href={`/dashboard/presupuestos-base/${presupuesto.id}`} key={presupuesto.id}>
+              <Card className="cursor-pointer transition-all hover:bg-muted/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl">{presupuesto.nombre || "Sin nombre"}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-sm text-muted-foreground">
+                    <p>Creado: {formatDate(presupuesto.created_at)}</p>
+                    <p>Descripción: {presupuesto.descripcion || "Sin descripción"}</p>
+                    <p>Creado por: {presupuesto.usuarios?.email || "Desconocido"}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-10">
+            <p className="text-muted-foreground">No hay presupuestos base disponibles.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

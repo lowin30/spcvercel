@@ -1,0 +1,232 @@
+// OCR Utilities
+import type { RecognizeResult } from 'tesseract.js';
+
+/**
+ * Interfaz para representar un monto detectado con formato original
+ */
+export interface MontoDetectado {
+  valor: number;        // Valor numérico para cálculos
+  textoOriginal: string; // Texto original como aparece en la imagen
+  esTotal: boolean;     // Indica si probablemente es el total
+  puntuacion?: number;  // Puntuación calculada para determinar si es el total (más alta = más probable)
+}
+
+/**
+ * Detecta montos en un texto utilizando patrones comunes de factura
+ * @param text Texto extraído del OCR
+ * @param result Resultado completo del OCR con información de posición
+ * @returns Array de montos detectados con formato
+ */
+export function detectarMontos(text: string, result?: RecognizeResult): MontoDetectado[] {
+  if (!text) return [];
+
+  const montosDetectados: MontoDetectado[] = [];
+  
+  // Regex para detectar cualquier tipo de número con formato de moneda
+  // 1. Buscar números precedidos por $ o seguidos por palabras como TOTAL
+  const regexTotal = /(?:TOTAL|Total|total|IMPORTE|Importe|importe)\s*:?\s*\$?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)/gi;
+  // 2. Buscar números con formato de moneda $123.456,78
+  const regexMonto = /\$\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)/g;
+  // 3. Buscar cualquier número con formato 123.456,78 o 123,456.78
+  const regexNumero = /(?:^|\s)(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?)(?:\s|$)/g;
+  
+  // Detectar montos marcados explicitamente como TOTAL
+  let match;
+  const regexTotalClone = new RegExp(regexTotal);
+  while ((match = regexTotalClone.exec(text)) !== null) {
+    const textoOriginal = match[1].trim();
+    const valorNumerico = convertirANumero(textoOriginal);
+    
+    if (!isNaN(valorNumerico) && valorNumerico > 0 && 
+        !montosDetectados.some(m => m.valor === valorNumerico)) {
+      montosDetectados.push({
+        valor: valorNumerico,
+        textoOriginal,
+        esTotal: true,
+        puntuacion: 100 // Darle la máxima prioridad
+      });
+    }
+  }
+
+  // Detectar montos con formato $123.456
+  const regexMontoClone = new RegExp(regexMonto);
+  while ((match = regexMontoClone.exec(text)) !== null) {
+    const textoOriginal = match[1].trim();
+    const valorNumerico = convertirANumero(textoOriginal);
+    
+    if (!isNaN(valorNumerico) && valorNumerico > 0 && 
+        !montosDetectados.some(m => m.valor === valorNumerico)) {
+      montosDetectados.push({
+        valor: valorNumerico,
+        textoOriginal,
+        esTotal: false,
+        puntuacion: 50
+      });
+    }
+  }
+
+  // Detectar cualquier número con formato de moneda
+  const regexNumeroClone = new RegExp(regexNumero);
+  while ((match = regexNumeroClone.exec(text)) !== null) {
+    const textoOriginal = match[1].trim();
+    const valorNumerico = convertirANumero(textoOriginal);
+    
+    if (!isNaN(valorNumerico) && valorNumerico > 0 && 
+        !montosDetectados.some(m => m.valor === valorNumerico)) {
+      montosDetectados.push({
+        valor: valorNumerico,
+        textoOriginal,
+        esTotal: false,
+        puntuacion: 10
+      });
+    }
+  }
+
+  console.log('Montos detectados sin ordenar:', montosDetectados);
+  
+  // SOLUCIÓN SIMPLIFICADA: 
+  // 1. Si se encuentra algún monto marcado como TOTAL, darle prioridad al más alto de estos
+  // 2. Si no hay montos con TOTAL, tomar simplemente el valor más alto
+  
+  // Ordenar todos los montos por valor (mayor a menor)
+  const montosOrdenados = montosDetectados.sort((a, b) => b.valor - a.valor);
+  
+  // Marcar el monto más alto como probable total si no hay ninguno marcado explícitamente como total
+  if (montosOrdenados.length > 0 && !montosOrdenados.some(m => m.esTotal)) {
+    montosOrdenados[0].esTotal = true;
+    montosOrdenados[0].puntuacion = 100;
+    console.log('Marcando el monto más alto como TOTAL:', montosOrdenados[0].valor);
+  }
+  
+  return montosOrdenados;
+}
+
+/**
+ * Convierte un texto con formato de número a valor numérico
+ * @param texto Texto con formato de número (ej: "1.234,56" o "1,234.56")
+ * @returns Valor numérico
+ */
+function convertirANumero(texto: string): number {
+  // Eliminar símbolos de moneda y espacios
+  let resultado = texto.replace(/[$\s]/g, '');
+  
+  // Detectar el formato según la posición de puntos y comas
+  const tienePuntos = resultado.includes('.');
+  const tieneComas = resultado.includes(',');
+  
+  // Caso 1: Tiene puntos y comas (determinar cuál es separador decimal)
+  if (tienePuntos && tieneComas) {
+    const ultimoPunto = resultado.lastIndexOf('.');
+    const ultimaComa = resultado.lastIndexOf(',');
+    
+    // Si el punto está después de la última coma, es separador decimal (formato US)
+    if (ultimoPunto > ultimaComa) {
+      // Formato US: 1,234.56
+      resultado = resultado.replace(/,/g, '');
+    } else {
+      // Formato LATAM: 1.234,56
+      resultado = resultado.replace(/\./g, '').replace(',', '.');
+    }
+  }
+  // Caso 2: Solo tiene puntos
+  else if (tienePuntos) {
+    // Si el punto está a 3 dígitos del final, probablemente es decimal
+    if (resultado.length - resultado.lastIndexOf('.') - 1 <= 2) {
+      // Es un decimal, dejar como está
+      resultado = resultado;
+    } else {
+      // Son separadores de miles, eliminarlos
+      resultado = resultado.replace(/\./g, '');
+    }
+  }
+  // Caso 3: Solo tiene comas
+  else if (tieneComas) {
+    // Si la coma está a 3 dígitos del final, probablemente es decimal
+    if (resultado.length - resultado.lastIndexOf(',') - 1 <= 2) {
+      // Es un decimal, convertir a punto
+      resultado = resultado.replace(',', '.');
+    } else {
+      // Son separadores de miles, eliminarlos
+      resultado = resultado.replace(/,/g, '');
+    }
+  }
+  
+  // Convertir a número
+  return parseFloat(resultado);
+}
+
+/**
+ * Calcula la confianza en la detección de montos basada en varios factores
+ * @param montos Montos detectados
+ * @param textoOCR Texto completo del OCR
+ * @param confianzaBase Confianza base del OCR
+ * @returns Nivel de confianza entre 0-100
+ */
+export function calcularConfianza(montos: MontoDetectado[], textoOCR: string, confianzaBase: number): number {
+  if (montos.length === 0) return 0;
+  
+  let confianza = confianzaBase * 0.5; // La confianza base del OCR es el 50% del total
+  
+  // Factores que aumentan la confianza
+  // 1. Detección de palabras clave relacionadas con totales
+  const patronesTotales = /(total|suma|importe|monto|valor|pago)/i;
+  if (patronesTotales.test(textoOCR)) confianza += 20;
+  
+  // 2. Detección de formato de factura
+  const patronesFactura = /(factura|boleta|recibo|ticket|comprobante)/i;
+  if (patronesFactura.test(textoOCR)) confianza += 15;
+  
+  // 3. Número de montos detectados (ideal tener pocos montos claramente diferenciados)
+  if (montos.length === 1) {
+    confianza += 15; // Un solo monto es más probable que sea el total
+  } else if (montos.length >= 2 && montos.length <= 5) {
+    confianza += 10; // Algunos montos, probablemente incluye subtotal y total
+  } else if (montos.length > 5) {
+    confianza -= 5; // Muchos montos, puede haber confusión
+  }
+
+  // 4. Presencia de montos marcados como totales
+  if (montos.some(m => m.esTotal)) {
+    confianza += 15;
+  }
+
+  // Asegurar que la confianza esté en el rango 0-100
+  return Math.max(0, Math.min(100, Math.round(confianza)));
+}
+
+/**
+ * Verifica si una fecha es válida 
+ * @param texto Texto donde buscar la fecha
+ * @returns Fecha encontrada o null
+ */
+export function extraerFecha(texto: string): Date | null {
+  // Patrones comunes de fecha en facturas
+  const patrones = [
+    // Formato: dd/mm/yyyy o dd-mm-yyyy
+    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g,
+    // Formato: yyyy/mm/dd o yyyy-mm-dd
+    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/g,
+  ];
+
+  for (const patron of patrones) {
+    const match = patron.exec(texto);
+    if (match) {
+      try {
+        // Verificar si el primer grupo capturado tiene 4 dígitos para saber el formato
+        if (match[1].length === 4) {
+          // Formato: yyyy/mm/dd
+          const fecha = new Date(`${match[1]}-${match[2]}-${match[3]}`);
+          if (!isNaN(fecha.getTime())) return fecha;
+        } else {
+          // Formato: dd/mm/yyyy
+          const fecha = new Date(`${match[3]}-${match[2]}-${match[1]}`);
+          if (!isNaN(fecha.getTime())) return fecha;
+        }
+      } catch (error) {
+        console.error("Error al parsear fecha:", error);
+      }
+    }
+  }
+  
+  return null;
+}

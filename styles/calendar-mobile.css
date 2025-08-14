@@ -1,0 +1,160 @@
+/* Estilos personalizados para el calendario en dispositivos móviles */
+
+/* Ajustes generales para responsive */
+@media (max-width: 768px) {
+  /* Prevenir scroll horizontal y reducir tamaño de fuente en móviles */
+  .rbc-calendar {
+    font-size: 0.875rem !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Ajustar altura de los días para evitar scrolling innecesario */
+  .rbc-month-view .rbc-month-row {
+    min-height: 5rem !important;
+    max-height: 6rem !important;
+    overflow: hidden;
+  }
+  
+  /* Evitar que la vista mensual genere scroll horizontal */
+  .rbc-month-view {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Ajustar el ancho de las celdas */
+  .rbc-month-view .rbc-month-row .rbc-row-content {
+    width: 100% !important;
+  }
+  
+  /* Asegurar que las celdas de días se ajusten al ancho disponible */
+  .rbc-row-content .rbc-row {
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+  }
+  
+  .rbc-row-content .rbc-row .rbc-date-cell {
+    flex: 1 0 14.285% !important; /* 1/7 del ancho */
+    max-width: 14.285% !important;
+    min-width: 2rem !important;
+  }
+  
+  /* Ajustar toolbar */
+  .rbc-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+  
+  /* Mejorar visibilidad de eventos en móvil */
+  .rbc-event {
+    padding: 1px !important;
+    border-radius: 2px !important;
+    margin: 0 !important;
+    min-height: 1.5rem !important;
+    max-width: 100% !important;
+  }
+  
+  /* Asegurar que el contenido de los eventos no desborde */
+  .rbc-event-content {
+    font-size: 0.7rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  
+  /* Ajustar el popup de "mostrar más" */
+  .rbc-overlay {
+    width: 90vw !important;
+    max-width: 300px;
+  }
+  
+  /* Ocultar algunos elementos menos importantes en vista móvil */
+  .rbc-agenda-date-cell, .rbc-agenda-time-cell {
+    font-size: 0.75rem;
+  }
+  
+  /* Mejorar la vista de agenda para móviles */
+  .rbc-agenda-view table {
+    width: 100%;
+    table-layout: fixed !important;
+  }
+  
+  .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+    padding: 5px;
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .rbc-agenda-view table.rbc-agenda-table {
+    border-collapse: collapse;
+  }
+  
+  /* Mejorar la visibilidad de la fecha actual */
+  .rbc-month-view .rbc-today {
+    background-color: rgba(66, 153, 225, 0.1) !important;
+  }
+}
+
+/* Personalización del tema para combinar con la aplicación */
+.rbc-btn-group button {
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.rbc-btn-group button.rbc-active {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.rbc-toolbar-label {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.rbc-event {
+  background-color: var(--primary);
+}
+
+/* Optimizaciones para eventos superpuestos */
+.rbc-event-overlaps {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Estilos para vista de día y semana */
+@media (max-width: 768px) {
+  .rbc-time-view {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
+  .rbc-time-header {
+    min-height: auto !important;
+  }
+  
+  .rbc-time-header-content {
+    min-width: auto !important;
+    flex: 1 !important;
+  }
+  
+  .rbc-time-content {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+  
+  .rbc-day-slot .rbc-events-container {
+    margin-right: 0 !important;
+  }
+}
+
+/* Mejora del "showMore" */
+.rbc-show-more {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--primary);
+  background-color: transparent;
+  padding: 2px;
+}

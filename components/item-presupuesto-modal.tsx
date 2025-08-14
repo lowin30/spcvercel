@@ -1,0 +1,217 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ProductoPicker } from "@/components/producto-picker"
+import { formatCurrency } from "@/lib/utils"
+import type { Producto } from "@/types/producto"
+
+// Interfaces
+
+export interface ItemPresupuesto {
+  id?: number
+  descripcion: string
+  cantidad: number
+  precio: number
+  es_producto?: boolean
+  producto_id?: string
+  producto?: Producto
+}
+
+interface ItemPresupuestoModalProps {
+  open: boolean
+  setOpen: (open: boolean) => void
+  onSave: (item: Omit<ItemPresupuesto, "id">) => void
+  editingItem?: ItemPresupuesto
+}
+
+export function ItemPresupuestoModal({
+  open,
+  setOpen,
+  onSave,
+  editingItem
+}: ItemPresupuestoModalProps) {
+  // Estado para los campos del formulario
+  const [descripcion, setDescripcion] = useState("")
+  const [cantidad, setCantidad] = useState(1)
+  const [precio, setPrecio] = useState(0)
+  const [productoId, setProductoId] = useState<string | undefined>(undefined)
+  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | undefined>(undefined)
+  const [esProducto, setEsProducto] = useState(false)
+  
+  // Estado para las pestañas
+  const [activeTab, setActiveTab] = useState<string>("manual")
+  
+  // Calcular subtotal en tiempo real
+  const subtotal = cantidad * precio
+  
+  // Validación
+  const isValid = descripcion.trim() !== "" && cantidad > 0 && precio >= 0
+  
+  // Efecto para cargar datos del ítem a editar
+  useEffect(() => {
+    if (editingItem) {
+      setDescripcion(editingItem.descripcion || "")
+      setCantidad(editingItem.cantidad || 1)
+      setPrecio(editingItem.precio || 0)
+      setProductoId(editingItem.producto_id)
+      setProductoSeleccionado(editingItem.producto)
+      setEsProducto(!!editingItem.es_producto)
+      
+      // Si el ítem es un producto, cambiar a la pestaña de producto
+      if (editingItem.es_producto && editingItem.producto_id) {
+        setActiveTab("producto")
+      } else {
+        setActiveTab("manual")
+      }
+    } else {
+      // Reset para un nuevo ítem
+      setDescripcion("")
+      setCantidad(1)
+      setPrecio(0)
+      setProductoId(undefined)
+      setProductoSeleccionado(undefined)
+      setEsProducto(false)
+      setActiveTab("manual")
+    }
+  }, [editingItem, open])
+  
+  // Manejar la selección de un producto
+  const handleProductSelect = (producto: Producto) => {
+    setProductoSeleccionado(producto)
+    setDescripcion(producto.nombre)
+    setPrecio(producto.precio || 0)
+    setProductoId(producto.id)
+    setEsProducto(true)
+  }
+  
+  // Guardar los datos del ítem
+  const handleSave = () => {
+    onSave({
+      descripcion,
+      cantidad,
+      precio,
+      producto_id: esProducto ? productoId : undefined,
+      producto: esProducto ? productoSeleccionado : undefined,
+      es_producto: esProducto
+    })
+    setOpen(false)
+  }
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
+            {editingItem ? "Editar ítem" : "Añadir ítem"}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="producto">Seleccionar Producto</TabsTrigger>
+            <TabsTrigger value="manual">Ingreso Manual</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="producto" className="space-y-4 pt-4">
+            <ProductoPicker 
+              onSelect={handleProductSelect} 
+              buttonLabel="Buscar Producto" 
+            />
+            
+            {productoSeleccionado && (
+              <div className="rounded-md border p-3 mt-2">
+                <p className="font-medium">{productoSeleccionado.nombre}</p>
+                <p className="text-sm text-muted-foreground">{productoSeleccionado.code}</p>
+                <div className="flex justify-between mt-1">
+                  <span>Precio:</span>
+                  <span>{formatCurrency(productoSeleccionado.precio || 0)}</span>
+                </div>
+              </div>
+            )}
+            
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="cantidad-producto">Cantidad</Label>
+                <Input
+                  id="cantidad-producto"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={cantidad}
+                  onChange={(e) => setCantidad(Number(e.target.value) || 1)}
+                />
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="manual" className="space-y-4 pt-4">
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="descripcion">Descripción</Label>
+                <Input
+                  id="descripcion"
+                  placeholder="Descripción del ítem"
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="cantidad">Cantidad</Label>
+                  <Input
+                    id="cantidad"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={cantidad}
+                    onChange={(e) => setCantidad(Number(e.target.value) || 1)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="precio">Precio unitario</Label>
+                  <Input
+                    id="precio"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={precio}
+                    onChange={(e) => setPrecio(Number(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+        
+        {/* Subtotal */}
+        <div className="flex justify-between items-center border-t pt-3 mt-2">
+          <span className="font-medium">Subtotal:</span>
+          <span className="text-lg font-bold">{formatCurrency(subtotal)}</span>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={!isValid}
+          >
+            {editingItem ? "Actualizar" : "Añadir"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

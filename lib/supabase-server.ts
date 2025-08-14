@@ -1,0 +1,103 @@
+import { getSupabaseServer } from "./supabase-singleton"
+
+export const createServerSupabase = getSupabaseServer
+
+// Mejorar la gestión de sesiones con reintentos
+export async function getSession() {
+  // Usar try-catch global para manejar cualquier error inesperado
+  try {
+    const supabase = getSupabaseServer()
+    
+    // Si no tenemos cliente Supabase, retornar null de inmediato
+    if (!supabase) {
+      console.error("No se pudo crear el cliente Supabase")
+      return null
+    }
+
+    // Implementar un mecanismo de reintento
+    let retries = 2
+    let lastError = null
+    
+    while (retries >= 0) {
+      try {
+        const response = await supabase.auth.getSession()
+        return response.data.session
+      } catch (error) {
+        lastError = error
+        console.warn(`Error al obtener la sesión (intento ${2-retries}/2)`, error)
+        
+        // Si aún quedan reintentos, esperar antes de volver a intentar
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+        retries--
+      }
+    }
+    
+    console.error("Error definitivo al obtener la sesión:", lastError)
+    return null
+  } catch (error) {
+    console.error("Error global en getSession:", error)
+    return null
+  }
+}
+
+export async function getUserDetails() {
+  try {
+    // Obtener cliente Supabase del singleton
+    const supabase = getSupabaseServer()
+
+    // Obtener la sesión primero usando nuestra función mejorada con reintentos
+    const session = await getSession()
+
+    // Si no hay sesión, no podemos obtener los detalles del usuario
+    if (!session) {
+      console.log("No hay sesión activa en getUserDetails")
+      return null
+    }
+
+    // Implementar un mecanismo de reintento para la consulta de detalles del usuario
+    let attempts = 0
+    const maxAttempts = 3
+    let userDetails = null
+    let lastError = null
+
+    while (attempts < maxAttempts && !userDetails) {
+      try {
+        // Añadir un pequeño retraso entre intentos (excepto el primer intento)
+        if (attempts > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempts))
+        }
+
+        // Intentar obtener los detalles del usuario desde la tabla usuarios
+        const { data, error } = await supabase
+          .from("usuarios")
+          .select("*")
+          .eq("id", session.user.id)
+          .single()
+
+        if (error) {
+          lastError = error
+          console.error("Error al obtener detalles del usuario (intento " + (attempts + 1) + "/" + maxAttempts + "):", error)
+        } else {
+          userDetails = data
+          console.log("Detalles del usuario recuperados correctamente")
+        }
+      } catch (error) {
+        lastError = error
+        console.error("Error de red al obtener detalles del usuario (intento " + (attempts + 1) + "/" + maxAttempts + "):", error)
+      }
+
+      attempts++
+    }
+
+    if (!userDetails && lastError) {
+      console.error("No se pudieron obtener los detalles del usuario después de múltiples intentos:", lastError)
+    }
+
+    return userDetails
+  } catch (error) {
+    console.error("Error global en getUserDetails:", error)
+    return null
+  }
+}
