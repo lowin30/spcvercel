@@ -241,8 +241,8 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
       }
     }
     
-    fetchData()
-  }, [params.id, router, supabase])
+    fetchData();
+  }, [params.id, router, supabase]);
   
   // Consulta de diagnóstico para verificar usuarios por rol
   useEffect(() => {

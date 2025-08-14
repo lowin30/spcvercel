@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { DashboardShell } from "@/components/dashboard-shell"
+// Importación correcta como exportación por defecto
+import DashboardShell from "@/components/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Edit, Loader2 } from "lucide-react"
@@ -137,7 +138,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
   }
   
   return (
-    <DashboardShell userDetails={userDetails}>
+    <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -159,7 +160,8 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
             </Link>
           </div>
         </div>
-      <div className="grid gap-6">
+        
+        <div className="grid gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="space-y-1">
