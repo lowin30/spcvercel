@@ -17,7 +17,7 @@ interface DashboardShellProps {
 }
 
 // Cambiado a exportación por defecto para resolver problemas de compilación
-export default function DashboardShell({ children, userDetails }: DashboardShellProps) {
+export function DashboardShell({ children, userDetails }: DashboardShellProps) {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
