@@ -4,6 +4,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Desactivar prerenderización de páginas que usan Supabase
+  output: 'standalone',
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
