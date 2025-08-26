@@ -4,11 +4,16 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Desactivar prerenderización de páginas estáticas
+  // Configuración para manejar todas las páginas como dinámicas
   output: 'standalone',
-  // Generar todo en tiempo de ejecución (sin prerenderizado estático)
-  staticPageGenerationTimeout: 1000,
-  generateEtags: false,
+  trailingSlash: true,
+  // Configuración específica para evitar prerenderizar páginas estáticas
+  // que dependen de variables de entorno de Supabase
+  env: {
+    // Proveer valores de placeholder durante la construcción
+    NEXT_PUBLIC_SUPABASE_URL: 'https://placeholder-value-for-build.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'placeholder-value-for-build',
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
