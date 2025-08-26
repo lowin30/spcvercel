@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { DashboardShell } from "@/components/dashboard-shell"
+import { DashboardShell } from "@/components/dashboard-shell-export"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Edit, Loader2 } from "lucide-react"
