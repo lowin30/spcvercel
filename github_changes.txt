@@ -1,0 +1,48 @@
+### Cambios necesarios para corregir errores de compilación en Vercel
+
+## 1. En app/dashboard/productos/[id]/page.tsx:
+
+BUSCAR:
+```tsx
+import DashboardShell from "@/components/dashboard-shell"
+```
+
+REEMPLAZAR CON:
+```tsx
+import { DashboardShell } from "@/components/dashboard-shell"
+```
+
+Y en el componente dashboard-shell.tsx:
+
+BUSCAR:
+```tsx
+export default function DashboardShell({ children, userDetails }: DashboardShellProps)
+```
+
+REEMPLAZAR CON:
+```tsx
+export function DashboardShell({ children, userDetails }: DashboardShellProps)
+```
+
+## 2. En app/dashboard/tareas/[id]/asignar/page.tsx:
+
+BUSCAR:
+```tsx
+    fetchData()
+  }, [params.id, router, supabase])
+```
+
+REEMPLAZAR CON:
+```tsx
+    fetchData();
+  }, [params.id, router, supabase]);
+```
+
+## Instrucciones para GitHub:
+
+1. Ve a tu repositorio en GitHub
+2. Navega a los archivos indicados
+3. Edita cada uno haciendo clic en el icono de lápiz
+4. Realiza los cambios indicados arriba
+5. Para cada archivo, al final haz clic en "Commit changes" con un mensaje como "Corrige errores de sintaxis para compilación en Vercel"
+6. Una vez realizados los cambios, Vercel debería detectarlos automáticamente e iniciar un nuevo despliegue

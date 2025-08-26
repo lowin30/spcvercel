@@ -1,0 +1,214 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { DashboardShell } from "@/components/dashboard-shell"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Edit, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatCurrency } from "@/lib/utils"
+import { getSupabaseClient } from "@/lib/supabase-singleton"
+
+export default function DetalleProductoPage({ params }: { params: { id: string } }) {
+  const [producto, setProducto] = useState<any>(null)
+  const [presupuestosCount, setPresupuestosCount] = useState<number>(0)
+  const [userDetails, setUserDetails] = useState<{ rol: string; email: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const supabase = getSupabaseClient()
+
+  useEffect(() => {
+    async function fetchProducto() {
+      try {
+        // Verificar sesión
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session) {
+          router.push('/login')
+          return
+        }
+
+        // Obtener detalles del usuario
+        const { data: userData, error: userError } = await supabase
+          .from('usuarios')
+          .select('rol')
+          .eq('id', session.user.id)
+          .single()
+        
+        if (userData) {
+          setUserDetails({
+            rol: userData.rol,
+            email: session.user.email || ""
+          })
+        }
+        
+        // Obtener datos del producto
+        const { data, error } = await supabase
+          .from('productos')
+          .select(`
+            *,
+            categorias_productos (id, nombre)
+          `)
+          .eq('id', params.id)
+          .single()
+        
+        if (error) {
+          console.error('Error al cargar producto:', error)
+          setError('No se pudo cargar la información del producto')
+          setLoading(false)
+          return
+        }
+        
+        setProducto(data)
+        
+        // Contar presupuestos relacionados
+        const { count } = await supabase
+          .from('presupuestos_productos')
+          .select('*', { count: 'exact' })
+          .eq('producto_id', params.id)
+        
+        setPresupuestosCount(count || 0)
+        
+      } catch (err) {
+        console.error('Error:', err)
+        setError('Se produjo un error al cargar los datos')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchProducto()
+  }, [params.id, router, supabase])
+
+  if (loading) {
+    return (
+      <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Cargando producto...</span>
+        </div>
+      </DashboardShell>
+    )
+  }
+
+  if (error || !producto) {
+    return (
+      <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
+        <div className="flex flex-col items-center justify-center h-full">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold">Error</h2>
+            <p className="text-muted-foreground mt-2">{error || 'Producto no encontrado'}</p>
+            <Button className="mt-4" onClick={() => router.push('/dashboard/productos')}>
+              Volver a productos
+            </Button>
+          </div>
+        </div>
+      </DashboardShell>
+    )
+  }
+
+  return (
+    <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Detalle de Producto</h1>
+            <p className="text-muted-foreground">Información detallada del producto.</p>
+          </div>
+          <div className="flex gap-3">
+            <a
+              href="/dashboard/productos"
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4"
+            >
+              Volver a Productos
+            </a>
+            <Link href={`/dashboard/productos/${params.id}/editar`}>
+              <Button size="sm">
+                <Edit className="mr-1 h-4 w-4" />
+                Editar Producto
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        <div className="grid gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="space-y-1">
+                <CardTitle className="text-2xl font-bold">
+                  {producto.code} - {producto.nombre}
+                </CardTitle>
+                <CardDescription>
+                  <Badge variant={producto.activo ? "default" : "destructive"}>
+                    {producto.activo ? "Activo" : "Inactivo"}
+                  </Badge>
+                  <Badge variant="outline" className="ml-2">
+                    {producto.categorias_productos?.nombre || "Sin categoría"}
+                  </Badge>
+                </CardDescription>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Precio</div>
+                <div className="text-2xl font-bold">{formatCurrency(producto.precio)}</div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="rounded-lg overflow-hidden border h-64 flex items-center justify-center bg-muted">
+                    {producto.imagen ? (
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/productos/${producto.imagen}`}
+                        alt={producto.nombre}
+                        className="w-full h-full object-contain p-4"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">Sin imagen</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col justify-between">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Stock</span>
+                      <span>{producto.stock || 0} unidades</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Ubicación</span>
+                      <span>{producto.ubicacion || "Sin ubicación"}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Proveedor</span>
+                      <span>{producto.proveedor || "Sin proveedor"}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Descripción</span>
+                      <span className="text-right max-w-[200px] truncate">{producto.descripcion || "Sin descripción"}</span>
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Usado en presupuestos:</span>
+                        <span>{presupuestosCount || 0} veces</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Fecha de creación:</span>
+                        <span>{new Date(producto.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Última actualización:</span>
+                        <span>{new Date(producto.updated_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardShell>
+  )
+}
