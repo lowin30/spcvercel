@@ -51,6 +51,11 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
           return
         }
         
+        if (!userData) {
+          setError("No se encontró el usuario")
+          return
+        }
+        
         setUserDetails(userData)
 
         // Verificar permisos
@@ -62,127 +67,103 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
           return
         }
         
-        try {
-          // Obtener tarea
-          const tareaResult = await supabase
-            .from("tareas")
-            .select("id, titulo")
-            .eq("id", params.id)
-            .single()
+        // Obtener tarea
+        const { data: tareaData, error: tareaError } = await supabase
+          .from("tareas")
+          .select("*")
+          .eq("id", params.id)
+          .single()
           
-          // Manejar error de consulta de tarea
-          if (tareaResult.error) {
-            console.error("Error al obtener la tarea:", tareaResult.error)
-            setError("No se pudo encontrar la tarea solicitada o hubo un error en la consulta")
-            return
-          }
+        // Manejar error de consulta de tarea
+        if (tareaError) {
+          console.error("Error al obtener la tarea:", tareaError)
+          setError("No se pudo encontrar la tarea solicitada o hubo un error en la consulta")
+          return
+        }
           
-          // Obtener supervisor asignado a esta tarea
-          const supervisorResult = await supabase
-            .from("supervisores_tareas")
-            .select("id_supervisor")
-            .eq("id_tarea", params.id)
-            .maybeSingle()
-          
-          // Obtener trabajadores actuales
-          const trabajadoresActualesResult = await supabase
-            .from("trabajadores_tareas")
-            .select("id_trabajador")
-            .eq("id_tarea", params.id)
-          
-          // Consulta específica para trabajadores
-          console.log("Obteniendo trabajadores...")
-          // Obtener TODOS los usuarios para filtrar después
-          const trabajadoresResult = await supabase
-            .from("usuarios")
-            .select("id, email, color_perfil, rol")
-
-          // Si no hay tarea, mostrar mensaje amigable
-          if (!tareaResult.data) {
-            setError("La tarea que estás buscando no existe o ha sido eliminada")
-            return
-          }
-          
-          // Verificar los resultados de las consultas
-          console.log("=== DEPURACIÓN ASIGNACIÓN TRABAJADORES ===")
-          console.log("Tarea:", tareaResult?.data)
-          console.log("Supervisor asignado:", supervisorResult?.data)
-          console.log("Trabajadores actuales (raw):", trabajadoresActualesResult)
-          
-          // Asegurarse de que trabajadoresActualesResult es un objeto con propiedad data
-          if ('data' in trabajadoresActualesResult) {
-            console.log("Trabajadores actuales (data):", trabajadoresActualesResult.data)
-          } else {
-            console.log("Trabajadores actuales: formato de respuesta inesperado", trabajadoresActualesResult)
-          }
-          
-          // Asegurarse de que trabajadoresResult es un objeto con propiedad data
-          if ('data' in trabajadoresResult) {
-            console.log("Trabajadores disponibles:", trabajadoresResult.data?.length, "trabajadores encontrados")
-            console.log("Detalles de trabajadores:", trabajadoresResult.data)
-          } else {
-            console.log("Trabajadores disponibles: formato de respuesta inesperado", trabajadoresResult)
-          }
-          
-          // Procesar y almacenar los datos de forma segura verificando que sean del tipo correcto
-          if ('data' in tareaResult && tareaResult.data) {
-            setTarea(tareaResult.data)
-          }
-          
-          if ('data' in supervisorResult) {
-            setSupervisorAsignado(supervisorResult.data)
-          }
-          
-          // Verificar trabajadores actuales
-          if ('data' in trabajadoresActualesResult) {
-            console.log('Trabajadores actuales cargados:', trabajadoresActualesResult.data?.length || 0);
-            setTrabajadoresActuales(trabajadoresActualesResult.data || [])
-          } else {
-            setTrabajadoresActuales([])
-          }
-          
-          // Procesamiento normal inicial
-          if ('data' in trabajadoresResult && trabajadoresResult.data) {
-            console.log('Trabajadores iniciales:', trabajadoresResult.data.length)
-          }
-          
-          // Consulta adicional para obtener TODOS los usuarios sin filtros
-          try {
-            const { data: todosUsuarios } = await supabase
-              .from("usuarios")
-              .select("id, email, color_perfil, rol")
-            
-            if (todosUsuarios) {
-              console.log("TODOS LOS USUARIOS:", todosUsuarios.length)
-              // Filtrar manualmente solo los trabajadores
-              const trabajadoresCompletos = todosUsuarios.filter(u => u.rol === "trabajador")
-              console.log("TRABAJADORES FILTRADOS:", trabajadoresCompletos.length)
-              
-              // Verificar si encontramos al trabajador que faltaba
-              const encontradoMireTendencia = trabajadoresCompletos.some(t => 
-                t.email === "miretendencia@gmail.com")
-              console.log("¿Se encontró miretendencia@gmail.com?", encontradoMireTendencia)
-              
-              // Usar esta lista completa
-              setTrabajadores(trabajadoresCompletos)
-            }
-          } catch (error) {
-            console.error("Error al obtener usuarios adicionales:", error)
-          }
-          
-          // Verificar si el supervisor actual está asignado a esta tarea
-          const esSupervisorDeTarea = esSupervisor && 'data' in supervisorResult && supervisorResult.data?.id_supervisor === userData?.id
-          
-          // Si es supervisor pero no está asignado a esta tarea, redirigir
-        if (esSupervisor && !esSupervisorDeTarea) {
-          router.push("/dashboard/tareas")
+        // Si no hay tarea, mostrar mensaje amigable
+        if (!tareaData) {
+          setError("La tarea que estás buscando no existe o ha sido eliminada")
           return
         }
         
-        // Verificar que se carguen trabajadores
-        if ('data' in trabajadoresResult && (!trabajadoresResult.data || trabajadoresResult.data.length === 0)) {
-          console.warn('No se encontraron trabajadores con rol "trabajador"')
+        // Guardar tarea en estado
+        setTarea(tareaData)
+        
+        // Verificación adicional para supervisores (solo pueden ver sus propias tareas)
+        if (esSupervisor && tareaData.supervisor_id !== userData.id) {
+          router.push('/dashboard/tareas')
+          return
         }
+        
+        // Obtener supervisor asignado a esta tarea si existe
+        if (tareaData.supervisor_id) {
+          try {
+            const { data: supData } = await supabase
+              .from("usuarios")
+              .select("id, email, nombre, apellido")
+              .eq("id", tareaData.supervisor_id)
+              .single()
+              
+            if (supData) {
+              setSupervisorAsignado({
+                id: supData.id,
+                email: supData.email,
+                nombre: supData.nombre,
+                apellido: supData.apellido
+              })
+            }
+          } catch (error) {
+            console.error("Error al obtener supervisor:", error)
+          }
+        }
+        
+        // Obtener trabajadores actuales asignados a esta tarea
+        try {
+          const { data: asignados = [], error: asignadosError } = await supabase
+            .from("trabajadores_tareas")
+            .select("id_trabajador")
+            .eq("id_tarea", params.id)
+            
+          if (asignadosError) {
+            console.error("Error al obtener trabajadores asignados:", asignadosError)
+          } else {
+            setTrabajadoresActuales(asignados)
+          }
+        } catch (error) {
+          console.error("Error al obtener trabajadores actuales:", error)
+        }
+        
+        // Consulta para obtener TODOS los usuarios y filtrar trabajadores
+        try {
+          const { data: todosUsuarios = [] } = await supabase
+            .from("usuarios")
+            .select("id, email, nombre, apellido, rol, color_perfil")
+            
+          console.log("=== DEPURACIÓN ASIGNACIÓN TRABAJADORES ===")
+          console.log("Total usuarios:", todosUsuarios.length)
+          
+          // Filtrar solo trabajadores
+          const trabajadoresFiltrados = todosUsuarios
+            .filter((user: { rol: string }) => user.rol === "trabajador")
+            
+          // Asignar a estado
+          setTrabajadores(trabajadoresFiltrados)
+          console.log(`Trabajadores filtrados por rol (${trabajadoresFiltrados.length}):`, trabajadoresFiltrados)
+          
+          // Verificación de diagnóstico
+          const encontradoMireTendencia = trabajadoresFiltrados.some(
+            (t: { email: string }) => t.email === "miretendencia@gmail.com")
+          console.log("¿Se encontró miretendencia@gmail.com?", encontradoMireTendencia)
+          
+          // Verificar que se carguen trabajadores
+          if (!trabajadoresFiltrados || trabajadoresFiltrados.length === 0) {
+            console.warn("No se encontraron trabajadores disponibles")
+          }
+        } catch (error) {
+          console.error("Error al obtener usuarios:", error)
+        }
+        
       } catch (err) {
         console.error("Error inesperado:", err)
         setError("Ocurrió un error al cargar los datos")
@@ -207,22 +188,26 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         console.log("Total usuarios:", usuariosData?.length || 0)
         
         // Contar usuarios por rol
-        const roleCount: Record<string, number> = {};
+        const roleCount: Record<string, number> = {}
         usuariosData?.forEach((user: { rol: string }) => {
-          const rol = user.rol || 'desconocido';
-          roleCount[rol] = (roleCount[rol] || 0) + 1;
+          const rol = user.rol || 'desconocido'
+          roleCount[rol] = (roleCount[rol] || 0) + 1
         });
         
         // Log directo de todos los usuarios con rol trabajador para verificar exactamente qué está pasando
-        console.log("USUARIOS TRABAJADORES:");
+        console.log("USUARIOS TRABAJADORES:")
+        try {
           // Obtener TODOS los trabajadores disponibles - consulta forzada sin filtros adicionales
-          const { data: trabajadores } = await supabase
+          const { data: trabajadoresDiag } = await supabase
             .from("usuarios")
-            .select("id, email, color_perfil");
-        
-        console.log(trabajadores);
-        console.log("Usuarios por rol:", roleCount);
-        console.log("=== FIN DIAGNÓSTICO ===")
+            .select("id, email, color_perfil")
+          
+          console.log(trabajadoresDiag)
+          console.log("Usuarios por rol:", roleCount)
+          console.log("=== FIN DIAGNÓSTICO ===")
+        } catch (diagError) {
+          console.error("Error en consulta de diagnóstico:", diagError)
+        }
       } catch (error) {
         console.error("Error en diagnóstico:", error);
       }

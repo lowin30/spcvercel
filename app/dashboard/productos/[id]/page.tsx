@@ -9,7 +9,7 @@ import { Edit, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 
 
 export default function DetalleProductoPage({ params }: { params: { id: string } }) {
@@ -24,7 +24,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = getSupabaseClient()
         
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()
