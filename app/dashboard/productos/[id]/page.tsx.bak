@@ -1,0 +1,171 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+// DashboardShell temporalmente removido para resolver problemas de compilación en Vercel
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Edit, Loader2 } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getSupabaseClient } from "@/lib/supabase/client"
+
+export default function ProductPage({ params }: { params: { id: string } }) {
+  const router = useRouter()
+  const [producto, setProducto] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [userDetails, setUserDetails] = useState<{ rol: string; email: string } | null>(null)
+  
+  // Función para cargar los datos del producto desde Supabase
+  async function loadData() {
+    setLoading(true)
+    const supabase = getSupabaseClient()
+    
+    try {
+      // Obtener datos de autenticación
+      const { data: sessionData } = await supabase.auth.getSession()
+      
+      if (!sessionData.session) {
+        router.push("/login")
+        return
+      }
+      
+      // Obtener rol del usuario
+      const { data: profileData, error: profileError } = await supabase
+        .from("perfiles")
+        .select("rol, email")
+        .eq("id", sessionData.session.user.id)
+        .single()
+      
+      if (profileError) {
+        console.error("Error al obtener perfil:", profileError)
+        return
+      }
+      
+      setUserDetails(profileData)
+      
+      // Obtener datos del producto
+      const { data, error } = await supabase
+        .from("productos")
+        .select(`
+          *,
+          categorias (
+            nombre
+          )
+        `)
+        .eq("id", params.id)
+        .single()
+      
+      if (error) {
+        console.error("Error al cargar producto:", error)
+        return
+      }
+      
+      setProducto(data)
+    } catch (error) {
+      console.error("Error en la carga de datos:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  useEffect(() => {
+    loadData()
+  }, [params.id])
+  
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="mt-2 text-sm text-muted-foreground">Cargando producto...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  if (!producto) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl font-semibold">Producto no encontrado</p>
+          <Button asChild className="mt-4">
+            <Link href="/dashboard/productos">Volver a productos</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* Wrapper que reemplaza temporalmente a DashboardShell */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {producto.nombre}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Detalles del producto
+            </p>
+          </div>
+          <Button asChild>
+            <Link href={`/dashboard/productos/${params.id}/editar`}>
+              <Edit className="mr-2 h-4 w-4" /> Editar producto
+            </Link>
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Información general</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Nombre</div>
+                  <div className="font-medium">{producto.nombre}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Categoría</div>
+                  <div className="font-medium">{producto.categorias?.nombre || "Sin categoría"}</div>
+                </div>
+              </div>
+              
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Precio</div>
+                  <div className="font-medium">${producto.precio?.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Stock</div>
+                  <div className="font-medium">{producto.stock || 0}</div>
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Descripción</div>
+                <div className="font-medium">{producto.descripcion || "Sin descripción"}</div>
+              </div>
+              
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Código</div>
+                <div className="font-medium">{producto.codigo || "N/A"}</div>
+              </div>
+              
+              <div>
+                <div className="text-sm font-medium text-muted-foreground">Fecha de creación</div>
+                <div className="font-medium">
+                  {producto.created_at 
+                    ? new Date(producto.created_at).toLocaleString('es-ES')
+                    : "No disponible"}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
