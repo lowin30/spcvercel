@@ -16,7 +16,8 @@ interface DashboardShellProps {
   }
 }
 
-// Restaurando exportación nombrada para mantener consistencia en toda la aplicación
+// IMPORTANTE: Usando exportación nombrada para mantener consistencia en toda la aplicación
+// Esta exportación debe ser nombrada para evitar problemas con las importaciones existentes
 export function DashboardShell({ children, userDetails }: DashboardShellProps) {
   const [userId, setUserId] = useState<string | null>(null)
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-// Importación correcta como exportación nombrada
+// IMPORTANTE: Importación correcta como exportación nombrada para mantener consistencia
 import { DashboardShell } from "@/components/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
