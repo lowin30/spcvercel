@@ -4,8 +4,11 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Desactivar prerenderización de páginas que usan Supabase
+  // Desactivar prerenderización de páginas estáticas
   output: 'standalone',
+  // Generar todo en tiempo de ejecución (sin prerenderizado estático)
+  staticPageGenerationTimeout: 1000,
+  generateEtags: false,
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
