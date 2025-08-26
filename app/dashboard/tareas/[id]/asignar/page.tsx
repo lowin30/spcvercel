@@ -172,58 +172,8 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
           
           // Verificar si el supervisor actual está asignado a esta tarea
           const esSupervisorDeTarea = esSupervisor && 'data' in supervisorResult && supervisorResult.data?.id_supervisor === userData?.id
-        
-        // Verificar los resultados de las consultas
-        console.log("=== DEPURACIÓN ASIGNACIÓN TRABAJADORES ===")
-        console.log("Tarea:", tareaResult?.data)
-        console.log("Supervisor asignado:", supervisorResult?.data)
-        console.log("Trabajadores actuales (raw):", trabajadoresActualesResult)
-        
-        // Asegurarse de que trabajadoresActualesResult es un objeto con propiedad data
-        if ('data' in trabajadoresActualesResult) {
-          console.log("Trabajadores actuales (data):", trabajadoresActualesResult.data)
-        } else {
-          console.log("Trabajadores actuales: formato de respuesta inesperado", trabajadoresActualesResult)
-        }
-        
-        // Asegurarse de que trabajadoresResult es un objeto con propiedad data
-        if ('data' in trabajadoresResult) {
-          console.log("Trabajadores disponibles:", trabajadoresResult.data?.length, "trabajadores encontrados")
-          console.log("Detalles de trabajadores:", trabajadoresResult.data)
-        } else {
-          console.log("Trabajadores disponibles: formato de respuesta inesperado", trabajadoresResult)
-        }
-        
-        // Procesar y almacenar los datos de forma segura verificando que sean del tipo correcto
-        if ('data' in tareaResult && tareaResult.data) {
-          setTarea(tareaResult.data)
-        }
-        
-        if ('data' in supervisorResult) {
-          setSupervisorAsignado(supervisorResult.data)
-        }
-        
-        // Verificar trabajadores actuales
-        if ('data' in trabajadoresActualesResult) {
-          console.log('Trabajadores actuales cargados:', trabajadoresActualesResult.data?.length || 0);
-          setTrabajadoresActuales(trabajadoresActualesResult.data || [])
-        } else {
-          setTrabajadoresActuales([])
-        }
-        
-        // Verificar trabajadores disponibles
-        if ('data' in trabajadoresResult) {
-          console.log('Trabajadores disponibles cargados:', trabajadoresResult.data?.length || 0);
-          console.log('Primer trabajador:', trabajadoresResult.data?.[0]);
-          setTrabajadores(trabajadoresResult.data || [])
-        } else {
-          setTrabajadores([])
-        }
-        
-        // Verificar si el supervisor actual está asignado a esta tarea
-        const esSupervisorDeTarea = esSupervisor && 'data' in supervisorResult && supervisorResult.data?.id_supervisor === userData?.id
-
-        // Si es supervisor pero no está asignado a esta tarea, redirigir
+          
+          // Si es supervisor pero no está asignado a esta tarea, redirigir
         if (esSupervisor && !esSupervisorDeTarea) {
           router.push("/dashboard/tareas")
           return

@@ -11,10 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { formatCurrency } from "@/lib/utils"
 import { createBrowserSupabaseClient } from "@/lib/supabase-client"
 
+
 export default function DetalleProductoPage({ params }: { params: { id: string } }) {
   const [producto, setProducto] = useState<any>(null)
   const [presupuestosCount, setPresupuestosCount] = useState<number>(0)
-  const [userDetails, setUserDetails] = useState<any>(null)
+  const [userDetails, setUserDetails] = useState<{ rol: string; email: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -161,7 +162,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
         </div>
         
         <div className="grid gap-6">
-        <Card>
+          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="space-y-1">
               <CardTitle className="text-2xl font-bold">
