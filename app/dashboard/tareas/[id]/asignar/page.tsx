@@ -1,22 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AssignWorkersForm } from "@/components/assign-workers-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 
-interface AssignWorkersPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
+export default function AssignWorkersPage() {
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const params = useParams()
+  const supabase = getSupabaseClient()
+  
+  // Extraer el ID de la tarea desde params
+  const tareaId = params.id as string
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +29,11 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
       try {
         setLoading(true)
         
+        if (!tareaId) {
+          setError("ID de tarea no encontrado")
+          return
+        }
+
         // Verificar sesión de usuario
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
@@ -71,7 +74,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         const { data: tareaData, error: tareaError } = await supabase
           .from("tareas")
           .select("*")
-          .eq("id", params.id)
+          .eq("id", tareaId)
           .single()
           
         // Manejar error de consulta de tarea
@@ -249,7 +252,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center">
-        <Button variant="ghost" size="sm" className="mr-2" onClick={() => router.push(`/dashboard/tareas/${params.id}`)}>
+        <Button variant="ghost" size="sm" className="mr-2" onClick={() => router.push(`/dashboard/tareas/${tareaId}`)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Volver a la tarea
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">Gestionar trabajadores</h1>

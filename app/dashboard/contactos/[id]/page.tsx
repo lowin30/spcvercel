@@ -1,17 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileEdit, Phone, Mail, Building, User, Home, FileText, Loader2 } from "lucide-react"
 import { DeleteContacto } from "@/components/delete-contacto"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { getSupabaseClient } from "@/lib/supabase-client"
 
-export default function ContactoDetailPage({ params }: { params: { id: string } }) {
+export default function ContactoDetailPage() {
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const params = useParams()
+  const supabase = getSupabaseClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +26,14 @@ export default function ContactoDetailPage({ params }: { params: { id: string } 
     const fetchData = async () => {
       try {
         setLoading(true)
+        
+        // Obtener ID del contacto de los parámetros de la URL
+        const contactoId = params.id as string
+        
+        if (!contactoId) {
+          setError("ID de contacto no encontrado")
+          return
+        }
         
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()
@@ -55,7 +64,7 @@ export default function ContactoDetailPage({ params }: { params: { id: string } 
         const contactoResponse = await supabase
           .from("contactos")
           .select("*")
-          .eq("id", params.id)
+          .eq("id", contactoId)
           .single()
 
         const contactoData = contactoResponse.data
@@ -73,7 +82,7 @@ export default function ContactoDetailPage({ params }: { params: { id: string } 
         const admResult = await supabase.from("administradores").select("id, nombre")
         const edifResult = await supabase.from("edificios").select("id, nombre")
         const deptResult = await supabase.from("departamentos").select("id, nombre")
-        const tareasResult = await supabase.from("tareas").select("*").eq("id_contacto", params.id)
+        const tareasResult = await supabase.from("tareas").select("*").eq("id_contacto", contactoId)
         
         setAdministradores(admResult.data || [])
         setEdificios(edifResult.data || [])
@@ -89,7 +98,7 @@ export default function ContactoDetailPage({ params }: { params: { id: string } 
     }
     
     fetchData()
-  }, [params.id, router, supabase])
+  }, [params, router, supabase])
 
   // Get parent name based on tipo_padre and id_padre
   const getParentName = (tipo: string, id: number) => {
