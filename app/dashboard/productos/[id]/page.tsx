@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-// Importación correcta como exportación por defecto
-import DashboardShell from "@/components/dashboard-shell"
+// Importación correcta como exportación nombrada
+import { DashboardShell } from "@/components/dashboard-shell"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Edit, Loader2 } from "lucide-react"

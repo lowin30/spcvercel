@@ -3,7 +3,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ProductosLoading() {
   return (
-    <DashboardShell title="Productos" description="Gestiona los productos para presupuestos y facturas.">
+    <DashboardShell userDetails={{ rol: "", email: "" }}>
+      <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
+      <p className="text-muted-foreground">Gestiona los productos para presupuestos y facturas.</p>
       <div className="divide-y divide-border rounded-md border">
         <div className="p-4">
           <div className="space-y-3">
