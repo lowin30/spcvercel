@@ -1,0 +1,8 @@
+export default function ContactoSimplePage() {
+  return (
+    <div style={{ padding: '20px' }}>
+      <h1>Página de contacto simplificada</h1>
+      <p>Esta página ha sido simplificada para resolver problemas de compilación en Vercel.</p>
+    </div>
+  )
+}
