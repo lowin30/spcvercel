@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { DashboardShell } from "@/components/dashboard-shell-export"
+// DashboardShell temporalmente removido para resolver problemas de compilación en Vercel
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Edit, Loader2 } from "lucide-react"
@@ -138,7 +138,8 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
   }
   
   return (
-    <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
+    <div className="container mx-auto px-4 py-8">
+      {/* Wrapper que reemplaza temporalmente a DashboardShell */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -228,6 +229,6 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
           </CardContent>
         </Card>
       </div>
-    </DashboardShell>
+    </div>
   )
 }
