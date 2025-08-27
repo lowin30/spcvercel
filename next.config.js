@@ -7,6 +7,8 @@ const nextConfig = {
   // Configuración para manejar todas las páginas como dinámicas
   output: 'standalone',
   trailingSlash: true,
+  // Evitar prerenderizado estático de páginas que usan Supabase
+  staticPageGenerationTimeout: 1000,
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
