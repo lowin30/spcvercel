@@ -146,12 +146,12 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
             <p className="text-muted-foreground">Información detallada del producto.</p>
           </div>
           <div className="flex gap-3">
-            <a
+            <Link
               href="/dashboard/productos"
               className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4"
             >
               Volver a Productos
-            </a>
+            </Link>
             <Link href={`/dashboard/productos/${params.id}/editar`}>
               <Button size="sm">
                 <Edit className="mr-1 h-4 w-4" />
