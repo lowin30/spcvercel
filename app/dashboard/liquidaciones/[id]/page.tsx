@@ -1,4 +1,4 @@
-import { getSession, getUserDetails, createServerSupabase } from "@/lib/supabase-server"
+import { getSession, getUserDetails, createServerClient } from "@/lib/supabase-server"
 import { redirect, notFound } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +28,7 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
     redirect("/dashboard")
   }
 
-  const supabase = createServerSupabase()
+  const supabase = createServerClient()
   
   if (!supabase) {
     throw new Error("No se pudo inicializar el cliente de Supabase")

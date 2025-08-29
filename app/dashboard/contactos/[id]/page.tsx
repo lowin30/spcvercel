@@ -1,99 +1,68 @@
-"use client"
+import { createServerClient } from "@/lib/supabase-server"
+import { notFound, redirect } from "next/navigation"
+import ContactoDetailClient from "./contacto-detail-client"
+import { Suspense } from "react"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileEdit, Phone, Mail, Building, User, Home, FileText, Loader2 } from "lucide-react"
-import { DeleteContacto } from "@/components/delete-contacto"
-import { createClient } from "@/lib/supabase-client"
+// Revalidar cada 30 segundos
+export const revalidate = 30
 
 interface ContactoDetailPageProps {
   params: { id: string }
 }
 
-export default function ContactoDetailPage({ params }: ContactoDetailPageProps) {
-  const router = useRouter()
-  const supabase = createClient()
-  
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [userDetails, setUserDetails] = useState<any>(null)
-  const [contacto, setContacto] = useState<any>(null)
-  const [administradores, setAdministradores] = useState<any[]>([])
-  const [edificios, setEdificios] = useState<any[]>([])
-  const [departamentos, setDepartamentos] = useState<any[]>([])
-  const [tareas, setTareas] = useState<any[]>([])
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        
-        // Verificar sesión de usuario
-        const sessionResponse = await supabase.auth.getSession()
-        const session = sessionResponse.data.session
-        if (!session) {
-          router.push('/login')
-          return
-        }
-        
-        // Obtener detalles del usuario
-        const userResponse = await supabase
-          .from("usuarios")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-          
-        const userData = userResponse.data
-        const userError = userResponse.error
+// Loading component
+function LoadingComponent() {
+  return <div className="flex items-center justify-center h-64">Cargando detalles del contacto...</div>
+}
 
-        if (userError || !userData) {
-          router.push('/login')
-          return
-        }
-        
-        setUserDetails(userData)
-        
-        // Obtener detalles del contacto
-        const contactoResponse = await supabase
-          .from("contactos")
-          .select("*")
-          .eq("id", params.id)
-          .single()
+export default async function ContactoDetailPage({ params }: ContactoDetailPageProps) {
+  const supabase = createServerClient()
 
-        const contactoData = contactoResponse.data
-        const contactoError = contactoResponse.error
+  const { data: { session } } = await supabase.auth.getSession()
 
-        if (contactoError || !contactoData) {
-          console.error("Error fetching contacto:", contactoError)
-          setError("No se pudo cargar la información del contacto")
-          return
-        }
-        
-        setContacto(contactoData)
-        
-        // Fetch related data individually para un mejor manejo de tipos
-        const admResult = await supabase.from("administradores").select("id, nombre")
-        const edifResult = await supabase.from("edificios").select("id, nombre")
-        const deptResult = await supabase.from("departamentos").select("id, nombre")
-        const tareasResult = await supabase.from("tareas").select("*").eq("id_contacto", params.id)
-        
-        setAdministradores(admResult.data || [])
-        setEdificios(edifResult.data || [])
-        setDepartamentos(deptResult.data || [])
-        setTareas(tareasResult.data || [])
-        
-      } catch (err) {
-        console.error("Error inesperado:", err)
-        setError("Ocurrió un error al cargar la información")
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchData()
-  }, [params.id, router, supabase])
+  if (!session) {
+    redirect("/login")
+  }
+
+  const { data: userDetails } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("id", session.user.id)
+    .single()
+
+  if (!userDetails) {
+    redirect("/login")
+  }
+
+  // Fetch all data in parallel
+  const [contactoRes, admRes, edifRes, deptRes, tareasRes] = await Promise.all([
+    supabase.from("contactos").select("*").eq("id", params.id).single(),
+    supabase.from("administradores").select("id, nombre"),
+    supabase.from("edificios").select("id, nombre"),
+    supabase.from("departamentos").select("id, nombre"),
+    supabase.from("tareas").select("*").eq("id_contacto", params.id)
+  ])
+
+  if (contactoRes.error) {
+    console.error("Error fetching contacto:", contactoRes.error)
+    notFound()
+  }
+
+  const initialData = {
+    contacto: contactoRes.data,
+    administradores: admRes.data || [],
+    edificios: edifRes.data || [],
+    departamentos: deptRes.data || [],
+    tareas: tareasRes.data || [],
+    userDetails: userDetails
+  }
+
+  return (
+    <Suspense fallback={<LoadingComponent />}>
+      <ContactoDetailClient initialData={initialData} contactoId={params.id} />
+    </Suspense>
+  )
+}
 
   // Get parent name based on tipo_padre and id_padre
   const getParentName = (tipo: string, id: number) => {

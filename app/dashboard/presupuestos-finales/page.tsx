@@ -1,4 +1,4 @@
-import { getSession, getUserDetails, createServerSupabase } from "@/lib/supabase-server"
+import { getSession, getUserDetails, createServerClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,7 @@ export default async function PresupuestosFinalesPage() {
     redirect("/dashboard")
   }
 
-  const supabase = createServerSupabase()
+  const supabase = createServerClient()
   
   if (!supabase) {
     console.error("No se pudo crear el cliente de Supabase")

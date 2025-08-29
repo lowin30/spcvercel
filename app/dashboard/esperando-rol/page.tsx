@@ -1,4 +1,4 @@
-import { getSession, createServerSupabase } from "@/lib/supabase-server"
+import { getSession, createServerClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,7 @@ export default async function EsperandoRolPage() {
     redirect("/login")
   }
 
-  const supabase = createServerSupabase()
+  const supabase = createServerClient()
 
   // Verificar si el usuario ya tiene un rol asignado
   const { data: userDetails } = await supabase.from("usuarios").select("rol").eq("id", session.user.id).single()
@@ -24,7 +24,7 @@ export default async function EsperandoRolPage() {
   // Función para cerrar sesión (se ejecutará en el cliente)
   async function handleSignOut() {
     "use server"
-    const supabase = createServerSupabase()
+    const supabase = createServerClient()
     await supabase.auth.signOut()
     redirect("/login")
   }
