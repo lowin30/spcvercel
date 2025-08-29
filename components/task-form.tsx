@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -114,7 +114,7 @@ export function TaskForm({
   isEditMode = false,
 }: Props) {
   const router = useRouter()
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [administradoresList, setAdministradoresList] = useState<{ id: string; nombre: string }[]>([])
@@ -672,7 +672,7 @@ export function TaskForm({
                               if (!nuevoDepartamento.codigo || !form.getValues('id_edificio')) return;
                               
                               setCreandoDepartamento(true);
-                              const supabase = getSupabaseClient();
+                              const supabase = createClient();
                               
                               try {
                                 const { data, error } = await supabase

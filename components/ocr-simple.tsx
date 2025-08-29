@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Camera, Check, Loader2, Edit3, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -37,7 +37,7 @@ export function OCRSimple({ tareaId, tareaCodigo, tareaTitulo, onDatosRecibidos 
   useEffect(() => {
     const initializeSupabase = async () => {
       try {
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         
         if (!supabase) {
           console.error("No se pudo inicializar Supabase")
@@ -147,7 +147,7 @@ export function OCRSimple({ tareaId, tareaCodigo, tareaTitulo, onDatosRecibidos 
       }
 
       // Si no hay callback, guardar directamente en la base de datos
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         toast.error("Error al conectar con la base de datos")
         setPaso("confirmacion")

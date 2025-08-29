@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, Package } from "lucide-react"
@@ -33,7 +33,7 @@ export function ProductoPicker({ onSelect, buttonLabel = "Seleccionar Producto" 
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
 
   // Cargar productos y categorías al abrir el diálogo
   useEffect(() => {

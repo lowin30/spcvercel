@@ -7,11 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FileEdit, Phone, Mail, Building, User, Home, FileText, Loader2 } from "lucide-react"
 import { DeleteContacto } from "@/components/delete-contacto"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
-export default function ContactoDetailPage({ params }: { params: { id: string } }) {
+interface ContactoDetailPageProps {
+  params: { id: string }
+}
+
+export default function ContactoDetailPage({ params }: ContactoDetailPageProps) {
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

@@ -1,0 +1,32 @@
+
+> my-v0-project@0.1.0 build C:\Users\Central 1\Downloads\spc7\spc\spc
+> next build
+
+   Ôû▓ Next.js 15.2.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+Failed to compile.
+
+./app/dashboard/productos/[id]/page.tsx
+Error:   x Unexpected token `DashboardShell`. Expected jsx identifier
+     ,-[C:\Users\Central 1\Downloads\spc7\spc\spc\app\dashboard\productos\[id]\page.tsx:141:1]
+ 138 |   }
+ 139 |   
+ 140 |   return (
+ 141 |     <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
+     :      ^^^^^^^^^^^^^^
+ 142 |       <div className="space-y-6">
+ 143 |         <div className="flex items-center justify-between">
+ 144 |           <div>
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/dashboard/productos/[id]/page.tsx
+
+
+> Build failed because of webpack errors
+ÔÇëELIFECYCLEÔÇë Command failed with exit code 1.

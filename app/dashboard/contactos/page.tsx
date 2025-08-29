@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import Link from "next/link"
 import { Plus, Loader2, Phone, Trash2, Pencil } from "lucide-react"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { useToast } from "@/components/ui/use-toast"
 import {
   Table,
@@ -85,7 +85,7 @@ export default function ContactosPage() {
     async function cargarDatos() {
       try {
         setLoading(true)
-        const supabase = getSupabaseClient()
+        const supabase = createClient()
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
@@ -93,9 +93,9 @@ export default function ContactosPage() {
         }
 
         // Verificar sesión de usuario
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user } } = await supabase.auth.getUser()
         
-        if (!session) {
+        if (!user) {
           console.log("No se encontró sesión de usuario, redirigiendo al login")
           router.push("/login")
           return
@@ -105,7 +105,7 @@ export default function ContactosPage() {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", user.id)
           .single()
           
         if (userError) {
@@ -282,7 +282,7 @@ export default function ContactosPage() {
     
     try {
       setLoading(true)
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       
       if (!supabase) {
         toast({

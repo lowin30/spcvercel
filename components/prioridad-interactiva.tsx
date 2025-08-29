@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { toast } from "@/components/ui/use-toast"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 // Tipos de prioridad disponibles en la aplicación real
 type PrioridadType = "baja" | "media" | "alta" | "urgente"
@@ -58,7 +58,7 @@ export function PrioridadInteractiva({
       // Simular un pequeño retraso para mejorar UX
       // await new Promise(resolve => setTimeout(resolve, 400)); // Comentado para prueba directa
 
-      const supabase = createBrowserSupabaseClient();
+      const supabase = createClient();
       // Importante: La actualización SIEMPRE se realiza en la tabla original "tareas"
       // aunque las consultas se hagan contra la vista optimizada "vista_tareas_completa"
       const { data, error } = await supabase

@@ -6,7 +6,7 @@ import { ProductosList } from "@/components/productos-list"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function ProductosPage() {
   const [productos, setProductos] = useState<any[]>([])
@@ -20,7 +20,7 @@ export default function ProductosPage() {
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")

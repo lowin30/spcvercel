@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/date-utils"
 import { Search, Eye, Download } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 interface Gasto {
   id: number
@@ -36,7 +36,7 @@ export function HistorialGastos({ userId, userRole }: HistorialGastosProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   useEffect(() => {
     cargarGastos()

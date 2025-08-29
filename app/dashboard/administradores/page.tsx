@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { AdminList } from "@/components/admin-list"
 import Link from "next/link"
@@ -39,7 +39,7 @@ export default function AdministradoresPage() {
         setLoading(true)
         
         // 3. Inicialización del cliente Supabase
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { getSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -62,7 +62,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
   const capturaRef = useRef<HTMLInputElement>(null)
   
   // Obtener cliente de Supabase
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   const [user, setUser] = useState<any>(null)
 
   // Obtener usuario actual

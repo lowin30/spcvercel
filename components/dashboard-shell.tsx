@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { AlertasNotificaciones } from "@/components/alertas-notificaciones"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -23,10 +23,10 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const supabase = getSupabaseClient()
-      const { data } = await supabase.auth.getSession()
-      if (data.session) {
-        setUserId(data.session.user.id)
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
       }
     }
 

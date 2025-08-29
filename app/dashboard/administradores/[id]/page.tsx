@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,7 +36,7 @@ export default function EditarAdministradorPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const supabase = createBrowserSupabaseClient();
+  const supabase = createClient();
   
   const id = params.id as string;
 

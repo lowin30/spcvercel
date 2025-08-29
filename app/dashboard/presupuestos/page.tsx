@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { BudgetList } from "@/components/budget-list"
 import Link from "next/link"
@@ -25,7 +25,7 @@ export default function PresupuestosPage() {
       try {
         setLoading(true);
         setError(null);
-        const supabase = createBrowserSupabaseClient();
+        const supabase = createClient();
         const {
           data: sessionData,
           error: sessionError,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
@@ -61,7 +61,7 @@ export function DepartamentosInteractivos({
   // Cargar rol de usuario
   useEffect(() => {
     const cargarRolUsuario = async () => {
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       if (!supabase) return
       
       try {
@@ -91,7 +91,7 @@ export function DepartamentosInteractivos({
       if (!tareaId) return
       
       setLoading(true)
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       
       if (!supabase) {
         setError("No se pudo inicializar el cliente de Supabase")
@@ -177,7 +177,7 @@ export function DepartamentosInteractivos({
     if (!departamentoSeleccionado || !tareaId) return
     
     setIsUpdating(true)
-    const supabase = createBrowserSupabaseClient()
+    const supabase = createClient()
     
     try {
       // Verificar si la relación ya existe
@@ -270,7 +270,7 @@ export function DepartamentosInteractivos({
     if (!tareaId) return
     
     setIsUpdating(true)
-    const supabase = createBrowserSupabaseClient()
+    const supabase = createClient()
     
     try {
       const { error } = await supabase

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { TaskForm } from "@/components/task-form" // Asegúrate que la ruta sea correcta
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -11,7 +11,7 @@ import { toast } from "@/components/ui/use-toast"
 
 export default function NuevaTareaPage() {
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,9 +26,9 @@ export default function NuevaTareaPage() {
       setLoading(true);
       setError(null); // Reset error state at the beginning
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          console.error('Error fetching session or no session:', sessionError);
+        const { data: { user }, error: sessionError } = await supabase.auth.getUser();
+        if (sessionError || !user) {
+          console.error('Error fetching user or no user:', sessionError);
           router.push('/login');
           setLoading(false);
           return;
@@ -37,7 +37,7 @@ export default function NuevaTareaPage() {
         const { data: userData, error: userError } = await supabase
           .from('usuarios')
           .select('*')
-          .eq('id', session.user.id)
+          .eq('id', user.id)
           .single();
 
         if (userError) {

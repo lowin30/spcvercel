@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { useToast } from "@/components/ui/use-toast"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -112,7 +112,7 @@ export default function EditarContactoPage() {
     async function cargarDatos() {
       try {
         setLoading(true);
-        const supabase = getSupabaseClient();
+        const supabase = createClient();
         
         // Verificar sesión de usuario
         const { data: { session } } = await supabase.auth.getSession();
@@ -328,7 +328,7 @@ export default function EditarContactoPage() {
         }
       }
       
-      const supabase = getSupabaseClient();
+      const supabase = createClient();
       
       // Procesar los teléfonos para asegurar que no tienen formato
       const telefonosProcesados = telefonos.map(tel => ({
@@ -402,7 +402,7 @@ export default function EditarContactoPage() {
     // Si tiene ID, primero eliminar de la base de datos
     if (id) {
       try {
-        const supabase = getSupabaseClient();
+        const supabase = createClient();
         const { error } = await supabase.from("telefonos_departamento").delete().eq("id", id);
         
         if (error) {
@@ -670,7 +670,7 @@ export default function EditarContactoPage() {
                   const telefonosData = form.getValues("telefonos");
                   console.log("Teléfonos a guardar:", telefonosData);
                   
-                  const supabase = getSupabaseClient();
+                  const supabase = createClient();
                   const departamentoId = id;
                   
                   if (!departamentoId) {

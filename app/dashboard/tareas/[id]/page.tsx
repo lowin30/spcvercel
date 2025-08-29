@@ -1,10 +1,10 @@
 "use client"
 
 import { DepartamentosInteractivos } from "@/components/departamentos-interactivos"
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import React from "react"
-import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { useParams, useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime, getPrioridadColor } from "@/lib/utils"
@@ -28,12 +28,11 @@ import { ProcesadorImagen } from '@/components/procesador-imagen'
 import { HistorialGastosOCR } from '@/components/historial-gastos-ocr'
 import { SemanasLiquidadasIndicador } from '@/components/semanas-liquidadas-indicador';
 
-interface TaskPageProps {
-  params: Promise<{ id: string }>
-}
+interface TaskPageProps {}
 
-export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
-  const { id } = use(paramsPromise);
+export default function TaskPage() {
+  const params = useParams();
+  const id = params.id as string;
   const router = useRouter()
   const tareaId = parseInt(id);
   
@@ -64,7 +63,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   // Función para cargar presupuestos desde las tablas correctas
   const cargarPresupuestos = async () => {
     try {
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       if (!supabase || !tareaId) return
 
       // 1. Cargar presupuesto base desde la tabla 'presupuestos_base'
@@ -131,7 +130,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
     
     try {
       setLoading(true)
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       
       if (!supabase) {
         setError("No se pudo inicializar el cliente de Supabase")
@@ -420,7 +419,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       // No verificamos permisos ya que todos los roles pueden modificar la agenda
       // La restricción anterior ha sido eliminada para permitir que todos modifiquen la fecha
       
-      const supabase = createBrowserSupabaseClient();
+      const supabase = createClient();
       
       // Comprobar que tenemos una sesión válida
       const { data: { session } } = await supabase.auth.getSession();
@@ -590,6 +589,18 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tareaId]) // Solo se ejecuta cuando cambia tareaId
 
+  // Añadir manejo de listeners asincrónicos para evitar errores de cierre prematuro
+  useEffect(() => {
+    const handleAsyncResponse = (event) => {
+      if (event.data.type === 'asyncResponse') {
+        // Simular manejo de respuesta asincrónica, ajustar según necesidad
+        console.log('Manejando respuesta asincrónica:', event.data);
+      }
+    };
+    window.addEventListener('message', handleAsyncResponse);
+    return () => window.removeEventListener('message', handleAsyncResponse);
+  }, []);
+
   // Determinar si el usuario puede ver/crear presupuestos basado en el rol
   const esAdmin = userDetails?.rol === "admin"
   const esSupervisor = userDetails?.rol === "supervisor"
@@ -620,7 +631,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
         <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
         <h1 className="text-2xl font-bold mb-4">Error</h1>
-        <p className="text-muted-foreground mb-6 text-center">{error}</p>
+        <p className="text-muted-foreground mb-6">{error}</p>
         <Button asChild>
           <Link href="/dashboard/tareas">Volver a tareas</Link>
         </Button>
@@ -767,7 +778,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   console.log('Supervisor cambiado a email:', emailSupervisor);
                   try {
                     // Crear cliente Supabase
-                    const supabase = createBrowserSupabaseClient();
+                    const supabase = createClient();
                     
                     // Intentar obtener la sesión actual
                     const { data: { session } } = await supabase.auth.getSession();
@@ -926,7 +937,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                       toast({
                         title: "Trabajador ya asignado",
                         description: `${trabajadorEncontrado.email} ya está asignado a esta tarea`,
-                        variant: "warning"
+                        variant: "default"
                       });
                       return;
                     }
@@ -935,7 +946,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                     setIsLoading(true);
                     
                     // Crear una referencia a Supabase para usar en operaciones asíncronas
-                    const supabase = createBrowserSupabaseClient();
+                    const supabase = createClient();
                     
                     try {
                       // Validar que el ID de la tarea sea un número válido
@@ -1005,7 +1016,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   setIsLoading(true);
                   
                   // Crear una referencia a Supabase para usar en operaciones asíncronas
-                  const supabase = createBrowserSupabaseClient();
+                  const supabase = createClient();
                   
                   // Obtener el trabajador que estamos eliminando para mostrarlo en la notificación
                   const trabajadorAEliminar = trabajadoresAsignados.find(t => t.usuarios?.id === trabajadorId);
@@ -1134,7 +1145,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
 
                   {!mostrarFormularioParte ? (
                     <div className="text-center p-6 border border-dashed rounded-md bg-muted/30">
-                      <p className="text-muted-foreground">Pulsa "Registrar Nuevo Parte" para añadir jornadas trabajadas</p>
+                      <p className="text-muted-foreground">Pulsa &quot;Registrar Nuevo Parte&quot; para añadir jornadas trabajadas</p>
                     </div>
                   ) : (
                     <Card className="border shadow-md">

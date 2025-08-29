@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 
@@ -26,6 +26,7 @@ type BuildingType = {
 };
 
 export default function DashboardPage() {
+  const supabase = createClient()
   const [stats, setStats] = useState<StatsType | null>(null)
   const [recentTasks, setRecentTasks] = useState<TaskType[]>([])
   const [recentBuildings, setRecentBuildings] = useState<BuildingType[]>([])
@@ -36,7 +37,7 @@ export default function DashboardPage() {
     async function fetchDashboardData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")

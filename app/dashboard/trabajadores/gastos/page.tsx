@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RegistroGastosForm } from "@/components/registro-gastos-form"
 import { HistorialGastos } from "@/components/historial-gastos"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
+import { UserSessionData } from "@/lib/types"
 import { Plus, Receipt, DollarSign, Calendar, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -15,11 +16,7 @@ interface Tarea {
   code: string
 }
 
-interface Usuario {
-  id: string
-  email: string
-  rol: string
-}
+
 
 interface TrabajadorTarea {
   tareas: Tarea
@@ -27,11 +24,12 @@ interface TrabajadorTarea {
 
 export default function GastosPage() {
   const [tareas, setTareas] = useState<Tarea[]>([])
-  const [usuario, setUsuario] = useState<Usuario | null>(null)
+  const [usuario, setUsuario] = useState<UserSessionData | null>(null)
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
     cargarDatos()
@@ -40,7 +38,7 @@ export default function GastosPage() {
   const cargarDatos = async () => {
     try {
       setLoading(true)
-      const supabase = createBrowserSupabaseClient()
+      
       
       if (!supabase) {
         setError("No se pudo inicializar el cliente de Supabase")

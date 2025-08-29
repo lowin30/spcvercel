@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { BuildingForm } from "@/components/building-form"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -15,7 +15,7 @@ export default function NuevoEdificioPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   // 2. Efecto para cargar datos
   useEffect(() => {

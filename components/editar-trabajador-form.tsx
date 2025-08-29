@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
@@ -25,7 +25,7 @@ export function EditarTrabajadorForm({ trabajadorId }: EditarTrabajadorFormProps
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   // Cargar datos del trabajador
   useEffect(() => {

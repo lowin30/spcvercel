@@ -8,7 +8,7 @@ import { AgendaFilters } from "@/components/agenda-filters"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AgendaList } from "@/components/agenda-list"
 import { Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function AgendaPage() {
   const [tareas, setTareas] = useState<any[]>([])
@@ -30,7 +30,7 @@ export default function AgendaPage() {
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createBrowserSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from '@/lib/supabase-client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -30,7 +30,7 @@ export default function LiquidacionesSupervisorPage() {
   const [liquidaciones, setLiquidaciones] = useState<LiquidacionSupervisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createBrowserSupabaseClient();
+  const supabase = createClient();
 
   useEffect(() => {
     const fetchLiquidaciones = async () => {

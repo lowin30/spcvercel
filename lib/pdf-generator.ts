@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf"
 import { default as autoTable } from "jspdf-autotable"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { getSupabaseClient } from "./supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 // Tipos para los ítems del presupuesto
 interface PresupuestoItem {
@@ -215,7 +215,7 @@ export async function generarPresupuestoPDF(datos: DatosPresupuesto): Promise<Bl
  * @returns Blob con el PDF generado
  */
 export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blob, filename: string}> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   
   // Definir tipos para los gastos
   interface CategoriaGasto {

@@ -1,5 +1,5 @@
-// Importamos la función getSupabaseClient que implementa el patrón singleton
-import { getSupabaseClient } from "./supabase-client"
+// Importamos la función createClient que implementa el patrón singleton
+import { createClient } from "./supabase-client"
 
 // Tipos de permisos
 export type Permission =
@@ -34,17 +34,17 @@ const rolePermissions: Record<string, Permission[]> = {
 
 // Función para verificar si un usuario tiene un permiso específico
 export async function hasPermission(permission: Permission): Promise<boolean> {
-  const supabase = getSupabaseClient() // Usamos la instancia singleton
+  const supabase = createClient() // Usamos la instancia singleton
 
   try {
     // Obtener la sesión actual
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return false
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return false
 
     // Obtener el rol del usuario
-    const { data: userData, error } = await supabase.from("usuarios").select("rol").eq("id", session.user.id).single()
+    const { data: userData, error } = await supabase.from("usuarios").select("rol").eq("id", user.id).single()
 
     if (error || !userData) {
       // Si no encontramos el usuario en la tabla usuarios, verificamos en auth.users
@@ -67,14 +67,14 @@ export async function hasPermission(permission: Permission): Promise<boolean> {
 
 // Función para verificar si un usuario puede editar un presupuesto base específico
 export async function canEditPresupuestoBase(presupuestoId: number): Promise<boolean> {
-  const supabase = getSupabaseClient() // Usamos la instancia singleton
+  const supabase = createClient() // Usamos la instancia singleton
 
   try {
     // Obtener la sesión actual
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    if (!session) return false
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return false
 
     // Obtener el rol del usuario
     const { data: userDetails } = await supabase.rpc("get_user_details")
@@ -94,7 +94,7 @@ export async function canEditPresupuestoBase(presupuestoId: number): Promise<boo
       if (presupuestoError || !presupuesto) return false
 
       // Solo puede editar si es el supervisor asignado y el presupuesto no está aprobado
-      return presupuesto.id_supervisor === session.user.id && !presupuesto.aprobado
+      return presupuesto.id_supervisor === user.id && !presupuesto.aprobado
     }
 
     return false

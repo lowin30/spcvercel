@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createBrowserSupabaseClient } from "@/lib/supabase-client";
+import { createClient } from "@/lib/supabase-client";
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -45,7 +45,7 @@ export default function NewPaymentPage() {
         return;
       }
       
-      const supabase = createBrowserSupabaseClient();
+      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {

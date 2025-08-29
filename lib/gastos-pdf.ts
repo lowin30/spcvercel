@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { getSupabaseClient } from './supabase-client'
+import { createClient } from "./supabase-client"
 
 // Extender jsPDF para TypeScript para poder acceder a propiedades internas
 type ExtendedJsPDF = jsPDF & {
@@ -50,7 +50,7 @@ interface DatosTarea {
  */
 export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blob, filename: string, montoTotal: number}> {
   // Obtener cliente Supabase
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     throw new Error('Cliente Supabase no disponible')
   }
@@ -357,7 +357,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
  * @returns URL pública del PDF guardado
  */
 export async function guardarPDFGastosTarea(tareaId: number, pdfBlob: Blob): Promise<string> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     throw new Error('Cliente Supabase no disponible')
   }

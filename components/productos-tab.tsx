@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 import { Package, PlusCircle, Search, CircleSlash, CircleCheck, Edit, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatCurrency } from "@/lib/utils"
 import Link from "next/link"
 
@@ -29,7 +29,7 @@ export function ProductosTab({ productos: initialProductos, categorias: initialC
   const [estadoFilter, setEstadoFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(false)
 
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   // Efecto para cargar datos si no se proporcionaron inicialmente
   useEffect(() => {

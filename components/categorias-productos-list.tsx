@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -43,7 +43,7 @@ export function CategoriasProductosList({ initialCategorias, conteoProductos }: 
   const [nuevaCategoria, setNuevaCategoria] = useState({ nombre: "", descripcion: "" })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   const startEditing = (categoria: Categoria) => {
     setEditingId(categoria.id)

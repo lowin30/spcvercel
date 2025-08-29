@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
+import { UserSessionData } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { TaskList } from "@/components/task-list"
 import Link from "next/link"
@@ -17,13 +18,14 @@ import { formatCurrency } from "@/lib/utils"
 
 export default function TareasPage() {
   const [tareas, setTareas] = useState<any[]>([])
-  const [userDetails, setUserDetails] = useState<any>(null)
+  const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [presupuestosBase, setPresupuestosBase] = useState<Record<string, any>>({})
   const [tareasConPresupuestoFinal, setTareasConPresupuestoFinal] = useState<string[]>([])
   const [selectedTareaId, setSelectedTareaId] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClient()
   const searchParams = useSearchParams()
   const crearPresupuesto = searchParams.get('crear_presupuesto') === 'true'
   
@@ -210,7 +212,7 @@ export default function TareasPage() {
     async function cargarTareas() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")

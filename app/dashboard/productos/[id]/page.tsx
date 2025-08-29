@@ -9,7 +9,7 @@ import { Edit, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 
 export default function DetalleProductoPage({ params }: { params: { id: string } }) {
@@ -24,7 +24,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = getSupabaseClient()
+        const supabase = createClient()
         
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()
@@ -102,7 +102,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
     }
     
     loadData()
-  }, [])
+  }, [params.id, router])
   
   if (loading) {
     return (
@@ -228,6 +228,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
           </CardContent>
         </Card>
       </div>
-    </DashboardShell>
+    </div>
+  </DashboardShell>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from "@/lib/supabase-client"
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
@@ -36,7 +36,7 @@ export function RegistroParteTrabajoForm({
   usuarioActual,
   onParteRegistrado,
 }: RegistroParteTrabajoFormProps) {
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   const router = useRouter()
 
   const [idTarea, setIdTarea] = useState<number | undefined>(tareaIdInicial)

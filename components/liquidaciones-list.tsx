@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatDate } from "@/lib/date-utils"
 import { Plus, Calendar, DollarSign, Clock, FileText, Briefcase, Users } from "lucide-react"
 import { GenerarLiquidacionDialog } from "./generar-liquidacion-dialog"
@@ -64,7 +64,7 @@ export function LiquidacionesList({ userId, userRole }: LiquidacionesListProps) 
   const [resumenTrabajador, setResumenTrabajador] = useState<ResumenTrabajador | null>(null)
   const [resumenSupervisor, setResumenSupervisor] = useState<ResumenSupervisor | null>(null)
   const [resumenAdmin, setResumenAdmin] = useState<ResumenAdmin | null>(null)
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   const router = useRouter()
 
   // Cargamos los datos al montar el componente o cuando cambia userId/userRole

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { createBrowserSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from "@/lib/supabase-client"
 import { format, startOfWeek, endOfWeek, addDays, parseISO, isBefore } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Badge } from '@/components/ui/badge'
@@ -28,7 +28,7 @@ interface Liquidacion {
 export function SemanasLiquidadasIndicador({ trabajadorId }: SemanasLiquidadasIndicadorProps) {
   const [liquidaciones, setLiquidaciones] = useState<Liquidacion[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   useEffect(() => {
     async function cargarLiquidaciones() {

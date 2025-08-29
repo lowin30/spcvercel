@@ -4,12 +4,12 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatDateTime } from "@/lib/utils"
 import { Receipt, Eye, EyeOff, Trash2, AlertCircle, CheckCircle, Target, FileText, Download } from "lucide-react"
 import { generarGastosTareaPDF } from "@/lib/gastos-pdf"
 import { toast } from "sonner"
-import { getSupabaseClient } from "@/lib/supabase-singleton"
+
 
 interface HistorialGastosOCRProps {
   tareaId: number
@@ -39,7 +39,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
   const [loading, setLoading] = useState(true)
   const [exportando, setExportando] = useState(false)
   const [mostrarDetalles, setMostrarDetalles] = useState<{ [key: number]: boolean }>({})
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   const cargarGastos = async () => {
     try {
       const gastosResponse = await supabase
@@ -128,7 +128,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
   }, [tareaId])
   // Función para guardar el PDF en Supabase y actualizar la tarea
   const guardarPDFEnSupabase = async (blob: Blob, filename: string, tareaId: number): Promise<string> => {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
     if (!supabase) throw new Error("No se pudo obtener cliente de Supabase");
     
     const fileExt = filename.split('.').pop();

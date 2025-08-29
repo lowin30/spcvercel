@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AssignWorkersForm } from "@/components/assign-workers-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
+import { UserSessionData } from "@/lib/types"
 
 interface AssignWorkersPageProps {
   params: {
@@ -16,11 +17,11 @@ interface AssignWorkersPageProps {
 
 export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userDetails, setUserDetails] = useState<any>(null)
+  const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
   const [tarea, setTarea] = useState<any>(null)
   const [supervisorAsignado, setSupervisorAsignado] = useState<any>(null)
   const [trabajadoresActuales, setTrabajadoresActuales] = useState<any[]>([])
@@ -128,7 +129,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
           if (asignadosError) {
             console.error("Error al obtener trabajadores asignados:", asignadosError)
           } else {
-            setTrabajadoresActuales(asignados)
+            setTrabajadoresActuales(asignados || [])
           }
         } catch (error) {
           console.error("Error al obtener trabajadores actuales:", error)
@@ -141,6 +142,11 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
             .select("id, email, nombre, apellido, rol, color_perfil")
             
           console.log("=== DEPURACIÓN ASIGNACIÓN TRABAJADORES ===")
+          if (!todosUsuarios) {
+            console.error("No se pudieron obtener los usuarios.");
+            setTrabajadores([]);
+            return;
+          }
           console.log("Total usuarios:", todosUsuarios.length)
           
           // Filtrar solo trabajadores

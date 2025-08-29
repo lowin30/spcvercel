@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { X, Upload, Camera, CameraIcon, ScanText } from "lucide-react"
 import { toast } from "sonner"
 import { OCRSimple } from "@/components/ocr-simple"
@@ -47,6 +47,8 @@ export function RegistroGastosForm({ tareas, usuario, onClose, onSuccess }: Regi
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("manual") // manual u ocr
 
+  const tareaSeleccionada = formData.id_tarea ? tareas.find(t => t.id === Number(formData.id_tarea)) : undefined
+
   const tiposGasto = [
     { value: "material", label: "Material de construcción" },
     { value: "herramienta", label: "Herramientas" },
@@ -81,7 +83,7 @@ export function RegistroGastosForm({ tareas, usuario, onClose, onSuccess }: Regi
   }
 
   const subirArchivo = async (file: File): Promise<string> => {
-    const supabase = createBrowserSupabaseClient()
+    const supabase = createClient()
     
     if (!supabase) {
       throw new Error("Error al inicializar el cliente de Supabase")
@@ -132,7 +134,7 @@ export function RegistroGastosForm({ tareas, usuario, onClose, onSuccess }: Regi
 
     setLoading(true)
     try {
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       
       if (!supabase) {
         toast.error("Error al inicializar el cliente de Supabase")

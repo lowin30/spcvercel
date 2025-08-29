@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from '@/lib/supabase-client'
 import { cleanPhoneNumber } from "@/lib/utils"
 import { formatDate, formatCuit, getEstadoEdificioColor } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -86,7 +86,7 @@ export default function EdificioPage() {
   const cargarEdificio = async () => {
     try {
       setLoading(true)
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
       
       if (!supabase) {
         setError("No se pudo inicializar el cliente de Supabase")
@@ -412,7 +412,7 @@ export default function EdificioPage() {
                           if (!nuevoDepartamento.codigo || !edificio.id) return;
                           
                           setCreandoDepartamento(true);
-                          const supabase = createBrowserSupabaseClient();
+                          const supabase = createClient();
                           
                           try {
                             const { data, error } = await supabase
@@ -572,7 +572,7 @@ export default function EdificioPage() {
                                         e.stopPropagation();
                                         
                                         if (confirm(`¿Está seguro que desea eliminar este teléfono?`)) {
-                                          const supabase = createBrowserSupabaseClient();
+                                          const supabase = createClient();
                                           
                                           try {
                                             const { error } = await supabase
@@ -705,7 +705,7 @@ export default function EdificioPage() {
                   
                   // Generar nombre completo para el contacto
                   // Buscar el departamento seleccionado para obtener su código
-                  const departamento = edificio.departamentos.find((d) => d.id === departamentoSeleccionado);
+                  const departamento = edificio.departamentos.find((d: any) => d.id === departamentoSeleccionado);
                   const nombreEdificio = edificio.nombre;
                   const codigoDepartamento = departamento?.codigo || '';
                   const nombreContactoOriginal = nuevoTelefono.nombre_contacto || '';
@@ -714,7 +714,7 @@ export default function EdificioPage() {
                   const nombreContactoCompleto = `${nombreEdificio} ${codigoDepartamento} ${nombreContactoOriginal}`.trim();
                   
                   setProcesandoTelefono(true);
-                  const supabase = createBrowserSupabaseClient();
+                  const supabase = createClient();
                   
                   try {
                     if (editandoTelefono) {

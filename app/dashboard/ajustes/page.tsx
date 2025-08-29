@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CalendarIcon, Loader2, Search } from "lucide-react"
@@ -70,7 +70,7 @@ export default function AjustesPage() {
   async function cargarDatos() {
     try {
       setLoading(true)
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
 
       // Verificar sesión
       const { data: { session } } = await supabase.auth.getSession()
@@ -225,7 +225,7 @@ export default function AjustesPage() {
                   <Calendar
                     mode="single"
                     selected={filtroFechaDesde || undefined}
-                    onSelect={(date) => setFiltroFechaDesde(date)}
+                    onSelect={(date) => setFiltroFechaDesde(date || null)}
                     initialFocus
                     locale={es}
                   />
@@ -250,7 +250,7 @@ export default function AjustesPage() {
                   <Calendar
                     mode="single"
                     selected={filtroFechaHasta || undefined}
-                    onSelect={(date) => setFiltroFechaHasta(date)}
+                    onSelect={(date) => setFiltroFechaHasta(date || null)}
                     initialFocus
                     locale={es}
                   />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { createBrowserSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
 import { hasPermission } from '@/lib/permissions'
 import { toast } from 'sonner'
@@ -49,7 +49,7 @@ const MontoFormateado = ({ valor }: { valor: number }) => {
 }
 
 export default function NuevaLiquidacionSupervisorPage () {
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   const router = useRouter()
 
   // Estados de autorización y carga
@@ -129,10 +129,12 @@ export default function NuevaLiquidacionSupervisorPage () {
           .from('supervisores_tareas')
           .select('id_supervisor')
           .eq('id_tarea', idTarea)
-          .single()
+          .limit(1) // Tomamos solo el primer supervisor si hay varios
+          .maybeSingle()
 
-        if (supervisorError && supervisorError.code !== 'PGRST116') { // PGRST116 es el error cuando no se encuentra un registro
-          console.warn(`Error al buscar supervisor para tarea ${idTarea}:`, supervisorError)
+        if (supervisorError) {
+          // Si hay un error que no sea 'cero filas' (que maybeSingle maneja), lo lanzamos
+          throw supervisorError
         }
 
         return {

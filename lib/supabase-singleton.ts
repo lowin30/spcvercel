@@ -1,5 +1,4 @@
-import { createClient as createGenericClient } from "@supabase/supabase-js";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient as createGenericClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createBrowserClient } from "@supabase/ssr";
 
 // Configuración de Supabase
@@ -14,74 +13,26 @@ declare global {
   var __supabaseClient: SupabaseClient<any, "public", any> | undefined
 }
 
-// Cliente para componentes del lado del cliente (browser)
-import { type SupabaseClient } from "@supabase/supabase-js";
-let clientComponentInstance: SupabaseClient | null = null; // Corregido tipo
+// Cliente singleton para componentes del lado del cliente (browser)
+let clientComponentInstance: SupabaseClient | undefined;
 
-export function getSupabaseClient() {
-  if (typeof window === "undefined") {
-    // Server-side - no deberíamos estar aquí con createBrowserClient
-    console.warn("getSupabaseClient() llamado en el servidor. Esto puede causar problemas.");
-    return createGenericClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || supabaseAnonKey
-    );
-  }
-
-  // En el cliente, creamos una nueva instancia si no existe
-  if (!clientComponentInstance) {
-    try {
-      // Intentamos primero con createBrowserClient (nueva API)
-      clientComponentInstance = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || supabaseAnonKey
-      );
-    } catch (e) {
-      console.warn(
-        "Error al crear cliente con createBrowserClient, usando createClientComponentClient como fallback:",
-        e
-      );
-      // Fallback a la API anterior
-      clientComponentInstance = createClientComponentClient();
-    }
-  }
-
-  return clientComponentInstance;
+function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 }
 
-// Función para crear un cliente de Supabase en el lado del cliente
-// Utilizando el patrón singleton para evitar múltiples instancias
-// NOTA: Esta función parece redundante con getSupabaseClient ahora que usa createBrowserClient.
-// Considera unificar o deprecarl si getSupabaseClient satisface todas las necesidades del cliente.
-export function createClientSupabase() {
+export function getSupabaseClient() {
+  // Siempre devuelve la misma instancia en el lado del cliente.
   if (typeof window === "undefined") {
-    // Estamos en el servidor
-    console.warn("createClientSupabase() llamado en el servidor. Usando createGenericClient con persistSession: false.")
-    return createGenericClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: false, // Adecuado para usos efímeros en servidor si es necesario
-      },
-    });
+    // En el servidor, siempre crea una nueva instancia para evitar compartir datos entre requests.
+    return createClient();
   }
-
-  // Para el cliente, es mejor usar createBrowserClient consistentemente.
-  // Reutilizamos la lógica de getSupabaseClient que ya instancia createBrowserClient.
-  console.warn("createClientSupabase() llamado en el cliente. Redirigiendo a getSupabaseClient() que usa createBrowserClient.");
-  return getSupabaseClient(); 
-
-  // La lógica original de globalThis.__supabaseClient con createGenericClient podría ser menos ideal
-  // que usar createBrowserClient directamente para el contexto del navegador con Next.js App Router.
-  /*
-  if (!globalThis.__supabaseClient) {
-    globalThis.__supabaseClient = createGenericClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        storageKey: 'supabase.auth.token',
-      },
-    });
+  if (!clientComponentInstance) {
+    clientComponentInstance = createClient();
   }
-  return globalThis.__supabaseClient;
-  */
+  return clientComponentInstance;
 }
 
 // Implementar un mecanismo de limitación de tasa

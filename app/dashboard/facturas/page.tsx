@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { InvoiceList } from "@/components/invoice-list"
 import Link from "next/link"
@@ -71,7 +71,7 @@ export default function FacturasPage({
       setLoading(true)
       setError(null)
       try {
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         if (!supabase) throw new Error("No se pudo inicializar el cliente de Supabase")
 
         const { data: { session }, } = await supabase.auth.getSession()

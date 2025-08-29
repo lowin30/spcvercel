@@ -5,12 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { BudgetForm } from "@/components/budget-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function NuevoPresupuestoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -35,8 +35,8 @@ export default function NuevoPresupuestoPage() {
         setItemsBase([]);         // Asegurar que los items base anteriores se limpian
         
         // Verificar sesión de usuario
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
           router.push('/login')
           return
         }
@@ -45,7 +45,7 @@ export default function NuevoPresupuestoPage() {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", user.id)
           .single()
           
         if (userError) {
@@ -91,14 +91,14 @@ export default function NuevoPresupuestoPage() {
         } else {
           // Para presupuestos base, obtener tareas con más información
           let tareasQuery = supabase
-            .from("tareas")
+            .from("vista_tareas_completa")
             .select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)")
             .in("estado", ["pendiente", "asignada"])
             .order("created_at", { ascending: false })
 
           // Si se proporciona un id_tarea en la URL, filtrar solo esa tarea
           if (idTarea) {
-            tareasQuery = supabase.from("tareas").select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)").eq("id", idTarea)
+            tareasQuery = supabase.from("vista_tareas_completa").select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)").eq("id", idTarea)
           }
           
           const { data: tareasData, error: tareasError } = await tareasQuery

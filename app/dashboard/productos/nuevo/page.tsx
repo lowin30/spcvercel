@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ProductoForm } from "@/components/producto-form"
 import { Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function NuevoProductoPage() {
   const [categorias, setCategorias] = useState<any[]>([])
@@ -16,7 +16,7 @@ export default function NuevoProductoPage() {
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
 
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()

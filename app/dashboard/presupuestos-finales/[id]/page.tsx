@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink, Loader2, PlusCircle } from "lucide-react"
 import { formatDate } from "@/lib/date-utils"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "@/components/ui/use-toast"
 import { ExportPresupuestoButton } from "@/components/export-presupuesto-button"
@@ -40,7 +40,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
     const fetchData = async () => {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         if (!supabase) {
           throw new Error("No se pudo inicializar el cliente de Supabase")
         }

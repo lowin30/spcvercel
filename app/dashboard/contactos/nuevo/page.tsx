@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter } from 'next/navigation'
+import { createContactos } from '../actions'
+import { createClient } from '@/lib/supabase-client'
 import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useFieldArray } from "react-hook-form"
@@ -30,7 +32,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { getSupabaseClient } from "@/lib/supabase-client"
 import { useToast } from "@/components/ui/use-toast"
 import {
   Dialog,
@@ -152,7 +153,9 @@ export default function NuevoContactoPage() {
     async function cargarDatosIniciales() {
       try {
         setInitialLoading(true);
-        const supabase = getSupabaseClient();
+        
+        // Verificar sesión de usuario
+        const supabase = createClient();
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase");
@@ -160,8 +163,8 @@ export default function NuevoContactoPage() {
         }
         
         // Verificar sesión de usuario
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
           console.log("No se encontró sesión de usuario, redirigiendo al login");
           router.push("/login");
           return;
@@ -171,7 +174,7 @@ export default function NuevoContactoPage() {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", user.id)
           .single();
           
         if (userError) {
@@ -460,7 +463,7 @@ export default function NuevoContactoPage() {
         return;
       }
       
-      const supabase = getSupabaseClient();
+      const supabase = createClient();
       if (!supabase) {
         toast({
           title: "Error",
@@ -548,61 +551,42 @@ export default function NuevoContactoPage() {
     form.setValue(`telefonos.${index}.es_principal`, checked);
   };
   
-    // Enviar formulario
+    // Enviar formulario con Server Action
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
+      setLoading(true);
+
       try {
-        setLoading(true);
-        const supabase = getSupabaseClient();
-        
-        if (!supabase) {
+        const result = await createContactos(data);
+
+        if (result?.errors) {
+          // Manejar errores de validación de Zod
+          // (En este caso, el esquema es simple, pero es buena práctica tenerlo)
+          console.error('Errores de validación:', result.errors);
           toast({
-            title: "Error",
-            description: "No se pudo inicializar el cliente de Supabase",
+            title: "Error de validación",
+            description: result.message,
             variant: "destructive",
           });
           return;
         }
-        
-        // Verificar que al menos un teléfono sea principal
-        const tienePrincipal = data.telefonos.some(tel => tel.es_principal);
-        if (!tienePrincipal && data.telefonos.length > 0) {
-          // Si no hay principal, marcar el primero
-          form.setValue(`telefonos.0.es_principal`, true);
-          data.telefonos[0].es_principal = true;
+
+        if (result?.message) {
+          // Manejar otros errores devueltos por la acción
+          throw new Error(result.message);
         }
-        
-        // Crear los contactos en la base de datos
-        const contactosParaGuardar = data.telefonos.map(telefono => ({
-          departamento_id: parseInt(data.departamento_id),
-          nombre_contacto: telefono.nombre_contacto,
-          relacion: telefono.relacion,
-          numero: telefono.numero,
-          es_principal: telefono.es_principal,
-          notas: telefono.notas || null,
-        }));
-        
-        const { data: resultado, error } = await supabase
-          .from("telefonos_departamento")
-          .insert(contactosParaGuardar)
-          .select();
-        
-        if (error) {
-          throw new Error(error.message);
-        }
-        
+
         toast({
           title: "Contactos guardados",
-          description: `Se han guardado ${contactosParaGuardar.length} contactos correctamente`,
+          description: "Los contactos se han guardado correctamente.",
         });
-        
-        // Redireccionar a la lista de contactos
-        router.push("/dashboard/contactos");
-        
+
+        // La redirección la maneja la Server Action
+
       } catch (error: any) {
         console.error("Error al guardar contactos:", error);
         toast({
           title: "Error",
-          description: error.message || "No se pudieron guardar los contactos",
+          description: `No se pudieron guardar los contactos: ${error.message}`,
           variant: "destructive",
         });
       } finally {

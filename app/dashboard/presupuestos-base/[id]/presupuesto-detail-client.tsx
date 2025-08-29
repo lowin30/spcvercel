@@ -11,7 +11,7 @@ import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { aprobarPresupuestoBase, anularAprobacionPresupuestoBase } from "../actions"
-import { getSupabaseClient } from "@/lib/supabase-singleton"
+import { createClient } from "@/lib/supabase-client"
 
 interface PresupuestoDetailClientProps {
   presupuesto: any
@@ -86,7 +86,7 @@ export function PresupuestoDetailClient({ presupuesto, userRole }: PresupuestoDe
       console.log("Iniciando proceso de aprobación desde el cliente para presupuesto:", presupuesto.id)
       
       // IMPORTANTE: Forzamos un refresh de la sesión antes de continuar
-      const { data: refreshData, error: refreshError } = await getSupabaseClient().auth.refreshSession()
+      const { data: refreshData, error: refreshError } = await createClient().auth.refreshSession()
       
       if (refreshError) {
         console.error("Error al refrescar sesión:", refreshError)
@@ -101,7 +101,7 @@ export function PresupuestoDetailClient({ presupuesto, userRole }: PresupuestoDe
       }
       
       // Verificamos que tenemos sesión activa después del refresh
-      const { data, error } = await getSupabaseClient().auth.getSession()
+      const { data, error } = await createClient().auth.getSession()
       
       if (error) {
         console.error("Error al obtener sesión:", error)
@@ -219,6 +219,21 @@ export function PresupuestoDetailClient({ presupuesto, userRole }: PresupuestoDe
       
       console.log("Intentando anular aprobación del presupuesto id:", presupuesto.id, "con rol validado:", validatedRole)
       console.log("Sesión confirmada para usuario:", data.session.user.email)
+            // Forzamos un refresh de la sesión antes de continuar
+      const { error: refreshError } = await createClient().auth.refreshSession()
+
+      if (refreshError) {
+        console.error("Error al refrescar sesión:", refreshError)
+        toast({
+          title: "Error de sesión",
+          description: "No se pudo refrescar tu sesión. Por favor, vuelve a iniciar sesión.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
+        router.push("/login")
+        return
+      }
+
       const result = await anularAprobacionPresupuestoBase(presupuesto.id)
       
       // Manejo de resultado como objeto con success y message

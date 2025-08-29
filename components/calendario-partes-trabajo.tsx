@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { createBrowserSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from '@/lib/supabase-client'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import interactionPlugin from '@fullcalendar/interaction'
@@ -51,7 +51,7 @@ export function CalendarioPartesTrabajo({
   usuarioActual,
   onRegistroChange
 }: CalendarioPartesTrabajoProps) {
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   // Estado para almacenar el trabajador seleccionado (para admin/supervisor)
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<string | undefined>(
@@ -660,7 +660,7 @@ export function CalendarioPartesTrabajo({
     setIsLoading(true);
     
     try {
-      const supabase = createBrowserSupabaseClient();
+      const supabase = createClient();
       const fechaStr = format(diaSeleccionado, 'yyyy-MM-dd');
       const parteExistente = getParteTrabajo(diaSeleccionado);
       

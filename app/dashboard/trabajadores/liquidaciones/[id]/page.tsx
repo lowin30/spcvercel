@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 // Ya no usamos pestañas
 import { Separator } from "@/components/ui/separator"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { PrinterIcon, ArrowLeft } from "lucide-react"
 
 // Definir interfaces para los tipos de datos
@@ -110,7 +110,7 @@ export default function DetalleDeUnaLiquidacion() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   useEffect(() => {
     const cargarDetalleLiquidacion = async () => {

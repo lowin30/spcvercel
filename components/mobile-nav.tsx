@@ -5,7 +5,7 @@ import { Menu, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { MobileMenuExpanded } from "@/components/mobile-menu-expanded"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 
@@ -22,7 +22,7 @@ export function MobileNav({ userDetails }: MobileNavProps) {
   const pathname = usePathname()
 
   const handleSignOut = async () => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/login")
   }
@@ -69,7 +69,7 @@ export function MobileNav({ userDetails }: MobileNavProps) {
       </nav>
       
       {/* Panel lateral - Siempre presente en el DOM pero visualmente oculto cuando está cerrado */}
-      <Sheet open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={setOpen} modal={false}>
         <SheetContent 
           side="left" 
           className="w-72 p-0" 

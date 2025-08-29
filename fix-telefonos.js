@@ -16,8 +16,8 @@ try {
   // Añadir la importación de cleanPhoneNumber si no existe
   if (!content.includes('import { cleanPhoneNumber }')) {
     content = content.replace(
-      'import { createBrowserSupabaseClient } from "@/lib/supabase-client"',
-      'import { createBrowserSupabaseClient } from "@/lib/supabase-client"\nimport { cleanPhoneNumber } from "@/lib/utils"'
+      'import { createClient } from "@/lib/supabase-client"',
+      'import { createClient } from "@/lib/supabase-client"\nimport { cleanPhoneNumber } from "@/lib/utils"'
     );
   }
   

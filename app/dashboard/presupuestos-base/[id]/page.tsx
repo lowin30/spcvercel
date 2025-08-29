@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { getSupabaseClient } from "@/lib/supabase-singleton"
+import { createClient } from "@/lib/supabase-client"
 
 export default function PresupuestoBasePage() {
   const params = useParams<{ id: string }>()
@@ -23,7 +23,7 @@ export default function PresupuestoBasePage() {
         setLoading(true)
         setError(null)
         
-        const supabase = getSupabaseClient()
+        const supabase = createClient()
         
         // Verificar sesión
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()

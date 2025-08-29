@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import PresupuestoBaseForm from "@/components/presupuesto-base-form"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function NuevoPresupuestoBasePage() {
   const [tareas, setTareas] = useState<any[]>([])
@@ -21,7 +21,7 @@ export default function NuevoPresupuestoBasePage() {
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")

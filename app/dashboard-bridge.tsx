@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getSupabaseClient } from "@/lib/supabase-singleton"
+import { createClient } from "@/lib/supabase-client"
 import { useRouter } from "next/navigation"
 
 export default function DashboardBridge() {
@@ -14,7 +14,7 @@ export default function DashboardBridge() {
     async function checkAuth() {
       try {
         setLoading(true)
-        const supabase = getSupabaseClient()
+        const supabase = createClient()
         
         // Si no se pudo crear el cliente, mostrar error
         if (!supabase) {

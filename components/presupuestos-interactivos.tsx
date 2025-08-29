@@ -13,7 +13,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { convertirPresupuestoADosFacturas } from "@/app/dashboard/presupuestos-finales/actions-factura"
 import { toast as sonnerToast } from "sonner"
 
@@ -109,7 +109,7 @@ export function PresupuestosInteractivos({
     setIsAprobando(true)
     
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         throw new Error("No se pudo inicializar el cliente de Supabase")
       }
@@ -192,7 +192,7 @@ export function PresupuestosInteractivos({
     setIsRechazando(true)
     
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         throw new Error("No se pudo inicializar el cliente de Supabase")
       }
@@ -265,7 +265,7 @@ export function PresupuestosInteractivos({
     setIsCreando(true)
     
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         throw new Error("No se pudo inicializar el cliente de Supabase")
       }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatDateTime } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -39,7 +39,7 @@ export function HistorialEstados({ tipoEntidad, entidadId, className = "" }: His
 
     const fetchHistorial = async () => {
       setIsLoading(true)
-      const supabase = createBrowserSupabaseClient()
+      const supabase = createClient()
 
       try {
         // Consultar el historial de estados usando el patrón recomendado para mejor inferencia de tipos

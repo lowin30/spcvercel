@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import ConfiguracionTabs from "@/components/configuracion-tabs"
 import { Loader2 } from "lucide-react"
 
@@ -28,7 +28,7 @@ export default function ConfiguracionPage() {
         setLoading(true)
         
         // 3. Inicialización del cliente Supabase
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")

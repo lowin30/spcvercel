@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -29,7 +29,7 @@ export function ProductosList({ initialProductos, categorias }: ProductosListPro
   const [categoriaFilter, setCategoriaFilter] = useState("all")
   const [estadoFilter, setEstadoFilter] = useState("all")
 
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   // Aplicar filtros y búsqueda
   useEffect(() => {

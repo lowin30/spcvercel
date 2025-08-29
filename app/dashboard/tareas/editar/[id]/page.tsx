@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import React from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { TaskForm } from "@/components/task-form"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -18,7 +18,7 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
   // Usar React.use para desenvolver la promesa de params
   const { id } = React.use(paramsPromise);
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

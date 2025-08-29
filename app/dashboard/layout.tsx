@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Toaster } from "sonner"
 import { DashboardShell } from "@/components/dashboard-shell"
-import { getSupabaseClient } from "@/lib/supabase-singleton"
+import { createClient } from "@/lib/supabase-client"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -19,18 +19,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     // Función para comprobar la autenticación y obtener los detalles del usuario
     async function checkAuthAndGetDetails() {
       try {
-        const supabase = getSupabaseClient()
-
-        if (!supabase) {
-          console.error("No se pudo crear el cliente Supabase")
-          router.push("/login")
-          return
-        }
+        const supabase = createClient()
 
         // Verificar si hay una sesión activa
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        const { data: { user }, error: sessionError } = await supabase.auth.getUser()
 
-        if (sessionError || !sessionData.session) {
+        if (sessionError || !user) {
           // Redirección silenciosa sin mensajes de error en consola
           router.push("/login")
           return
@@ -40,7 +34,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("id", sessionData.session.user.id)
+          .eq("id", user.id)
           .single()
 
         if (userError || !userData) {

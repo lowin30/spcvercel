@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ProductoPicker } from "@/components/producto-picker"
 import { NoData } from "@/components/ui/no-data"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { formatCurrency } from "@/lib/utils"
 
 interface Item {
@@ -29,7 +29,7 @@ interface Item {
 export default function NuevoPresupuestoFinalPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   const { toast } = useToast()
   
   // Estados

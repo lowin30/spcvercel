@@ -5,20 +5,21 @@ import { useRouter } from "next/navigation"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { ProductoForm } from "@/components/producto-form"
 import { Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function EditarProductoPage({ params }: { params: { id: string } }) {
   const [producto, setProducto] = useState<any>(null)
   const [categorias, setCategorias] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userDetails, setUserDetails] = useState<{ rol: string; email: string } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
 
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()
@@ -38,7 +39,9 @@ export default function EditarProductoPage({ params }: { params: { id: string } 
           
         const userData = userResponse.data
         const userError = userResponse.error
-          
+        
+        setUserDetails(userData)
+
         if (userError) {
           console.error("Error al obtener detalles del usuario:", userError)
           setError("Error al obtener detalles del usuario")
@@ -130,7 +133,7 @@ export default function EditarProductoPage({ params }: { params: { id: string } 
   }
   
   return (
-    <DashboardShell userDetails={userDetails}>
+    <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

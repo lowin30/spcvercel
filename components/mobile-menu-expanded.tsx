@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
@@ -48,7 +48,7 @@ export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
   const userRole = userDetails?.rol || ""
 
   const handleSignOut = async () => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/login")
   }

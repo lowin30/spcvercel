@@ -1,6 +1,6 @@
 // PDF Generation Utilities
 import { jsPDF } from 'jspdf';
-import { createBrowserSupabaseClient } from '@/lib/supabase-client';
+import { createClient } from '@/lib/supabase-client';
 import { formatDate } from '@/lib/date-utils';
 
 /**
@@ -30,7 +30,7 @@ export function blobToBase64(blob: Blob): Promise<string> {
  */
 export async function generateTaskPDF(taskId: number, taskTitle: string): Promise<Blob> {
   // 1. Obtener todas las imágenes de la tarea
-  const supabase = createBrowserSupabaseClient();
+  const supabase = createClient();
   const storageResponse = await supabase.storage
     .from('comprobantes')
     .list(`tareas/${taskId}/comprobantes`);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { CategoriasProductosList } from "@/components/categorias-productos-list"
 import { Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 export default function CategoriasProductosPage() {
   const [categorias, setCategorias] = useState<any[]>([])
@@ -17,7 +17,7 @@ export default function CategoriasProductosPage() {
     async function loadData() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        const supabase = createClient()
 
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()

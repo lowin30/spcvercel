@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { BudgetForm } from "@/components/budget-form"
 import { toast } from "@/components/ui/use-toast"
 import { AprobadoCheckbox } from "./aprobado-checkbox"
@@ -64,7 +64,7 @@ export default function EditarPresupuestoFinalPage({ params: paramsPromise }: Ed
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const [supabase] = useState(() => createBrowserSupabaseClient())
+  const [supabase] = useState(() => createClient())
 
   useEffect(() => {
     const fetchData = async () => {

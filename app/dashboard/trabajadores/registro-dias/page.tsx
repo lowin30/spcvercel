@@ -1,24 +1,18 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { createBrowserSupabaseClient } from '@/lib/supabase-client'
+import { createClient } from '@/lib/supabase-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RegistroParteTrabajoForm } from '@/components/registro-parte-trabajo-form'
 import { toast } from '@/components/ui/use-toast'
+import { UserSessionData } from '@/lib/types'
 import { Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-
-// Definición simplificada del usuario para esta página
-interface UserSessionData {
-  id: string
-  rol: string
-  // Puedes añadir más campos si son necesarios para el formulario
-}
 
 export default function RegistroGeneralPartesPage() {
   const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
@@ -34,7 +28,7 @@ export default function RegistroGeneralPartesPage() {
 
         const { data: userData, error: userError } = await supabase
           .from('usuarios')
-          .select('id, rol')
+          .select('id, rol, email')
           .eq('id', session.user.id)
           .single()
 

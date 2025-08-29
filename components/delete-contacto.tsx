@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { getSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Trash2 } from "lucide-react"
 import {
   AlertDialog,
@@ -32,7 +32,7 @@ export function DeleteContacto({ contactoId, contactoNombre }: DeleteContactoPro
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       
       if (!supabase) {
         toast({

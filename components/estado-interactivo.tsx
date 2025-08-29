@@ -11,7 +11,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 
 interface Estado {
   id: number
@@ -80,7 +80,7 @@ export function EstadoInteractivo({
     const cargarEstadosDesdeSupabase = async () => {
       setIsLoading(true);
       try {
-        const supabase = createBrowserSupabaseClient();
+        const supabase = createClient();
         // Asumiendo que la tabla estados_tareas tiene una columna 'tipo_entidad' o similar para filtrar.
         // Si no, ajusta la consulta. Por ahora, cargaremos todos y filtraremos en cliente si es necesario,
         // o si 'tipoEntidad' se refiere a la tabla a actualizar (ej. 'tareas' vs 'presupuestos').
@@ -138,7 +138,7 @@ export function EstadoInteractivo({
       
       // await new Promise(resolve => setTimeout(resolve, 400)); // Simulación eliminada
 
-      const supabase = createBrowserSupabaseClient();
+      const supabase = createClient();
       // Determinar la tabla a actualizar basado en tipoEntidad
       // Por ahora, asumimos que siempre es 'tareas' para este componente cuando tipoEntidad es 'tarea'
       // IMPORTANTE: La actualización SIEMPRE se realiza en las tablas originales, no en las vistas
@@ -193,7 +193,7 @@ export function EstadoInteractivo({
   const handleFinalizadaChange = async (checked: boolean) => {
     setIsLoading(true);
     try {
-      const supabase = createBrowserSupabaseClient();
+      const supabase = createClient();
       const tablaAActualizar = tipoEntidad === 'tarea' ? 'tareas' : tipoEntidad; // Corregido: la tabla es 'tareas' (plural)
       
       // Determinar el valor de id_estado_nuevo según si está finalizada o activa

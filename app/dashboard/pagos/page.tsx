@@ -60,10 +60,10 @@ export default async function PagosPage() {
   
   // Verificar el rol del usuario
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
   
-  if (!session) {
+  if (!user) {
     return redirect("/login");
   }
   
@@ -71,7 +71,7 @@ export default async function PagosPage() {
   const { data: userDetails } = await supabase
     .from("usuarios")
     .select("rol")
-    .eq("id", session.user.id)
+    .eq("id", user.id)
     .single();
   
   // Verificar si el usuario tiene rol admin, sino redirigir

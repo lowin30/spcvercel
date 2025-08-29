@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { PlusCircle, Tag, Package, Loader2, Pencil, Trash, AlertCircle, CheckCircle } from "lucide-react"
 import {
   Dialog,
@@ -60,7 +60,7 @@ export function CategoriasTab({ categorias: initialCategorias }: CategoriasTabPr
   const [isDeleting, setIsDeleting] = useState(false)
   const [conteoProductos, setConteoProductos] = useState<Map<string, number>>(new Map())
 
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
 
   // Cargar datos si no se proporcionaron inicialmente
   useEffect(() => {

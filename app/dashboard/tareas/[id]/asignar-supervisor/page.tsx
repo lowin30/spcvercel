@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AssignSupervisorForm } from "@/components/assign-supervisor-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
+import { UserSessionData } from "@/lib/types"
 
 interface AssignSupervisorPageProps {
   params: {
@@ -16,11 +17,11 @@ interface AssignSupervisorPageProps {
 
 export default function AssignSupervisorPage({ params }: AssignSupervisorPageProps) {
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userDetails, setUserDetails] = useState<any>(null)
+  const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
   const [tarea, setTarea] = useState<any>(null)
   const [supervisorActual, setSupervisorActual] = useState<any>(null)
   const [supervisores, setSupervisores] = useState<any[]>([])

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { toast } from "sonner"
 import { EstadoInteractivo } from "@/components/estado-interactivo"
@@ -109,7 +109,7 @@ function FacturaContent(): JSX.Element {
   const [itemModalOpen, setItemModalOpen] = useState<boolean>(false)
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined)
   
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   console.log("[FacturaNueva] Componente content renderizado. presupuestoFinalId:", presupuestoFinalId)
   

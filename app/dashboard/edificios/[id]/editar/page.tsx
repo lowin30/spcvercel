@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { EditBuildingForm } from "@/components/edit-building-form"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -11,7 +11,7 @@ export default function EditarEdificioPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter()
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createClient()
   
   const [edificio, setEdificio] = useState<any>(null)
   const [administradores, setAdministradores] = useState<any[]>([])

@@ -2,20 +2,22 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createBrowserSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase-client"
+import { UserSessionData } from "@/lib/types"
 import { LiquidacionesList } from "@/components/liquidaciones-list"
 
 export default function LiquidacionesPage() {
-  const [userDetails, setUserDetails] = useState<any>(null)
+  const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
     async function cargarDatos() {
       try {
         setLoading(true)
-        const supabase = createBrowserSupabaseClient()
+        
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
