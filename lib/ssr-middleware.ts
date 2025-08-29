@@ -1,3 +1,5 @@
+export const runtime = 'nodejs'
+
 // lib/ssr-middleware.ts
 // Supabase client and session management for Next.js Middleware
 import { createServerClient, type CookieOptions } from '@supabase/ssr'

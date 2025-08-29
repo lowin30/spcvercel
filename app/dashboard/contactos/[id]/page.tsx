@@ -4,11 +4,7 @@ import { Suspense } from "react"
 import ContactoDetailClient from "./contacto-detail-client"
 import { Loader2 } from "lucide-react"
 
-interface ContactoDetailPageProps {
-  params: {
-    id: string
-  }
-}
+
 
 // Helper component for loading state
 function LoadingSpinner() {
@@ -22,7 +18,7 @@ function LoadingSpinner() {
   )
 }
 
-export default async function ContactoDetailPage({ params }: ContactoDetailPageProps) {
+export default async function ContactoDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServerClient()
 
   const { data: sessionData } = await supabase.auth.getSession()
