@@ -100,6 +100,66 @@ Este documento es una guía de referencia consolidada que unifica el conocimient
 
     import { createSsrServerClient } from '@/lib/ssr-server';
 
+---
+
+## Sección 3: Resolución de Fallos Críticos de Build y Despliegue en Vercel
+
+**Fecha:** 30 de Agosto, 2025
+
+### 3.1. Resumen del Problema
+
+La aplicación presentaba un fallo crítico y persistente: mientras que el comando `npm run build` se completaba con éxito en el entorno de desarrollo local, el despliegue en Vercel fallaba consistentemente. Los errores eran variados, desde `Module not found` hasta registros de error truncados e incomprensibles, lo que dificultaba enormemente el diagnóstico.
+
+### 3.2. Proceso de Diagnóstico y Solución (Paso a Paso)
+
+El camino hacia la solución no fue directo. Se exploraron varias hipótesis, algunas incorrectas, hasta dar con la causa raíz.
+
+#### Etapa 1: Hipótesis Incorrecta - Problema de Alias de Ruta (`@/`)
+
+- **Síntoma Inicial**: El `build` en Vercel arrojaba errores claros de `Module not found` para importaciones que utilizaban un alias, como `@/components/ui/button`.
+- **Teoría**: Se pensó que el sistema de `build` de Vercel era incapaz de resolver las rutas con alias, a pesar de que funcionaban localmente.
+- **Acción Tomada (Parche Incorrecto)**: Se procedió a modificar manualmente múltiples archivos, reemplazando cada alias de importación por su ruta relativa correspondiente (ej. `../../../../components/ui/button`).
+  - **Archivos Modificados**: `app/dashboard/administradores/[id]/page.tsx`, `app/dashboard-bridge/page.tsx`, `app/dashboard/administradores/nuevo/page.tsx`, `app/dashboard/administradores/page.tsx`.
+- **Resultado**: Este enfoque fracasó. Los errores persistieron y se volvieron más crípticos. Esto demostró que estábamos tratando un síntoma y no la enfermedad.
+
+#### Etapa 2: Hipótesis Correcta - Configuración de Proyecto Incompleta
+
+- **Descubrimiento Clave**: Se analizó por qué algunas páginas (como `contactos`) sí funcionaban con alias. La diferencia no estaba en los archivos, sino en la configuración del proyecto. El archivo `tsconfig.json` estaba correctamente configurado, lo que permitía que TypeScript y el editor de código (VS Code) resolvieran los alias. Sin embargo, **el empaquetador de Next.js (webpack) no lee este archivo para el `build`**.
+- **Causa Raíz Verdadera**: El archivo de configuración de Next.js, `next.config.mjs`, carecía de la directiva para indicarle a webpack cómo resolver el alias `@/`.
+- **Acción Tomada (Solución Definitiva)**:
+  1.  **Modificar `next.config.mjs`**: Se añadió una configuración específica para `webpack` que mapea el alias `@` a la carpeta raíz del proyecto (`./`).
+      ```javascript
+      // en next.config.mjs
+      import path from 'path';
+
+      const nextConfig = {
+        // ...otras configuraciones
+        webpack: (config) => {
+          config.resolve.alias['@'] = path.resolve('./');
+          return config;
+        },
+      }
+      ```
+  2.  **Limpieza de Código**: Se revirtieron todos los cambios de rutas relativas realizados en la Etapa 1, restaurando el uso de alias en toda la aplicación para mantener un código limpio y consistente.
+- **Resultado**: Tras estos cambios, el comando `npm run build` se ejecutó con éxito en el entorno local.
+
+#### Etapa 3: Error Final de Despliegue - Dependencia Faltante en Vercel
+
+- **Síntoma**: A pesar del éxito local, el nuevo despliegue en Vercel falló con un error diferente pero muy claro:
+  ```
+  It looks like you're trying to use TypeScript but do not have the required package(s) installed. Please install @types/node
+  ```
+- **Causa Raíz**: El paquete `@types/node`, esencial para proyectos TypeScript, no estaba listado como una dependencia en el archivo `package.json`. Aunque estuviera instalado en la máquina local, el entorno de `build` limpio de Vercel no lo incluía.
+- **Acción Tomada (Ajuste Final)**: Se ejecutó el comando `pnpm install --save-dev @types/node`. Esto añadió el paquete a las `devDependencies` en `package.json`, asegurando que Vercel lo instale antes de ejecutar el `build`.
+- **Resultado Final**: Un último `git push` a GitHub activó el despliegue final en Vercel, que se completó con éxito, sincronizando perfectamente el entorno de producción con el local.
+
+### 3.3. Lecciones Aprendidas
+
+1.  **Configuración Dual**: Un proyecto Next.js con TypeScript requiere que los alias de ruta se configuren en **dos lugares**: `tsconfig.json` (para el editor y el chequeo de tipos) y `next.config.mjs` (para el `build` de webpack).
+2.  **No Confiar en el Build Local**: Un `build` local exitoso no garantiza un despliegue exitoso. Los entornos de producción como Vercel son limpios y solo instalan lo que está explícitamente definido en `package.json`.
+3.  **Leer los Logs de Vercel**: Aunque a veces crípticos, los registros de `build` de Vercel son la fuente de verdad más importante para diagnosticar problemas de despliegue.
+4.  **Atacar la Raíz, no el Síntoma**: Modificar archivos individualmente fue una pérdida de tiempo. La solución real siempre estuvo en el archivo de configuración central.
+
     export async function saveInvoice(data, items, facturaIdToEdit) {
       const supabase = await createSsrServerClient();
       try {
