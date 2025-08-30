@@ -18,7 +18,8 @@ function LoadingSpinner() {
   )
 }
 
-export default async function ContactoDetailPage({ params }: { params: { id: string } }) {
+export default async function ContactoDetailPage(props: any) {
+  const { id } = props.params
   const supabase = createServerClient()
 
   const { data: sessionData } = await supabase.auth.getSession()
@@ -38,8 +39,8 @@ export default async function ContactoDetailPage({ params }: { params: { id: str
 
   // Fetch all data in parallel
   const [contactoRes, tareasRes, adminsRes, edificiosRes, departamentosRes] = await Promise.all([
-    supabase.from("contactos").select("*, id_padre(*)").eq("id", params.id).single(),
-    supabase.from("tareas").select("id, titulo").eq("contacto_id", params.id),
+    supabase.from("contactos").select("*, id_padre(*)").eq("id", id).single(),
+    supabase.from("tareas").select("*").eq("contacto_id", id),
     supabase.from("usuarios").select("id, nombre").eq("rol", "admin"),
     supabase.from("edificios").select("id, nombre"),
     supabase.from("departamentos").select("id, nombre"),
@@ -53,7 +54,7 @@ export default async function ContactoDetailPage({ params }: { params: { id: str
   const initialData = {
     contacto: contactoRes.data,
     tareas: tareasRes.data || [],
-    admins: adminsRes.data || [],
+    administradores: adminsRes.data || [],
     edificios: edificiosRes.data || [],
     departamentos: departamentosRes.data || [],
     userDetails,
@@ -61,7 +62,7 @@ export default async function ContactoDetailPage({ params }: { params: { id: str
 
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      <ContactoDetailClient initialData={initialData} />
+      <ContactoDetailClient initialData={initialData} contactoId={id} />
     </Suspense>
   )
 }
