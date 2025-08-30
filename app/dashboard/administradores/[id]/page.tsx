@@ -48,7 +48,7 @@ export default function EditarAdministradorPage() {
         return;
       }
 
-      setLoading(true); // Asegurarse de poner loading a true al inicio de la carga
+      setLoading(true); 
       try {
         const { data, error: fetchError } = await supabase
           .from("vista_administradores")
@@ -57,7 +57,6 @@ export default function EditarAdministradorPage() {
           .single();
 
         if (fetchError) {
-          // Si el error es porque no se encontró (PGRST116), es un 404 de datos
           if (fetchError.code === 'PGRST116') {
             setError("No se encontró el administrador con el ID proporcionado.");
           } else {
@@ -71,7 +70,7 @@ export default function EditarAdministradorPage() {
           setEstado(data.estado);
           setAplicaAjustes(data.aplica_ajustes || false);
           setPorcentajeAjuste(data.porcentaje_default || 0);
-        } else if (!fetchError) { // Si no hay datos y no hubo error de fetch, es un caso raro o un ID no encontrado sin error PGRST116
+        } else if (!fetchError) { 
           setError("No se encontró el administrador.");
         }
       } catch (err: any) {
@@ -82,7 +81,7 @@ export default function EditarAdministradorPage() {
       }
     }
 
-    if (id) { // Solo ejecutar si el id está presente
+    if (id) { 
         fetchAdmin();
     } else {
         setLoading(false);
@@ -101,7 +100,6 @@ export default function EditarAdministradorPage() {
       });
       return;
     }
-    // Validar formato de teléfono
     if (!/^[0-9]{10,15}$/.test(telefono)) {
       toast({
         title: "Error de validación",
@@ -114,7 +112,6 @@ export default function EditarAdministradorPage() {
     setIsSubmitting(true);
 
     try {
-      // Nota: Para actualizar siempre usamos la tabla original, no la vista
       const { error: updateError } = await supabase
         .from("administradores")
         .update({ 
@@ -134,8 +131,8 @@ export default function EditarAdministradorPage() {
         title: "Éxito",
         description: "Administrador actualizado correctamente.",
       });
-      router.push("/dashboard/administradores"); // Redirigir al listado después de editar
-      router.refresh(); // Refrescar datos del listado
+      router.push("/dashboard/administradores"); 
+      router.refresh(); 
     } catch (err: any) {
       console.error("Error al actualizar administrador:", err);
       toast({
@@ -196,7 +193,7 @@ export default function EditarAdministradorPage() {
               <Input
                 id="nombre"
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNombre(e.target.value)}
                 placeholder="Ej: Juan Pérez"
                 required
                 disabled={isSubmitting}
@@ -208,58 +205,22 @@ export default function EditarAdministradorPage() {
                 id="telefono"
                 type="tel"
                 value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTelefono(e.target.value)}
                 placeholder="Ej: 1122334455"
                 required
                 disabled={isSubmitting}
               />
               <p className="text-xs text-muted-foreground">Ingresa solo números (entre 10 y 15 dígitos).</p>
             </div>
-            
-            <div className="pt-4 border-t">
-              <h3 className="text-lg font-medium flex items-center mb-3">
-                <Calculator className="mr-2 h-5 w-5 text-orange-500" />
-                Configuración de Ajustes
-              </h3>
-              
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="aplica-ajustes" className="text-base">Aplica ajustes en facturas</Label>
-                    <p className="text-sm text-muted-foreground">Si está desactivado, no se generarán ajustes automáticos para este administrador.</p>
-                  </div>
-                  <Switch
-                    id="aplica-ajustes"
-                    checked={aplicaAjustes}
-                    onCheckedChange={setAplicaAjustes}
-                    disabled={isSubmitting}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="porcentaje-ajuste">Porcentaje de ajuste</Label>
-                    <span className="font-medium text-lg">{porcentajeAjuste}%</span>
-                  </div>
-                  <Slider
-                    id="porcentaje-ajuste"
-                    min={0}
-                    max={30}
-                    step={1}
-                    value={[porcentajeAjuste]}
-                    onValueChange={(values) => setPorcentajeAjuste(values[0])}
-                    disabled={!aplicaAjustes || isSubmitting}
-                    className={!aplicaAjustes ? "opacity-50" : ""}
-                  />
-                  <p className="text-xs text-muted-foreground">Se aplicará este porcentaje de ajuste a los ítems de mano de obra en las facturas.</p>
-                </div>
-              </div>
-            </div>
             <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
-              <Select value={estado} onValueChange={setEstado} disabled={isSubmitting}>
+              <Select 
+                value={estado}
+                onValueChange={setEstado}
+                disabled={isSubmitting}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un estado" />
+                  <SelectValue placeholder="Seleccione un estado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="activo">Activo</SelectItem>
