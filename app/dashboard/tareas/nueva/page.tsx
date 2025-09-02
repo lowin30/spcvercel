@@ -53,7 +53,7 @@ export default function NuevaTareaPage() {
         }
         setUserDetails(userData);
 
-        if (userData?.rol !== 'supervisor' && userData?.rol !== 'admin') {
+        if (userData?.rol !== 'admin' && userData?.rol !== 'supervisor') {
           toast({
             title: 'Acceso Denegado',
             description: 'No tienes permisos para crear tareas.',
