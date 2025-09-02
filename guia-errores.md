@@ -199,6 +199,50 @@ El camino hacia la solución no fue directo. Se exploraron varias hipótesis, al
     export default async function EditarFacturaPage({ params }) {
       // ...obtener datos para el formulario...
       return <InvoiceForm onSave={saveInvoice} ... />
+
+---
+
+## Sección 4: Depuración de Funciones RPC de Supabase (Caso Práctico)
+
+**Fecha:** 2025-09-02
+
+### 4.1. Resumen del Problema
+
+La página de Tareas, cuando se accedía con el filtro para "Crear Presupuesto Final" (`/dashboard/tareas?crear_presupuesto=true`), no funcionaba. El objetivo era mostrar únicamente las tareas que aún no tenían un presupuesto final asociado, pero el filtro fallaba y la página a veces se rompía.
+
+### 4.2. Proceso de Diagnóstico y Solución en Cascada
+
+Este fue un caso de estudio perfecto sobre cómo un error puede ocultar otro, requiriendo una depuración metódica desde el frontend (Next.js) hasta el backend (Supabase). La estrategia clave fue delegar la lógica de negocio a la base de datos mediante una función RPC y refinarla paso a paso.
+
+#### Etapa 1: Ineficiencia y Error Lógico en el Frontend
+
+- **Síntoma Inicial**: El filtro no funcionaba correctamente.
+- **Causa Raíz**: La aplicación traía todas las tareas y luego intentaba filtrarlas en el código del cliente. Esto era ineficiente, lento y propenso a errores.
+- **Solución Estratégica**: Se decidió crear una función en PostgreSQL (`get_tareas_sin_presupuesto_final`) para que la base de datos realizara el filtrado de forma nativa y devolviera solo los datos necesarios.
+
+#### Etapa 2: Error de Renderizado en Frontend - `Cannot read properties of undefined`
+
+- **Síntoma**: Después de implementar la llamada a la función RPC, la página crasheaba.
+- **Causa Raíz**: La primera versión de la función RPC devolvía datos directamente de la tabla `tareas`, pero el componente de React esperaba campos de tablas relacionadas (como el nombre del estado en `tarea.estado.nombre`). Al no existir estos datos en la respuesta, el acceso a ellos (`undefined.nombre`) rompía la aplicación.
+- **Solución**: Se mejoró la función SQL para que hiciera un `LEFT JOIN` con las tablas de `estados_tareas` y `edificios`, incluyendo así los nombres necesarios en la respuesta.
+
+#### Etapa 3: Error de Base de Datos - `relation "estados" does not exist`
+
+- **Síntoma**: La llamada a la función RPC fallaba con un error 404 (Not Found) en la red, y la consola del servidor de Vercel mostraba que la tabla `estados` no existía.
+- **Causa Raíz**: Un simple pero crítico error de nomenclatura en la función SQL. La tabla correcta era `estados_tareas`, no `estados`.
+- **Solución**: Se corrigió el `JOIN` en la función para que apuntara al nombre de tabla correcto.
+
+#### Etapa 4: Error Final y Más Sutil - `structure of query does not match function result type`
+
+- **Síntoma**: La llamada RPC seguía fallando, pero ahora con un error 400 (Bad Request). El mensaje de error detallado era: `Returned type character varying(50) does not match expected type text`.
+- **Causa Raíz**: Este es un requisito estricto de PostgreSQL. La definición de nuestra función (`RETURNS TABLE ...`) prometía devolver columnas de tipo `text`, pero las columnas de las tablas originales (`estados_tareas.nombre`, `edificios.nombre`) eran de tipo `character varying(50)`. Para las funciones RPC, los tipos de datos deben coincidir **exactamente**.
+- **Solución Definitiva**: Se modificó la consulta `SELECT` dentro de la función para **convertir explícitamente (`cast`)** los tipos de datos al que se esperaba, usando la sintaxis de PostgreSQL: `SELECT et.nombre::text, ed.nombre::text ...`.
+
+### 4.3. Lecciones Aprendidas
+
+1.  **Delegar a la Base de Datos**: Para filtros y operaciones complejas, mover la lógica a una función RPC de Supabase es más eficiente y robusto que manejarlo en el cliente.
+2.  **Los Errores RPC son Informativos**: Los errores 400 o 404 de una llamada RPC no son genéricos. Siempre hay que revisar los logs del servidor (Vercel, o la consola de desarrollo local), ya que Supabase reenvía el mensaje de error real de la base de datos, que es muy descriptivo.
+3.  **La Exactitud de Tipos en SQL es Crucial**: En las funciones de PostgreSQL, no basta con que los tipos de datos sean "compatibles" (como `varchar` y `text`). Deben ser **idénticos** a los definidos en la signatura `RETURNS TABLE`. El `casting` explícito (`::text`) es la herramienta para resolver esto.
     }
     ```
 
