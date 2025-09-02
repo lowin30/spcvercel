@@ -294,15 +294,18 @@ export function BudgetForm({
   }
 
   const handleProductSelect = (producto: Producto) => {
-    setNewItem({
-      ...initialNewItemFormState, // Start with a clean state
-      descripcion: producto.nombre,
-      cantidad: 1, // Assuming cantidad remains number in form state
-      precio: String(producto.precio), // Convert product price to string for the form
+    const itemFromProduct = {
+      ...initialNewItemFormState,
+      descripcion: `${producto.nombre}${producto.descripcion ? ` - ${producto.descripcion}` : ''}`,
+      cantidad: 1,
+      precio: String(producto.precio),
       es_producto: true,
       producto_id: producto.id,
       producto: producto,
-    });
+    };
+    setNewItem(itemFromProduct);
+    setEditingItemIndex(null); // Aseguramos que es un ítem nuevo
+    setIsModalOpen(true); // Abrimos el modal inmediatamente
   }
 
   const calculateTotals = () => {
@@ -555,14 +558,16 @@ export function BudgetForm({
         
         if (!administradorId && selectedTareaObj) {
           if (selectedTareaObj.id_administrador) {
-            administradorId = selectedTareaObj.id_administrador;
+            administradorId = selectedTareaObj.id_administrador.toString();
           } else if (selectedTareaObj.edificios && selectedTareaObj.edificios.id_administrador) {
-            administradorId = selectedTareaObj.edificios.id_administrador;
+            administradorId = selectedTareaObj.edificios.id_administrador.toString();
           }
         }
         
         // Como respaldo final, usar el administrador del presupuesto base
-        administradorId = administradorId || presupuestoBase?.id_administrador || null;
+        if (!administradorId && presupuestoBase?.id_administrador) {
+          administradorId = presupuestoBase.id_administrador.toString();
+        }
         
         // Determinar el id_edificio según la misma lógica de prioridad
         const edificioId = selectedEdificio || presupuestoBase?.id_edificio || selectedTareaObj?.id_edificio || null;
@@ -835,7 +840,7 @@ export function BudgetForm({
                 open={isModalOpen}
                 setOpen={setIsModalOpen}
                 onSave={handleSaveItemFromModal}
-                editingItem={editingItemIndex !== null ? items[editingItemIndex] : undefined}
+                editingItem={editingItemIndex !== null ? items[editingItemIndex] : newItem}
               />
             </div>
           </CardContent>

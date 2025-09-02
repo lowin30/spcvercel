@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProductoPicker } from "@/components/producto-picker"
@@ -39,6 +40,7 @@ export function ItemPresupuestoModal({
   const [descripcion, setDescripcion] = useState("")
   const [cantidad, setCantidad] = useState(1)
   const [precio, setPrecio] = useState(0)
+  const [precioMostrado, setPrecioMostrado] = useState("")
   const [productoId, setProductoId] = useState<string | undefined>(undefined)
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | undefined>(undefined)
   const [esProducto, setEsProducto] = useState(false)
@@ -57,7 +59,9 @@ export function ItemPresupuestoModal({
     if (editingItem) {
       setDescripcion(editingItem.descripcion || "")
       setCantidad(editingItem.cantidad || 1)
-      setPrecio(editingItem.precio || 0)
+      const initialPrecio = editingItem.precio || 0
+      setPrecio(initialPrecio)
+      setPrecioMostrado(initialPrecio > 0 ? new Intl.NumberFormat('es-ES').format(initialPrecio) : "")
       setProductoId(editingItem.producto_id)
       setProductoSeleccionado(editingItem.producto)
       setEsProducto(!!editingItem.es_producto)
@@ -73,6 +77,7 @@ export function ItemPresupuestoModal({
       setDescripcion("")
       setCantidad(1)
       setPrecio(0)
+      setPrecioMostrado("")
       setProductoId(undefined)
       setProductoSeleccionado(undefined)
       setEsProducto(false)
@@ -83,12 +88,28 @@ export function ItemPresupuestoModal({
   // Manejar la selección de un producto
   const handleProductSelect = (producto: Producto) => {
     setProductoSeleccionado(producto)
-    setDescripcion(producto.nombre)
-    setPrecio(producto.precio || 0)
+    setDescripcion(`${producto.nombre}${producto.descripcion ? ` - ${producto.descripcion}` : ''}`)
+    const selectedPrecio = producto.precio || 0
+    setPrecio(selectedPrecio)
+    setPrecioMostrado(new Intl.NumberFormat('es-ES').format(selectedPrecio))
     setProductoId(producto.id)
     setEsProducto(true)
+    setActiveTab("manual") // Cambiar a la pestaña manual para editar
   }
   
+  const handlePrecioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value
+    const numericValue = parseInt(rawValue.replace(/\D/g, ""), 10)
+
+    if (isNaN(numericValue)) {
+      setPrecio(0)
+      setPrecioMostrado("")
+    } else {
+      setPrecio(numericValue)
+      setPrecioMostrado(new Intl.NumberFormat('es-ES').format(numericValue))
+    }
+  }
+
   // Guardar los datos del ítem
   const handleSave = () => {
     onSave({
@@ -153,11 +174,12 @@ export function ItemPresupuestoModal({
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
                 <Label htmlFor="descripcion">Descripción</Label>
-                <Input
+                <Textarea
                   id="descripcion"
                   placeholder="Descripción del ítem"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
+                  rows={3}
                 />
               </div>
               
@@ -177,11 +199,11 @@ export function ItemPresupuestoModal({
                   <Label htmlFor="precio">Precio unitario</Label>
                   <Input
                     id="precio"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={precio}
-                    onChange={(e) => setPrecio(Number(e.target.value) || 0)}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={precioMostrado}
+                    onChange={handlePrecioChange}
                   />
                 </div>
               </div>
