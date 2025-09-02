@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
-import { UserSessionData } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { TaskList } from "@/components/task-list"
 import Link from "next/link"
@@ -18,14 +17,13 @@ import { formatCurrency } from "@/lib/utils"
 
 export default function TareasPage() {
   const [tareas, setTareas] = useState<any[]>([])
-  const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
+  const [userDetails, setUserDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [presupuestosBase, setPresupuestosBase] = useState<Record<string, any>>({})
   const [tareasConPresupuestoFinal, setTareasConPresupuestoFinal] = useState<string[]>([])
   const [selectedTareaId, setSelectedTareaId] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClient()
   const searchParams = useSearchParams()
   const crearPresupuesto = searchParams.get('crear_presupuesto') === 'true'
   
@@ -212,7 +210,7 @@ export default function TareasPage() {
     async function cargarTareas() {
       try {
         setLoading(true)
-        
+        const supabase = createClient()
         
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
@@ -283,64 +281,47 @@ export default function TareasPage() {
           }
         }
         
-        // Construir la consulta de tareas según el rol del usuario usando la vista optimizada
-        const baseQuery = supabase
-          .from("vista_tareas_completa")
-          .select(`*`)
-          .order("created_at", { ascending: false })
-        
-        // Debug para verificar el rol y el ID
-        console.log("Rol de usuario:", userData?.rol);
-        console.log("ID de usuario:", session.user.id);
-        
-        // Aplicar filtros según el rol
-        let tareasQuery;
-        
-        if (userData?.rol?.toLowerCase().trim() === "trabajador") {
-          console.log("Aplicando filtro de trabajador")
-          // Trabajadores solo ven tareas donde están asignados
-          // Volvemos a usar la consulta tradicional para evitar el error con el operador 'cs'
-          const trabajadorTareasResponse = await supabase
-            .from('trabajadores_tareas')
-            .select('id_tarea')
-            .eq('id_trabajador', session.user.id)
-          
-          const tareasAsignadas = trabajadorTareasResponse.data?.map((t: any) => t.id_tarea) || []
-          console.log("IDs de tareas asignadas:", tareasAsignadas)
-          
-          if (tareasAsignadas.length > 0) {
-            // Si tiene tareas asignadas, filtramos por esos IDs
-            tareasQuery = baseQuery.in("id", tareasAsignadas)
-          } else {
-            // Si no tiene tareas asignadas, devolvemos un array vacío
-            tareasQuery = baseQuery.eq("id", -1) // ID imposible para que no retorne resultados
-          }
-        } else if (userData?.rol?.toLowerCase().trim() === "supervisor") {
-          console.log("Aplicando filtro de supervisor")
-          // Supervisores solo ven tareas donde están asignados
-          // Volvemos a usar la consulta tradicional para evitar el error con el operador 'cs'
-          const supervisorTareasResponse = await supabase
-            .from('supervisores_tareas')
-            .select('id_tarea')
-            .eq('id_supervisor', session.user.id)
-          
-          const tareasAsignadas = supervisorTareasResponse.data?.map((t: any) => t.id_tarea) || []
-          console.log("IDs de tareas asignadas al supervisor:", tareasAsignadas)
-          
-          if (tareasAsignadas.length > 0) {
-            // Si tiene tareas asignadas, filtramos por esos IDs
-            tareasQuery = baseQuery.in("id", tareasAsignadas)
-          } else {
-            // Si no tiene tareas asignadas, devolvemos un array vacío
-            tareasQuery = baseQuery.eq("id", -1) // ID imposible para que no retorne resultados
-          }
+        let tareasResponse;
+
+        if (crearPresupuesto) {
+          console.log("Modo Crear Presupuesto: Llamando a la función RPC 'get_tareas_sin_presupuesto_final'");
+          tareasResponse = await supabase.rpc('get_tareas_sin_presupuesto_final');
         } else {
-          console.log("Aplicando filtro de admin o rol desconocido")
-          // Administradores ven todas las tareas
-          tareasQuery = baseQuery
+          // Construir la consulta de tareas según el rol del usuario usando la vista optimizada
+          const baseQuery = supabase
+            .from("vista_tareas_completa")
+            .select(`*`)
+            .order("created_at", { ascending: false });
+
+          // Aplicar filtros según el rol
+          let tareasQuery;
+          if (userData?.rol?.toLowerCase().trim() === "trabajador") {
+            const trabajadorTareasResponse = await supabase
+              .from('trabajadores_tareas')
+              .select('id_tarea')
+              .eq('id_trabajador', session.user.id);
+            const tareasAsignadas = trabajadorTareasResponse.data?.map((t: any) => t.id_tarea) || [];
+            if (tareasAsignadas.length > 0) {
+              tareasQuery = baseQuery.in("id", tareasAsignadas);
+            } else {
+              tareasQuery = baseQuery.eq("id", -1);
+            }
+          } else if (userData?.rol?.toLowerCase().trim() === "supervisor") {
+            const supervisorTareasResponse = await supabase
+              .from('supervisores_tareas')
+              .select('id_tarea')
+              .eq('id_supervisor', session.user.id);
+            const tareasAsignadas = supervisorTareasResponse.data?.map((t: any) => t.id_tarea) || [];
+            if (tareasAsignadas.length > 0) {
+              tareasQuery = baseQuery.in("id", tareasAsignadas);
+            } else {
+              tareasQuery = baseQuery.eq("id", -1);
+            }
+          } else {
+            tareasQuery = baseQuery;
+          }
+          tareasResponse = await tareasQuery;
         }
-        
-        const tareasResponse = await tareasQuery
         const tareasData = tareasResponse.data
         const tareasError = tareasResponse.error
         
@@ -399,19 +380,9 @@ export default function TareasPage() {
     console.log("Tareas disponibles (todas):", tareas.map(t => ({ id: t.id, estado: t.estado })))
     console.log("IDs de tareas con presupuesto final:", tareasConPresupuestoFinal)
     
-    const tareasDisponibles = tareas.filter(tarea => {
-      // Para debuggear
-      const tienePF = tareasConPresupuestoFinal.includes(tarea.id.toString())
-      if ((tarea.estado === "pendiente" || tarea.estado === "asignada") && tienePF) {
-        console.log(`Tarea ${tarea.id} (${tarea.titulo}) tiene estado ${tarea.estado} pero ya tiene presupuesto final`)
-      }
-      
-      // Solo tareas pendientes o asignadas
-      return (tarea.estado === "pendiente" || tarea.estado === "asignada") && 
-      // Y que NO tengan presupuesto final (comparamos como string para consistencia)
-      !tareasConPresupuestoFinal.includes(tarea.id.toString())
-    })
-    
+    // La función RPC ya nos devuelve solo las tareas disponibles, no se necesita más filtrado aquí.
+    const tareasDisponibles = tareas;
+
     return (
       <div className="space-y-6">
         <div className="flex items-center">
@@ -478,7 +449,7 @@ export default function TareasPage() {
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium">{tarea.titulo}</h3>
                             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              {tarea.estado.charAt(0).toUpperCase() + tarea.estado.slice(1)}
+                              {tarea.estado_nombre ? tarea.estado_nombre.charAt(0).toUpperCase() + tarea.estado_nombre.slice(1) : 'Sin estado'}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">

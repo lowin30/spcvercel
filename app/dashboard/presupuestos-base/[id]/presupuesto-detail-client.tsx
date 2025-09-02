@@ -30,7 +30,7 @@ export function PresupuestoDetailClient({ presupuesto, userRole }: PresupuestoDe
     async function verificarSesion() {
       try {
         // Usar el cliente singleton para consistencia
-        const supabase = getSupabaseClient()
+        const supabase = createClient()
         
         // Verificar sesión activa
         const { data, error: sessionError } = await supabase.auth.getSession()

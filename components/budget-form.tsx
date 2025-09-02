@@ -407,26 +407,44 @@ export function BudgetForm({
         // Ítems a actualizar: están en ambos
         const itemsToUpdate = currentItems.filter(item => item.id && originalItemIds.has(item.id));
         if (itemsToUpdate.length > 0) {
-          const updates = itemsToUpdate.map(item =>
-            supabase
+          const updates = itemsToUpdate.map(item => {
+            // Excluimos el objeto 'producto' y preparamos los datos para la DB
+            const { producto, id, ...itemData } = item;
+            const updateData = {
+                descripcion: itemData.descripcion,
+                cantidad: itemData.cantidad,
+                precio: itemData.precio,
+                es_producto: typeof itemData.es_producto === 'boolean' ? itemData.es_producto : !!itemData.producto_id,
+                producto_id: itemData.producto_id || null,
+                es_material: itemData.es_material || false,
+            };
+            return supabase
               .from('items')
-              .update({ 
-                descripcion: item.descripcion, 
-                cantidad: item.cantidad, 
-                precio: item.precio 
-              })
-              .eq('id', item.id!)
-          );
-          await Promise.all(updates);
+              .update(updateData)
+              .eq('id', item.id!);
+          });
+          const results = await Promise.all(updates);
+          for (const result of results) {
+              if (result.error) throw result.error;
+          }
         }
 
         // Ítems a insertar: son nuevos (sin id)
         const itemsToInsert = currentItems
           .filter(item => !item.id)
-          .map(item => ({
-            ...item,
-            id_presupuesto: presupuestoAEditar.id,
-          }));
+          .map(item => {
+            // Excluimos el objeto 'producto' y preparamos los datos para la DB
+            const { producto, ...itemData } = item;
+            return {
+              descripcion: itemData.descripcion,
+              cantidad: itemData.cantidad,
+              precio: itemData.precio,
+              id_presupuesto: presupuestoAEditar.id,
+              producto_id: itemData.producto_id || null,
+              es_producto: typeof itemData.es_producto === 'boolean' ? itemData.es_producto : !!itemData.producto_id,
+              es_material: itemData.es_material || false
+            };
+          });
 
         if (itemsToInsert.length > 0) {
           const { error: insertError } = await supabase.from('items').insert(itemsToInsert);
