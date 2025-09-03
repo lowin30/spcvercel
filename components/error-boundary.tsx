@@ -6,10 +6,10 @@ import { useEffect, useState } from "react"
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
-  fallback: React.ReactNode
+  fallback?: React.ReactNode
 }
 
-export function ErrorBoundary({ children, fallback }: ErrorBoundaryProps) {
+export default function ErrorBoundary({ children, fallback }: ErrorBoundaryProps) {
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
@@ -25,8 +25,8 @@ export function ErrorBoundary({ children, fallback }: ErrorBoundaryProps) {
     }
   }, [])
 
-  if (hasError) {
-    return <>{fallback}</>
+    if (hasError) {
+    return <>{fallback || <div>Ocurrió un error.</div>}</>
   }
 
   return <>{children}</>

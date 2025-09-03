@@ -194,6 +194,96 @@ El **SPC Sistema de Gestión** es una plataforma integral desarrollada en Next.j
 
 ---
 
+## 🔐 Matriz de Permisos por Rol (Seguridad RLS)
+
+A continuación, se detalla la matriz de permisos oficial que se utilizará para configurar la Seguridad a Nivel de Fila (RLS) en la base de datos. Esta configuración sigue el principio de **mínimo privilegio**, garantizando que cada rol solo tenga acceso a los datos estrictamente necesarios para cumplir su función.
+
+### **Grupo 1: Tablas de Configuración Central (Solo `admin`)**
+Acceso exclusivo para el rol `admin` para prevenir modificaciones accidentales que puedan comprometer la estabilidad del sistema.
+
+- **`ajustes_facturas`**: Solo `admin`.
+- **`alertas_sistema`**: Solo `admin`.
+- **`configuracion_trabajadores`**: Solo `admin`.
+- **`categorias_productos`**: Solo `admin`.
+- **`estados_facturas`**: Solo `admin`.
+- **`estados_presupuestos`**: Solo `admin`.
+- **`estados_tareas`**: Solo `admin`.
+- **`logs`**: Solo `admin`.
+- **`temp_maps`**: Solo `admin`.
+
+### **Grupo 2: Tablas de Gestión Principal (Acceso por Jerarquía)**
+El acceso se basa en la relación del usuario con los datos (ej. si es su tarea, su parte de trabajo, etc.).
+
+- **`usuarios`**:
+    - `admin`: TODO (Control total).
+    - `supervisor`: SELECT (trabajadores a cargo), UPDATE (su propio perfil).
+    - `trabajador`: SELECT y UPDATE (solo su propio perfil).
+- **`edificios`**:
+    - `admin`: TODO.
+    - `supervisor` / `trabajador`: SELECT (solo en tareas donde están asignados).
+- **`tareas`**:
+    - `admin`: TODO.
+    - `supervisor`: SELECT (todas), INSERT, UPDATE (solo las que supervisa).
+    - `trabajador`: SELECT (solo las tareas a las que está asignado).
+- **`comentarios`**:
+    - `admin`: TODO.
+    - `supervisor` / `trabajador`: SELECT e INSERT (solo en sus tareas).
+- **`partes_de_trabajo`**:
+    - `admin`: TODO.
+    - `supervisor`: SELECT (de los trabajadores en sus tareas).
+    - `trabajador`: SELECT e INSERT (solo los suyos).
+- **`gastos_tarea`**:
+    - `admin`: TODO.
+    - `supervisor`: SELECT e INSERT (en tareas que supervisa).
+    - `trabajador`: **Acceso denegado**.
+
+### **Grupo 3: Tablas Financieras (Acceso Restringido)**
+El acceso a datos financieros y de facturación está estrictamente controlado.
+
+- **`presupuestos_base`**:
+    - `admin`: TODO.
+    - `supervisor`: SELECT (de las tareas que supervisa).
+    - `trabajador`: **Acceso denegado**.
+- **`presupuestos_finales`**:
+    - `admin`: TODO.
+    - `supervisor`: **Acceso denegado**.
+    - `trabajador`: **Acceso denegado**.
+- **`facturas`**:
+    - `admin`: TODO.
+    - `supervisor`: **Acceso denegado**.
+    - `trabajador`: **Acceso denegado**.
+- **`items_factura`**:
+    - `admin`: TODO.
+    - `supervisor`: **Acceso denegado**.
+    - `trabajador`: **Acceso denegado**.
+- **`liquidaciones_nuevas` y `liquidaciones_trabajadores`**:
+    - `admin`: TODO.
+    - `supervisor`: TODO (donde esté asignado).
+    - `trabajador`: SELECT (solo las suyas).
+
+### **Grupo 4: Tablas de Relaciones y Catálogos**
+
+- **`productos`**:
+    - `admin`: TODO.
+    - `supervisor`: **Acceso denegado**.
+    - `trabajador`: **Acceso denegado**.
+- **`items`**:
+    - `admin`: TODO.
+    - `supervisor`: **Acceso denegado**.
+    - `trabajador`: **Acceso denegado**.
+- **`departamentos` y `telefonos_departamento`**:
+    - `admin`: TODO.
+    - `supervisor` / `trabajador`: SELECT.
+- **`trabajadores_tareas`, `supervisores_tareas`, `departamentos_tareas`**:
+    - `admin`: TODO.
+    - `supervisor`: TODO (en sus tareas).
+    - `trabajador`: SELECT.
+- **`administradores`**:
+    - `admin`: TODO.
+    - `supervisor` / `trabajador`: SELECT.
+
+---
+
 ## 📊 Flujo de Trabajo Principal
 
 ### **Flujo Financiero Completo**

@@ -53,8 +53,7 @@ export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
     router.push("/login")
   }
 
-  // Verificar y mostrar información de depuración
-  console.log("MobileMenuExpanded - userRole:", userRole)
+  // El userRole se utilizará para filtrar las rutas del menú
 
   const routes = [
     {

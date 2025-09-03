@@ -66,12 +66,36 @@ export default function NuevoPresupuestoBasePage() {
         // Construir la consulta base
         const tareasBaseQuery = supabase.from("tareas").select("*")
 
-        // Si es supervisor, filtrar solo sus tareas
-        const filteredQuery = userData?.rol === "supervisor" 
-          ? tareasBaseQuery.eq("id_supervisor", session.user.id)
-          : tareasBaseQuery
+        // Si es supervisor, filtrar solo sus tareas (usando la tabla de relación supervisores_tareas)
+        let filteredQuery;
+        
+        if (userData?.rol === "supervisor") {
+          // Primero obtenemos los IDs de las tareas asignadas al supervisor
+          const { data: tareasSupervisadas, error: errorSupervisadas } = await supabase
+            .from("supervisores_tareas")
+            .select("id_tarea")
+            .eq("id_supervisor", session.user.id);
+            
+          if (errorSupervisadas) {
+            console.error("Error al obtener tareas supervisadas:", errorSupervisadas);
+            setError("Error al obtener tareas supervisadas");
+            return;
+          }
+          
+          // Si hay tareas supervisadas, filtrar por esos IDs
+          if (tareasSupervisadas && tareasSupervisadas.length > 0) {
+            const tareasIds = tareasSupervisadas.map(t => t.id_tarea);
+            filteredQuery = tareasBaseQuery.in("id", tareasIds);
+          } else {
+            // Si no tiene tareas asignadas, devolver una lista vacía
+            filteredQuery = tareasBaseQuery.eq("id", -1); // ID que no existirá
+          }
+        } else {
+          // Para admin, mostrar todas las tareas
+          filteredQuery = tareasBaseQuery;
+        }
 
-        // Ejecutar la consulta
+        // Ejecutar la consulta solo si tenemos tareas que consultar
         const tareasResponse = await filteredQuery
         
         if (tareasResponse.error) {

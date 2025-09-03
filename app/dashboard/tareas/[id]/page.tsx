@@ -1,9 +1,9 @@
 "use client"
 
 import { DepartamentosInteractivos } from "@/components/departamentos-interactivos"
-import { useState, useEffect } from "react"
+import { useState, useEffect, use, useCallback, useRef } from "react"
 import React from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -23,26 +23,50 @@ import { SupervisorInteractivo } from "@/components/supervisor-interactivo"
 import { TrabajadoresInteractivos } from "@/components/trabajadores-interactivos"
 import { PresupuestosInteractivos } from "@/components/presupuestos-interactivos"
 
-import { ErrorBoundary } from "@/components/error-boundary"
+import ErrorBoundary from "@/components/error-boundary"
 import { ProcesadorImagen } from '@/components/procesador-imagen'
 import { HistorialGastosOCR } from '@/components/historial-gastos-ocr'
 import { SemanasLiquidadasIndicador } from '@/components/semanas-liquidadas-indicador';
 
-interface TaskPageProps {}
+// Interfaz para los datos devueltos por la función RPC get_tarea_details
+interface TareaDetails {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  fecha_creacion: string;
+  id_estado_nuevo: number | null;
+  finalizada: boolean;
+  prioridad: string;
+  fecha_visita: string | null;
+  id_edificio: number;
+  edificio_nombre: string;
+  edificio_direccion: string;
+  cuit_edificio: string;
+  estado: string;
+  nombre_administrador: string;
+  telefono_administrador: string;
+  trabajadores_emails: string | null;
+  supervisores_emails: string | null;
+}
 
-export default function TaskPage() {
-  const params = useParams();
-  const id = params.id as string;
+interface TaskPageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
+  const { id } = use(paramsPromise);
   const router = useRouter()
   const tareaId = parseInt(id);
   
   // Estados para datos principales
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tarea, setTarea] = useState<any>(null)
+  const [tarea, setTarea] = useState<TareaDetails | null>(null)
   const [userDetails, setUserDetails] = useState<any>(null)
   const [esTareaFinalizada, setEsTareaFinalizada] = useState(false)
   const [estadoActualId, setEstadoActualId] = useState<number | null>(null)
+  const [estadoActualNombre, setEstadoActualNombre] = useState<string>('Sin Estado')
+  const [prioridad, setPrioridad] = useState<string>('normal')
   const [isLoading, setIsLoading] = useState(false)
   const [supervisor, setSupervisor] = useState<any>(null)
   const [trabajadoresAsignados, setTrabajadoresAsignados] = useState<any[]>([])
@@ -61,7 +85,7 @@ export default function TaskPage() {
   const [mostrarFormularioParte, setMostrarFormularioParte] = useState(false);
   
   // Función para cargar presupuestos desde las tablas correctas
-  const cargarPresupuestos = async () => {
+  const cargarPresupuestos = useCallback(async () => {
     try {
       const supabase = createClient()
       if (!supabase || !tareaId) return
@@ -121,10 +145,29 @@ export default function TaskPage() {
         variant: "destructive",
       })
     }
-  }
+  }, [tareaId]);
+  
+  // Referencia para controlar las cargas múltiples
+  const loadingRef = useRef(false);
+  const loadedRef = useRef(false);
   
   // Función para cargar todos los datos de la tarea
-  const cargarDatosTarea = async () => {
+  const cargarDatosTarea = useCallback(async () => {
+    // Evita múltiples ejecuciones simultáneas
+    if (loadingRef.current) {
+      console.log('Ya hay una carga en proceso, evitando carga duplicada');
+      return;
+    }
+    
+    // Si ya se cargaron los datos y se tiene la tarea, evita recargar
+    if (loadedRef.current && tarea !== null) {
+      console.log('Datos ya cargados, evitando recarga innecesaria');
+      return;
+    }
+    
+    // Marcar como cargando
+    loadingRef.current = true;
+    console.log(`[ÚNICO] Ejecutando cargarDatosTarea una sola vez para tarea ${tareaId}`);
     // Solo cargar datos cuando tengamos un ID de tarea válido
     if (!tareaId) return;
     
@@ -164,15 +207,11 @@ export default function TaskPage() {
       
       setUserDetails(userData)
       
-      // Obtener tarea con manejo de errores mejorado usando la vista optimizada y expandiendo la información del edificio
-      // Realizamos una consulta que garantice que tenemos todos los datos necesarios del edificio
+      // Usar la función RPC get_tarea_details para obtener datos completos de la tarea
+      // Esta función evita ambigüedades en columnas y proporciona todos los datos necesarios
+      console.log("Llamando a función RPC get_tarea_details con tareaId:", tareaId);
       const { data: tareaData, error: tareaError } = await supabase
-        .from("tareas")
-        .select(`
-          *,
-          edificios!left (id, nombre, direccion, cuit)
-        `)
-        .eq("id", tareaId)
+        .rpc<TareaDetails>('get_tarea_details', { tarea_id_param: tareaId })
         .single()
 
       if (tareaError) {
@@ -184,14 +223,34 @@ export default function TaskPage() {
         return
       }
       
-      // Añadir log para depurar los datos del edificio
-      console.log('Datos de edificio cargados:', {
+      // Añadir log para depurar los datos del edificio (ahora vienen planos desde la RPC)
+      console.log('Datos de edificio cargados desde RPC:', {
         edificioId: tareaData.id_edificio,
-        edificioData: tareaData.edificios,
+        edificioNombre: tareaData.edificio_nombre,
+        edificioDireccion: tareaData.edificio_direccion,
+        cuitEdificio: tareaData.cuit_edificio,
         rolUsuario: userDetails?.rol
       });
       
-      setTarea(tareaData)
+      // Guardar los datos de la tarea y otra información relevante
+      console.log('Guardando datos de la tarea:', {
+        id: tareaData?.id,
+        encontrada: !!tareaData
+      })
+
+      // Actualizar los estados relacionados con la tarea
+      if (tareaData) {
+        setTarea(tareaData)
+        setEstadoActualId(tareaData.id_estado_nuevo || null)
+        setEstadoActualNombre(tareaData.estado || 'Sin Estado')
+        setEsTareaFinalizada(tareaData.finalizada || false) 
+        
+        // Registrar la prioridad para controles visuales
+        setPrioridad(tareaData.prioridad || 'normal')
+      } else {
+        console.error('No se encontraron datos para la tarea')
+        setError('No se encontraron datos para la tarea')
+      }
       
       // Verificar si el usuario actual es el trabajador asignado
       if (userDetails?.id && tareaData && tareaData.id_asignado === userDetails.id) {
@@ -200,16 +259,6 @@ export default function TaskPage() {
         setEsTrabajadorAsignado(false)
       }
       
-      // Inicializar estados cuando se carga la tarea
-      if (tareaData) {
-        const estadoId = tareaData.id_estado_nuevo != null ? Number(tareaData.id_estado_nuevo) : tareaData.estado != null ? Number(tareaData.estado) : null;
-        setEstadoActualId(estadoId);
-        setEsTareaFinalizada(Boolean(tareaData.finalizada));
-        // Asegurarse de que la prioridad sea uno de los valores válidos
-        const prioridad = tareaData.prioridad || '';
-        setPrioridadActual(prioridad === 'baja' || prioridad === 'media' || prioridad === 'alta' || prioridad === 'urgente' ? prioridad : 'media');
-        console.log('Prioridad inicializada:', prioridad);
-      }
       
       // Extraer supervisores y trabajadores de la vista optimizada
       // La vista vista_tareas_completa ya incluye los datos de trabajadores y supervisores
@@ -410,9 +459,58 @@ export default function TaskPage() {
       setError("Ocurrió un error inesperado al cargar la tarea")
     } finally {
       setLoading(false)
+      loadingRef.current = false;
+      
+      // Marcar como cargado si tenemos datos de tarea
+      if (tarea !== null) {
+        loadedRef.current = true;
+      }
     }
-  }
+  }, [tareaId, router, tarea]);
 
+  // useEffect para controlar la carga inicial de datos
+  useEffect(() => {
+    // Flag para controlar montaje/desmontaje
+    let isMounted = true;
+    
+    const iniciarCarga = async () => {
+      if (!isMounted) return;
+      
+      console.log(`[EFFECT] Iniciando carga de datos para tarea ${tareaId}`);
+      try {
+        if (!loadingRef.current && !loadedRef.current && tareaId) {
+          await cargarDatosTarea();
+          // Solo cargamos presupuestos después de cargar la tarea principal
+          if (isMounted) {
+            await cargarPresupuestos();
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error("Error en la carga inicial:", err);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudieron cargar los datos iniciales."
+          });
+        }
+      }
+    };
+    
+    // Solo ejecutar si hay un ID válido
+    if (tareaId && isMounted) {
+      iniciarCarga();
+    }
+    
+    // Limpieza al desmontar
+    return () => {
+      isMounted = false;
+      console.log("Componente desmontado, limpiando recursos");
+      loadingRef.current = false;
+      loadedRef.current = false;
+    };
+  }, [tareaId]); // Solo el ID como dependencia
+  
   // Manejar cambios en la fecha de visita
   const onDateChange = async (date: Date | null) => {
     try {
@@ -575,43 +673,19 @@ export default function TaskPage() {
     }
   };
 
-  // useEffect con dependencias apropiadas para evitar loops infinitos
-  // Usamos este enfoque para evitar tener que incluir la función completa como dependencia
-  useEffect(() => {
-    // Definimos la función de carga dentro del useEffect para evitar dependencias circulares
-    const cargarDatos = async () => {
-      if (tareaId) {
-        await cargarDatosTarea()
-      }
-    }
-    
-    cargarDatos()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tareaId]) // Solo se ejecuta cuando cambia tareaId
-
-  // Añadir manejo de listeners asincrónicos para evitar errores de cierre prematuro
-  useEffect(() => {
-    const handleAsyncResponse = (event) => {
-      if (event.data.type === 'asyncResponse') {
-        // Simular manejo de respuesta asincrónica, ajustar según necesidad
-        console.log('Manejando respuesta asincrónica:', event.data);
-      }
-    };
-    window.addEventListener('message', handleAsyncResponse);
-    return () => window.removeEventListener('message', handleAsyncResponse);
-  }, []);
-
   // Determinar si el usuario puede ver/crear presupuestos basado en el rol
   const esAdmin = userDetails?.rol === "admin"
   const esSupervisor = userDetails?.rol === "supervisor"
   
+
   // Verificar si el supervisor actual está asignado a esta tarea
   // La estructura correcta del objeto supervisor incluye usuarios con id
   const esSupervisorDeTarea = esSupervisor && 
-                             supervisor && 
-                             supervisor.usuarios && 
-                             userDetails && 
-                             supervisor.usuarios.id === userDetails.id
+                              userDetails && 
+                              supervisor && 
+                              (supervisor.id === userDetails.id ||
+                               (supervisor.usuarios && 
+                                supervisor.usuarios.id === userDetails.id))
 
   // Renderizar estados de carga y error
   if (loading) {
@@ -631,7 +705,7 @@ export default function TaskPage() {
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
         <AlertTriangle className="h-12 w-12 text-yellow-500 mb-4" />
         <h1 className="text-2xl font-bold mb-4">Error</h1>
-        <p className="text-muted-foreground mb-6">{error}</p>
+        <p className="text-muted-foreground mb-6 text-center">{error}</p>
         <Button asChild>
           <Link href="/dashboard/tareas">Volver a tareas</Link>
         </Button>
@@ -684,14 +758,14 @@ export default function TaskPage() {
                     // Aquí se implementaría la actualización en el servidor en una versión completa
                   }}
                 />
-                {tarea.edificios && (
+                {tarea && (
                   <>
                     <Badge variant="secondary">
-                      {tarea.edificios.nombre}
+                      {tarea.edificio_nombre || 'Sin edificio'}
                     </Badge>
-                    {tarea.edificios.cuit && (
+                    {tarea.cuit_edificio && (
                       <Badge variant="outline" className="ml-2">
-                        {tarea.edificios.cuit}
+                        {tarea.cuit_edificio}
                       </Badge>
                     )}
                   </>
@@ -735,10 +809,10 @@ export default function TaskPage() {
               <div className="flex items-center">
                 <MapPin className="h-4 w-4 mr-1" />
                 <Link
-                  href={`/dashboard/edificios/${tarea.edificios?.id}`}
+                  href={`/dashboard/edificios/${tarea.id_edificio}`}
                   className="text-blue-600 hover:underline"
                 >
-                  {tarea.edificios?.nombre || 'No especificado'} - {tarea.edificios?.direccion || 'Sin dirección'}
+                  {tarea.edificio_nombre || 'No especificado'} - {tarea.edificio_direccion || 'Sin dirección'}
                 </Link>
               </div>
             </div>
@@ -937,7 +1011,7 @@ export default function TaskPage() {
                       toast({
                         title: "Trabajador ya asignado",
                         description: `${trabajadorEncontrado.email} ya está asignado a esta tarea`,
-                        variant: "default"
+                        variant: "warning"
                       });
                       return;
                     }
@@ -1145,7 +1219,7 @@ export default function TaskPage() {
 
                   {!mostrarFormularioParte ? (
                     <div className="text-center p-6 border border-dashed rounded-md bg-muted/30">
-                      <p className="text-muted-foreground">Pulsa &quot;Registrar Nuevo Parte&quot; para añadir jornadas trabajadas</p>
+                      <p className="text-muted-foreground">Pulsa "Registrar Nuevo Parte" para añadir jornadas trabajadas</p>
                     </div>
                   ) : (
                     <Card className="border shadow-md">

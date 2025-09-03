@@ -82,12 +82,12 @@ export async function getUserDetails() {
     // Obtener cliente Supabase del singleton
     const supabase = getSupabaseServer()
 
-    // Obtener la sesión primero usando nuestra función mejorada con reintentos
-    const session = await getSession()
+    // Usar supabase.auth.getUser() para obtener la información del usuario de forma segura
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    // Si no hay sesión, no podemos obtener los detalles del usuario
-    if (!session) {
-      console.log("No hay sesión activa en getUserDetails")
+    // Si no hay usuario o hay error, no podemos obtener los detalles
+    if (userError || !user) {
+      console.log("No hay usuario autenticado en getUserDetails:", userError)
       return null
     }
 
@@ -108,7 +108,7 @@ export async function getUserDetails() {
         const { data, error } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", user.id)
           .single()
 
         if (error) {
