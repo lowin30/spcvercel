@@ -9,7 +9,55 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Debug Environment
+        run: |
+          echo "Node version:" 
+          node --version
+          echo "NPM version:" 
+          npm --version
+          echo "Directory structure:" 
+          find . -type f -name "*.tsx" | sort
+          echo "Package.json content:"
+          cat package.json
+          echo "Next config content:"
+          cat next.config.mjs
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        
+      - name: Build project
+        run: |
+          echo "Starting build..."
+          NEXT_DEBUG=1 pnpm run build
+        continue-on-error: true
+          
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v20
         with:
