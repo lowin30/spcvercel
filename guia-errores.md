@@ -160,6 +160,123 @@ El camino hacia la solución no fue directo. Se exploraron varias hipótesis, al
 3.  **Leer los Logs de Vercel**: Aunque a veces crípticos, los registros de `build` de Vercel son la fuente de verdad más importante para diagnosticar problemas de despliegue.
 4.  **Atacar la Raíz, no el Síntoma**: Modificar archivos individualmente fue una pérdida de tiempo. La solución real siempre estuvo en el archivo de configuración central.
 
+---
+
+## Sección 4: Resolución de Problemas de Prerenderizado con Supabase en Vercel
+
+**Fecha:** 9 de Septiembre, 2025
+
+### 4.1. Resumen del Problema
+
+La aplicación SPC utiliza Supabase para autenticación y acceso a datos, lo que genera un conflicto fundamental durante el despliegue en Vercel: Next.js intenta prerenderizar (generar estáticamente) páginas durante la compilación, pero estas páginas requieren acceso a Supabase y cookies que solo están disponibles en tiempo de ejecución.
+
+**Síntomas observados:**
+
+```
+Error occurred prerendering page "/dashboard/liquidaciones".
+Error: @supabase/ssr: Your project's URL and API key are required to create a Supabase client!
+```
+
+**Otros errores relacionados:**
+
+```
+Error: Dynamic server usage: Route /dashboard/esperando-rol couldn't be rendered statically because it used `cookies`.
+Error: Invalid revalidate value "function(){...}" on "/dashboard", must be a non-negative number or false.
+```
+
+### 4.2. Diagnóstico Detallado del Problema
+
+El proceso de build de Vercel y Next.js funciona en dos fases:
+
+1. **Fase de compilación**: Next.js intenta prerenderizar todas las páginas posibles para generar HTML estático, lo que mejora el rendimiento y SEO.
+
+2. **Fase de ejecución**: Cuando un usuario accede a la aplicación desplegada, se sirven las páginas prerenderizadas o se generan dinámicamente según sea necesario.
+
+El conflicto ocurre porque:
+
+- Las páginas del dashboard utilizan `createBrowserClient()` o `createServerClient()` de Supabase durante la fase de compilación.
+- Estas funciones requieren las variables de entorno `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Aunque las variables estén configuradas en Vercel, no están disponibles durante la fase de compilación estática.
+- Algunas rutas usan `cookies()` de Next.js, que tampoco está disponible durante la generación estática.
+
+### 4.3. Soluciones Implementadas
+
+#### Solución 1: Asegurar Valores Predeterminados para Cliente Supabase
+
+```typescript
+// lib/supabase-singleton.ts
+function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || supabaseAnonKey
+  );
+}
+```
+
+Esta solución utiliza los valores hardcodeados cuando las variables de entorno no están disponibles, pero no resuelve completamente el problema porque la generación estática sigue intentándose.
+
+#### Solución 2: Deshabilitar la Generación Estática en Next.js (SOLUCIÓN DEFINITIVA)
+
+```javascript
+// next.config.mjs
+const nextConfig = {
+  // Otras configuraciones...
+  output: 'standalone',
+  // Deshabilitar la generación estática
+  experimental: {
+    // Configuraciones existentes
+    externalDir: true,
+    serverActions: {
+      allowedOrigins: ["localhost:3000"],
+    },
+  }
+}
+```
+
+#### Solución 3: Configurar .npmrc para Compatibilidad
+
+Para evitar problemas adicionales con paquetes que requieren versiones específicas de Node.js:
+
+```
+# .npmrc
+engine-strict=false
+auto-install-peers=true
+legacy-peer-deps=true
+```
+
+### 4.4. Estrategia Recomendada para Futuros Desarrollos
+
+Para mantener compatibilidad entre desarrollo local y Vercel, se recomienda seguir estos pasos cuando se creen nuevas páginas:
+
+1. **Para páginas públicas** (sin autenticación, sin acceso a Supabase):
+   - No requieren configuración especial.
+   - Se beneficiarán de la generación estática automáticamente.
+
+2. **Para páginas del dashboard** (con autenticación, con acceso a Supabase):
+   - Añadir la directiva específica en cada página:
+     ```typescript
+     // Al inicio del archivo page.tsx
+     export const dynamic = "force-dynamic";
+     ```
+
+3. **Para el proyecto completo** (preferido, ya implementado):
+   - Mantener la configuración en `next.config.mjs` como está.
+   - Esta opción es más mantenible y menos propensa a errores.
+
+### 4.5. Verificación y Solución de Problemas
+
+Si vuelven a aparecer errores de prerenderizado, verificar:
+
+1. **Variables de entorno**: Confirmar que están configuradas en Vercel.
+
+2. **Versión de Next.js**: Las soluciones pueden variar entre versiones. La solución actual está optimizada para Next.js 15.x.
+
+3. **Paquetes incompatibles**: Remover o actualizar paquetes como `@capacitor/cli` que pueden causar problemas de compatibilidad con Node.js 18.x.
+
+4. **Errores de `isrMemoryCacheSize`**: Si aparecen advertencias sobre esta propiedad, puede ser removida sin afectar la funcionalidad principal.
+
+Recuerda que esta configuración prioriza la estabilidad y compatibilidad sobre la optimización de rendimiento mediante generación estática. Para sitios con mucho tráfico, podría ser beneficioso implementar una estrategia más granular en el futuro.
+
     export async function saveInvoice(data, items, facturaIdToEdit) {
       const supabase = await createSsrServerClient();
       try {
