@@ -7,9 +7,9 @@ import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 import { TaskStatusBadge } from "./tasks-badge"
 
 // Importar componentes específicos por rol
-import { AdminDashboard } from "./admin-dashboard.jsx"
-import { SupervisorDashboard } from "./supervisor-dashboard.jsx"
-import { TrabajadorDashboard } from "./trabajador-dashboard.jsx"
+import { AdminDashboard } from "./admin-dashboard"
+import { SupervisorDashboard } from "./supervisor-dashboard"
+import { TrabajadorDashboard } from "./trabajador-dashboard"
 
 // Definir tipos para mejorar la inferencia
 type StatsType = {
