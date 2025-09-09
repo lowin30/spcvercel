@@ -6,10 +6,6 @@ import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 import { TaskStatusBadge } from "./tasks-badge"
 
-// Configuración para evitar la generación estática
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
 // Importar componentes específicos por rol
 import { AdminDashboard } from "./admin-dashboard"
 import { SupervisorDashboard } from "./supervisor-dashboard"

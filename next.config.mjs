@@ -17,12 +17,19 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Configuración para evitar la pre-renderización estática de las rutas del dashboard
+  // Configuración para evitar la pre-renderización estática
   // Esto soluciona el problema con Supabase durante el build en Vercel
   output: 'standalone',
-  publicRuntimeConfig: {
-    // Ayuda a diferenciar entre build time y runtime para variables de entorno
-    isProd: process.env.NODE_ENV === 'production',
+  // Solución definitiva: deshabilitar completamente la generación estática
+  generateStaticParams: false,
+  experimental: {
+    // Deshabilitar completamente la generación estática
+    externalDir: true,
+    serverActions: {
+      allowedOrigins: ["localhost:3000"],
+    },
+    // Tratar todas las rutas como dinámicas en producción
+    isrMemoryCacheSize: 0,
   },
   webpack: (config) => {
     config.resolve.alias['@'] = path.resolve('./');
