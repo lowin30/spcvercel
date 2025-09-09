@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase-client"
 import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
-import { TaskStatusBadge } from "./tasks-badge.jsx"
+import { TaskStatusBadge } from "./tasks-badge"
 
 // Importar componentes específicos por rol
 import { AdminDashboard } from "./admin-dashboard.jsx"
