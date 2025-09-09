@@ -3,15 +3,24 @@ import type { PostgrestFilterBuilder, PostgrestSingleResponse, PostgrestResponse
 /**
  * Función de ayuda para ejecutar consultas con count en Supabase de forma segura
  * Esta función maneja los problemas de tipado relacionados con la propiedad count
+ * IMPORTANTE: NO usar con head:true para evitar errores 400 Bad Request
  */
 export async function executeCountQuery<T>(
   query: PostgrestFilterBuilder<any, any, any, any>
 ): Promise<{ count: number; error: any }> {
   try {
+    // Asegurarse de que no estamos usando head: true para evitar errores 400
+    // Solo usar { count: 'exact' } sin head: true
     const response = await query
     
-    // Obtener el count de forma segura
-    const count = typeof response.count === 'number' ? response.count : 0
+    // Obtener el count de forma segura - de la propiedad count si existe
+    // o calcularlo a partir del arreglo de datos si no existe
+    let count = 0;
+    if (typeof response.count === 'number') {
+      count = response.count;
+    } else if (Array.isArray(response.data)) {
+      count = response.data.length;
+    }
     
     return { 
       count,

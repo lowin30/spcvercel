@@ -79,7 +79,7 @@ export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
     {
       href: "/dashboard/trabajadores/registro-dias",
       icon: Clock,
-      title: "Mis Días",
+      title: userRole === "supervisor" ? "Seguimiento de Trabajadores" : "Mis Días",
     },
     {
       href: "/dashboard/trabajadores/gastos",
