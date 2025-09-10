@@ -93,6 +93,7 @@ const taskStatuses = [
   { id: "7", nombre: "Terminado", color: "green" },
   { id: "8", nombre: "Reclamado", color: "red" },
   { id: "9", nombre: "Liquidada", color: "purple" },
+  { id: "10", nombre: "Posible", color: "yellow" },
 ];
 
 const statusStyles: { [key: string]: string } = {
