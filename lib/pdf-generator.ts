@@ -61,6 +61,9 @@ export async function generarPresupuestoPDF(datos: DatosPresupuesto): Promise<Bl
   // Después añadir logo y datos del presupuesto en la parte superior
   posicionY += 10
   
+  // Variables para alineación vertical
+  let posicionInferiorLogo = posicionY;
+  
   try {
     // Cargar el logo desde la carpeta pública con su forma original
     const logoUrl = "/logo.png" // Ruta al logo en public
@@ -68,12 +71,16 @@ export async function generarPresupuestoPDF(datos: DatosPresupuesto): Promise<Bl
     const anchoLogo = 60 // Ancho fijo en unidades del PDF
     const altoLogo = anchoLogo / (234/82) // Calcular altura proporcional
     doc.addImage(logoUrl, "PNG", margenIzquierdo, posicionY, anchoLogo, altoLogo)
+    
+    // Actualizar posición inferior del logo para datos de contacto
+    posicionInferiorLogo = posicionY + altoLogo + 5;
   } catch (error) {
     console.error("Error al cargar el logo:", error)
     // Si hay error al cargar la imagen, mostrar el nombre de la empresa como texto
     doc.setFontSize(14)
     doc.setFont("helvetica", "bold")
     doc.text("SERVICIOS PARA CONSORCIO", margenIzquierdo, posicionY + 15)
+    posicionInferiorLogo = posicionY + 20; // Ajuste si no hay logo
   }
     
   // Fecha y código del presupuesto (a la derecha)
@@ -82,49 +89,65 @@ export async function generarPresupuestoPDF(datos: DatosPresupuesto): Promise<Bl
   doc.setFontSize(10)
   doc.setFont("helvetica", "normal")
   doc.text(`Fecha del Estimación: ${format(datos.fecha, "d MMM yyyy", { locale: es })}`, posicionDerecha, posicionY + 5, { align: "right" })
-  doc.text(`Presupuesto # ${datos.codigo}`, posicionDerecha, posicionY + 12, { align: "right" })
+  doc.text(`Presupuesto # ${datos.codigo}`, posicionDerecha, posicionY + 8, { align: "right" })
 
   // El Total se mostrará debajo de la tabla
 
-  // Datos fijos de la empresa - como se ve en la imagen de referencia
-  posicionY += 25 // Reducido para menos espacio debajo del logo
-  
+  // Datos de contacto de la empresa (IZQUIERDA)
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)
-  doc.text("araoz 2989 - asdas", margenIzquierdo, posicionY)
-  
-  posicionY += 4
-  doc.text("CUIT: 30535050483", margenIzquierdo, posicionY)
-  
-  // Eliminamos la segunda repetición de la tarea
-  // Solo dejamos la tarea del cliente si existe
-  if (datos.cliente.tarea && !datos.cliente.tarea.includes("araoz 2989")) {
-    posicionY += 4 
-    doc.text(`${datos.cliente.tarea}`, margenIzquierdo, posicionY)
+  doc.text("Tel: 1131259449", margenIzquierdo, posicionInferiorLogo) // Teléfono
+  doc.text("Email: lowin30@gmail.com", margenIzquierdo, posicionInferiorLogo + 4) // Email
+
+  // Datos del CLIENTE (DERECHA)
+  // Calcular para que coincida verticalmente con los datos de la empresa
+  const posicionYClienteInicio = posicionY + 16 // Valor equilibrado para una separación adecuada
+
+  // Título de CLIENTE
+  doc.setFontSize(10)
+  doc.setFont("helvetica", "bold")
+  doc.text("CLIENTE", posicionDerecha, posicionYClienteInicio, { align: "right" })
+
+  // Datos del cliente, ahora más arriba
+  doc.setFont("helvetica", "normal")
+  let posicionYCliente = posicionYClienteInicio + 5
+
+  // Nombre del edificio
+  if (datos.cliente.nombre) {
+    doc.text(`${datos.cliente.nombre}`, posicionDerecha, posicionYCliente, { align: "right" })
+    posicionYCliente += 4
   }
 
-  // Datos de contacto - justo debajo de la fecha y código a la derecha
-  // Reusamos la variable posicionDerecha para alineación
-  let posicionYDerecha = posicionY - 5 // Usar una altura adecuada en relación a los datos fijos
-  
-  doc.setFontSize(9)
-  doc.text("1131259449", posicionDerecha, posicionYDerecha, { align: "right" })
-  posicionYDerecha += 4
-  doc.text("lowin30@gmail.com", posicionDerecha, posicionYDerecha, { align: "right" })
+  // CUIT del edificio
+  if (datos.cliente.cuit) {
+    doc.text(`CUIT: ${datos.cliente.cuit}`, posicionDerecha, posicionYCliente, { align: "right" })
+    posicionYCliente += 4
+  }
+
+  // Tarea - Alineada verticalmente con el email
+  if (datos.cliente.tarea) {
+    doc.text(`${datos.cliente.tarea}`, posicionDerecha, posicionYCliente, { align: "right" })
+  }
+
+  // Ajustar la posición Y para seguir con el resto del PDF
+  posicionY = Math.max(posicionInferiorLogo + 10, posicionYCliente + 5)
 
   // Tabla de ítems - espacio reducido para mayor compacidad
-  posicionY += 8
+  posicionY += 4
 
   // Encabezados de la tabla
-  const headers = [["#", "Artículo & Descripción", "Cant.", "Tarifa", "Cantidad"]]
+  const headers = [["N", "Artículo & Descripción", "Cant.", "Tarifa", "Cantidad"]]
 
   // Datos de la tabla
-  const body = datos.items.map((item) => {
+  const body = datos.items.map((item, index) => {
     // Dividir la descripción en líneas si es muy larga
     const descripcionLineas = doc.splitTextToSize(item.descripcion, 100)
+    
+    // Usar un contador secuencial (1, 2, 3...) en lugar del ID
+    const numeroItem = (index + 1).toString()
 
     return [
-      item.id.toString(),
+      numeroItem,
       descripcionLineas,
       item.cantidad.toFixed(2),
       item.tarifa.toLocaleString(),
