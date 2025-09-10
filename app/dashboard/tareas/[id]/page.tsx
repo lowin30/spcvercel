@@ -53,6 +53,98 @@ interface TaskPageProps {
   params: Promise<{ id: string }>
 }
 
+// Función para analizar fechas en diferentes formatos
+function parseFechaVisita(fechaStr: string | null): Date | null {
+  if (!fechaStr) return null;
+  
+  console.log("Intentando parsear fecha:", fechaStr);
+  
+  // Verificar si es un timestamp numérico (milisegundos desde epoch)
+  if (/^\d+$/.test(fechaStr)) {
+    const timestamp = parseInt(fechaStr);
+    console.log("Detectado posible timestamp numérico:", timestamp);
+    
+    // Verificar si es un timestamp válido (no muy antiguo ni muy futuro)
+    // Si es entre 2020 y 2030 en milisegundos o segundos
+    let date;
+    
+    // Si es un timestamp en segundos (común en bases de datos)
+    if (timestamp > 1500000000 && timestamp < 2000000000) {
+      date = new Date(timestamp * 1000); // Convertir a milisegundos
+      console.log("Convertido timestamp en segundos a fecha:", date);
+    } else {
+      // Asumir que ya está en milisegundos
+      date = new Date(timestamp);
+      console.log("Convertido timestamp en milisegundos a fecha:", date);
+    }
+    
+    if (!isNaN(date.getTime())) {
+      console.log("Fecha parseada como timestamp numérico:", date);
+      return date;
+    }
+  }
+  
+  // Primero intentar el constructor estándar
+  const date = new Date(fechaStr);
+  if (!isNaN(date.getTime())) {
+    console.log("Fecha parseada exitosamente con constructor estándar:", date);
+    return date;
+  }
+  
+  // Si falla, intentar parsear formatos comunes de PostgreSQL
+  // Ejemplo: "2023-09-10 15:30:00"
+  const matchFormato1 = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ]?(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/i);
+  if (matchFormato1) {
+    const [_, year, month, day, hours = '0', minutes = '0', seconds = '0'] = matchFormato1;
+    const fechaParseada = new Date(
+      parseInt(year), 
+      parseInt(month) - 1, // Mes en JS es 0-11
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes),
+      parseInt(seconds)
+    );
+    console.log("Fecha parseada con expresión regular formato 1:", fechaParseada);
+    return fechaParseada;
+  }
+  
+  // Intentar con otro formato: "10/09/2023 15:30:00"
+  const matchFormato2 = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ]?(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (matchFormato2) {
+    const [_, day, month, year, hours = '0', minutes = '0', seconds = '0'] = matchFormato2;
+    const fechaParseada = new Date(
+      parseInt(year), 
+      parseInt(month) - 1, 
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes),
+      parseInt(seconds)
+    );
+    console.log("Fecha parseada con expresión regular formato 2:", fechaParseada);
+    return fechaParseada;
+  }
+  
+  // Formato ISO con T en medio
+  const matchFormato3 = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+  if (matchFormato3) {
+    const [_, year, month, day, hours = '0', minutes = '0', seconds = '0'] = matchFormato3;
+    const fechaParseada = new Date(
+      parseInt(year), 
+      parseInt(month) - 1,
+      parseInt(day),
+      parseInt(hours),
+      parseInt(minutes), 
+      parseInt(seconds)
+    );
+    console.log("Fecha parseada con formato ISO:", fechaParseada);
+    return fechaParseada;
+  }
+  
+  // Si nada funciona, retornar null
+  console.warn("No se pudo parsear la fecha:", fechaStr);
+  return null;
+}
+
 export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   const { id } = use(paramsPromise);
   const router = useRouter()
@@ -221,6 +313,35 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       if (!tareaData) {
         setError("La tarea que estás buscando no existe o ha sido eliminada.")
         return
+      }
+      
+      // DIAGNÓSTICO: Consulta directa a la tabla tareas para obtener fecha_visita
+      // ya que parece que la RPC no está devolviendo este campo
+      console.log("Consultando fecha_visita directamente de la tabla tareas");
+      const { data: fechaDirecta, error: errorFechaDirecta } = await supabase
+        .from("tareas")
+        .select("fecha_visita")
+        .eq("id", tareaId)
+        .single();
+        
+      if (!errorFechaDirecta) {
+        console.log("Respuesta directa de la tabla tareas:", fechaDirecta);
+        
+        if (fechaDirecta?.fecha_visita) {
+          console.log("Fecha de visita obtenida directamente:", fechaDirecta.fecha_visita);
+          console.log("Tipo de dato fecha_visita:", typeof fechaDirecta.fecha_visita);
+          
+          // Asignar la fecha directamente al objeto tareaData
+          tareaData.fecha_visita = fechaDirecta.fecha_visita;
+          
+          // Verificar si la fecha se puede parsear
+          const fechaParseada = parseFechaVisita(fechaDirecta.fecha_visita);
+          console.log("Fecha parseada para verificación:", fechaParseada);
+        } else {
+          console.warn("La fecha_visita está vacía o nula");
+        }
+      } else {
+        console.warn("No se pudo obtener fecha_visita directamente:", errorFechaDirecta);
       }
       
       // Añadir log para depurar los datos del edificio (ahora vienen planos desde la RPC)
@@ -830,8 +951,24 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             <div>
               <h3 className="font-medium mb-1">Fecha de visita</h3>
               <div className="flex items-center mb-2">
+                {/* Logs de diagnóstico para la fecha de visita */}
+                {console.log("DEBUG - fecha_visita:", { 
+                  raw: tarea.fecha_visita,
+                  tipo: typeof tarea.fecha_visita,
+                  date_obj: tarea.fecha_visita ? new Date(tarea.fecha_visita) : null,
+                  date_valid: tarea.fecha_visita ? !isNaN(new Date(tarea.fecha_visita).getTime()) : false,
+                  fecha_iso: tarea.fecha_visita ? new Date(tarea.fecha_visita).toISOString() : null
+                })}
+                {/* Mostrar detalles de la fecha en consola */}
+                {console.log("Detalles completos de la tarea:", {
+                  id: tarea.id,
+                  titulo: tarea.titulo,
+                  fecha_visita_raw: tarea.fecha_visita,
+                  fecha_creacion: tarea.fecha_creacion
+                })}
+                
                 <DatePickerVisual
-                  date={tarea.fecha_visita ? new Date(tarea.fecha_visita) : null}
+                  date={parseFechaVisita(tarea.fecha_visita)}
                   onDateChange={onDateChange}
                   disabled={false} // Permitir que todos los roles puedan modificar la fecha de visita
                 />

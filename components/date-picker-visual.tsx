@@ -21,6 +21,16 @@ export function DatePickerVisual({
   onDateChange, 
   disabled = false 
 }: DatePickerVisualProps) {
+  // Log de diagnóstico para la fecha recibida como prop
+  console.log("DatePickerVisual recibe fecha:", { 
+    date, 
+    tipo: typeof date,
+    esValido: date ? !isNaN(date.getTime()) : 'es null',
+    esNaN: date ? isNaN(date.getTime()) : 'es null',
+    iso: date ? date.toISOString() : 'es null',
+    string: date ? date.toString() : 'es null'
+  });
+
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(date)
   const [timeValue, setTimeValue] = React.useState<string>(
     date ? format(date, "HH:mm") : ""
@@ -28,6 +38,7 @@ export function DatePickerVisual({
 
   // Sincronizar estado cuando cambia la prop date
   React.useEffect(() => {
+    console.log("[DatePickerVisual] useEffect - date cambiada:", date);
     setSelectedDate(date)
     setTimeValue(date ? format(date, "HH:mm") : "")
   }, [date])
@@ -80,6 +91,7 @@ export function DatePickerVisual({
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {selectedDate ? (
+            // Usar locale es para mostrar la fecha en español
             format(selectedDate, "PPP, HH:mm", { locale: es })
           ) : (
             <span>Seleccionar fecha y hora</span>
