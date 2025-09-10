@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { createClient } from "@/lib/supabase-client"
+import { obtenerEstadosTarea, EstadoTarea } from "@/lib/estados-service"
 
 interface Estado {
   id: number
@@ -75,36 +76,37 @@ export function EstadoInteractivo({
   const [esTareaFinalizada, setEsTareaFinalizada] = useState<boolean>(esFinalizada)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Cargar los estados según el tipo de entidad desde Supabase
+  // Cargar los estados según el tipo de entidad desde el servicio centralizado
   useEffect(() => {
-    const cargarEstadosDesdeSupabase = async () => {
+    const cargarEstados = async () => {
       setIsLoading(true);
       try {
-        const supabase = createClient();
-        // Asumiendo que la tabla estados_tareas tiene una columna 'tipo_entidad' o similar para filtrar.
-        // Si no, ajusta la consulta. Por ahora, cargaremos todos y filtraremos en cliente si es necesario,
-        // o si 'tipoEntidad' se refiere a la tabla a actualizar (ej. 'tareas' vs 'presupuestos').
-        // Para este caso, asumimos que 'estados_tareas' es la fuente única y no necesita filtro por tipoEntidad aquí.
-        const { data: estadosData, error: estadosError } = await supabase
-          .from("estados_tareas")
-          .select("id, codigo, nombre, descripcion, color, orden") // Asegúrate que estas columnas existan
-          .order("orden", { ascending: true });
-
-        if (estadosError) {
-          console.error("Error al cargar estados desde Supabase:", estadosError);
-          toast({ title: "Error", description: "No se pudieron cargar los estados.", variant: "destructive" });
-          setEstados([]);
-          setEstadoActual(null);
+        // Forzar la actualización para asegurarnos de obtener los estados más recientes
+        console.log('EstadoInteractivo: Solicitando estados de tareas');
+        const estadosDisponibles = await obtenerEstadosTarea(true); // Forzar actualización
+        console.log('EstadoInteractivo: Estados recibidos:', estadosDisponibles);
+        
+        if (!estadosDisponibles || estadosDisponibles.length === 0) {
+          console.error('EstadoInteractivo: No se recibieron estados');
+          toast({ 
+            title: "Error", 
+            description: "No se pudieron cargar los estados de las tareas. Intente recargar la página.", 
+            variant: "destructive" 
+          });
           return;
         }
-
-        const estadosDisponibles: Estado[] = (estadosData as Estado[]) || [];
-        setEstados(estadosDisponibles);
+        
+        setEstados(estadosDisponibles as Estado[]);
         
         const estadoEncontrado = estadosDisponibles.find(e => e.id === estadoActualId) || null;
-        setEstadoActual(estadoEncontrado);
-        console.log('Estados cargados desde Supabase:', { tipoEntidad, estadoActualId, estadoEncontrado, disponibles: estadosDisponibles.length });
-
+        setEstadoActual(estadoEncontrado as Estado | null);
+        console.log('EstadoInteractivo: Estados cargados correctamente:', { 
+          tipoEntidad, 
+          estadoActualId, 
+          estadoEncontrado, 
+          disponibles: estadosDisponibles.length,
+          estadosList: estadosDisponibles.map(e => `${e.id}: ${e.nombre}`)
+        });
       } catch (error) {
         console.error("Error general al cargar estados:", error);
         toast({ title: "Error", description: "Ocurrió un error inesperado al cargar estados.", variant: "destructive" });
@@ -113,7 +115,7 @@ export function EstadoInteractivo({
       }
     };
     
-    cargarEstadosDesdeSupabase();
+    cargarEstados();
   }, [tipoEntidad, estadoActualId]);
   
   // Actualizar estado finalizado cuando cambia desde las props

@@ -51,7 +51,8 @@ export default function TareasPage() {
     { id: 6, nombre: "Facturado", color: "orange", codigo: "facturado", descripcion: "Tarea facturada", orden: 6 },
     { id: 7, nombre: "Terminado", color: "green", codigo: "terminado", descripcion: "Tarea completada", orden: 7 },
     { id: 8, nombre: "Reclamado", color: "red", codigo: "reclamado", descripcion: "Tarea con reclamo del cliente", orden: 8 },
-    { id: 9, nombre: "Liquidada", color: "purple", codigo: "liquidada", descripcion: "Tarea completada y liquidada financieramente", orden: 9 }
+    { id: 9, nombre: "Liquidada", color: "purple", codigo: "liquidada", descripcion: "Tarea completada y liquidada financieramente", orden: 9 },
+    { id: 10, nombre: "Posible", color: "yellow", codigo: "posible", descripcion: "Son posibles trabajos a futuro", orden: 10 }
   ]
   
   // Obtener el número de tareas por cada estado normalizado
@@ -147,6 +148,8 @@ export default function TareasPage() {
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
       case "orange":
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
+      case "yellow":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
       case "red":
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
       default:
@@ -534,26 +537,6 @@ export default function TareasPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumen de Tareas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {estadosTarea.map(estado => (
-              <div 
-                key={estado.id}
-                className={`flex flex-col items-center p-4 rounded-lg ${getBgColorClass(estado.color)}`}
-              >
-                <h3 className="text-sm font-medium">{estado.nombre}</h3>
-                <p className="text-2xl font-bold">{contadorTareasPorEstado[estado.id]}</p>
-                <p className="text-xs text-muted-foreground mt-1">{estado.descripcion}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Barra de búsqueda y filtros */}
       <Card className="my-8 md:mb-6">
         <CardHeader className="pb-2">
@@ -706,34 +689,98 @@ export default function TareasPage() {
       </Card>
       
       {/* Tabs de estados normalizados */}
-      <Tabs defaultValue="todas" className="mt-10 pt-4">
-        <TabsList className="flex flex-wrap md:flex-nowrap w-full gap-2 bg-transparent p-0 overflow-x-auto pb-2">
-          <TabsTrigger value="todas" className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm md:text-base py-3">
-            Todas ({tareasFiltradas.length})
+      <Tabs defaultValue="todas" className="mt-5 pt-2">
+        <TabsList className="flex flex-col md:flex-row w-full gap-0.5 md:gap-2 bg-transparent p-0">
+          <TabsTrigger 
+            value="todas" 
+            className="w-full h-8 md:h-auto data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            title="Todas las tareas"
+          >
+            <span>Todas</span>
+            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+              {tareasFiltradas.length}
+            </Badge>
           </TabsTrigger>
-          {/* Generamos todas las pestañas dinámicamente a partir de los estados */}
-          {estadosTarea.map(estado => (
-            <TabsTrigger 
-              key={estado.id}
-              value={`estado-${estado.id}`} 
-              className={`flex-1 data-[state=active]:bg-${estado.color}-500 data-[state=active]:text-white text-sm md:text-base py-3 min-w-[110px]`}
-            >
-              {estado.nombre} ({tareasPorEstadoFiltradas[estado.id]?.length || 0})
-            </TabsTrigger>
-          ))}
+          
+          {/* Pestaña Organizar - gris */}
+          <TabsTrigger 
+            value="estado-1" 
+            className="w-full h-8 md:h-auto data-[state=active]:bg-gray-500 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            title="Tarea en fase inicial de organización"
+          >
+            <span>Organizar</span>
+            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+              {tareasPorEstadoFiltradas[1]?.length || 0}
+            </Badge>
+          </TabsTrigger>
+          
+          {/* Pestaña Aprobado - verde */}
+          <TabsTrigger 
+            value="estado-5" 
+            className="w-full h-8 md:h-auto data-[state=active]:bg-green-600 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            title="Presupuesto aprobado por el cliente"
+          >
+            <span>Aprobado</span>
+            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+              {tareasPorEstadoFiltradas[5]?.length || 0}
+            </Badge>
+          </TabsTrigger>
+          
+          {/* Pestaña para el estado "Posible" - amarillo */}
+          <TabsTrigger 
+            value="estado-10" 
+            className="w-full h-8 md:h-auto data-[state=active]:bg-yellow-500 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            title="Son posibles trabajos a futuro"
+          >
+            <span>Posible</span>
+            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+              {tareasPorEstadoFiltradas[10]?.length || 0}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
         
-        {/* Contenido para "Todas" */}
+        {/* Contenido para "Todas" las tareas */}
         <TabsContent value="todas" className="mt-8 pt-2">
+          <div className="mb-4">
+            <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+              Todas las tareas del sistema
+            </Badge>
+          </div>
           <TaskList tasks={tareasFiltradas} userRole={userDetails?.rol || ""} />
         </TabsContent>
         
-        {/* Generamos el contenido para cada estado */}
-        {estadosTarea.map(estado => (
-          <TabsContent key={estado.id} value={`estado-${estado.id}`} className="mt-8 pt-2">
-            <TaskList tasks={tareasPorEstadoFiltradas[estado.id] || []} userRole={userDetails?.rol || ""} />
-          </TabsContent>
-        ))}
+        {/* Contenido para estado "Organizar" */}
+        <TabsContent value="estado-1" className="mt-8 pt-2">
+          <div className="mb-4">
+            <Badge variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-200">
+              Tareas en estado "Organizar" - Fase inicial de organización
+            </Badge>
+          </div>
+          <TaskList tasks={tareasPorEstadoFiltradas[1] || []} userRole={userDetails?.rol || ""} />
+        </TabsContent>
+        
+        {/* Contenido para estado "Aprobado" */}
+        <TabsContent value="estado-5" className="mt-8 pt-2">
+          <div className="mb-4">
+            <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-200">
+              Tareas en estado "Aprobado" - Presupuesto aprobado por el cliente
+            </Badge>
+          </div>
+          <TaskList tasks={tareasPorEstadoFiltradas[5] || []} userRole={userDetails?.rol || ""} />
+        </TabsContent>
+        
+        {/* Contenido para estado Posible */}
+        <TabsContent value="estado-10" className="mt-8 pt-2">
+          <div className="mb-4">
+            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
+              Tareas en estado "Posible" - Son posibles trabajos a futuro
+            </Badge>
+          </div>
+          <TaskList 
+            tasks={tareasPorEstadoFiltradas[10] || []} 
+            userRole={userDetails?.rol || ""}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   )
