@@ -65,8 +65,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Mostrar un indicador de carga mientras se verifica la autenticación
   if (loading) {
+    // Añadimos suppressHydrationWarning para evitar el error de hidratación 
+    // relacionado con las extensiones del navegador
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div 
+        className="flex min-h-screen items-center justify-center" 
+        suppressHydrationWarning
+      >
         <div className="text-center">
           <div className="mb-4 text-2xl font-bold">Cargando...</div>
           <div className="text-gray-500">Verificando autenticación</div>
@@ -77,9 +82,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Renderizar el dashboard una vez que tenemos los detalles del usuario
   return (
-    <DashboardShell userDetails={userDetails}>
-      {children}
-      <Toaster />
-    </DashboardShell>
+    // Usamos suppressHydrationWarning para evitar errores de hidratación
+    // causados por extensiones del navegador
+    <div suppressHydrationWarning>
+      <DashboardShell userDetails={userDetails}>
+        {children}
+        <Toaster />
+      </DashboardShell>
+    </div>
   )
 }

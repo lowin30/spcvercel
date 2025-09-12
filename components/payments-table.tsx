@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Eye, Trash2, Calendar, User, CreditCard } from "lucide-react";
 import { useTransition } from 'react';
-import { deletePayment } from '@/app/dashboard/pagos/actions';
+import { deletePayment } from '@/app/dashboard/pagos/borrar-pago';
 import type { EnrichedPayment } from "@/app/dashboard/pagos/page";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useEffect, useState } from "react";

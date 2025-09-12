@@ -199,6 +199,73 @@ El conflicto ocurre porque:
 - Aunque las variables estén configuradas en Vercel, no están disponibles durante la fase de compilación estática.
 - Algunas rutas usan `cookies()` de Next.js, que tampoco está disponible durante la generación estática.
 
+---
+
+## Sección 5: Solución Definitiva para Operaciones Autenticadas en Server Actions (Pagos)
+
+**Fecha:** 11 de Septiembre, 2025
+
+### 5.1. Resumen del Problema Crítico
+
+La funcionalidad para registrar pagos presentaba una serie de errores en cascada que impedían su funcionamiento y afectaban la integridad de los datos:
+
+1.  **Violación de Políticas de Seguridad (RLS)**: El error más grave era `new row violates row-level security policy for table "pagos_facturas"`. Esto ocurría porque la Server Action se ejecutaba con la clave anónima (`anon_key`) de Supabase, actuando como un usuario anónimo sin permisos para escribir en la tabla, en lugar de hacerlo en nombre del usuario `admin` que había iniciado sesión.
+
+2.  **Errores de Compilación y Sintaxis**: Los intentos de solucionar el problema principal introdujeron errores de sintaxis en `actions.ts`, como `Return statement is not allowed here`, que impedían que la aplicación compilara.
+
+3.  **Mala Experiencia de Usuario (UX)**: Una vez que se logró registrar el pago, la redirección (`redirect()`) desde el servidor era abrupta, impidiendo mostrar un mensaje de éxito (`toast`) y creando una experiencia de usuario confusa.
+
+4.  **Lógica de Negocio Incompleta**: El sistema permitía pagar facturas que ya estaban saldadas y, al realizar un pago, no actualizaba el `saldo_pendiente` ni el estado de la factura principal.
+
+### 5.2. Proceso de Diagnóstico y Solución (Arquitectura Robusta)
+
+La solución no fue un simple parche, sino una refactorización completa para adoptar el patrón arquitectónico correcto y recomendado por Supabase y Next.js para aplicaciones modernas.
+
+#### Etapa 1: Implementación del Cliente de Servidor Autenticado con `@supabase/ssr`
+
+-   **Causa Raíz Identificada**: El problema fundamental era la falta de un cliente de Supabase en el servidor que fuera consciente de la sesión del usuario.
+-   **Acción Tomada (La Solución Correcta)**:
+    1.  Se creó un nuevo archivo en **`lib/supabase/server.ts`**. Este archivo exporta una función `createSupabaseServerClient`.
+    2.  Esta función utiliza `createServerClient` de la librería `@supabase/ssr` y `cookies` de `next/headers` para construir un cliente de Supabase que **hereda la sesión de autenticación del usuario que realiza la petición**.
+
+    ```typescript
+    // en lib/supabase/server.ts
+    import { createServerClient } from '@supabase/ssr';
+    import { cookies } from 'next/headers';
+
+    export const createSupabaseServerClient = async () => {
+      const cookieStore = await cookies();
+      // ...lógica para pasar las cookies al cliente
+      return createServerClient(...);
+    };
+    ```
+
+#### Etapa 2: Refactorización de las Server Actions
+
+-   **Acción Tomada**: Se crearon archivos de acción dedicados y se refactorizó la lógica para usar el nuevo cliente de servidor.
+    1.  **Creación de Pagos (`crear-pago.ts`)**: La función `createPayment` ahora llama a `await createSupabaseServerClient()`. Esto le otorga un cliente Supabase que actúa como el usuario `admin` logueado. Como resultado, la inserción en `pagos_facturas` ahora cumple con las políticas de RLS y se ejecuta con éxito.
+    2.  **Eliminación de Pagos (`borrar-pago.ts`)**: Se creó una nueva acción `deletePayment` que también utiliza este cliente autenticado, permitiendo eliminar pagos de forma segura.
+
+#### Etapa 3: Mejora de la Experiencia de Usuario (UX)
+
+-   **Acción Tomada**: Se modificó el flujo de comunicación entre el servidor y el cliente.
+    1.  **Se eliminó `redirect()` de la Server Action**: En lugar de una redirección abrupta, la acción `createPayment` ahora devuelve un objeto de estado de éxito, como `{ success: true, message: 'Pago registrado...' }`.
+    2.  **Se actualizó el Componente Cliente (`PaymentForm.tsx`)**: El `useEffect` en el formulario ahora escucha este estado de `success`. Al recibirlo, muestra un `toast` de éxito y, después de un breve retraso, utiliza el `router` del cliente para redirigir suavemente al usuario a `/dashboard/facturas`.
+
+#### Etapa 4: Implementación de la Lógica de Negocio Faltante
+
+-   **Acción Tomada**: Se completó la funcionalidad para que el sistema sea robusto.
+    1.  **Actualización de Facturas**: Dentro de `createPayment`, después de registrar el pago, se añadió lógica para recalcular el `total_pagado` y `saldo_pendiente` de la factura y actualizar su estado a "Parcialmente Pagado" o "Pagado".
+    2.  **Prevención de Pagos Excesivos**: Se añadió una validación al inicio de `createPayment` que comprueba si el `saldo_pendiente` de la factura ya es cero. Si es así, la acción se detiene y devuelve un error, impidiendo pagos innecesarios.
+
+### 5.3. Lecciones Aprendidas y Estado Final
+
+1.  **La Autenticación en Server Actions es Clave**: Cualquier operación de escritura (INSERT, UPDATE, DELETE) en una Server Action debe realizarse con un cliente de Supabase que represente al usuario autenticado, no con la clave anónima. La librería `@supabase/ssr` es la herramienta canónica para lograr esto.
+2.  **La UX es Responsabilidad del Cliente**: Las redirecciones y notificaciones al usuario deben gestionarse en el componente cliente para una experiencia fluida. El servidor debe limitarse a realizar la operación y devolver un estado claro (éxito o error).
+3.  **Las Acciones Deben Ser Atómicas**: Una acción como "crear pago" debe ser responsable de todo el ciclo de vida de la operación, incluyendo la actualización de tablas relacionadas (como el saldo de la factura).
+
+**Estado Final**: El sistema de pagos ahora es seguro, robusto y ofrece una experiencia de usuario profesional. Cumple con las políticas de RLS, previene errores de datos y proporciona feedback claro al usuario.
+
 ### 4.3. Soluciones Implementadas
 
 #### Solución 1: Asegurar Valores Predeterminados para Cliente Supabase

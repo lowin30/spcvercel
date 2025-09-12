@@ -46,6 +46,15 @@ export default function NewPaymentPage() {
       }
       
       const supabase = createClient();
+      
+      // Verificar que supabase se haya inicializado correctamente
+      if (!supabase) {
+        console.error('Error: No se pudo inicializar el cliente de Supabase');
+        setError('Error de conexión: No se pudo inicializar el cliente de Supabase.');
+        setLoading(false);
+        return;
+      }
+      
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
@@ -53,10 +62,62 @@ export default function NewPaymentPage() {
         return;
       }
 
+      console.log(`Verificando factura con ID: ${factura_id} (tipo: ${typeof factura_id})`);
+      
+      // Intentamos encontrar la factura primero con el ID tal como viene
+      let facturaExists;
+      let existsError;
+      
+      // Primera búsqueda con el ID original
+      const resultOriginal = await supabase
+        .from('facturas')
+        .select('id')
+        .eq('id', factura_id)
+        .maybeSingle();
+      
+      facturaExists = resultOriginal.data;
+      existsError = resultOriginal.error;
+      
+      // Si no encontramos resultados, intentamos con una conversión de tipo
+      if (!facturaExists && !existsError) {
+        const idNumerico = Number(factura_id);
+        console.log(`Intentando con ID convertido a número: ${idNumerico}`);
+        
+        const resultNum = await supabase
+          .from('facturas')
+          .select('id')
+          .eq('id', idNumerico)
+          .maybeSingle();
+          
+        facturaExists = resultNum.data;
+        existsError = resultNum.error;
+      }
+
+      if (existsError) {
+        console.error('Error al verificar la existencia de la factura:', existsError);
+        setError(`Error al buscar la factura con ID ${factura_id}: ${existsError.message}`);
+        setLoading(false);
+        return;
+      }
+      
+      if (!facturaExists) {
+        console.error(`La factura con ID ${factura_id} no existe.`);
+        setError(`La factura con ID ${factura_id} no existe en la base de datos.`);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Factura encontrada correctamente:', facturaExists);
+
+      // Obtener datos completos de la factura usando el ID que ya verificamos que existe
+      // Usamos el ID que nos devolvió la verificación anterior
+      const facturaId = facturaExists?.id;
+      console.log(`Obteniendo datos completos para factura ID: ${facturaId}`);
+      
       const { data: facturaData, error: facturaError } = await supabase
         .from('facturas')
         .select('id, code, total, total_pagado, saldo_pendiente')
-        .eq('id', factura_id)
+        .eq('id', facturaId)
         .single();
 
       if (facturaError || !facturaData) {
@@ -65,11 +126,12 @@ export default function NewPaymentPage() {
         return;
       }
       
-      // Obtener historial de pagos
+      // Obtener historial de pagos - usamos el mismo ID que verificamos
+      console.log(`Buscando pagos anteriores para factura ID: ${facturaId}`);
       const { data: pagosAnteriores, error: pagosError } = await supabase
         .from('pagos_facturas')
         .select('monto_pagado, fecha_pago, modalidad_pago')
-        .eq('id_factura', factura_id)
+        .eq('id_factura', facturaId)
         .order('fecha_pago', { ascending: false });
         
       if (pagosError) {
@@ -161,7 +223,7 @@ export default function NewPaymentPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" suppressHydrationWarning>
         <div className="flex items-center">
             <Button variant="ghost" size="sm" asChild className="mr-2">
               <Link href={`/dashboard/facturas/${factura.id}`}>

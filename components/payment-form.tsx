@@ -1,14 +1,16 @@
 "use client"
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom'; // useFormStatus se importa de react-dom
+import React from 'react';
+import { useActionState, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
 import { CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createPayment, type State } from '@/app/dashboard/pagos/actions';
-import { useState, useEffect } from 'react';
+import { createPayment, type State } from '@/app/dashboard/pagos/nuevo/crear-pago';
+import { useState, useEffect, FormEvent } from 'react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface PaymentFormProps {
   facturaId: string;
@@ -16,12 +18,25 @@ interface PaymentFormProps {
   saldoPendiente?: number | string;
 }
 
-// Componente para el botón, para poder usar useFormStatus
-function SubmitButton() {
-  const { pending } = useFormStatus();
+// Componente para el botón con manejo personalizado
+function SubmitButton({ onClick, isSubmitting, isPending }: { 
+  onClick?: () => void, 
+  isSubmitting?: boolean,
+  isPending?: boolean
+}) {
+  const { pending: formPending } = useFormStatus();
+  
+  // Combinamos todos los estados de carga
+  const isLoading = formPending || isSubmitting || isPending;
+  
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Registrando...' : 'Registrar Pago'}
+    <Button 
+      type="button"
+      className="w-full" 
+      disabled={isLoading}
+      onClick={onClick}
+    >
+      {isLoading ? 'Registrando...' : 'Registrar Pago'}
     </Button>
   );
 }
@@ -29,6 +44,42 @@ function SubmitButton() {
 export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: PaymentFormProps) {
   const initialState: State = { message: null, errors: {} };
   const [state, dispatch] = useActionState(createPayment, initialState);
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = React.useRef<HTMLFormElement>(null);
+  const [isPending, startTransition] = useTransition();
+  
+  // Manejador para el envío del formulario usando startTransition
+  const handleSubmit = () => {
+    if (!formRef.current) return;
+    
+    // Marcar como enviando para desactivar el botón
+    setIsSubmitting(true);
+    console.log('🔵 Enviando formulario de pago para factura:', facturaId);
+    
+    try {
+      const formData = new FormData(formRef.current);
+      
+      // Usar startTransition para envolver la llamada a dispatch
+      // Esto evita el warning "An async function with useActionState was called outside of a transition"
+      startTransition(async () => {
+        try {
+          // Enviar el formulario a la acción del servidor
+          await dispatch(formData);
+        } catch (error) {
+          console.error('Error al enviar formulario:', error);
+          toast.error('Error al procesar el pago');
+        } finally {
+          // Desactivar el estado de envío cuando termina la transición
+          setIsSubmitting(false);
+        }
+      });
+    } catch (error) {
+      console.error('Error al preparar formulario:', error);
+      toast.error('Error al preparar el formulario');
+      setIsSubmitting(false);
+    }
+  };
   
   // Imprimir valores para debugging
   console.log('PaymentForm recibió:', { 
@@ -58,12 +109,19 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
     setMontoPago(valorActualizado.toString());
   }, [saldoPendiente, montoTotalFactura]);
 
-  // Cuando hay errores en el estado, mostrar notificación
+  // Manejar los mensajes del estado, tanto errores como éxitos
   useEffect(() => {
-    if (state.message) {
+    if (state.success && state.message) {
+      // Éxito: mostrar toast y redirigir a la lista de facturas
+      toast.success(state.message);
+      setTimeout(() => {
+        router.push('/dashboard/facturas');
+      }, 1500); // Espera 1.5 segundos para que el usuario vea el mensaje
+    } else if (state.message) {
+      // Error: mostrar toast de error
       toast.error(state.message);
     }
-  }, [state.message]);
+  }, [state, router]);
 
   const handleSetMonto50 = () => {
     const total = Number(montoTotalFactura);
@@ -77,11 +135,20 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
   };
 
   return (
-    <form action={dispatch}>
+    <form 
+      ref={formRef}
+      // Eliminamos onSubmit ya que usaremos el botón con onClick
+      onSubmit={(e) => e.preventDefault()} // Evitar envío tradicional
+      suppressHydrationWarning
+    >
         <CardContent className="space-y-4">
             {/* Campos ocultos */}
             <input type="hidden" name="facturaId" value={facturaId} />
-            <input type="hidden" name="montoTotalFacturaOriginal" value={montoTotalFactura.toString()} />
+            <input 
+              type="hidden" 
+              name="montoTotalFacturaOriginal" 
+              value={montoTotalFactura?.toString() || '0'} 
+            />
 
             <div className="grid gap-2">
                 <div className="flex justify-between items-center">
@@ -131,7 +198,11 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
             {state.message && <p className="text-sm text-red-500">{state.message}</p>}
         </CardContent>
         <CardFooter>
-            <SubmitButton />
+            <SubmitButton 
+                onClick={handleSubmit} 
+                isSubmitting={isSubmitting} 
+                isPending={isPending} 
+            />
         </CardFooter>
     </form>
   );

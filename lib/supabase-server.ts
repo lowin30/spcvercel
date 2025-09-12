@@ -1,8 +1,10 @@
 import { createServerClient as _createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export const createServerClient = () => {
-  const cookieStore = cookies()
+// Versión asíncrona de createServerClient para corregir el error de cookies()
+export const createServerClient = async () => {
+  // IMPORTANTE: await cookies() - En Next.js 15+ se debe esperar por cookies()
+  const cookieStore = await cookies()
 
   return _createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +35,40 @@ export const createServerClient = () => {
       },
     }
   )
+}
+
+// Versión no asíncrona para compatibilidad con código existente
+// Esta versión NO debería usarse en acciones del servidor, solo para mantener compatibilidad
+export const createServerClientSync = () => {
+  try {
+    // Esta función puede producir advertencias, pero se mantiene por compatibilidad
+    const cookieStore = cookies()
+    
+    return _createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            try {
+              cookieStore.set({ name, value, ...options })
+            } catch (error) {}
+          },
+          remove(name: string, options: CookieOptions) {
+            try {
+              cookieStore.set({ name, value: '', ...options })
+            } catch (error) {}
+          },
+        },
+      }
+    )
+  } catch (e) {
+    console.error('Error en createServerClientSync:', e)
+    return null
+  }
 }
 
 export const getSupabaseServer = createServerClient

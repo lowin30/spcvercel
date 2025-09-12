@@ -23,10 +23,27 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserId(user.id)
+      try {
+        const supabase = createClient()
+        
+        // Verificar que el cliente se haya creado correctamente
+        if (!supabase) {
+          console.error('Error: No se pudo crear el cliente Supabase en DashboardShell')
+          return
+        }
+        
+        const { data, error } = await supabase.auth.getUser()
+        
+        if (error) {
+          console.error('Error al obtener el usuario:', error)
+          return
+        }
+        
+        if (data?.user) {
+          setUserId(data.user.id)
+        }
+      } catch (error) {
+        console.error('Error en fetchUserId:', error)
       }
     }
 
@@ -34,11 +51,15 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
   }, [])
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div 
+      className="flex min-h-screen flex-col"
+      // Suprimir advertencias de hidratación causadas por extensiones del navegador
+      suppressHydrationWarning 
+    >
       {/* Navegación móvil - visible solo en pantallas pequeñas */}
       <MobileNav userDetails={userDetails} />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1" suppressHydrationWarning>
         {/* Navegación de escritorio - visible solo en pantallas md y superiores */}
         <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-background border-r">
           <div className="flex flex-col h-full">
