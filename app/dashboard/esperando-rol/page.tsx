@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getSession, createServerClient } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,7 +13,7 @@ export default async function EsperandoRolPage() {
     redirect("/login")
   }
 
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   // Verificar si el usuario ya tiene un rol asignado
   const { data: userDetails } = await supabase.from("usuarios").select("rol").eq("id", session.user.id).single()

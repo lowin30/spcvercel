@@ -1,3 +1,6 @@
+// Forzando un nuevo build para Vercel
+export const dynamic = 'force-dynamic';
+
 import { createServerClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import EstadosClientPage from './estados-client'
@@ -16,7 +19,7 @@ function LoadingComponent() {
 }
 
 export default async function EstadosPage() {
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
 
   const { data: { session } } = await supabase.auth.getSession()
 

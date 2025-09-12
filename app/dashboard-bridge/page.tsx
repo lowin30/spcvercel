@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // Verifica la sesión del usuario y lo redirige a la página correcta (/login o /dashboard).
 // No renderiza ninguna UI, solo realiza la lógica de redirección.
 export default async function DashboardBridgePage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase.auth.getSession();
 
