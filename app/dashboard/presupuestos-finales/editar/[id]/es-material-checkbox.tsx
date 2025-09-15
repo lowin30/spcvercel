@@ -8,9 +8,10 @@ import { useToast } from '@/components/ui/use-toast'
 interface EsMaterialCheckboxProps {
   itemId: number
   initialValue: boolean | null | undefined
+  presupuestoId: number
 }
 
-export function EsMaterialCheckbox({ itemId, initialValue }: EsMaterialCheckboxProps) {
+export function EsMaterialCheckbox({ itemId, initialValue, presupuestoId }: EsMaterialCheckboxProps) {
   const [esMaterial, setEsMaterial] = useState(!!initialValue)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
@@ -19,7 +20,7 @@ export function EsMaterialCheckbox({ itemId, initialValue }: EsMaterialCheckboxP
     setIsLoading(true)
     try {
       const newValue = !esMaterial
-      const result = await updateItemEsMaterial(itemId, newValue)
+      const result = await updateItemEsMaterial(itemId, newValue, presupuestoId)
       
       if (result.success) {
         setEsMaterial(newValue)

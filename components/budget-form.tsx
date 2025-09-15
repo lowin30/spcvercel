@@ -152,6 +152,39 @@ export function BudgetForm({
   useEffect(() => {
     setItems(itemsBase || []);
   }, [itemsBase]);
+
+  // Efecto para pre-seleccionar Administrador y Edificio basado en el presupuesto base
+  useEffect(() => {
+    const preseleccionarDesdeTarea = async () => {
+      if (presupuestoBase?.id_tarea) {
+        const { data: tareaCompleta, error } = await supabase
+          .from('vista_tareas_completa')
+          .select('id_administrador, id_edificio')
+          .eq('id', presupuestoBase.id_tarea)
+          .single();
+
+        if (error) {
+          console.error('Error al obtener datos de la tarea para preseleccionar:', error);
+          return;
+        }
+
+        if (tareaCompleta) {
+          if (tareaCompleta.id_administrador) {
+            const adminIdStr = tareaCompleta.id_administrador.toString();
+            setSelectedAdministrador(adminIdStr);
+            // Una vez que el administrador está seleccionado, necesitamos cargar sus edificios
+            await cargarEdificiosPorAdministrador(adminIdStr);
+          }
+          if (tareaCompleta.id_edificio) {
+            setSelectedEdificio(tareaCompleta.id_edificio.toString());
+          }
+        }
+      }
+    };
+
+    preseleccionarDesdeTarea();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presupuestoBase, supabase]);
   
   // Cargar lista de administradores al iniciar el formulario
   useEffect(() => {
@@ -169,17 +202,6 @@ export function BudgetForm({
           }
           
           setAdministradores(data || []);
-          
-          // Si hay un presupuesto base o tarea con administrador ya asignado, seleccionarlo
-          const adminIdPreseleccionado = presupuestoBase?.id_administrador || 
-                                     tareaSeleccionada?.id_administrador ||
-                                     (tareaSeleccionada?.edificios?.id_administrador);
-          
-          if (adminIdPreseleccionado) {
-            setSelectedAdministrador(adminIdPreseleccionado.toString());
-            // Cargar los edificios asociados a este administrador
-            cargarEdificiosPorAdministrador(adminIdPreseleccionado.toString());
-          }
         } catch (error) {
           console.error("Error al cargar administradores:", error);
         }
@@ -213,22 +235,6 @@ export function BudgetForm({
       
       setEdificios(data || []);
       setLoadingEdificios(false);
-      
-      // Si hay un único edificio, seleccionarlo automáticamente
-      if (data && data.length === 1) {
-        setSelectedEdificio(data[0].id.toString());
-      } 
-      // Si hay un edificio en el presupuesto base o la tarea, seleccionarlo
-      else if (presupuestoBase?.id_edificio || tareaSeleccionada?.id_edificio) {
-        const edificioId = presupuestoBase?.id_edificio || tareaSeleccionada?.id_edificio;
-        if (edificioId) {
-          // Verificar que el edificio pertenece al administrador seleccionado
-          const existeEdificio = data?.some(e => e.id === edificioId);
-          if (existeEdificio) {
-            setSelectedEdificio(edificioId.toString());
-          }
-        }
-      }
     } catch (error) {
       console.error("Error al cargar edificios:", error);
     } finally {
@@ -898,14 +904,15 @@ export function BudgetForm({
                           )}
                         </TableCell>
                         <TableCell className="text-right">{item.cantidad}</TableCell>
-                        <TableCell className="text-right">${item.precio.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${(item.cantidad * item.precio).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.precio)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.cantidad * item.precio)}</TableCell>
                         
                         {tipo === "final" && presupuestoAEditar && item.id && (
                           <TableCell>
                             <EsMaterialCheckbox 
                               itemId={item.id} 
                               initialValue={!!item.es_material} 
+                              presupuestoId={presupuestoAEditar.id}
                             />
                           </TableCell>
                         )}

@@ -4,7 +4,7 @@ import { createSsrServerClient } from '@/lib/ssr-server'
 import { revalidatePath } from 'next/cache'
 
 // Función para actualizar el campo es_material de un ítem de presupuesto final
-export async function updateItemEsMaterial(itemId: number, esMaterial: boolean) {
+export async function updateItemEsMaterial(itemId: number, esMaterial: boolean, presupuestoId: number) {
   if (!itemId) {
     return { success: false, message: 'ID de ítem no proporcionado.' }
   }
@@ -24,7 +24,7 @@ export async function updateItemEsMaterial(itemId: number, esMaterial: boolean) 
     }
 
     // Revalidar la página para que se actualice la UI
-    revalidatePath('/dashboard/presupuestos-finales/editar/[id]')
+    revalidatePath(`/dashboard/presupuestos-finales/editar/${presupuestoId}`)
 
     return { success: true, message: `Ítem actualizado correctamente: ${esMaterial ? 'Es material' : 'No es material'}` }
   } catch (error: any) {
