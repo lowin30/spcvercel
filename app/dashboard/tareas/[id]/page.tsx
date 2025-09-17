@@ -1,10 +1,10 @@
 "use client"
 
 import { DepartamentosInteractivos } from "@/components/departamentos-interactivos"
-import { useState, useEffect, use, useCallback, useRef } from "react"
+import { useState, useEffect, use } from "react"
 import React from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase-client"
+import { createClient } from '@/lib/supabase-client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime, getPrioridadColor } from "@/lib/utils"
@@ -23,126 +23,13 @@ import { SupervisorInteractivo } from "@/components/supervisor-interactivo"
 import { TrabajadoresInteractivos } from "@/components/trabajadores-interactivos"
 import { PresupuestosInteractivos } from "@/components/presupuestos-interactivos"
 
-import ErrorBoundary from "@/components/error-boundary"
+import ErrorBoundary from '@/components/error-boundary'
 import { ProcesadorImagen } from '@/components/procesador-imagen'
 import { HistorialGastosOCR } from '@/components/historial-gastos-ocr'
 import { SemanasLiquidadasIndicador } from '@/components/semanas-liquidadas-indicador';
 
-// Interfaz para los datos devueltos por la función RPC get_tarea_details
-interface TareaDetails {
-  id: number;
-  titulo: string;
-  descripcion: string;
-  fecha_creacion: string;
-  id_estado_nuevo: number | null;
-  finalizada: boolean;
-  prioridad: string;
-  fecha_visita: string | null;
-  id_edificio: number;
-  edificio_nombre: string;
-  edificio_direccion: string;
-  cuit_edificio: string;
-  estado: string;
-  nombre_administrador: string;
-  telefono_administrador: string;
-  trabajadores_emails: string | null;
-  supervisores_emails: string | null;
-}
-
 interface TaskPageProps {
   params: Promise<{ id: string }>
-}
-
-// Función para analizar fechas en diferentes formatos
-function parseFechaVisita(fechaStr: string | null): Date | null {
-  if (!fechaStr) return null;
-  
-  console.log("Intentando parsear fecha:", fechaStr);
-  
-  // Verificar si es un timestamp numérico (milisegundos desde epoch)
-  if (/^\d+$/.test(fechaStr)) {
-    const timestamp = parseInt(fechaStr);
-    console.log("Detectado posible timestamp numérico:", timestamp);
-    
-    // Verificar si es un timestamp válido (no muy antiguo ni muy futuro)
-    // Si es entre 2020 y 2030 en milisegundos o segundos
-    let date;
-    
-    // Si es un timestamp en segundos (común en bases de datos)
-    if (timestamp > 1500000000 && timestamp < 2000000000) {
-      date = new Date(timestamp * 1000); // Convertir a milisegundos
-      console.log("Convertido timestamp en segundos a fecha:", date);
-    } else {
-      // Asumir que ya está en milisegundos
-      date = new Date(timestamp);
-      console.log("Convertido timestamp en milisegundos a fecha:", date);
-    }
-    
-    if (!isNaN(date.getTime())) {
-      console.log("Fecha parseada como timestamp numérico:", date);
-      return date;
-    }
-  }
-  
-  // Primero intentar el constructor estándar
-  const date = new Date(fechaStr);
-  if (!isNaN(date.getTime())) {
-    console.log("Fecha parseada exitosamente con constructor estándar:", date);
-    return date;
-  }
-  
-  // Si falla, intentar parsear formatos comunes de PostgreSQL
-  // Ejemplo: "2023-09-10 15:30:00"
-  const matchFormato1 = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ]?(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/i);
-  if (matchFormato1) {
-    const [_, year, month, day, hours = '0', minutes = '0', seconds = '0'] = matchFormato1;
-    const fechaParseada = new Date(
-      parseInt(year), 
-      parseInt(month) - 1, // Mes en JS es 0-11
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes),
-      parseInt(seconds)
-    );
-    console.log("Fecha parseada con expresión regular formato 1:", fechaParseada);
-    return fechaParseada;
-  }
-  
-  // Intentar con otro formato: "10/09/2023 15:30:00"
-  const matchFormato2 = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ]?(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
-  if (matchFormato2) {
-    const [_, day, month, year, hours = '0', minutes = '0', seconds = '0'] = matchFormato2;
-    const fechaParseada = new Date(
-      parseInt(year), 
-      parseInt(month) - 1, 
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes),
-      parseInt(seconds)
-    );
-    console.log("Fecha parseada con expresión regular formato 2:", fechaParseada);
-    return fechaParseada;
-  }
-  
-  // Formato ISO con T en medio
-  const matchFormato3 = fechaStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-  if (matchFormato3) {
-    const [_, year, month, day, hours = '0', minutes = '0', seconds = '0'] = matchFormato3;
-    const fechaParseada = new Date(
-      parseInt(year), 
-      parseInt(month) - 1,
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes), 
-      parseInt(seconds)
-    );
-    console.log("Fecha parseada con formato ISO:", fechaParseada);
-    return fechaParseada;
-  }
-  
-  // Si nada funciona, retornar null
-  console.warn("No se pudo parsear la fecha:", fechaStr);
-  return null;
 }
 
 export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
@@ -153,12 +40,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   // Estados para datos principales
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tarea, setTarea] = useState<TareaDetails | null>(null)
+  const [tarea, setTarea] = useState<any>(null)
   const [userDetails, setUserDetails] = useState<any>(null)
   const [esTareaFinalizada, setEsTareaFinalizada] = useState(false)
   const [estadoActualId, setEstadoActualId] = useState<number | null>(null)
-  const [estadoActualNombre, setEstadoActualNombre] = useState<string>('Sin Estado')
-  const [prioridad, setPrioridad] = useState<string>('normal')
   const [isLoading, setIsLoading] = useState(false)
   const [supervisor, setSupervisor] = useState<any>(null)
   const [trabajadoresAsignados, setTrabajadoresAsignados] = useState<any[]>([])
@@ -177,7 +62,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   const [mostrarFormularioParte, setMostrarFormularioParte] = useState(false);
   
   // Función para cargar presupuestos desde las tablas correctas
-  const cargarPresupuestos = useCallback(async () => {
+  const cargarPresupuestos = async () => {
     try {
       const supabase = createClient()
       if (!supabase || !tareaId) return
@@ -237,29 +122,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         variant: "destructive",
       })
     }
-  }, [tareaId]);
-  
-  // Referencia para controlar las cargas múltiples
-  const loadingRef = useRef(false);
-  const loadedRef = useRef(false);
+  }
   
   // Función para cargar todos los datos de la tarea
-  const cargarDatosTarea = useCallback(async () => {
-    // Evita múltiples ejecuciones simultáneas
-    if (loadingRef.current) {
-      console.log('Ya hay una carga en proceso, evitando carga duplicada');
-      return;
-    }
-    
-    // Si ya se cargaron los datos y se tiene la tarea, evita recargar
-    if (loadedRef.current && tarea !== null) {
-      console.log('Datos ya cargados, evitando recarga innecesaria');
-      return;
-    }
-    
-    // Marcar como cargando
-    loadingRef.current = true;
-    console.log(`[ÚNICO] Ejecutando cargarDatosTarea una sola vez para tarea ${tareaId}`);
+  const cargarDatosTarea = async () => {
     // Solo cargar datos cuando tengamos un ID de tarea válido
     if (!tareaId) return;
     
@@ -299,11 +165,15 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       
       setUserDetails(userData)
       
-      // Usar la función RPC get_tarea_details para obtener datos completos de la tarea
-      // Esta función evita ambigüedades en columnas y proporciona todos los datos necesarios
-      console.log("Llamando a función RPC get_tarea_details con tareaId:", tareaId);
+      // Obtener tarea con manejo de errores mejorado usando la vista optimizada y expandiendo la información del edificio
+      // Realizamos una consulta que garantice que tenemos todos los datos necesarios del edificio
       const { data: tareaData, error: tareaError } = await supabase
-        .rpc<TareaDetails>('get_tarea_details', { tarea_id_param: tareaId })
+        .from("tareas")
+        .select(`
+          *,
+          edificios!left (id, nombre, direccion, cuit)
+        `)
+        .eq("id", tareaId)
         .single()
 
       if (tareaError) {
@@ -315,63 +185,14 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         return
       }
       
-      // DIAGNÓSTICO: Consulta directa a la tabla tareas para obtener fecha_visita
-      // ya que parece que la RPC no está devolviendo este campo
-      console.log("Consultando fecha_visita directamente de la tabla tareas");
-      const { data: fechaDirecta, error: errorFechaDirecta } = await supabase
-        .from("tareas")
-        .select("fecha_visita")
-        .eq("id", tareaId)
-        .single();
-        
-      if (!errorFechaDirecta) {
-        console.log("Respuesta directa de la tabla tareas:", fechaDirecta);
-        
-        if (fechaDirecta?.fecha_visita) {
-          console.log("Fecha de visita obtenida directamente:", fechaDirecta.fecha_visita);
-          console.log("Tipo de dato fecha_visita:", typeof fechaDirecta.fecha_visita);
-          
-          // Asignar la fecha directamente al objeto tareaData
-          tareaData.fecha_visita = fechaDirecta.fecha_visita;
-          
-          // Verificar si la fecha se puede parsear
-          const fechaParseada = parseFechaVisita(fechaDirecta.fecha_visita);
-          console.log("Fecha parseada para verificación:", fechaParseada);
-        } else {
-          console.warn("La fecha_visita está vacía o nula");
-        }
-      } else {
-        console.warn("No se pudo obtener fecha_visita directamente:", errorFechaDirecta);
-      }
-      
-      // Añadir log para depurar los datos del edificio (ahora vienen planos desde la RPC)
-      console.log('Datos de edificio cargados desde RPC:', {
+      // Añadir log para depurar los datos del edificio
+      console.log('Datos de edificio cargados:', {
         edificioId: tareaData.id_edificio,
-        edificioNombre: tareaData.edificio_nombre,
-        edificioDireccion: tareaData.edificio_direccion,
-        cuitEdificio: tareaData.cuit_edificio,
+        edificioData: tareaData.edificios,
         rolUsuario: userDetails?.rol
       });
       
-      // Guardar los datos de la tarea y otra información relevante
-      console.log('Guardando datos de la tarea:', {
-        id: tareaData?.id,
-        encontrada: !!tareaData
-      })
-
-      // Actualizar los estados relacionados con la tarea
-      if (tareaData) {
-        setTarea(tareaData)
-        setEstadoActualId(tareaData.id_estado_nuevo || null)
-        setEstadoActualNombre(tareaData.estado || 'Sin Estado')
-        setEsTareaFinalizada(tareaData.finalizada || false) 
-        
-        // Registrar la prioridad para controles visuales
-        setPrioridad(tareaData.prioridad || 'normal')
-      } else {
-        console.error('No se encontraron datos para la tarea')
-        setError('No se encontraron datos para la tarea')
-      }
+      setTarea(tareaData)
       
       // Verificar si el usuario actual es el trabajador asignado
       if (userDetails?.id && tareaData && tareaData.id_asignado === userDetails.id) {
@@ -380,6 +201,16 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         setEsTrabajadorAsignado(false)
       }
       
+      // Inicializar estados cuando se carga la tarea
+      if (tareaData) {
+        const estadoId = tareaData.id_estado_nuevo != null ? Number(tareaData.id_estado_nuevo) : tareaData.estado != null ? Number(tareaData.estado) : null;
+        setEstadoActualId(estadoId);
+        setEsTareaFinalizada(Boolean(tareaData.finalizada));
+        // Asegurarse de que la prioridad sea uno de los valores válidos
+        const prioridad = tareaData.prioridad || '';
+        setPrioridadActual(prioridad === 'baja' || prioridad === 'media' || prioridad === 'alta' || prioridad === 'urgente' ? prioridad : 'media');
+        console.log('Prioridad inicializada:', prioridad);
+      }
       
       // Extraer supervisores y trabajadores de la vista optimizada
       // La vista vista_tareas_completa ya incluye los datos de trabajadores y supervisores
@@ -580,58 +411,9 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       setError("Ocurrió un error inesperado al cargar la tarea")
     } finally {
       setLoading(false)
-      loadingRef.current = false;
-      
-      // Marcar como cargado si tenemos datos de tarea
-      if (tarea !== null) {
-        loadedRef.current = true;
-      }
     }
-  }, [tareaId, router, tarea]);
+  }
 
-  // useEffect para controlar la carga inicial de datos
-  useEffect(() => {
-    // Flag para controlar montaje/desmontaje
-    let isMounted = true;
-    
-    const iniciarCarga = async () => {
-      if (!isMounted) return;
-      
-      console.log(`[EFFECT] Iniciando carga de datos para tarea ${tareaId}`);
-      try {
-        if (!loadingRef.current && !loadedRef.current && tareaId) {
-          await cargarDatosTarea();
-          // Solo cargamos presupuestos después de cargar la tarea principal
-          if (isMounted) {
-            await cargarPresupuestos();
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Error en la carga inicial:", err);
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No se pudieron cargar los datos iniciales."
-          });
-        }
-      }
-    };
-    
-    // Solo ejecutar si hay un ID válido
-    if (tareaId && isMounted) {
-      iniciarCarga();
-    }
-    
-    // Limpieza al desmontar
-    return () => {
-      isMounted = false;
-      console.log("Componente desmontado, limpiando recursos");
-      loadingRef.current = false;
-      loadedRef.current = false;
-    };
-  }, [tareaId]); // Solo el ID como dependencia
-  
   // Manejar cambios en la fecha de visita
   const onDateChange = async (date: Date | null) => {
     try {
@@ -794,19 +576,31 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
     }
   };
 
+  // useEffect con dependencias apropiadas para evitar loops infinitos
+  // Usamos este enfoque para evitar tener que incluir la función completa como dependencia
+  useEffect(() => {
+    // Definimos la función de carga dentro del useEffect para evitar dependencias circulares
+    const cargarDatos = async () => {
+      if (tareaId) {
+        await cargarDatosTarea()
+      }
+    }
+    
+    cargarDatos()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tareaId]) // Solo se ejecuta cuando cambia tareaId
+
   // Determinar si el usuario puede ver/crear presupuestos basado en el rol
   const esAdmin = userDetails?.rol === "admin"
   const esSupervisor = userDetails?.rol === "supervisor"
   
-
   // Verificar si el supervisor actual está asignado a esta tarea
   // La estructura correcta del objeto supervisor incluye usuarios con id
   const esSupervisorDeTarea = esSupervisor && 
-                              userDetails && 
-                              supervisor && 
-                              (supervisor.id === userDetails.id ||
-                               (supervisor.usuarios && 
-                                supervisor.usuarios.id === userDetails.id))
+                             supervisor && 
+                             supervisor.usuarios && 
+                             userDetails && 
+                             supervisor.usuarios.id === userDetails.id
 
   // Renderizar estados de carga y error
   if (loading) {
@@ -879,14 +673,14 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                     // Aquí se implementaría la actualización en el servidor en una versión completa
                   }}
                 />
-                {tarea && (
+                {tarea.edificios && (
                   <>
                     <Badge variant="secondary">
-                      {tarea.edificio_nombre || 'Sin edificio'}
+                      {tarea.edificios.nombre}
                     </Badge>
-                    {tarea.cuit_edificio && (
+                    {tarea.edificios.cuit && (
                       <Badge variant="outline" className="ml-2">
-                        {tarea.cuit_edificio}
+                        {tarea.edificios.cuit}
                       </Badge>
                     )}
                   </>
@@ -930,10 +724,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
               <div className="flex items-center">
                 <MapPin className="h-4 w-4 mr-1" />
                 <Link
-                  href={`/dashboard/edificios/${tarea.id_edificio}`}
+                  href={`/dashboard/edificios/${tarea.edificios?.id}`}
                   className="text-blue-600 hover:underline"
                 >
-                  {tarea.edificio_nombre || 'No especificado'} - {tarea.edificio_direccion || 'Sin dirección'}
+                  {tarea.edificios?.nombre || 'No especificado'} - {tarea.edificios?.direccion || 'Sin dirección'}
                 </Link>
               </div>
             </div>
@@ -951,24 +745,8 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             <div>
               <h3 className="font-medium mb-1">Fecha de visita</h3>
               <div className="flex items-center mb-2">
-                {/* Logs de diagnóstico para la fecha de visita */}
-                {console.log("DEBUG - fecha_visita:", { 
-                  raw: tarea.fecha_visita,
-                  tipo: typeof tarea.fecha_visita,
-                  date_obj: tarea.fecha_visita ? new Date(tarea.fecha_visita) : null,
-                  date_valid: tarea.fecha_visita ? !isNaN(new Date(tarea.fecha_visita).getTime()) : false,
-                  fecha_iso: tarea.fecha_visita ? new Date(tarea.fecha_visita).toISOString() : null
-                })}
-                {/* Mostrar detalles de la fecha en consola */}
-                {console.log("Detalles completos de la tarea:", {
-                  id: tarea.id,
-                  titulo: tarea.titulo,
-                  fecha_visita_raw: tarea.fecha_visita,
-                  fecha_creacion: tarea.fecha_creacion
-                })}
-                
                 <DatePickerVisual
-                  date={parseFechaVisita(tarea.fecha_visita)}
+                  date={tarea.fecha_visita ? new Date(tarea.fecha_visita) : null}
                   onDateChange={onDateChange}
                   disabled={false} // Permitir que todos los roles puedan modificar la fecha de visita
                 />

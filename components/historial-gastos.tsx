@@ -9,93 +9,28 @@ import { formatDate } from "@/lib/date-utils"
 import { Search, Eye, Download } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase-client"
-
-interface Gasto {
-  id: number
-  id_tarea: number | null
-  tipo_gasto: string
-  monto: number
-  descripcion: string
-  comprobante_url: string | null
-  fecha_gasto: string
-  estado: string
-  tareas?: {
-    titulo: string
-    code: string
-  } | null
-}
+import { GastoCompleto } from "@/lib/types"
 
 interface HistorialGastosProps {
-  userId: string
-  userRole: string
+  gastos: GastoCompleto[]
+  isLoading: boolean
 }
 
-export function HistorialGastos({ userId, userRole }: HistorialGastosProps) {
-  const [gastos, setGastos] = useState<Gasto[]>([])
-  const [filteredGastos, setFilteredGastos] = useState<Gasto[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function HistorialGastos({ gastos, isLoading }: HistorialGastosProps) {
+  const [filteredGastos, setFilteredGastos] = useState<GastoCompleto[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
-    cargarGastos()
-  }, [userId, userRole])
-
-  useEffect(() => {
     const filtered = gastos.filter(
       (gasto) =>
         gasto.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        gasto.tareas?.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (gasto.titulo_tarea && gasto.titulo_tarea.toLowerCase().includes(searchTerm.toLowerCase())) ||
         gasto.tipo_gasto.toLowerCase().includes(searchTerm.toLowerCase()),
     )
     setFilteredGastos(filtered)
   }, [gastos, searchTerm])
-
-  const cargarGastos = async () => {
-    setIsLoading(true)
-    try {
-      if (!supabase) {
-        console.error("Cliente Supabase no inicializado")
-        return
-      }
-      
-      // Construimos la consulta base
-      const baseQuery = supabase
-        .from("gastos_tarea")
-        .select(`
-          *,
-          tareas (titulo, code)
-        `)
-        .is('liquidado', false)  // Solo mostrar los gastos no liquidados
-        .order("fecha_gasto", { ascending: false })
-
-      // Ejecutamos la consulta con o sin filtro de usuario
-      let finalQuery;
-      if (userRole === "trabajador") {
-        finalQuery = baseQuery.eq("id_usuario", userId)
-      } else {
-        finalQuery = baseQuery
-      }
-
-      // Ejecutamos la consulta
-      const gastosResponse = await finalQuery
-      const gastosData = gastosResponse.data || []
-      const gastosError = gastosResponse.error
-
-      if (gastosError) {
-        console.error("Error al cargar gastos:", gastosError)
-        return
-      }
-
-      console.log("Gastos cargados:", gastosData.length)
-      setGastos(gastosData)
-    } catch (error) {
-      console.error("Error inesperado al cargar gastos:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const getTipoGastoColor = (tipo: string) => {
     const colors = {
@@ -177,14 +112,9 @@ export function HistorialGastos({ userId, userRole }: HistorialGastosProps) {
                     </div>
                     <div>
                       <p className="font-medium">{gasto.descripcion}</p>
-                      {gasto.tareas && (
-                        <p className="text-sm text-muted-foreground">
-                          Tarea: {gasto.tareas.titulo} ({gasto.tareas.code})
-                        </p>
-                      )}
-                      {!gasto.id_tarea && (
-                        <p className="text-sm text-muted-foreground italic">Gasto general (sin tarea específica)</p>
-                      )}
+                      <p className="text-sm text-muted-foreground">
+                        {gasto.titulo_tarea ? `${gasto.code_tarea} - ${gasto.titulo_tarea}` : "Gasto general (sin tarea específica)"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

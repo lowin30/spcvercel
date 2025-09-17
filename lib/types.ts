@@ -21,3 +21,20 @@ export interface Usuario {
 export interface UserSessionData extends Usuario {
   rol: string;
 }
+
+/**
+ * Representa un gasto con toda su información contextual, extraído de la vista `vista_gastos_tarea_completa`.
+ */
+export interface GastoCompleto {
+  id: number;
+  id_usuario: string;
+  monto: number;
+  fecha_gasto: string;
+  liquidado: boolean;
+  titulo_tarea: string | null;
+  code_tarea: string | null;
+  estado: string;
+  descripcion: string;
+  tipo_gasto: string;
+  comprobante_url: string | null;
+}

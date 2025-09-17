@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Camera, FileText, Check, X, ArrowLeft, Save, FileImage, Loader2, Upload, PencilRuler } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 // Define los tipos de datos
 interface ProcesadorImagenProps {
@@ -834,7 +834,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
                 <Label htmlFor="categoria" className="text-sm">Categoría de gasto *</Label>
                 <RadioGroup 
                   defaultValue={formData.tipo_gasto} 
-                  className="grid grid-cols-2 gap-2 mt-2"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2"
                   onValueChange={(value) => setFormData({...formData, tipo_gasto: value})}
                 >
                   <div className="flex items-center space-x-2">

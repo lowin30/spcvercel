@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RegistroGastosForm } from "@/components/registro-gastos-form"
 import { HistorialGastos } from "@/components/historial-gastos"
 import { createClient } from "@/lib/supabase-client"
-import { UserSessionData } from "@/lib/types"
-import { Plus, Receipt, DollarSign, Calendar, Loader2 } from "lucide-react"
+import { UserSessionData, GastoCompleto } from "@/lib/types" // Importar GastoCompleto
+import { Plus, Receipt, DollarSign, Loader2, CheckCircle2, AlertCircle, Check } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 interface Tarea {
@@ -22,6 +22,12 @@ interface TrabajadorTarea {
   tareas: Tarea
 }
 
+
+interface Liquidacion {
+  gastos_reembolsados: number;
+  created_at: string;
+}
+
 export default function GastosPage() {
   const [tareas, setTareas] = useState<Tarea[]>([])
   const [usuario, setUsuario] = useState<UserSessionData | null>(null)
@@ -31,124 +37,109 @@ export default function GastosPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // Nuevos estados para la lógica de la página
+  const [allNonLiquidatedExpenses, setAllNonLiquidatedExpenses] = useState<GastoCompleto[]>([])
+  const [lastLiquidation, setLastLiquidation] = useState<Liquidacion | null>(null)
+  const [weekStats, setWeekStats] = useState({ total: 0, count: 0 })
+  const [pendingStats, setPendingStats] = useState({ total: 0, count: 0 })
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'this_week' | 'pending_previous'>('all')
+  const [filteredHistory, setFilteredHistory] = useState<GastoCompleto[]>([])
+
   useEffect(() => {
     cargarDatos()
-  }, [router])
+  }, []) // Se ejecuta solo una vez
+
+  useEffect(() => {
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - hoy.getDay() + (hoy.getDay() === 0 ? -6 : 1));
+    inicioSemana.setHours(0, 0, 0, 0);
+
+    if (historyFilter === 'this_week') {
+      const gastosDeLaSemana = allNonLiquidatedExpenses.filter((g: GastoCompleto) => new Date(g.fecha_gasto) >= inicioSemana);
+      setFilteredHistory(gastosDeLaSemana);
+    } else if (historyFilter === 'pending_previous') {
+      const gastosPendientesAnteriores = allNonLiquidatedExpenses.filter((g: GastoCompleto) => new Date(g.fecha_gasto) < inicioSemana);
+      setFilteredHistory(gastosPendientesAnteriores);
+    } else {
+      setFilteredHistory(allNonLiquidatedExpenses);
+    }
+  }, [historyFilter, allNonLiquidatedExpenses]);
 
   const cargarDatos = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true)
-      
-      
-      if (!supabase) {
-        setError("No se pudo inicializar el cliente de Supabase")
-        setLoading(false)
-        return
+      if (!supabase) throw new Error("Cliente Supabase no inicializado");
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw new Error(sessionError?.message || "No hay sesión activa");
+
+      const { data: userData, error: userError } = await supabase
+        .from('usuarios')
+        .select('id, email, rol')
+        .eq('id', session.user.id)
+        .single();
+      if (userError) throw new Error(userError.message);
+      setUsuario(userData as UserSessionData);
+
+      // Construcción de la consulta de gastos de forma condicional
+      let gastosQuery = supabase
+        .from('vista_gastos_tarea_completa')
+        .select('*')
+        .eq('liquidado', false);
+      if (userData.rol === 'trabajador') {
+        gastosQuery = gastosQuery.eq('id_usuario', session.user.id);
       }
 
-      // Obtener usuario actual
-      const sessionResponse = await supabase.auth.getSession()
-      const sessionData = sessionResponse.data || {}
-      const sessionError = sessionResponse.error
+      const [gastosResponse, liquidacionResponse, tareasResponse] = await Promise.all([
+        gastosQuery,
+        supabase
+          .from('liquidaciones_trabajadores')
+          .select('gastos_reembolsados, created_at')
+          .eq('id_trabajador', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single(),
+        userData.rol === 'trabajador' ?
+          supabase.from('trabajadores_tareas').select('tareas(id, titulo, code)').eq('id_trabajador', session.user.id) :
+          supabase.from('tareas').select('id, titulo, code').order('titulo')
+      ]);
 
-      if (sessionError) {
-        console.error("Error de sesión:", sessionError)
-        setError("Error de sesión")
-        setLoading(false)
-        return
-      }
+      if (gastosResponse.error) throw new Error(gastosResponse.error.message);
+      if (liquidacionResponse.error && liquidacionResponse.error.code !== 'PGRST116') throw new Error(liquidacionResponse.error.message);
+      if (tareasResponse.error) throw new Error(tareasResponse.error.message);
 
-      const session = sessionData.session
-      if (!session) {
-        setError("No hay sesión activa")
-        setLoading(false)
-        return
-      }
+      const gastos = gastosResponse.data as GastoCompleto[] || [];
+      setAllNonLiquidatedExpenses(gastos);
+      setLastLiquidation(liquidacionResponse.data as Liquidacion | null);
 
-      // Obtener datos del usuario
-      const userQuery = supabase
-        .from("usuarios")
-        .select("id, email, rol")
-        .eq("id", session.user.id)
-        .single()
-      
-      const userResponse = await userQuery
-      const userData = userResponse.data
-      const userError = userResponse.error
+      const tareasData = userData.rol === 'trabajador' ? tareasResponse.data?.map((item: any) => item.tareas).filter(Boolean) || [] : tareasResponse.data || [];
+      setTareas(tareasData);
 
-      if (userError) {
-        console.error("Error al cargar usuario:", userError)
-        setError("Error al cargar usuario")
-        setLoading(false)
-        return
-      }
+      const hoy = new Date();
+      const inicioSemana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - hoy.getDay() + (hoy.getDay() === 0 ? -6 : 1));
+      inicioSemana.setHours(0, 0, 0, 0);
 
-      setUsuario(userData as Usuario)
+      const gastosDeLaSemana = gastos.filter((g: GastoCompleto) => new Date(g.fecha_gasto) >= inicioSemana);
+      const gastosPendientesAnteriores = gastos.filter((g: GastoCompleto) => new Date(g.fecha_gasto) < inicioSemana);
 
-      // Obtener tareas asignadas
-      if (userData?.rol === "trabajador") {
-        // Consulta para obtener tareas asignadas al trabajador
-        // Usamos un tipo explícito para la respuesta de Supabase
-        type TrabajadoresTareasResponse = { 
-          data: TrabajadorTarea[] | null; 
-          error: any; 
-        }
-        
-        const tareasQuery = supabase
-          .from("trabajadores_tareas")
-          .select(`
-            tareas (
-              id,
-              titulo,
-              code
-            )
-          `)
-          .eq("id_trabajador", session.user.id)
-        
-        const tareasResponse = await tareasQuery as TrabajadoresTareasResponse
-        const tareasData = tareasResponse.data || []
-        const tareasError = tareasResponse.error
+      setWeekStats({
+        total: gastosDeLaSemana.reduce((sum, g) => sum + g.monto, 0),
+        count: gastosDeLaSemana.length
+      });
 
-        if (tareasError) {
-          console.error("Error al cargar tareas:", tareasError)
-          setError("Error al cargar tareas")
-          setLoading(false)
-          return
-        }
-          
-        const tareasAsignadas = tareasData?.map((item: TrabajadorTarea) => item.tareas).filter(Boolean) || []
-        setTareas(tareasAsignadas as Tarea[])
-      } else {
-        // Admin y supervisores pueden registrar gastos en todas las tareas
-        // Usamos un tipo explícito para la respuesta de Supabase
-        type TareasResponse = { 
-          data: Tarea[] | null; 
-          error: any; 
-        }
-        
-        const tareasQuery = supabase.from("tareas").select("id, titulo, code").order("titulo")
-        
-        const tareasResponse = await tareasQuery as TareasResponse
-        const tareasData = tareasResponse.data || []
-        const tareasError = tareasResponse.error
+      setPendingStats({
+        total: gastosPendientesAnteriores.reduce((sum, g) => sum + g.monto, 0),
+        count: gastosPendientesAnteriores.length
+      });
 
-        if (tareasError) {
-          console.error("Error al cargar tareas:", tareasError)
-          setError("Error al cargar tareas")
-          setLoading(false)
-          return
-        }
-
-        setTareas(tareasData as Tarea[] || [])
-      }
-
-      setLoading(false)
-    } catch (error) {
-      console.error("Error cargando datos:", error)
-      setError("Error inesperado al cargar datos")
-      setLoading(false)
+    } catch (error: any) {
+      console.error("Error cargando datos:", error);
+      setError(error.message || "Error inesperado al cargar datos");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -190,34 +181,47 @@ export default function GastosPage() {
 
       {/* Resumen rápido */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card onClick={() => setHistoryFilter('this_week')} className="cursor-pointer hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Esta Semana</CardTitle>
+            <CardTitle className="text-sm font-medium">Gastos de Esta Semana</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$85,000</div>
-            <p className="text-xs text-muted-foreground">5 comprobantes</p>
+            <div className="text-2xl font-bold">${weekStats.total.toLocaleString('es-CL')}</div>
+            <p className="text-xs text-muted-foreground">{weekStats.count} comprobantes registrados</p>
+          </CardContent>
+        </Card>
+        <Card onClick={() => pendingStats.total > 0 && setHistoryFilter('pending_previous')} className={pendingStats.total > 0 ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pendiente de Pago (Acumulado)</CardTitle>
+            {pendingStats.total === 0 ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
+          </CardHeader>
+          <CardContent>
+            {pendingStats.total === 0 ? (
+              <>
+                <div className="text-2xl font-bold text-green-600">¡Estás al día!</div>
+                <p className="text-xs text-muted-foreground">No hay gastos atrapados.</p>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-red-600">${pendingStats.total.toLocaleString('es-CL')}</div>
+                <p className="text-xs text-muted-foreground">{pendingStats.count} gastos de semanas anteriores sin pagar.</p>
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Este Mes</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Último Reembolso Pagado</CardTitle>
+            <Check className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$320,000</div>
-            <p className="text-xs text-muted-foreground">18 comprobantes</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">2</div>
-            <p className="text-xs text-muted-foreground">Por aprobar</p>
+            <div className="text-2xl font-bold">
+              {lastLiquidation ? `$${lastLiquidation.gastos_reembolsados.toLocaleString('es-CL')}` : 'N/A'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {lastLiquidation ? `Pagado el ${new Date(lastLiquidation.created_at).toLocaleDateString('es-CL')}` : '---'}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -245,7 +249,7 @@ export default function GastosPage() {
       )}
 
       {/* Historial */}
-      <HistorialGastos userId={usuario?.id || ""} userRole={usuario?.rol || ""}/>
+      <HistorialGastos gastos={filteredHistory} isLoading={loading} />
     </div>
   )
 }

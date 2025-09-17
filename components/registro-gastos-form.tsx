@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase-client"
@@ -49,12 +50,7 @@ export function RegistroGastosForm({ tareas, usuario, onClose, onSuccess }: Regi
 
   const tareaSeleccionada = formData.id_tarea ? tareas.find(t => t.id === Number(formData.id_tarea)) : undefined
 
-  const tiposGasto = [
-    { value: "material", label: "Material de construcción" },
-    { value: "herramienta", label: "Herramientas" },
-    { value: "transporte", label: "Transporte" },
-    { value: "otro", label: "Otro" },
-  ]
+  
 
   const manejarArchivoSeleccionado = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -241,26 +237,25 @@ export function RegistroGastosForm({ tareas, usuario, onClose, onSuccess }: Regi
             
             {/* Pestaña para ingreso manual */}
             <TabsContent value="manual" className="mt-4">
-              <div className="grid gap-4 md:grid-cols-2 mb-4">
-                <div>
-                  <Label htmlFor="tipo_gasto">Tipo de Gasto</Label>
-                  <Select
-                    value={formData.tipo_gasto}
-                    onValueChange={(value) => setFormData({ ...formData, tipo_gasto: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tiposGasto.map((tipo) => (
-                        <SelectItem key={tipo.value} value={tipo.value}>
-                          {tipo.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="mb-4">
+                <Label>Categoría de Gasto</Label>
+                <RadioGroup
+                  value={formData.tipo_gasto}
+                  onValueChange={(value) => setFormData({ ...formData, tipo_gasto: value })}
+                  className="flex items-center space-x-4 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="material" id="material" />
+                    <Label htmlFor="material">Material</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="mano de obra" id="mano_de_obra" />
+                    <Label htmlFor="mano_de_obra">Mano de Obra</Label>
+                  </div>
+                </RadioGroup>
+              </div>
 
+              <div className="grid gap-4 md:grid-cols-2 mb-4">
                 <div>
                   <Label htmlFor="monto">Monto</Label>
                   <Input
@@ -280,25 +275,6 @@ export function RegistroGastosForm({ tareas, usuario, onClose, onSuccess }: Regi
                     value={formData.fecha_gasto}
                     onChange={(e) => setFormData({ ...formData, fecha_gasto: e.target.value })}
                   />
-                </div>
-
-                <div>
-                  <Label htmlFor="tipo_gasto">Tipo de Gasto</Label>
-                  <Select
-                    value={formData.tipo_gasto}
-                    onValueChange={(value) => setFormData({ ...formData, tipo_gasto: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tiposGasto.map((tipo) => (
-                        <SelectItem key={tipo.value} value={tipo.value}>
-                          {tipo.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 
