@@ -57,3 +57,274 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Estilos responsivos personalizados para toda la aplicación */
+/* SOLUCIÓN DEFINITIVA: Estilos explícitos con !important para garantizar responsividad */
+
+/* Estilos para tablas responsivas - VERSIÓN ULTRA AGRESIVA */
+.tabla-scroll,
+table,
+.tabla-scroll > table,
+[class*="Table"],
+[class*="TableContainer"],
+div > table {
+  display: block !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+  position: relative !important;
+  white-space: nowrap !important;
+  -webkit-overflow-scrolling: touch !important;
+  max-width: 100vw !important;
+}
+
+/* Fuerza todas las tablas del sistema a ser scrollables */
+table {
+  min-width: 500px !important; /* Fuerza un ancho mínimo para garantizar scroll */
+}
+
+/* Estilos específicos para la tabla de ítems en facturas */
+.card table,
+.card [data-orientation="horizontal"],
+[data-orientation="horizontal"] table {
+  display: block !important;
+  width: 100% !important;
+  overflow-x: scroll !important;
+  position: relative !important;
+  min-width: 500px !important;
+  white-space: nowrap !important;
+}
+
+/* Estilos para encabezados responsivos */
+.encabezado-responsive {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1rem !important;
+  width: 100% !important;
+}
+
+@media (min-width: 640px) {
+  .encabezado-responsive {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+}
+
+/* Estilos para botones apilados */
+.botones-responsive {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1rem !important;
+  width: 100% !important;
+  align-items: center !important;
+}
+
+@media (min-width: 640px) {
+  .botones-responsive {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+  }
+}
+
+/* Columnas responsivas para grids */
+.grid-responsive {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 1rem !important;
+}
+
+@media (min-width: 640px) {
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive-lg {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Mejoras visuales para experiencia móvil */
+@media (max-width: 640px) {
+  /* Mejorar visualización de inputs en móvil */
+  input, select, .select-trigger {
+    padding: 0.625rem !important;
+    font-size: 16px !important; /* Previene zoom en iOS */
+  }
+  
+  /* Mejora visual de tablas en móvil */
+  table {
+    border-collapse: separate !important;
+    border-spacing: 0 0.25rem !important;
+  }
+  
+  /* Filas alternadas con color sutilmente diferente */
+  table tbody tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+  }
+  
+  /* Bordes más definidos */
+  .tabla-scroll table {
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    border-radius: 0.375rem !important;
+  }
+  
+  /* Mejorar visualización de celdas de tabla */
+  td {
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  /* Botones más accesibles */
+  button:not([size="icon"]) {
+    padding: 0.5rem 1rem !important;
+    min-height: 2.5rem !important;
+  }
+  
+  /* Espaciado entre grupos de elementos */
+  .space-y-6 > * {
+    margin-top: 1.75rem !important;
+    margin-bottom: 1.75rem !important;
+  }
+  
+  /* Mejorar legibilidad del texto */
+  label, p {
+    line-height: 1.5 !important;
+  }
+  
+  /* Mejorar visibilidad de los encabezados de tabla */
+  th {
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    padding: 0.625rem 0.5rem !important;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* Destacar botones primarios */
+  button[type="submit"] {
+    font-weight: 600 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  }
+  
+  /* Mejorar formularios */
+  .form-item {
+    margin-bottom: 1.25rem !important;
+  }
+  
+  /* Hacer las tarjetas más compactas pero legibles */
+  .card-content {
+    padding: 1rem !important;
+  }
+}
+
+/* Optimizaciones para pantallas móviles angostas */
+@media (max-width: 640px) {
+  /* Mejoras específicas para tablas en móviles angostos */
+  table textarea {
+    min-height: 80px !important;
+    font-size: 14px !important;
+  }
+  
+  /* Ajustes para tabla compacta sin espacios entre columnas */
+  table {
+    border-spacing: 0 !important;
+    border-collapse: collapse !important;
+  }
+  
+  /* Hacer que las celdas de tabla tengan más espacio vertical pero menos horizontal */
+  table td, table th {
+    padding: 12px 4px !important;
+  }
+  
+  /* Ajustes específicos para cada columna */
+  table td:first-child, table th:first-child {
+    width: 180px !important;
+    max-width: 180px !important;
+    white-space: normal !important;
+  }
+  
+  /* Columna de cantidad (estrecha) */
+  table td:nth-child(2), table th:nth-child(2) {
+    width: 50px !important;
+    min-width: 50px !important;
+  }
+  
+  /* Columnas de precio y total (más anchas) */
+  table td:nth-child(3), table th:nth-child(3) {
+    width: 100px !important;
+    min-width: 100px !important;
+  }
+  
+  table td:nth-child(4), table th:nth-child(4) {
+    width: 100px !important;
+    min-width: 100px !important;
+  }
+  
+  /* Inputs numéricos con texto alineado a la derecha */
+  table input[type="number"] {
+    text-align: right !important;
+    width: 100% !important;
+    padding-right: 4px !important;
+  }
+  
+  /* Columna de acciones más pequeña */
+  table td:last-child, table th:last-child {
+    width: 40px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* Optimizaciones especiales para presupuestos finales */
+  
+  /* Mejorar el grid responsivo para móviles angostos */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  /* Hacer más compactas las tarjetas */
+  .card {
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Compactar espaciado interno */
+  .card-content {
+    padding: 1rem !important;
+  }
+  
+  /* Footer de la card más compacto */
+  .card-footer {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+  
+  /* Título más compacto */
+  h1.text-2xl {
+    font-size: 1.25rem !important;
+    line-height: 1.75rem !important;
+  }
+  
+  /* Reorganizar layout del encabezado */
+  .encabezado-flexible {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  
+  /* Alinear botones */
+  .encabezado-flexible .flex {
+    justify-content: flex-start !important;
+  }
+  
+  /* Columna de Material más compacta */
+  table td:nth-child(5), table th:nth-child(5) {
+    width: 70px !important;
+    padding: 0.5rem 0.25rem !important;
+  }
+  
+  /* Mejorar componente EsMaterialCheckbox */
+  .es-material-checkbox {
+    transform: scale(0.9) !important;
+  }
+}

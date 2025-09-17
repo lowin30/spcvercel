@@ -28,6 +28,11 @@ export default function NuevoPresupuestoPage() {
   
   useEffect(() => {
     const fetchData = async () => {
+      if (!supabase) {
+        setError("Error al inicializar el cliente de la base de datos.");
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         setError(null); // Ya se resetea el error, lo cual es bueno
@@ -213,7 +218,12 @@ export default function NuevoPresupuestoPage() {
         </h1>
       </div>
 
-      <BudgetForm tipo={tipoPresupuesto} tareas={tareas} tareaSeleccionada={tareaSingle} />
+      <BudgetForm
+        tipo={tipoPresupuesto}
+        tareas={tareas}
+        tareaSeleccionada={tareaSingle}
+        idTarea={idTarea}
+      />
     </div>
   )
 }

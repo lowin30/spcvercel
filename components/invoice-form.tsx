@@ -149,7 +149,7 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
             <CardTitle>Detalles de la Factura</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid-responsive">
               <FormField control={form.control} name="code" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Código de Factura</FormLabel>
@@ -202,63 +202,75 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
             <CardTitle>Ítems de la Factura</CardTitle>
             <CardDescription>Añade, edita o elimina los ítems de la factura.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50%]">Descripción</TableHead>
-                  <TableHead>Cantidad</TableHead>
-                  <TableHead>Precio Unit.</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead><span className="sr-only">Acciones</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <Input
-                        placeholder="Descripción del servicio o producto"
-                        value={item.descripcion}
-                        onChange={(e) => handleItemChange(index, 'descripcion', e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={item.cantidad}
-                        onChange={(e) => handleItemChange(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={item.precio_unitario}
-                        onChange={(e) => handleItemChange(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={item.subtotal_item.toFixed(2)}
-                        readOnly
-                        className="bg-gray-100 border-none"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+          <CardContent className="p-0">
+            <div className="rounded-md border overflow-hidden">
+              <Table style={{minWidth: '400px'}}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50%]">Descripción</TableHead>
+                    <TableHead className="text-right">
+                      <span className="hidden sm:inline">Cantidad</span>
+                      <span className="inline sm:hidden">Cant.</span>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <span className="hidden sm:inline">Precio Unit.</span>
+                      <span className="inline sm:hidden">P.Unit</span>
+                    </TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead><span className="sr-only">Acciones</span></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <textarea
+                          placeholder="Descripción del servicio o producto"
+                          value={item.descripcion}
+                          onChange={(e) => handleItemChange(index, 'descripcion', e.target.value)}
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          rows={3}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={item.cantidad}
+                          onChange={(e) => handleItemChange(index, 'cantidad', parseFloat(e.target.value) || 0)}
+                          className="text-right w-12 sm:w-auto"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={item.precio_unitario}
+                          onChange={(e) => handleItemChange(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
+                          className="text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          value={item.subtotal_item.toFixed(2)}
+                          readOnly
+                          className="bg-gray-100 border-none text-right"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="mt-4"
+              className="mt-4 sm:w-auto w-full"
               onClick={handleAddItem}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -267,11 +279,21 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
           </CardContent>
         </Card>
 
-        <div className="flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isLoading}>
+        <div className="botones-responsive">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => router.back()} 
+            disabled={isLoading}
+            className="sm:w-auto w-full"
+          >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            className="sm:w-auto w-full font-medium"
+          >
             {isLoading ? "Guardando..." : isEditMode ? "Guardar Cambios" : "Crear Factura"}
           </Button>
         </div>

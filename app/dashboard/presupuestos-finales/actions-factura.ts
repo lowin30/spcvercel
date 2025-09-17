@@ -46,6 +46,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       .from('presupuestos_finales')
       .select(`
         *,
+        id_tarea,
         tareas:id_tarea (
           id,
           titulo,
@@ -85,6 +86,24 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         success: false, 
         message: 'El presupuesto no tiene ítems para facturar.' 
       }
+    }
+
+    // 3.5. Obtener datos de la tarea para el administrador
+    let idAdministrador;
+    if (presupuesto.id_tarea) {
+      const { data: tareaData, error: tareaError } = await supabase
+        .from('vista_tareas_completa')
+        .select('id_administrador')
+        .eq('id', presupuesto.id_tarea)
+        .single();
+
+      if (tareaError || !tareaData) {
+        console.error('Error al obtener datos de la tarea:', tareaError);
+        return { success: false, message: 'No se pudo encontrar la tarea asociada para obtener el administrador.' };
+      }
+      idAdministrador = tareaData.id_administrador;
+    } else {
+        return { success: false, message: 'El presupuesto no está asociado a ninguna tarea, no se puede determinar el administrador.' };
     }
 
     // 4. Separar los ítems en regulares y materiales
@@ -134,7 +153,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       id_presupuesto_final: presupuesto.id,
       id_presupuesto: presupuesto.id_presupuesto_base,
       fecha_vencimiento: new Date(fechaActual.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 días
-      id_administrador: presupuesto.id_administrador,
+      id_administrador: idAdministrador,
       tiene_ajustes: false,
       ajustes_aprobados: false,
       created_at: new Date().toISOString(),
@@ -147,7 +166,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         .from('facturas')
         .insert({
           ...datosComunes,
-          total: totalRegular,
+          total: Math.round(totalRegular),
           saldo_pendiente: totalRegular,
           total_pagado: 0,
           nombre: nombreFacturaRegular
@@ -160,7 +179,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         console.error('Error al crear la factura regular:', facturaRError);
         return { 
           success: false, 
-          message: 'Error al crear la factura regular.' 
+          message: `Error al crear la factura regular: ${facturaRError.message}` 
         };
       }
       facturaRegular = facturaR;
@@ -194,7 +213,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         .from('facturas')
         .insert({
           ...datosComunes,
-          total: totalMaterial,
+          total: Math.round(totalMaterial),
           saldo_pendiente: totalMaterial,
           total_pagado: 0,
           nombre: nombreFacturaMaterial
@@ -207,7 +226,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         console.error('Error al crear la factura de materiales:', facturaMError);
         return { 
           success: false, 
-          message: 'Error al crear la factura de materiales.' 
+          message: `Error al crear la factura de materiales: ${facturaMError.message}` 
         };
       }
       facturaMaterial = facturaM;

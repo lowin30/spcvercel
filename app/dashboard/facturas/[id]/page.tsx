@@ -83,17 +83,17 @@ export default async function InvoicePage({ params }: { params: { id: string } }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center">
+      <div className="encabezado-responsive">
         <Button variant="ghost" size="sm" asChild className="mr-2">
           <Link href="/dashboard/facturas">
             <ArrowLeft className="h-4 w-4 mr-1" /> Volver
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Factura {factura.code}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Factura {factura.code}</h1>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid-responsive grid-responsive-lg">
+        <div className="sm:col-span-2 space-y-6">
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -158,7 +158,8 @@ export default async function InvoicePage({ params }: { params: { id: string } }
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
+                <div className="tabla-scroll">
+                  <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descripción</TableHead>
@@ -190,6 +191,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
 
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
           )}

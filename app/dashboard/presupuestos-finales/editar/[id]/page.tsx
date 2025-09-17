@@ -64,11 +64,12 @@ export default function EditarPresupuestoFinalPage({ params: paramsPromise }: Ed
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const [supabase] = useState(() => createClient())
+  const supabase = createClient()
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!presupuestoId) return
+      if (!presupuestoId || !supabase) return;
+
       try {
         setLoading(true)
 
@@ -150,7 +151,7 @@ export default function EditarPresupuestoFinalPage({ params: paramsPromise }: Ed
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 encabezado-flexible">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
             <Link href={`/dashboard/presupuestos-finales/${presupuesto.id}`}>

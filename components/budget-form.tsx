@@ -71,8 +71,8 @@ interface Item {
 // Interface for the new item form state
 interface NewItemFormState {
   descripcion: string;
-  cantidad: number; // cantidad remains number for now
-  precio: string;   // precio is a string to allow empty input
+  cantidad: number;
+  precio: number | string; // Allow string for input flexibility, but treat as number elsewhere
   es_producto?: boolean;
   producto_id?: string;
   producto?: Producto;
@@ -153,14 +153,16 @@ export function BudgetForm({
     setItems(itemsBase || []);
   }, [itemsBase]);
 
-  // Efecto para pre-seleccionar Administrador y Edificio basado en el presupuesto base
+  // Efecto para pre-seleccionar Administrador y Edificio basado en la tarea (desde edición o creación)
   useEffect(() => {
     const preseleccionarDesdeTarea = async () => {
-      if (presupuestoBase?.id_tarea) {
+      const tareaId = presupuestoBase?.id_tarea || (idTarea ? parseInt(idTarea) : null);
+
+      if (tareaId) {
         const { data: tareaCompleta, error } = await supabase
           .from('vista_tareas_completa')
           .select('id_administrador, id_edificio')
-          .eq('id', presupuestoBase.id_tarea)
+          .eq('id', tareaId)
           .single();
 
         if (error) {
@@ -184,7 +186,7 @@ export function BudgetForm({
 
     preseleccionarDesdeTarea();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presupuestoBase, supabase]);
+  }, [presupuestoBase, idTarea, supabase]);
   
   // Cargar lista de administradores al iniciar el formulario
   useEffect(() => {
@@ -276,7 +278,7 @@ export function BudgetForm({
 
   // Esta función se mantiene para compatibilidad mientras hacemos la transición al modal
   const handleAddItem = () => {
-    const priceValue = parseFloat(newItem.precio);
+    const priceValue = parseFloat(String(newItem.precio));
     if (!newItem.descripcion || newItem.cantidad <= 0 || isNaN(priceValue) || priceValue <= 0) {
       toast({
         title: "Error",
@@ -288,7 +290,7 @@ export function BudgetForm({
 
     setItems([...items, { 
       ...newItem, 
-      precio: parseFloat(newItem.precio) // Convert precio to number before adding to items list
+      precio: parseFloat(String(newItem.precio)) // Convert precio to number before adding to items list
     }])
 
     // Reset form
@@ -701,7 +703,7 @@ export function BudgetForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid-responsive grid-responsive-lg">
         <Card>
           <CardHeader>
             <CardTitle>Información del Presupuesto</CardTitle>
@@ -829,7 +831,7 @@ export function BudgetForm({
             )}
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between w-full items-center">
                 <Label>Ítems del Presupuesto</Label>
                 <Button 
                   type="button" 
@@ -846,7 +848,7 @@ export function BudgetForm({
                 open={isModalOpen}
                 setOpen={setIsModalOpen}
                 onSave={handleSaveItemFromModal}
-                editingItem={editingItemIndex !== null ? items[editingItemIndex] : newItem}
+                editingItem={editingItemIndex !== null ? items[editingItemIndex] : { ...newItem, precio: typeof newItem.precio === 'string' ? parseFloat(newItem.precio) || 0 : newItem.precio }}
               />
             </div>
           </CardContent>
@@ -874,20 +876,32 @@ export function BudgetForm({
           <CardHeader>
             <CardTitle>Detalle de Ítems</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {items.length === 0 ? (
               <p className="text-center py-4 text-muted-foreground">No hay ítems agregados</p>
             ) : (
-              <div className="rounded-md border">
-                <Table>
+              <div className="rounded-md border overflow-hidden">
+                <Table style={{minWidth: '400px'}}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descripción</TableHead>
-                      <TableHead className="text-right">Cant.</TableHead>
-                      <TableHead className="text-right">Precio</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
+                      <TableHead className="text-right">
+                        <span className="hidden sm:inline">Cantidad</span>
+                        <span className="inline sm:hidden">Cant.</span>
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <span className="hidden sm:inline">Precio</span>
+                        <span className="inline sm:hidden">Precio</span>
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <span className="hidden sm:inline">Subtotal</span>
+                        <span className="inline sm:hidden">Total</span>
+                      </TableHead>
                       {tipo === "final" && presupuestoAEditar && (
-                        <TableHead>Material</TableHead>
+                        <TableHead>
+                          <span className="hidden sm:inline">Material</span>
+                          <span className="inline sm:hidden">Mat.</span>
+                        </TableHead>
                       )}
                       <TableHead></TableHead>
                     </TableRow>

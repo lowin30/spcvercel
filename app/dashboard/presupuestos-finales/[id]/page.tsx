@@ -128,7 +128,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-16">
+      <div className="flex flex-col items-end gap-2 justify-center py-16">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
@@ -176,14 +176,14 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="encabezado-responsive">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" asChild>
             <Link href="/dashboard/presupuestos-finales">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Presupuesto Final: {presupuesto.code}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Presupuesto Final: {presupuesto.code}</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex gap-2">
@@ -209,7 +209,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid-responsive">
         <Card>
           <CardHeader>
             <CardTitle>Detalles del Presupuesto Final</CardTitle>
@@ -310,7 +310,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
             <CardTitle>Items del Presupuesto</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="tabla-scroll">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">

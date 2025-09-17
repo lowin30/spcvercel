@@ -138,8 +138,12 @@ export default async function EditarFacturaPage({ params }: { params: { id: stri
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Editar Factura</h1>
-      <p>Modificando la factura con código: {factura.code || `ID: ${factura.id}`}</p>
+      <div className="encabezado-responsive">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Editar Factura</h1>
+          <p className="text-sm text-muted-foreground">Modificando la factura con código: {factura.code || `ID: ${factura.id}`}</p>
+        </div>
+      </div>
       <InvoiceForm 
         presupuestos={presupuestosParaForm} 
         factura={factura} 

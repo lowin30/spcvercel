@@ -47,7 +47,7 @@ export function EsMaterialCheckbox({ itemId, initialValue, presupuestoId }: EsMa
   }
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-2 es-material-checkbox">
       <Checkbox 
         id={`es-material-${itemId}`}
         checked={esMaterial}
@@ -58,7 +58,8 @@ export function EsMaterialCheckbox({ itemId, initialValue, presupuestoId }: EsMa
         htmlFor={`es-material-${itemId}`}
         className="text-sm cursor-pointer"
       >
-        Material
+        <span className="hidden sm:inline">Material</span>
+        <span className="inline sm:hidden">Mat.</span>
       </label>
     </div>
   )
