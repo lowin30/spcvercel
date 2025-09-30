@@ -2,6 +2,72 @@
 
 ---
 
+## 📅 30 de Septiembre de 2025: Mejoras Críticas de UX en Registro de Partes de Trabajo
+
+### Resumen
+
+Se implementaron **tres mejoras críticas** en el módulo de registro de días trabajados para resolver problemas de claridad, prevenir doble-registros y mejorar la visualización del calendario.
+
+#### MEJORA #1: Calendario Consolidado para Trabajadores
+- **Problema:** Los trabajadores con múltiples tareas solo veían los partes de la tarea actual, causando confusión y doble-registros accidentales.
+- **Solución:** Vista consolidada que muestra TODOS los partes del trabajador en TODAS sus tareas.
+- **Diferenciación visual:**
+  - Tarea actual: Verde (`#10B981`) para día completo, Naranja (`#F59E0B`) para medio día (editables)
+  - Otras tareas: Gris (`#6B7280` / `#9CA3AF`) con borde (solo lectura)
+- **Filtrado por rol:**
+  ```typescript
+  if (usuarioActual.rol === 'trabajador') {
+    query = query.eq('id_trabajador', trabajadorId) // Todos los partes
+  } else {
+    query = query.eq('id_tarea', tareaId).eq('id_trabajador', trabajadorId) // Solo esta tarea
+  }
+  ```
+
+#### MEJORA #2: Banner Consolidado Inteligente
+- **Problema:** Múltiples banners separados (azul + naranja/rojo) que no comunicaban claramente el estado total del día.
+- **Solución:** Banner único con 3 secciones claras:
+  1. ✏️ **En esta tarea:** Parte existente con opción de modificar/eliminar
+  2. 📌 **En otras tareas:** Lista detallada con código + título de cada tarea
+  3. **Total ocupado:** Resumen claro (ej: "1 día(s) de 1")
+- **Color dinámico:** Azul cuando hay espacio, Rojo cuando día completo ocupado
+- **Información de tareas:** JOIN con tabla `tareas` para mostrar `code` y `titulo`
+- **Estado extendido:**
+  ```typescript
+  const [modalState, setModalState] = useState<{ 
+    // ...
+    partesEnOtrasTareas: ParteDeTrabajo[]  // Lista completa para detalles
+  }>()
+  const [tareasInfo, setTareasInfo] = useState<Record<number, { codigo, titulo }>>({})
+  ```
+
+#### MEJORA #3: Eventos Compactos en Calendario
+- **Problema:** Texto largo en eventos causaba solapamiento cuando había múltiples registros el mismo día.
+- **Solución:** Títulos simplificados a solo emojis:
+  - ☀️ = Día Completo
+  - 🌙 = Medio Día
+- **Beneficio:** Múltiples eventos caben perfectamente, sin solapamiento
+- **Colores:** Mantienen distinción visual entre tarea actual (brillante) y otras (gris)
+
+### Impacto
+
+| Aspecto | Antes | Después |
+|---------|-------|----------|
+| **Visibilidad** | Solo partes de tarea actual | TODOS los partes en todas las tareas |
+| **Banners** | 2-3 separados, confusos | 1 consolidado, claro y completo |
+| **Calendario** | Texto largo, solapamiento | Emojis compactos, limpio |
+| **Prevención de errores** | Doble-registros frecuentes | Prevención efectiva con info clara |
+| **UX** | Confusa, fragmentada | Profesional, intuitiva |
+
+**Usuarios afectados:**
+- ⭐⭐⭐ **Trabajadores:** Experiencia transformada (vista consolidada + banner claro)
+- ⭐⭐ **Supervisores/Admin:** Mayor claridad al registrar para trabajadores
+
+**Archivos modificados:**
+- `components/calendario-partes-trabajo.tsx`
+- `components/registro-parte-trabajo-form.tsx`
+
+---
+
 ## ⚠️ Observaciones Críticas sobre Roles y Módulos de Liquidaciones (Agosto 2025)
 
 ### Diferencia entre "Administrador" y "Admin"
