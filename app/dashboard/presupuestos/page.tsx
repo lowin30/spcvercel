@@ -16,6 +16,7 @@ export default function PresupuestosPage() {
   const [userDetails, setUserDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [tabActual, setTabActual] = useState<string>('borrador') // Por defecto: borrador
   const router = useRouter()
   const params = useSearchParams()
   const searchQuery = params.get('q') || ''
@@ -136,6 +137,20 @@ export default function PresupuestosPage() {
   const presupuestosAceptado = filterByEstado('aceptado');
   const presupuestosFacturado = filterByEstado('facturado');
   const presupuestosRechazado = filterByEstado('rechazado');
+  
+  // Presupuestos pendientes con ordenamiento prioritario: Borrador > Aceptado > Enviado
+  const presupuestosPendientes = presupuestos
+    .filter(p => {
+      const codigo = p.estados_presupuestos?.codigo
+      return codigo === 'borrador' || codigo === 'enviado' || codigo === 'aceptado'
+    })
+    .sort((a, b) => {
+      // Orden de prioridad: Borrador (1) > Aceptado (2) > Enviado (3)
+      const prioridad: Record<string, number> = { 'borrador': 1, 'aceptado': 2, 'enviado': 3 }
+      const prioA = prioridad[a.estados_presupuestos?.codigo || ''] || 999
+      const prioB = prioridad[b.estados_presupuestos?.codigo || ''] || 999
+      return prioA - prioB
+    })
 
   // Estado de carga
   if (loading) {
@@ -191,24 +206,97 @@ export default function PresupuestosPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-              <h3 className="font-medium">Borrador</h3>
-              <p className="text-2xl font-bold">{presupuestosBorrador.length}</p>
+            {/* Card Borrador - DESTACADA con badge rojo pulsante */}
+            <div 
+              onClick={() => setTabActual('borrador')} 
+              className={`
+                cursor-pointer p-4 rounded-lg transition-all relative
+                ${
+                  tabActual === 'borrador' 
+                    ? 'ring-4 ring-blue-500 shadow-2xl scale-105' 
+                    : 'hover:scale-105 hover:shadow-lg'
+                }
+                bg-gradient-to-br from-blue-100 to-blue-200 
+                dark:from-blue-900 dark:to-blue-800
+              `}
+            >
+              {presupuestosBorrador.length > 0 && (
+                <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold animate-pulse text-sm">
+                  {presupuestosBorrador.length}
+                </div>
+              )}
+              <h3 className="font-medium text-lg">📝 Borrador</h3>
+              <p className="text-3xl font-bold">{presupuestosBorrador.length}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                Acción inmediata
+              </p>
             </div>
-            <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-lg">
-              <h3 className="font-medium">Enviado</h3>
+            
+            {/* Card Enviado */}
+            <div 
+              onClick={() => setTabActual('enviado')} 
+              className={`
+                cursor-pointer p-4 rounded-lg transition-all
+                ${
+                  tabActual === 'enviado' 
+                    ? 'ring-2 ring-blue-500 shadow-lg' 
+                    : 'hover:scale-105'
+                }
+                bg-blue-100 dark:bg-blue-900
+              `}
+            >
+              <h3 className="font-medium">📤 Enviado</h3>
               <p className="text-2xl font-bold">{presupuestosEnviado.length}</p>
             </div>
-            <div className="bg-green-100 dark:bg-green-900 p-4 rounded-lg">
-              <h3 className="font-medium">Aceptado</h3>
+            
+            {/* Card Aceptado */}
+            <div 
+              onClick={() => setTabActual('aceptado')} 
+              className={`
+                cursor-pointer p-4 rounded-lg transition-all
+                ${
+                  tabActual === 'aceptado' 
+                    ? 'ring-2 ring-green-500 shadow-lg' 
+                    : 'hover:scale-105'
+                }
+                bg-green-100 dark:bg-green-900
+              `}
+            >
+              <h3 className="font-medium">✅ Aceptado</h3>
               <p className="text-2xl font-bold">{presupuestosAceptado.length}</p>
             </div>
-            <div className="bg-purple-100 dark:bg-purple-900 p-4 rounded-lg">
-              <h3 className="font-medium">Facturado</h3>
+            
+            {/* Card Facturado */}
+            <div 
+              onClick={() => setTabActual('facturado')} 
+              className={`
+                cursor-pointer p-4 rounded-lg transition-all
+                ${
+                  tabActual === 'facturado' 
+                    ? 'ring-2 ring-purple-500 shadow-lg' 
+                    : 'hover:scale-105'
+                }
+                bg-purple-100 dark:bg-purple-900
+              `}
+            >
+              <h3 className="font-medium">💰 Facturado</h3>
               <p className="text-2xl font-bold">{presupuestosFacturado.length}</p>
             </div>
-            <div className="bg-red-100 dark:bg-red-900 p-4 rounded-lg">
-              <h3 className="font-medium">Rechazado</h3>
+            
+            {/* Card Rechazado */}
+            <div 
+              onClick={() => setTabActual('rechazado')} 
+              className={`
+                cursor-pointer p-4 rounded-lg transition-all
+                ${
+                  tabActual === 'rechazado' 
+                    ? 'ring-2 ring-red-500 shadow-lg' 
+                    : 'hover:scale-105'
+                }
+                bg-red-100 dark:bg-red-900
+              `}
+            >
+              <h3 className="font-medium">❌ Rechazado</h3>
               <p className="text-2xl font-bold">{presupuestosRechazado.length}</p>
             </div>
           </div>
@@ -227,20 +315,47 @@ export default function PresupuestosPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="todos" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6 overflow-x-auto">
-          <TabsTrigger value="todos">Todos</TabsTrigger>
-          <TabsTrigger value="borrador">Borrador</TabsTrigger>
-          <TabsTrigger value="enviado">Enviado</TabsTrigger>
-          <TabsTrigger value="aceptado">Aceptado</TabsTrigger>
-          <TabsTrigger value="facturado">Facturado</TabsTrigger>
-          <TabsTrigger value="rechazado">Rechazado</TabsTrigger>
+      <Tabs value={tabActual} onValueChange={setTabActual} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-7 overflow-x-auto">
+          <TabsTrigger value="borrador" className="text-xs sm:text-sm font-semibold">
+            📝 Borrador
+            <span className="ml-1.5 rounded-full bg-red-100 dark:bg-red-900 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
+              {presupuestosBorrador.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="pendientes" className="text-xs sm:text-sm">
+            ⚡ Pendientes
+            <span className="ml-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900 px-2 py-0.5 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+              {presupuestosPendientes.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="todos" className="text-xs sm:text-sm">
+            📋 Todos
+            <span className="ml-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+              {presupuestos.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="enviado" className="text-xs sm:text-sm">
+            📤 Enviado ({presupuestosEnviado.length})
+          </TabsTrigger>
+          <TabsTrigger value="aceptado" className="text-xs sm:text-sm">
+            ✅ Aceptado ({presupuestosAceptado.length})
+          </TabsTrigger>
+          <TabsTrigger value="facturado" className="text-xs sm:text-sm">
+            💰 Facturado ({presupuestosFacturado.length})
+          </TabsTrigger>
+          <TabsTrigger value="rechazado" className="text-xs sm:text-sm">
+            ❌ Rechazado ({presupuestosRechazado.length})
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="todos">
-          <BudgetList budgets={presupuestos} userRole={userDetails?.rol} />
-        </TabsContent>
         <TabsContent value="borrador">
           <BudgetList budgets={presupuestosBorrador} userRole={userDetails?.rol} />
+        </TabsContent>
+        <TabsContent value="pendientes">
+          <BudgetList budgets={presupuestosPendientes} userRole={userDetails?.rol} />
+        </TabsContent>
+        <TabsContent value="todos">
+          <BudgetList budgets={presupuestos} userRole={userDetails?.rol} />
         </TabsContent>
         <TabsContent value="enviado">
           <BudgetList budgets={presupuestosEnviado} userRole={userDetails?.rol} />

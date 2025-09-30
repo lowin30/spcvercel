@@ -2,11 +2,10 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
-import { Search, Pencil, Trash2, Loader2, FileText } from "lucide-react"
+import { Pencil, Trash2, Loader2, FileText } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EstadoBadge } from "@/components/estado-badge"
 import { Button } from "@/components/ui/button"
@@ -44,7 +43,6 @@ interface BudgetListProps {
 }
 
 export function BudgetList({ budgets, userRole }: BudgetListProps) {
-  const [searchTerm, setSearchTerm] = useState("")
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [processingId, setProcessingId] = useState<number | null>(null)
 
@@ -88,14 +86,8 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
     }
   }
 
-  const filteredBudgets = budgets.filter((budget) => {
-    const term = searchTerm.toLowerCase()
-    return (
-      (budget.code && budget.code.toLowerCase().includes(term)) ||
-      (budget.tareas?.titulo && budget.tareas.titulo.toLowerCase().includes(term)) ||
-      (budget.tareas?.edificios?.nombre && budget.tareas.edificios.nombre.toLowerCase().includes(term))
-    )
-  })
+  // Los presupuestos ya vienen filtrados desde la página principal
+  const filteredBudgets = budgets;
 
   return (
     <Card>
@@ -107,18 +99,6 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
         {/* Eliminamos el botón duplicado de aquí */}
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Buscar presupuestos..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
         <div className="rounded-md border overflow-hidden">
           <style jsx global>{`
             /* Estilos para evitar scroll horizontal en móvil */
@@ -186,12 +166,45 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredBudgets.map((budget) => (
-                  <TableRow key={budget.id}>
+                filteredBudgets.map((budget) => {
+                  // Determinar color y opacidad según estado
+                  const codigo = budget.estados_presupuestos?.codigo
+                  const color = budget.estados_presupuestos?.color
+                  
+                  let backgroundColor = 'transparent'
+                  let borderLeft = 'none'
+                  
+                  if (color) {
+                    if (codigo === 'borrador') {
+                      // Borrador: MÁS intenso (30% opacidad) + borde destacado
+                      backgroundColor = `${color}30`
+                      borderLeft = `4px solid ${color}`
+                    } else if (codigo === 'facturado') {
+                      // Facturado: MUY suave (8% opacidad) - ya procesado
+                      backgroundColor = `${color}08`
+                    } else {
+                      // Resto: Opacidad media (15%)
+                      backgroundColor = `${color}15`
+                    }
+                  }
+                  
+                  return (
+                  <TableRow 
+                    key={budget.id}
+                    className="cursor-pointer transition-all hover:opacity-90"
+                    style={{ backgroundColor, borderLeft }}
+                  >
                     <TableCell>
-                      <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-primary hover:underline">
-                        {budget.tareas?.titulo || 'Presupuesto #' + budget.id}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {codigo === 'borrador' && (
+                          <span className="text-red-500 animate-pulse text-lg" title="Acción requerida">
+                            ⚠️
+                          </span>
+                        )}
+                        <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-primary hover:underline">
+                          {budget.tareas?.titulo || 'Presupuesto #' + budget.id}
+                        </Link>
+                      </div>
                     </TableCell>
                     <TableCell>{budget.tareas?.edificios?.nombre || 'Sin edificio'}</TableCell>
                                         <TableCell>
@@ -244,7 +257,8 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  )
+                })
               )}
             </TableBody>
           </Table>
