@@ -1,304 +1,161 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from "@/lib/supabase-client"
-import { Label } from '@/components/ui/label'
+import { createClient } from '@/lib/supabase-client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
+import CalendarioPartesTrabajo from '@/components/calendario-partes-trabajo'
 import { Loader2 } from 'lucide-react'
-import { CalendarioPartesTrabajo } from '@/components/calendario-partes-trabajo'
 
+// Interfaces para tipado
 interface Tarea {
   id: number
   titulo: string
-  code: string
 }
 
-interface Usuario {
+interface Trabajador {
   id: string
   email: string
-  // Agrega otros campos de usuario que puedas necesitar, ej. nombre completo
 }
 
 interface RegistroParteTrabajoFormProps {
-  tareaIdInicial?: number
-  trabajadorIdInicial?: string
-  fechaInicial?: Date
-  usuarioActual: Usuario & { rol: string }
-  onParteRegistrado?: (accion?: 'registrado' | 'actualizado' | 'eliminado', fecha?: Date) => void // Callback opcional
+  usuarioActual: any
 }
 
-export function RegistroParteTrabajoForm({
-  tareaIdInicial,
-  trabajadorIdInicial,
-  fechaInicial,
-  usuarioActual,
-  onParteRegistrado,
-}: RegistroParteTrabajoFormProps) {
+export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajoFormProps) {
   const supabase = createClient()
-  const router = useRouter()
 
-  const [idTarea, setIdTarea] = useState<number | undefined>(tareaIdInicial)
-  const idTrabajador = trabajadorIdInicial || (usuarioActual.rol === 'trabajador' ? usuarioActual.id : undefined)
-  
-  const [tareasDisponibles, setTareasDisponibles] = useState<Tarea[]>([])
-  const [trabajadoresDisponibles, setTrabajadoresDisponibles] = useState<Usuario[]>([])
-
-  const [loadingTareas, setLoadingTareas] = useState(false)
+  // Estados del componente
+  const [tareas, setTareas] = useState<Tarea[]>([])
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([])
+  const [selectedTareaId, setSelectedTareaId] = useState<number | null>(null)
+  const [selectedTrabajadorId, setSelectedTrabajadorId] = useState<string | null>(null)
+  const [loadingTareas, setLoadingTareas] = useState(true)
   const [loadingTrabajadores, setLoadingTrabajadores] = useState(false)
 
-  // Cargar tareas disponibles usando las tablas relacionales directamente
+  // Handlers para los selectores
+  const handleTareaChange = (id: string) => {
+    setSelectedTareaId(Number(id))
+    
+    // Solo resetear trabajador si es admin/supervisor
+    // Para trabajadores, el trabajadorId SIEMPRE es él mismo
+    if (usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') {
+      setSelectedTrabajadorId(null)
+      setTrabajadores([])
+    }
+  }
+
+  const handleTrabajadorChange = (id: string) => {
+    setSelectedTrabajadorId(id)
+  }
+
+  // Efecto para cargar las tareas según el rol del usuario
   useEffect(() => {
     async function fetchTareas() {
       setLoadingTareas(true)
-      let tareasQuery;
-      
-      // Si el usuario es supervisor, consultar las tareas que supervisa desde la tabla relacional
-      if (usuarioActual.rol === 'supervisor') {
-        // Primero obtenemos los ids de tareas que supervisa
-        const { data: tareasSupervisa, error: errorSupervisa } = await supabase
-          .from('supervisores_tareas')
-          .select('id_tarea')
-          .eq('id_supervisor', usuarioActual.id);
+      if (usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') {
+        const { data, error } = await supabase.from('tareas').select('id, titulo').order('titulo', { ascending: true })
+        if (error) toast({ title: 'Error', description: 'No se pudieron cargar las tareas.', variant: 'destructive' })
+        else setTareas(data || [])
+      } else { // Rol: trabajador
+        const { data, error } = await supabase.from('vista_asignaciones_tareas_trabajadores').select('id_tarea, titulo_tarea').eq('id_trabajador', usuarioActual.id)
+        if (error || !data) {
+          setTareas([])
+        } else {
+          const tareasUnicas = Array.from(new Map(data.map(t => [t.id_tarea, { id: t.id_tarea, titulo: t.titulo_tarea }])).values());
+          setTareas(tareasUnicas)
           
-        if (errorSupervisa) {
-          console.error('Error al obtener tareas supervisadas:', errorSupervisa);
-          setLoadingTareas(false);
-          return;
-        }
-        
-        // Extraemos los IDs de tareas
-        const idsTareas = tareasSupervisa?.map(t => t.id_tarea) || [];
-        
-        if (idsTareas.length === 0) {
-          // Si no supervisa ninguna tarea, devolver un array vacío
-          setTareasDisponibles([]);
-          setLoadingTareas(false);
-          return;
-        }
-        
-        // Luego obtenemos los detalles de esas tareas
-        tareasQuery = supabase
-          .from('tareas')
-          .select('id, titulo, code')
-          .in('id', idsTareas);
-      }
-      // Para trabajadores, consultar las tareas asignadas desde la tabla relacional
-      else if (usuarioActual.rol === 'trabajador') {
-        // Primero obtenemos los ids de tareas asignadas
-        const { data: tareasAsignadas, error: errorAsignadas } = await supabase
-          .from('trabajadores_tareas')
-          .select('id_tarea')
-          .eq('id_trabajador', usuarioActual.id);
+          // Para trabajadores, SIEMPRE auto-seleccionar su propio ID como trabajador
+          setSelectedTrabajadorId(usuarioActual.id)
           
-        if (errorAsignadas) {
-          console.error('Error al obtener tareas asignadas:', errorAsignadas);
-          setLoadingTareas(false);
-          return;
+          // Auto-seleccionar tarea solo si hay exactamente 1
+          if (tareasUnicas.length === 1) {
+            setSelectedTareaId(tareasUnicas[0].id)
+          }
         }
-        
-        // Extraemos los IDs de tareas
-        const idsTareas = tareasAsignadas?.map(t => t.id_tarea) || [];
-        
-        if (idsTareas.length === 0) {
-          // Si no tiene tareas asignadas, devolver un array vacío
-          setTareasDisponibles([]);
-          setLoadingTareas(false);
-          return;
-        }
-        
-        // Luego obtenemos los detalles de esas tareas
-        tareasQuery = supabase
-          .from('tareas')
-          .select('id, titulo, code')
-          .in('id', idsTareas)
-          .eq('finalizada', false);
-      }
-      // Para administradores, mostrar todas las tareas
-      else {
-        tareasQuery = supabase
-          .from('tareas')
-          .select('id, titulo, code');
-      }
-
-      const { data, error } = await tareasQuery.order('titulo', { ascending: true })
-
-      if (error) {
-        console.error('Error al cargar tareas:', error)
-        toast({ title: 'Error', description: 'No se pudieron cargar las tareas.', variant: 'destructive' })
-      } else {
-        setTareasDisponibles(data || [])
       }
       setLoadingTareas(false)
     }
     fetchTareas()
-  }, [supabase, usuarioActual.rol, usuarioActual.id])
+  }, [supabase, usuarioActual.id, usuarioActual.rol])
 
-  // Cargar los trabajadores asignados cuando se selecciona una tarea (para admin/supervisor)
+  // Efecto para cargar los trabajadores cuando se selecciona una tarea
   useEffect(() => {
-    async function cargarTrabajadoresAsignados() {
-      if (!idTarea || (usuarioActual.rol !== 'admin' && usuarioActual.rol !== 'supervisor')) return
-      
-      setLoadingTrabajadores(true)
-      
-      try {
-        console.log(`Consultando trabajadores para la tarea con ID ${idTarea} usando vista optimizada`)
-        
-        // Usar la vista optimizada para obtener los emails de trabajadores asignados a la tarea
-        const { data: tareaInfo, error: errorTarea } = await supabase
-          .from('vista_tareas_completa')
-          .select('trabajadores_emails')
-          .eq('id', idTarea)
-          .single()
-        
-        if (errorTarea) {
-          console.error('Error al cargar información de la tarea:', errorTarea)
-          toast({
-            title: 'Error',
-            description: 'No se pudo cargar la información de la tarea seleccionada.',
-            variant: 'destructive'
-          })
-          setLoadingTrabajadores(false)
-          return
-        }
-        
-        // Extraer los IDs de trabajadores del array en trabajadores_emails
-        let idsTrabajadores = tareaInfo?.trabajadores_emails || []
-        
-        // Verificar si es un string y parsearlo si es necesario
-        if (typeof idsTrabajadores === 'string') {
-          try {
-            if (idsTrabajadores.startsWith('[') && idsTrabajadores.endsWith(']')) {
-              idsTrabajadores = JSON.parse(idsTrabajadores)
-            } else {
-              idsTrabajadores = [idsTrabajadores]
-            }
-          } catch (error) {
-            console.error('Error al parsear IDs de trabajadores:', error)
-            idsTrabajadores = []
-          }
-        }
-        
-        // Filtrar solo los IDs que son UUIDs válidos
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        idsTrabajadores = Array.isArray(idsTrabajadores) ? 
-          idsTrabajadores.filter(id => typeof id === 'string' && uuidRegex.test(id)) : []
-        
-        console.log(`IDs de trabajadores válidos encontrados: ${idsTrabajadores.length || 0}`)
-        
-        // Si hay IDs de trabajadores, cargar la información completa de los usuarios
-        if (idsTrabajadores.length > 0) {
-          // Consultar solo si hay IDs válidos
-          const { data: usuarios, error: errorUsuarios } = await supabase
-            .from('usuarios')
-            .select('id, email, nombre, color_perfil')
-            .in('id', idsTrabajadores)
-            
-          if (errorUsuarios) {
-            console.error('Error al cargar detalles de usuarios:', errorUsuarios)
-            toast({ title: 'Error', description: 'No se pudieron cargar los detalles de los trabajadores.', variant: 'destructive' })
-          } else if (usuarios) {
-            setTrabajadoresDisponibles(usuarios)
-          }
-        } else {
-          // Si no hay IDs válidos después de filtrar, intentar con la vista alternativa
-          console.log('No se encontraron IDs válidos, intentando con vista alternativa')
-          
-          try {
-            const { data: asignaciones, error: errorAsignaciones } = await supabase
-              .from('vista_asignaciones_tareas_trabajadores')
-              .select('id_trabajador')
-              .eq('id_tarea', idTarea)
-            
-            if (errorAsignaciones) {
-              console.error('Error al cargar asignaciones de respaldo:', errorAsignaciones)
-              toast({
-                title: "Sin trabajadores",
-                description: "Esta tarea no tiene trabajadores asignados.",
-                variant: "default"
-              })
-              setTrabajadoresDisponibles([])
-              return
-            }
-            
-            const idsAlternativos = asignaciones?.map(a => a.id_trabajador) || []
-            
-            if (idsAlternativos.length > 0) {
-              const { data: usuarios, error: errorUsuarios } = await supabase
-                .from('usuarios')
-                .select('id, email, nombre, color_perfil')
-                .in('id', idsAlternativos)
-                
-              if (errorUsuarios) {
-                console.error('Error al cargar detalles de usuarios (vista alternativa):', errorUsuarios)
-                toast({ title: 'Error', description: 'No se pudieron cargar los detalles de los trabajadores.', variant: 'destructive' })
-              } else if (usuarios) {
-                setTrabajadoresDisponibles(usuarios)
-              }
-            } else {
-              toast({
-                title: "Sin trabajadores",
-                description: "Esta tarea no tiene trabajadores asignados.",
-                variant: "default"
-              })
-              setTrabajadoresDisponibles([])
-            }
-          } catch (error) {
-            console.error('Error al cargar trabajadores (vista alternativa):', error)
-            toast({
-              title: "Sin trabajadores",
-              description: "Esta tarea no tiene trabajadores asignados.",
-              variant: "default"
-            })
-            setTrabajadoresDisponibles([])
-          }
-        }
-      } catch (error) {
-        console.error('Error al cargar trabajadores asignados:', error)
-        toast({
-          title: 'Error',
-          description: 'No se pudieron cargar los trabajadores asignados a esta tarea.',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoadingTrabajadores(false)
+    async function fetchTrabajadores() {
+      if (!selectedTareaId || usuarioActual.rol === 'trabajador') {
+        setTrabajadores([])
+        return
       }
+      setLoadingTrabajadores(true)
+      const { data, error } = await supabase.from('vista_asignaciones_tareas_trabajadores').select('id_trabajador, email_trabajador').eq('id_tarea', selectedTareaId)
+      if (error) {
+        toast({ title: 'Error', description: 'No se pudieron cargar los trabajadores.', variant: 'destructive' })
+        setTrabajadores([])
+      } else if (data) {
+        const trabajadoresUnicos = Array.from(new Map(data.map(t => [t.id_trabajador, { id: t.id_trabajador, email: t.email_trabajador }])).values());
+        setTrabajadores(trabajadoresUnicos)
+      } else {
+        setTrabajadores([])
+      }
+      setLoadingTrabajadores(false)
     }
-    
-    cargarTrabajadoresAsignados()
-  }, [idTarea, supabase, usuarioActual.rol]);
+    fetchTrabajadores()
+  }, [selectedTareaId, supabase, usuarioActual.rol])
 
-  // Esta función ya no es necesaria porque utilizaremos solo el calendario
-
-  // Función para manejar cambios en el calendario
-  const handleCalendarioChange = (accion: 'registrado' | 'actualizado' | 'eliminado', fecha?: Date) => {
-    // Notificar al componente padre
-    if (onParteRegistrado) {
-      onParteRegistrado(accion, fecha);
-    }
-    
-    // Para futuro: aquí podríamos actualizar una lista de partes recientes si fuera necesario
-  };
+  if (loadingTareas) {
+    return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
 
   return (
-    <div className="space-y-6 p-4 border rounded-md shadow-sm bg-card">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Registrar Parte de Trabajo</h2>
-      </div>
-      
-      {/* Selector de tarea, solo visible si no hay tarea inicial predefinida */}
-      {!tareaIdInicial && (
+    <div className="p-4 bg-white rounded-lg shadow-md">
+      <h2 className="text-xl font-semibold mb-4">Registro General de Partes</h2>
+
+      {/* Mensaje si el trabajador no tiene tareas asignadas */}
+      {tareas.length === 0 && usuarioActual.rol === 'trabajador' && (
+        <div className="text-center p-8 bg-yellow-50 border-2 border-yellow-200 rounded-md">
+          <p className="font-medium text-yellow-800 text-lg">No tienes tareas asignadas</p>
+          <p className="text-sm text-yellow-600 mt-2">
+            Contacta a tu supervisor para que te asigne a una tarea.
+          </p>
+        </div>
+      )}
+
+      {/* Selectores para Admin y Supervisor */}
+      {(usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') && tareas.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label htmlFor="tarea-select" className="block text-sm font-medium text-gray-700 mb-1">1. Seleccionar Tarea</label>
+            <Select onValueChange={handleTareaChange} value={selectedTareaId?.toString() ?? ''}>
+              <SelectTrigger id="tarea-select"><SelectValue placeholder="Elige una tarea..." /></SelectTrigger>
+              <SelectContent>{tareas.map(t => <SelectItem key={t.id} value={t.id.toString()}>{t.titulo}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="trabajador-select" className="block text-sm font-medium text-gray-700 mb-1">2. Seleccionar Trabajador</label>
+            <Select onValueChange={handleTrabajadorChange} value={selectedTrabajadorId ?? ''} disabled={!selectedTareaId || loadingTrabajadores}>
+              <SelectTrigger id="trabajador-select">
+                <SelectValue placeholder={loadingTrabajadores ? 'Cargando...' : 'Elige un trabajador...'} />
+              </SelectTrigger>
+              <SelectContent>{trabajadores.map(t => <SelectItem key={t.id} value={t.id}>{t.email}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* Selector de Tarea SOLO para Trabajadores con múltiples tareas */}
+      {usuarioActual.rol === 'trabajador' && tareas.length > 1 && (
         <div className="mb-4">
-          <Label htmlFor="tarea">Tarea</Label>
-          <Select onValueChange={(value) => setIdTarea(Number(value))} value={idTarea?.toString()} disabled={loadingTareas}>
-            <SelectTrigger id="tarea" className="mt-1">
-              <SelectValue placeholder={loadingTareas ? "Cargando tareas..." : "Selecciona una tarea"} />
+          <label htmlFor="tarea-select-trabajador" className="block text-sm font-medium text-gray-700 mb-2">
+            Selecciona la tarea para registrar tus días de trabajo:
+          </label>
+          <Select onValueChange={handleTareaChange} value={selectedTareaId?.toString() ?? ''}>
+            <SelectTrigger id="tarea-select-trabajador" className="w-full">
+              <SelectValue placeholder="Elige una tarea..." />
             </SelectTrigger>
             <SelectContent>
-              {tareasDisponibles.map((tarea) => (
-                <SelectItem key={tarea.id} value={tarea.id.toString()}>
-                  {tarea.code} - {tarea.titulo}
+              {tareas.map(t => (
+                <SelectItem key={t.id} value={t.id.toString()}>
+                  {t.titulo}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -306,27 +163,25 @@ export function RegistroParteTrabajoForm({
         </div>
       )}
 
-      {/* Eliminado el selector de trabajador, ahora solo se usa el del componente CalendarioPartesTrabajo */}
-
-      <div className="mt-2 mb-4 p-2 bg-amber-50 border border-amber-200 rounded">
-        <p className="text-sm text-amber-700">Para registrar un día, haz clic en la fecha deseada en el calendario y selecciona el tipo de jornada.</p>
-      </div>
-
-      {/* Mostrar calendario si hay tarea seleccionada */}
-      {idTarea && (
-        <CalendarioPartesTrabajo
-          tareaId={idTarea}
-          trabajadorId={idTrabajador}
-          usuarioActual={usuarioActual}
-          onRegistroChange={handleCalendarioChange}
-        />
-      )}
-      
-      {/* Mensaje si no hay tarea seleccionada */}
-      {!idTarea && (
-        <div className="text-center p-4 border border-dashed rounded-md">
-          <p>Selecciona una tarea para ver el calendario de registro</p>
+      {/* Renderizado del calendario cuando todo está seleccionado */}
+      {selectedTareaId && selectedTrabajadorId ? (
+        <div className="mt-6">
+           <div className="mt-2 mb-4 p-2 bg-amber-50 border border-amber-200 rounded">
+             <p className="text-sm text-amber-700">Para registrar un día, haz clic en la fecha deseada en el calendario y selecciona el tipo de jornada.</p>
+           </div>
+          <CalendarioPartesTrabajo
+            key={`${selectedTareaId}-${selectedTrabajadorId}`}
+            tareaId={selectedTareaId.toString()}
+            trabajadorId={selectedTrabajadorId}
+            usuarioActual={usuarioActual}
+          />
         </div>
+      ) : (
+        (usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') && (
+          <div className="text-center p-4 border-dashed border-2 rounded-md mt-4">
+            <p>Selecciona una tarea y un trabajador para ver el calendario.</p>
+          </div>
+        )
       )}
     </div>
   )
