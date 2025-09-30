@@ -10,6 +10,7 @@ import { Plus, Search, Loader2, Filter } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Estructura de una factura, tal como la necesita el componente InvoiceList
 // Estructura de una factura, simplificada temporalmente
@@ -52,6 +53,7 @@ export default function FacturasPage({
   const [filtroAdmin, setFiltroAdmin] = useState<number | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
+  const [vistaActual, setVistaActual] = useState<'todas' | 'pendientes' | 'pagadas' | 'vencidas'>('pendientes') // Por defecto: pendientes
   const router = useRouter()
   const params = useSearchParams()
   
@@ -64,6 +66,7 @@ export default function FacturasPage({
   const totalFacturas = facturas?.length || 0
   const totalPagadas = facturas?.filter((f: Invoice) => f.pagada).length || 0
   const totalPendientes = facturas?.filter((f: Invoice) => !f.pagada).length || 0
+  const totalVencidas = facturas?.filter((f: Invoice) => f.id_estado_nuevo === 4).length || 0
   const montoTotal = facturas?.reduce((sum: number, f: Invoice) => sum + (f.total || 0), 0) || 0
 
   useEffect(() => {
@@ -197,8 +200,20 @@ export default function FacturasPage({
     return estado?.nombre || `Estado #${id}`;
   };
 
-  // Filtrar facturas según la búsqueda, administrador y estado
+  // Filtrar facturas según la vista actual (tabs), búsqueda, administrador y estado
   const filteredFacturas = facturas.filter((invoice) => {
+    // Filtro por vista actual (tabs)
+    if (vistaActual === 'pendientes' && invoice.pagada) {
+      return false; // Ocultar pagadas en vista pendientes
+    }
+    if (vistaActual === 'pagadas' && !invoice.pagada) {
+      return false; // Solo mostrar pagadas en vista pagadas
+    }
+    if (vistaActual === 'vencidas' && invoice.id_estado_nuevo !== 4) {
+      return false; // Solo mostrar vencidas (estado 4) en vista vencidas
+    }
+    // vistaActual === 'todas' no filtra nada
+    
     // Filtro por texto de búsqueda
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase();
@@ -266,6 +281,36 @@ export default function FacturasPage({
           </Link>
         </Button>
       </div>
+
+      {/* Tabs de navegación rápida */}
+      <Tabs value={vistaActual} onValueChange={(value) => setVistaActual(value as any)}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="todas" className="text-xs sm:text-sm">
+            📋 Todas
+            <span className="ml-1.5 rounded-full bg-blue-100 dark:bg-blue-900 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+              {totalFacturas}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="pendientes" className="text-xs sm:text-sm">
+            ⏳ Pendientes
+            <span className="ml-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900 px-2 py-0.5 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+              {totalPendientes}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="pagadas" className="text-xs sm:text-sm">
+            ✅ Pagadas
+            <span className="ml-1.5 rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-300">
+              {totalPagadas}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="vencidas" className="text-xs sm:text-sm">
+            ⚠️ Vencidas
+            <span className="ml-1.5 rounded-full bg-red-100 dark:bg-red-900 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
+              {totalVencidas}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <Card>
         <CardHeader>

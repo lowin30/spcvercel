@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
-import { Search, Download, Pencil, Trash2, CreditCard, Loader2 } from "lucide-react"
+import { Download, Pencil, Trash2, CreditCard, Loader2 } from "lucide-react"
 import { EstadoBadge } from "@/components/estado-badge"
 import { Button } from "@/components/ui/button"
 import { deleteInvoice } from "@/app/dashboard/facturas/actions"
@@ -65,7 +65,6 @@ const estadosFactura: Estado[] = [
 
 export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
   const router = useRouter()
-  const [searchTerm, setSearchTerm] = useState("")
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
 
@@ -98,15 +97,8 @@ export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
     }
   }
 
-  const filteredInvoices = invoices.filter((invoice) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      invoice.code.toLowerCase().includes(term) ||
-      (invoice.datos_afip && invoice.datos_afip.toLowerCase().includes(term)) ||
-      (invoice.presupuestos_finales?.tareas?.titulo && 
-        invoice.presupuestos_finales.tareas.titulo.toLowerCase().includes(term))
-    );
-  });
+  // Las facturas ya vienen filtradas desde la página principal
+  const filteredInvoices = invoices;
 
   return (
     <Card>
@@ -117,18 +109,6 @@ export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Buscar facturas..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
         <div className="rounded-md border overflow-hidden">
           <style jsx global>{`
             /* Estilos para evitar scroll horizontal en móvil */
@@ -202,11 +182,22 @@ export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInvoices.map((invoice) => (
+                filteredInvoices.map((invoice) => {
+                  // Determinar color de fila según estado
+                  let rowClass = "cursor-pointer "
+                  if (invoice.pagada) {
+                    rowClass += "bg-green-50 hover:bg-green-100 dark:bg-green-950 dark:hover:bg-green-900"
+                  } else if (invoice.id_estado_nuevo === 4) { // Vencida
+                    rowClass += "bg-red-50 hover:bg-red-100 dark:bg-red-950 dark:hover:bg-red-900"
+                  } else {
+                    rowClass += "hover:bg-muted/50"
+                  }
+                  
+                  return (
                   <TableRow 
                     key={invoice.id}
                     onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className={rowClass}
                   >
                     <TableCell>
                       {/* Información de la factura y tarea asociada */}
@@ -317,7 +308,8 @@ export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  )
+                })
               )}
             </TableBody>
           </Table>
