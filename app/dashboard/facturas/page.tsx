@@ -129,37 +129,22 @@ export default function FacturasPage({
         console.log('Consulta a vista_facturas_completa completada');
         if (facturasError) console.error('Error en la consulta:', facturasError);
         
-        // La vista ya incluye el campo pagada y todas las relaciones
+        // La vista ya incluye el campo pagada y todas las relaciones en campos planos
         const facturas = facturasData || [];
         
-        // Para mantener compatibilidad con el componente, formateamos los datos
-        // para que tengan la estructura esperada con presupuestos_finales anidados
-        const facturasFormateadas = facturas.map((factura: any) => {
-          return {
-            ...factura,
-            presupuestos_finales: {
-              id: factura.id_presupuesto,
-              total: factura.total_presupuesto,
-              tareas: {
-                id: factura.id_tarea,
-                titulo: factura.titulo_tarea,
-                code: factura.code_tarea,
-                edificios: {
-                  id: factura.id_edificio,
-                  nombre: factura.nombre_edificio
-                }
-              }
-            }
-          };
-        });
-        
-        // Debug: Mostrar la primera factura
+        // Debug: Mostrar la primera factura con los campos reales de la vista
         if (facturas.length > 0) {
-          console.log('Primera factura:', {
+          console.log('Primera factura de vista_facturas_completa:', {
             id: facturas[0].id,
+            code: facturas[0].code,
             total: facturas[0].total,
-            monto_total: facturas[0].monto_total,
-            presupuesto: facturas[0].presupuestos_finales,
+            saldo_pendiente: facturas[0].saldo_pendiente,
+            nombre_edificio: facturas[0].nombre_edificio,
+            direccion_edificio: facturas[0].direccion_edificio,
+            cuit_edificio: facturas[0].cuit_edificio,
+            datos_afip: facturas[0].datos_afip,
+            estado_nombre: facturas[0].estado_nombre,
+            pagada: facturas[0].pagada
           });
         }
         
@@ -175,10 +160,8 @@ export default function FacturasPage({
         setAdministradores(administradoresData || []);
         setEstados(estadosData || []);
 
-        // Usar las facturas formateadas con la estructura correcta para el componente
-        const processedFacturas = facturasFormateadas as Invoice[];
-
-        setFacturas(processedFacturas)
+        // Usar directamente las facturas de la vista (ya tienen todos los campos necesarios)
+        setFacturas(facturas as Invoice[])
       } catch (err: any) {
         setError(err.message || "Ocurrió un error inesperado")
       } finally {
@@ -215,6 +198,12 @@ export default function FacturasPage({
       return false; // Solo mostrar vencidas (estado 4) en vista vencidas
     }
     // vistaActual === 'todas' no filtra nada
+    
+    // Filtro inteligente: En vista "pendientes" con filtro de estado en "todos",
+    // excluir automáticamente el estado "Pagado" (id 5)
+    if (vistaActual === 'pendientes' && !filtroEstado && invoice.id_estado_nuevo === 5) {
+      return false; // Ocultar facturas con estado "Pagado" cuando no hay filtro específico
+    }
     
     // Filtro por texto de búsqueda
     if (searchQuery) {

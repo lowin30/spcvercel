@@ -18,7 +18,7 @@ interface Invoice {
   id: number;
   code: string;
   nombre?: string; // Nombre de la factura
-  total: number; // Mapeado desde monto_total en page.tsx
+  total: number; // Monto total de la factura
   monto_total: number; // Para asegurar que el dato original esté si es necesario
   estado: string; // Usado como fallback en el badge
   id_estado_nuevo: number | null;
@@ -29,6 +29,15 @@ interface Invoice {
   fecha_envio?: string | null;
   datos_afip?: string | null;
   id_presupuesto_final?: number | null;
+
+  // Nuevos campos de la vista actualizada
+  saldo_pendiente?: number | string; // Saldo pendiente de pago
+  total_pagado?: number | string; // Total pagado hasta el momento
+  
+  // Datos del edificio/cliente
+  nombre_edificio?: string | null;
+  direccion_edificio?: string | null;
+  cuit_edificio?: string | null;
 
   // Estructura anidada esperada cuando la carga de datos esté completa
   presupuestos_finales?: {
@@ -134,6 +143,13 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
   // Las facturas ya vienen filtradas desde la página principal
   const filteredInvoices = invoices;
 
+  // Función auxiliar para formatear moneda
+  const formatCurrency = (amount: number | string | null) => {
+    if (!amount) return '$0'
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
+    return `$${numAmount.toLocaleString('es-AR')}`
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -143,217 +159,156 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-hidden">
-          <style jsx global>{`
-            /* Estilos para evitar scroll horizontal en móvil */
-            @media (max-width: 640px) {            
-              table.invoice-table {
-                width: 100%;
-                table-layout: fixed;
-              }
-              
-              /* Ocultar columnas menos importantes en móvil */
-              table.invoice-table th:nth-child(2),
-              table.invoice-table td:nth-child(2),
-              table.invoice-table th:nth-child(3),
-              table.invoice-table td:nth-child(3),
-              table.invoice-table th:nth-child(6),
-              table.invoice-table td:nth-child(6) {
-                display: none;
-              }
-              
-              /* Ajustar anchos de las columnas visibles */
-              table.invoice-table th:nth-child(1),
-              table.invoice-table td:nth-child(1) {
-                width: 40%;
-                white-space: normal;
-                padding: 10px 5px;
-              }
-              
-              table.invoice-table th:nth-child(4),
-              table.invoice-table td:nth-child(4) {
-                width: 25%;
-                padding: 10px 3px;
-              }
-              
-              table.invoice-table th:nth-child(5),
-              table.invoice-table td:nth-child(5) {
-                width: 15%;
-                padding: 10px 2px;
-                text-align: right;
-              }
-              
-              table.invoice-table th:nth-child(7),
-              table.invoice-table td:nth-child(7) {
-                width: 20%;
-                padding: 8px 2px;
-                text-align: center;
-              }
-              
-              /* Centra los botones de acción */
-              table.invoice-table td:nth-child(7) > div {
-                justify-content: center;
-              }
-            }
-          `}</style>
-          <Table className="invoice-table">
+        {/* Tabla para Desktop */}
+        <div className="hidden lg:block rounded-md border overflow-x-auto">
+          <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Factura</TableHead>
-                <TableHead>Datos AFIP</TableHead>
-                <TableHead>Presupuesto</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>PDF</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="w-[300px]">Cliente</TableHead>
+                <TableHead className="w-[100px]">AFIP</TableHead>
+                <TableHead className="w-[150px]">Estado</TableHead>
+                <TableHead className="w-[120px] text-right">Total</TableHead>
+                <TableHead className="w-[120px] text-right">Saldo</TableHead>
+                <TableHead className="w-[200px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     No se encontraron facturas
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInvoices.map((invoice) => {
-                  // Determinar color de fila según estado
-                  let rowClass = "cursor-pointer "
-                  if (invoice.pagada) {
-                    rowClass += "bg-green-50 hover:bg-green-100 dark:bg-green-950 dark:hover:bg-green-900"
-                  } else if (invoice.id_estado_nuevo === 4) { // Vencida
-                    rowClass += "bg-red-50 hover:bg-red-100 dark:bg-red-950 dark:hover:bg-red-900"
-                  } else {
-                    rowClass += "hover:bg-muted/50"
-                  }
+                filteredInvoices.map((invoice: any) => {
+                  // Calcular el saldo pendiente
+                  const saldoPendiente = typeof invoice.saldo_pendiente === 'string' 
+                    ? parseFloat(invoice.saldo_pendiente) 
+                    : (invoice.saldo_pendiente || 0);
                   
                   return (
                   <TableRow 
                     key={invoice.id}
                     onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
-                    className={rowClass}
+                    className="cursor-pointer hover:bg-muted/50"
                   >
+                    {/* 1. CLIENTE/EDIFICIO */}
                     <TableCell>
-                      {/* Información de la factura y tarea asociada */}
-                      {(() => {
-                        // Acceder directamente al primer elemento si es un array
-                        const presupuesto = Array.isArray(invoice.presupuestos_finales) 
-                          ? invoice.presupuestos_finales[0] 
-                          : invoice.presupuestos_finales;
-                        
-                        // Mostrar nombre de factura como prioridad
-                        return (
-                          <div>
-                            <div className="font-medium">
-                              {invoice.nombre || invoice.code || "Factura #" + invoice.id}
-                            </div>
-                            
-                            {/* Información de la tarea como dato secundario si existe */}
-                            {presupuesto?.tareas?.titulo && (
-                              <div className="text-xs text-muted-foreground">
-                                Tarea: {presupuesto.tareas.titulo}
-                                {presupuesto.tareas.edificios?.nombre && (
-                                  <span className="ml-1">
-                                    - {presupuesto.tareas.edificios.nombre}
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                      <div>
+                        <div className="font-semibold">
+                          {invoice.nombre_edificio || 'Sin edificio'}
+                        </div>
+                        {invoice.direccion_edificio && (
+                          <div className="text-sm text-muted-foreground">
+                            {invoice.direccion_edificio}
                           </div>
-                        );
-                      })()}
+                        )}
+                        {invoice.cuit_edificio && (
+                          <div className="text-xs font-mono text-muted-foreground mt-1">
+                            {invoice.cuit_edificio}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>{invoice.datos_afip || "N/A"}</TableCell>
+
+                    {/* 2. AFIP */}
                     <TableCell>
-                      {invoice.id_presupuesto_final ? (
-                        <Link
-                          href={`/dashboard/presupuestos-finales/${invoice.id_presupuesto_final}`}
-                          className="text-primary hover:underline"
-                          onClick={(e) => e.stopPropagation()} // Evita que el clic en el enlace propague a la fila
-                        >
-                          Ver Presupuesto
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">N/A</span>
-                      )}
+                      <span className="font-mono text-sm">
+                        {invoice.datos_afip || 'N/A'}
+                      </span>
                     </TableCell>
+
+                    {/* 3. ESTADO */}
                     <TableCell>
                       {(() => {
                         const estadoActual = estadosFactura.find(e => e.id === invoice.id_estado_nuevo);
                         return estadoActual ? (
                           <EstadoBadge estado={estadoActual} />
                         ) : (
-                          <span>{invoice.estado || 'Sin estado'}</span>
+                          <span className="text-muted-foreground">Sin estado</span>
                         );
                       })()}
                     </TableCell>
-                    <TableCell>
-                      <div className="font-medium">${(invoice.total || 0).toLocaleString()}</div>
-                      {invoice.pagada ? (
-                        <span className="text-xs text-green-600 font-medium">Pagado</span>
-                      ) : (
-                        <span className="text-xs text-amber-600 font-medium">Pendiente</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {invoice.pdf_url ? (
-                        <a
-                          href={invoice.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center text-primary hover:underline"
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Descargar
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">No disponible</span>
-                      )}
-                    </TableCell>
+
+                    {/* 4. TOTAL */}
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
-                        {/* Mostrar botón de pago solo si la factura no está completamente pagada */}
+                      <div className="font-semibold tabular-nums">
+                        {formatCurrency(invoice.total)}
+                      </div>
+                    </TableCell>
+
+                    {/* 5. SALDO PENDIENTE */}
+                    <TableCell className="text-right">
+                      <div className={`font-semibold tabular-nums ${
+                        saldoPendiente === 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {formatCurrency(saldoPendiente)}
+                        {saldoPendiente === 0 && <span className="ml-1">✓</span>}
+                        {saldoPendiente > 0 && <span className="ml-1">⚠️</span>}
+                      </div>
+                    </TableCell>
+
+                    {/* 6. ACCIONES */}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {/* PDF */}
+                        {invoice.pdf_url && (
+                          <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Descargar PDF">
+                            <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        
+                        {/* Pago (solo si no está pagada) */}
                         {!invoice.pagada && (
-                          <Button asChild variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Generar Pago">
+                          <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Generar Pago">
                             <Link href={`/dashboard/pagos/nuevo?factura_id=${invoice.id}`}>
-                              <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              <CreditCard className="h-4 w-4" />
                             </Link>
                           </Button>
                         )}
-                        {/* Botón Marcar como Enviada */}
+                        
+                        {/* Enviar (solo si no enviada) */}
                         {!invoice.enviada && (
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                            className="h-8 w-8"
                             onClick={() => handleMarcarComoEnviada(invoice.id)}
                             title="Marcar como Enviada"
                             disabled={enviandoId === invoice.id}
                           >
                             {enviandoId === invoice.id ? (
-                              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              <Send className="h-4 w-4" />
                             )}
                           </Button>
                         )}
-                        <Button asChild variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Editar">
+                        
+                        {/* Editar */}
+                        <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Editar">
                           <Link href={`/dashboard/facturas/editar/${invoice.id}`}>
-                            <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <Pencil className="h-4 w-4" />
                           </Link>
                         </Button>
+                        
+                        {/* Eliminar */}
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 sm:h-9 sm:w-9"
+                          className="h-8 w-8"
                           onClick={() => handleDelete(invoice.id)}
                           title="Eliminar"
                           disabled={deletingId === invoice.id}
                         >
                           {deletingId === invoice.id ? (
-                            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <Trash2 className="h-4 w-4" />
                           )}
                         </Button>
                       </div>
@@ -364,6 +319,130 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Cards para Móvil */}
+        <div className="lg:hidden space-y-4">
+          {filteredInvoices.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No se encontraron facturas
+            </div>
+          ) : (
+            filteredInvoices.map((invoice: any) => {
+              const saldoPendiente = typeof invoice.saldo_pendiente === 'string' 
+                ? parseFloat(invoice.saldo_pendiente) 
+                : (invoice.saldo_pendiente || 0);
+              const estadoActual = estadosFactura.find(e => e.id === invoice.id_estado_nuevo);
+
+              return (
+                <Card 
+                  key={invoice.id} 
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-base">
+                          {invoice.nombre_edificio || 'Sin edificio'}
+                        </CardTitle>
+                        {invoice.direccion_edificio && (
+                          <CardDescription className="text-xs mt-1">
+                            {invoice.direccion_edificio}
+                          </CardDescription>
+                        )}
+                        {invoice.cuit_edificio && (
+                          <div className="text-xs font-mono text-muted-foreground mt-1">
+                            CUIT: {invoice.cuit_edificio}
+                          </div>
+                        )}
+                      </div>
+                      {estadoActual && (
+                        <EstadoBadge estado={estadoActual} />
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* Datos principales */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-muted-foreground text-xs">AFIP</div>
+                        <div className="font-mono font-medium">{invoice.datos_afip || 'N/A'}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-muted-foreground text-xs">Total</div>
+                        <div className="font-semibold">{formatCurrency(invoice.total)}</div>
+                      </div>
+                    </div>
+
+                    {/* Saldo */}
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
+                      <span className="text-sm font-medium">Saldo Pendiente</span>
+                      <span className={`font-bold text-base ${
+                        saldoPendiente === 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {formatCurrency(saldoPendiente)}
+                        {saldoPendiente === 0 ? ' ✓' : ' ⚠️'}
+                      </span>
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                      {invoice.pdf_url && (
+                        <Button asChild variant="outline" size="sm" className="flex-1">
+                          <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
+                            <Download className="h-4 w-4 mr-1" />
+                            PDF
+                          </a>
+                        </Button>
+                      )}
+                      {!invoice.pagada && (
+                        <Button asChild variant="outline" size="sm" className="flex-1">
+                          <Link href={`/dashboard/pagos/nuevo?factura_id=${invoice.id}`}>
+                            <CreditCard className="h-4 w-4 mr-1" />
+                            Pago
+                          </Link>
+                        </Button>
+                      )}
+                      <Button asChild variant="outline" size="icon" className="h-9 w-9">
+                        <Link href={`/dashboard/facturas/editar/${invoice.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      {!invoice.enviada && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => handleMarcarComoEnviada(invoice.id)}
+                          disabled={enviandoId === invoice.id}
+                        >
+                          {enviandoId === invoice.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={() => handleDelete(invoice.id)}
+                        disabled={deletingId === invoice.id}
+                      >
+                        {deletingId === invoice.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
         </div>
       </CardContent>
     </Card>
