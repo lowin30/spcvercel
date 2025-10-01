@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EsMaterialCheckbox } from './es-material-checkbox'
 import { DatosAFIPEditor } from './datos-afip-editor'
+import { MarcarEnviadaButton } from './marcar-enviada-button'
 
 // Definimos un tipo para los items para mayor seguridad
 type Item = {
@@ -40,7 +41,8 @@ export default async function InvoicePage({ params }: { params: { id: string } }
   const { data: factura, error } = await supabase
     .from('facturas')
     .select(`
-      id, code, created_at, id_presupuesto, total, pdf_url, datos_afip,
+      id, code, created_at, id_presupuesto, total, pdf_url, datos_afip, enviada, fecha_envio, id_estado_nuevo,
+      estados_facturas:id_estado_nuevo (id, nombre, color, codigo),
       presupuestos_finales!inner (
         id, code, id_tarea, id_edificio,
         tareas (id, titulo, code),
@@ -84,12 +86,26 @@ export default async function InvoicePage({ params }: { params: { id: string } }
   return (
     <div className="space-y-6">
       <div className="encabezado-responsive">
-        <Button variant="ghost" size="sm" asChild className="mr-2">
-          <Link href="/dashboard/facturas">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Volver
-          </Link>
-        </Button>
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Factura {factura.code}</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild className="mr-2">
+            <Link href="/dashboard/facturas">
+              <ArrowLeft className="h-4 w-4 mr-1" /> Volver
+            </Link>
+          </Button>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Factura {factura.code}</h1>
+          {/* Badge de estado */}
+          {factura.estados_facturas && (
+            <Badge 
+              style={{
+                backgroundColor: factura.estados_facturas.color || "#888",
+                color: "white"
+              }}
+            >
+              {factura.estados_facturas.nombre}
+            </Badge>
+          )}
+        </div>
+        <MarcarEnviadaButton facturaId={factura.id} enviada={factura.enviada} />
       </div>
 
       <div className="grid-responsive grid-responsive-lg">

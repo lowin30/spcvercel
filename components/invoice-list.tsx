@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
-import { Download, Pencil, Trash2, CreditCard, Loader2 } from "lucide-react"
+import { Download, Pencil, Trash2, CreditCard, Loader2, Send } from "lucide-react"
 import { EstadoBadge } from "@/components/estado-badge"
 import { Button } from "@/components/ui/button"
 import { deleteInvoice } from "@/app/dashboard/facturas/actions"
+import { marcarFacturaComoEnviada } from "@/app/dashboard/facturas/actions-envio"
 import { toast } from "sonner"
 
 interface Invoice {
@@ -24,6 +25,8 @@ interface Invoice {
   created_at: string;
   pdf_url: string | null;
   pagada: boolean;
+  enviada?: boolean;
+  fecha_envio?: string | null;
   datos_afip?: string | null;
   id_presupuesto_final?: number | null;
 
@@ -44,6 +47,7 @@ interface Invoice {
 
 interface InvoiceListProps {
   invoices: Invoice[]
+  estados?: Estado[] // Estados opcionales desde la página
 }
 
 // Definición del tipo Estado para usar en el componente
@@ -53,19 +57,20 @@ interface Estado {
   color: string;
 }
 
-// Lista de estados posibles para las facturas
-const estadosFactura: Estado[] = [
-  { id: 1, nombre: "Borrador", color: "gray" },
-  { id: 2, nombre: "No pagado", color: "yellow" },
-  { id: 3, nombre: "Parcialmente pagado", color: "blue" },
-  { id: 4, nombre: "Vencido", color: "red" },
-  { id: 5, nombre: "Pagado", color: "green" },
-  { id: 6, nombre: "Anulado", color: "gray" },
-];
-
-export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
+export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }: InvoiceListProps) {
+  // Usar estados de props si están disponibles, sino usar hardcodeados
+  const estadosFactura = estadosProp && estadosProp.length > 0 ? estadosProp : [
+    { id: 1, nombre: "Borrador", color: "gray" },
+    { id: 2, nombre: "No pagado", color: "yellow" },
+    { id: 3, nombre: "Parcialmente pagado", color: "blue" },
+    { id: 4, nombre: "Vencido", color: "red" },
+    { id: 5, nombre: "Pagado", color: "green" },
+    { id: 6, nombre: "Anulado", color: "gray" },
+    { id: 7, nombre: "Enviado", color: "#6366f1" }, // Indigo
+  ];
   const router = useRouter()
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [enviandoId, setEnviandoId] = useState<number | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices)
 
   // Actualizar las facturas cuando cambien las props
@@ -94,6 +99,34 @@ export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
       toast.error("Ocurrió un error inesperado.")
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleMarcarComoEnviada = async (invoiceId: number) => {
+    if (!confirm("¿Marcar esta factura como enviada?")) {
+      return
+    }
+
+    setEnviandoId(invoiceId)
+    try {
+      const result = await marcarFacturaComoEnviada(invoiceId)
+      if (result.success) {
+        toast.success(result.message || "Factura marcada como enviada")
+        // Actualizar la lista de facturas localmente
+        setInvoices(prevInvoices => 
+          prevInvoices.map(inv => 
+            inv.id === invoiceId 
+              ? { ...inv, enviada: true, fecha_envio: new Date().toISOString() }
+              : inv
+          )
+        )
+      } else {
+        toast.error(result.message || "No se pudo marcar como enviada")
+      }
+    } catch (error) {
+      toast.error("Ocurrió un error inesperado")
+    } finally {
+      setEnviandoId(null)
     }
   }
 
@@ -284,6 +317,23 @@ export function InvoiceList({ invoices: initialInvoices }: InvoiceListProps) {
                             <Link href={`/dashboard/pagos/nuevo?factura_id=${invoice.id}`}>
                               <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Link>
+                          </Button>
+                        )}
+                        {/* Botón Marcar como Enviada */}
+                        {!invoice.enviada && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                            onClick={() => handleMarcarComoEnviada(invoice.id)}
+                            title="Marcar como Enviada"
+                            disabled={enviandoId === invoice.id}
+                          >
+                            {enviandoId === invoice.id ? (
+                              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            )}
                           </Button>
                         )}
                         <Button asChild variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Editar">

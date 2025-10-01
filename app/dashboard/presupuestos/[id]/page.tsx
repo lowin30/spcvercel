@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react"
 import { notFound, useParams, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
-import { Loader2 } from "lucide-react"
+import { Loader2, Send } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { marcarPresupuestoComoEnviado } from "@/app/dashboard/presupuestos/actions-envio"
+import { toast } from "sonner"
 
 export default function PresupuestoPage() {
   const params = useParams()
@@ -18,6 +20,29 @@ export default function PresupuestoPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userDetails, setUserDetails] = useState<any>(null)
+  const [enviandoPresupuesto, setEnviandoPresupuesto] = useState(false)
+  
+  const handleMarcarComoEnviado = async () => {
+    if (!confirm("¿Marcar este presupuesto como enviado?")) {
+      return
+    }
+
+    setEnviandoPresupuesto(true)
+    try {
+      const result = await marcarPresupuestoComoEnviado(Number(id))
+      if (result.success) {
+        toast.success(result.message || "Presupuesto marcado como enviado")
+        // Recargar la página para mostrar el nuevo estado
+        window.location.reload()
+      } else {
+        toast.error(result.message || "No se pudo marcar como enviado")
+      }
+    } catch (error) {
+      toast.error("Ocurrió un error inesperado")
+    } finally {
+      setEnviandoPresupuesto(false)
+    }
+  }
   
   useEffect(() => {
     async function loadPresupuesto() {
@@ -159,6 +184,32 @@ export default function PresupuestoPage() {
             >
               {presupuesto.estados_presupuestos.nombre}
             </Badge>
+          )}
+          
+          {/* Botón Marcar como Enviado */}
+          {esFinal && 
+           presupuesto.estados_presupuestos?.codigo !== 'enviado' && 
+           presupuesto.estados_presupuestos?.codigo !== 'facturado' && 
+           presupuesto.estados_presupuestos?.codigo !== 'rechazado' &&
+           (userDetails?.rol === "admin" || userDetails?.rol === "supervisor") && (
+            <Button 
+              variant="outline"
+              onClick={handleMarcarComoEnviado}
+              disabled={enviandoPresupuesto}
+              className="text-indigo-600 hover:text-indigo-800"
+            >
+              {enviandoPresupuesto ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Marcar como Enviado
+                </>
+              )}
+            </Button>
           )}
           
           {(userDetails?.rol === "admin" || userDetails?.rol === "supervisor") && !estaAprobado && (

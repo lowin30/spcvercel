@@ -20,11 +20,11 @@ export function EstadoBadge({ estado, fallbackText }: EstadoBadgeProps) {
 
   return (
     <Badge
-      className={cn(
-        "text-white",
-        estado.color,
-        `hover:${estado.color}`
-      )}
+      style={{
+        backgroundColor: estado.color,
+        color: "white"
+      }}
+      className="border-0"
     >
       {estado.nombre}
     </Badge>

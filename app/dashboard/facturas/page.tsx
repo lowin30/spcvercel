@@ -20,6 +20,8 @@ interface Invoice {
   code: string;
   total: number;
   pagada: boolean;
+  enviada?: boolean;
+  fecha_envio?: string | null;
   estado: string; // Usado como fallback en el badge
   id_estado_nuevo: number | null;
   pdf_url: string | null;
@@ -400,7 +402,7 @@ export default function FacturasPage({
         </CardContent>
       </Card>
 
-      <InvoiceList invoices={filteredFacturas as any} />
+      <InvoiceList invoices={filteredFacturas as any} estados={estados} />
     </div>
   )
 }

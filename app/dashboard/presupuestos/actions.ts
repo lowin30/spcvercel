@@ -27,10 +27,10 @@ export async function deleteBudget(budgetId: number) {
       return { success: false, message: 'No se puede eliminar el presupuesto porque ya ha sido facturado.' }
     }
 
-    // Obtener la tarea asociada al presupuesto para actualizar su estado después
+    // Obtener datos del presupuesto (tarea y liquidación supervisor)
     const { data: presupuestoData, error: presupuestoError } = await supabase
       .from('presupuestos_finales')
-      .select('id_tarea')
+      .select('id_tarea, id_liquidacion_supervisor')
       .eq('id', budgetId)
       .single()
 
@@ -40,8 +40,46 @@ export async function deleteBudget(budgetId: number) {
     }
 
     const idTarea = presupuestoData?.id_tarea
+    const idLiquidacionSupervisor = presupuestoData?.id_liquidacion_supervisor
     
-    // 2. Eliminar los items del presupuesto (tabla correcta: items con columna id_presupuesto)
+    // 2. Romper referencia circular con liquidación (si existe)
+    if (idLiquidacionSupervisor) {
+      const { error: updateError } = await supabase
+        .from('presupuestos_finales')
+        .update({ id_liquidacion_supervisor: null })
+        .eq('id', budgetId)
+      
+      if (updateError) {
+        console.error('Error al romper referencia con liquidación:', updateError)
+        // Continuamos de todos modos
+      }
+    }
+    
+    // 3. Eliminar liquidaciones asociadas (tabla liquidaciones_nuevas)
+    if (idLiquidacionSupervisor) {
+      const { error: liquidacionError } = await supabase
+        .from('liquidaciones_nuevas')
+        .delete()
+        .eq('id', idLiquidacionSupervisor)
+      
+      if (liquidacionError) {
+        console.error('Error al eliminar liquidación:', liquidacionError)
+        // Continuamos de todos modos
+      }
+    }
+    
+    // También eliminar liquidaciones que referencian directamente al presupuesto
+    const { error: liquidacionesError } = await supabase
+      .from('liquidaciones_nuevas')
+      .delete()
+      .eq('id_presupuesto_final', budgetId)
+    
+    if (liquidacionesError) {
+      console.error('Error al eliminar liquidaciones por presupuesto:', liquidacionesError)
+      // Continuamos de todos modos
+    }
+    
+    // 4. Eliminar los items del presupuesto
     const { error: itemsError } = await supabase
       .from('items')
       .delete()
@@ -52,7 +90,7 @@ export async function deleteBudget(budgetId: number) {
       return { success: false, message: 'Error al eliminar los ítems del presupuesto.' }
     }
 
-    // 3. Eliminar el presupuesto
+    // 5. Eliminar el presupuesto
     const { error: budgetError } = await supabase
       .from('presupuestos_finales')
       .delete()
