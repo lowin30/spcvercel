@@ -61,29 +61,22 @@
 /* Estilos responsivos personalizados para toda la aplicación */
 /* SOLUCIÓN DEFINITIVA: Estilos explícitos con !important para garantizar responsividad */
 
-/* Estilos para tablas responsivas - VERSIÓN ULTRA AGRESIVA */
-.tabla-scroll,
-table,
-.tabla-scroll > table,
-[class*="Table"],
-[class*="TableContainer"],
-div > table {
-  display: block !important;
-  width: 100% !important;
+/* Estilos para tablas responsivas - OPTIMIZADO */
+/* Solo aplicamos scroll cuando sea necesario, no por defecto */
+.tabla-scroll {
   overflow-x: auto !important;
-  position: relative !important;
-  white-space: nowrap !important;
   -webkit-overflow-scrolling: touch !important;
-  max-width: 100vw !important;
 }
 
-/* Fuerza todas las tablas del sistema a ser scrollables */
+/* Permitimos que las tablas usen su display natural */
 table {
-  min-width: 500px !important; /* Fuerza un ancho mínimo para garantizar scroll */
+  width: 100%;
+  /* Removido: min-width y display:block para permitir diseño responsive natural */
 }
 
-/* Estilos específicos para la tabla de ítems en facturas */
-.card table,
+/* Estilos específicos para la tabla de ítems en facturas - DESACTIVADO */
+/* Permitimos que cada tabla controle su propio comportamiento responsive */
+/*.card table,
 .card [data-orientation="horizontal"],
 [data-orientation="horizontal"] table {
   display: block !important;
@@ -92,7 +85,7 @@ table {
   position: relative !important;
   min-width: 500px !important;
   white-space: nowrap !important;
-}
+}*/
 
 /* Estilos para encabezados responsivos */
 .encabezado-responsive {

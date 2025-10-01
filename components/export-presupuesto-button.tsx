@@ -24,6 +24,7 @@ interface ExportPresupuestoButtonProps {
     nombre: string
     cuit: string
     departamento?: string
+    tarea?: string
   }
   items: PresupuestoItem[]
   notas?: string[]
@@ -99,7 +100,13 @@ export function ExportPresupuestoButton({
   }
 
   return (
-    <Button onClick={handleExport} disabled={isLoading} variant="outline" size="sm">
+    <Button 
+      onClick={handleExport} 
+      disabled={isLoading} 
+      variant="outline" 
+      size="sm"
+      data-export-button
+    >
       {isLoading ? (
         <>
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
