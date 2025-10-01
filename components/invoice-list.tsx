@@ -59,6 +59,7 @@ interface Estado {
 
 export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }: InvoiceListProps) {
   // Usar estados de props si están disponibles, sino usar hardcodeados
+  // NOTA: Los estados de FACTURAS son diferentes a los de PRESUPUESTOS
   const estadosFactura = estadosProp && estadosProp.length > 0 ? estadosProp : [
     { id: 1, nombre: "Borrador", color: "gray" },
     { id: 2, nombre: "No pagado", color: "yellow" },
@@ -66,7 +67,7 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
     { id: 4, nombre: "Vencido", color: "red" },
     { id: 5, nombre: "Pagado", color: "green" },
     { id: 6, nombre: "Anulado", color: "gray" },
-    { id: 7, nombre: "Enviado", color: "#6366f1" }, // Indigo
+    { id: 7, nombre: "Enviado", color: "#6366f1" }, // Indigo - ID puede variar
   ];
   const router = useRouter()
   const [deletingId, setDeletingId] = useState<number | null>(null)

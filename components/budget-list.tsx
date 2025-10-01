@@ -252,7 +252,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                             size="icon"
                             className="h-8 w-8 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
                             onClick={() => handleMarcarComoEnviado(budget.id)}
-                            title="Marcar como Enviado"
+                            title="Marcar como Enviado (o Facturado si ya tiene factura)"
                             disabled={enviandoId === budget.id}
                           >
                             {enviandoId === budget.id ? (
