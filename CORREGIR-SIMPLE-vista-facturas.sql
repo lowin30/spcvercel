@@ -41,6 +41,15 @@ SELECT
     0
   ) AS total_pagado,
   
+  -- Cálculo del total de ajustes aprobados
+  COALESCE(
+    (SELECT SUM(aj.monto_ajuste) 
+     FROM ajustes_facturas aj 
+     WHERE aj.id_factura = f.id 
+     AND aj.aprobado = true), 
+    0
+  ) AS total_ajustes,
+  
   -- Estado de la factura
   ef.id AS estado_id,
   ef.nombre AS estado_nombre,

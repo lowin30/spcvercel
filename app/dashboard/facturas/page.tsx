@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { InvoiceList } from "@/components/invoice-list"
+import { ExportFacturasButton } from "@/components/export-facturas-button"
 import Link from "next/link"
 import { Plus, Search, Loader2, Filter } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -266,11 +267,20 @@ export default function FacturasPage({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Facturas</h1>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/dashboard/facturas/nueva">
-            <Plus className="mr-2 h-4 w-4" /> Nueva Factura
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          {/* Botón Exportar PDF */}
+          <ExportFacturasButton 
+            facturas={filteredFacturas}
+            nombreAdministrador={administradores.find(a => a.id === filtroAdmin)?.nombre}
+          />
+          
+          {/* Botón Nueva Factura */}
+          <Button asChild>
+            <Link href="/dashboard/facturas/nueva">
+              <Plus className="mr-2 h-4 w-4" /> Nueva Factura
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Tabs de navegación rápida */}

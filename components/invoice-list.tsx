@@ -33,6 +33,7 @@ interface Invoice {
   // Nuevos campos de la vista actualizada
   saldo_pendiente?: number | string; // Saldo pendiente de pago
   total_pagado?: number | string; // Total pagado hasta el momento
+  total_ajustes?: number | string; // Total de ajustes aprobados
   
   // Datos del edificio/cliente
   nombre_edificio?: string | null;
@@ -164,18 +165,19 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Factura</TableHead>
-                <TableHead className="w-[100px]">AFIP</TableHead>
-                <TableHead className="w-[150px]">Estado</TableHead>
-                <TableHead className="w-[120px] text-right">Total</TableHead>
-                <TableHead className="w-[120px] text-right">Saldo</TableHead>
+                <TableHead className="w-[250px]">Factura</TableHead>
+                <TableHead className="w-[80px]">AFIP</TableHead>
+                <TableHead className="w-[120px]">Estado</TableHead>
+                <TableHead className="w-[100px] text-right">Total</TableHead>
+                <TableHead className="w-[100px] text-right">Saldo</TableHead>
+                <TableHead className="w-[100px] text-right">Ajuste</TableHead>
                 <TableHead className="w-[200px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No se encontraron facturas
                   </TableCell>
                 </TableRow>
@@ -243,7 +245,24 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                       </div>
                     </TableCell>
 
-                    {/* 6. ACCIONES */}
+                    {/* 6. AJUSTE */}
+                    <TableCell className="text-right">
+                      {(() => {
+                        const totalAjustes = typeof invoice.total_ajustes === 'string' 
+                          ? parseFloat(invoice.total_ajustes) 
+                          : (invoice.total_ajustes || 0);
+                        
+                        return (
+                          <div className={`font-semibold tabular-nums ${
+                            totalAjustes > 0 ? 'text-orange-600' : 'text-muted-foreground'
+                          }`}>
+                            {formatCurrency(totalAjustes)}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+
+                    {/* 7. ACCIONES */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         {/* PDF */}
@@ -371,6 +390,25 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                         {saldoPendiente === 0 ? ' ✓' : ' ⚠️'}
                       </span>
                     </div>
+
+                    {/* Ajuste */}
+                    {(() => {
+                      const totalAjustes = typeof invoice.total_ajustes === 'string' 
+                        ? parseFloat(invoice.total_ajustes) 
+                        : (invoice.total_ajustes || 0);
+                      
+                      if (totalAjustes > 0) {
+                        return (
+                          <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded-md border border-orange-200 dark:border-orange-800">
+                            <span className="text-sm font-medium text-orange-700 dark:text-orange-400">Ajuste a Devolver</span>
+                            <span className="font-bold text-base text-orange-600 dark:text-orange-500">
+                              {formatCurrency(totalAjustes)}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Acciones */}
                     <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
