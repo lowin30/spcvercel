@@ -164,7 +164,7 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Cliente</TableHead>
+                <TableHead className="w-[300px]">Factura</TableHead>
                 <TableHead className="w-[100px]">AFIP</TableHead>
                 <TableHead className="w-[150px]">Estado</TableHead>
                 <TableHead className="w-[120px] text-right">Total</TableHead>
@@ -192,22 +192,15 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                     onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
                     className="cursor-pointer hover:bg-muted/50"
                   >
-                    {/* 1. CLIENTE/EDIFICIO */}
+                    {/* 1. NOMBRE DE FACTURA */}
                     <TableCell>
                       <div>
                         <div className="font-semibold">
-                          {invoice.nombre_edificio || 'Sin edificio'}
+                          {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
                         </div>
-                        {invoice.direccion_edificio && (
-                          <div className="text-sm text-muted-foreground">
-                            {invoice.direccion_edificio}
-                          </div>
-                        )}
-                        {invoice.cuit_edificio && (
-                          <div className="text-xs font-mono text-muted-foreground mt-1">
-                            {invoice.cuit_edificio}
-                          </div>
-                        )}
+                        <div className="text-xs font-mono text-muted-foreground mt-1">
+                          {invoice.code}
+                        </div>
                       </div>
                     </TableCell>
 
@@ -344,18 +337,11 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-base">
-                          {invoice.nombre_edificio || 'Sin edificio'}
+                          {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
                         </CardTitle>
-                        {invoice.direccion_edificio && (
-                          <CardDescription className="text-xs mt-1">
-                            {invoice.direccion_edificio}
-                          </CardDescription>
-                        )}
-                        {invoice.cuit_edificio && (
-                          <div className="text-xs font-mono text-muted-foreground mt-1">
-                            CUIT: {invoice.cuit_edificio}
-                          </div>
-                        )}
+                        <CardDescription className="text-xs mt-1 font-mono">
+                          {invoice.code}
+                        </CardDescription>
                       </div>
                       {estadoActual && (
                         <EstadoBadge estado={estadoActual} />

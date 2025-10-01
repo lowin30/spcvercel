@@ -11,6 +11,7 @@ SELECT
   -- Datos principales de la factura
   f.id,
   f.code,
+  f.nombre,
   f.created_at,
   f.total,
   f.pdf_url,
