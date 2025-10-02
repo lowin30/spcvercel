@@ -2303,11 +2303,13 @@ ALTER TABLE tareas DROP COLUMN IF EXISTS id_supervisor;
 
 ---
 
-## 📅 9 de Julio de 2025: Sistema de Ajustes de Facturas
+## 📅 9 de Julio de 2025: Sistema de Ajustes de Facturas (Actualizado 2 de Octubre 2025)
 
 ### Resumen General
 
-Se implementó un sistema completo para gestionar ajustes automáticos y configurables para las facturas. Este sistema permite aplicar un porcentaje de ajuste específico solo a los ítems de mano de obra (no materiales) cuando una factura está completamente pagada. El porcentaje de ajuste es configurable por administrador, permitiendo diferentes políticas de ajuste según quién gestione la factura.
+Se implementó un sistema completo para gestionar ajustes automáticos y configurables para las facturas. Este sistema permite aplicar un porcentaje de ajuste específico solo a los ítems de mano de obra (no materiales). El sistema ha sido mejorado para mostrar los ajustes INMEDIATAMENTE desde la creación de la factura, proporcionando transparencia total al cliente.
+
+**✅ ACTUALIZACIÓN OCTUBRE 2025:** El sistema ahora crea ajustes automáticamente al crear/modificar ítems (sin esperar pago completo) y los aprueba automáticamente cuando la factura se paga en su totalidad.
 
 ### Estructura de Datos
 
@@ -2357,16 +2359,31 @@ Se eliminó la tabla `config_ajustes_administradores` por ser redundante, integr
      - `aplica_ajustes` (BOOLEAN, default FALSE)
      - `porcentaje_default` (NUMERIC, default 0)
 
-#### Sistema de Triggers
+#### Sistema de Triggers (ACTUALIZADO OCTUBRE 2025)
 
-Se implementó un sistema de cálculo automático mediante la función `calcular_ajustes_factura()` que se ejecuta en dos momentos críticos:
+Se implementó un sistema de cálculo automático mediante dos funciones principales:
 
-1. Cuando se modifica un ítem de factura (INSERT o UPDATE en `items_factura`).
-2. Cuando una factura cambia su estado de pago (UPDATE de `saldo_pendiente` en `facturas`).
+**1. Función `calcular_ajustes_factura()`** - Creación inmediata de ajustes
+   - **Trigger:** `trig_items_factura_ajustes` en `items_factura` (INSERT/UPDATE)
+   - **Trigger:** `trig_facturas_ajustes` en `facturas` (UPDATE)
+   - **Cuándo se ejecuta:**
+     - Al crear o modificar ítems de factura
+     - Al modificar la factura misma
+   - **Comportamiento:**
+     - Crea ajustes INMEDIATAMENTE (sin esperar pago completo)
+     - Solo para ítems con `es_material = false` (mano de obra)
+     - Inserta con `aprobado = false, pagado = false`
+     - Actualiza `facturas.tiene_ajustes = true`
+   - **Resultado:** El monto de ajuste es visible desde el principio en la columna "Ajuste"
 
-El trigger está configurado para recalcular los ajustes cuando:
-- Se clasifican o reclasifican ítems como materiales o mano de obra.
-- Una factura pasa de tener saldo pendiente a estar completamente pagada.
+**2. Función `aprobar_ajustes_al_pagar()`** - Aprobación automática
+   - **Trigger:** `trig_aprobar_ajustes_al_pagar` en `facturas` (UPDATE de `saldo_pendiente`)
+   - **Cuándo se ejecuta:**
+     - Cuando `saldo_pendiente` cambia de > 0 a ≤ 0
+   - **Comportamiento:**
+     - Actualiza todos los ajustes: `aprobado = false → true`
+     - Log automático: "Ajustes aprobados automáticamente para factura X (N ajustes)"
+   - **Resultado:** Los ajustes aprobados aparecen en `/dashboard/ajustes` para pagar
 
 ### Componentes de Interfaz
 
@@ -2398,67 +2415,263 @@ La interfaz permite una gestión intuitiva de las políticas de ajuste por admin
 
 ### Lógica de Negocio
 
-#### Reglas de Aplicación de Ajustes
+#### Reglas de Aplicación de Ajustes (ACTUALIZADO OCTUBRE 2025)
 
-1. **Condiciones para aplicar ajustes**:
-   - La factura debe estar completamente pagada (`saldo_pendiente <= 0`).
-   - El administrador asociado debe tener activada la opción `aplica_ajustes`.
-   - El porcentaje de ajuste configurado debe ser mayor que cero.
+1. **Condiciones para CREAR ajustes** (automático al crear/modificar ítems):
+   - El administrador asociado debe tener activada la opción `aplica_ajustes = true`
+   - El porcentaje de ajuste configurado debe ser mayor que cero (`porcentaje_default > 0`)
+   - Existen ítems marcados como mano de obra (`es_material = false`)
+   - **NO requiere** que la factura esté pagada
 
-2. **Cálculo de ajustes**:
-   - Solo se aplican a ítems marcados como mano de obra (`es_material = false`).
-   - El monto de ajuste = `subtotal_item * (porcentaje_ajuste / 100)`.
+2. **Condiciones para APROBAR ajustes** (automático al pagar):
+   - La factura debe estar completamente pagada (`saldo_pendiente <= 0`)
+   - Existen ajustes con `aprobado = false`
 
-3. **Flujo de trabajo**:
-   - Al pagar completamente una factura, el sistema verifica si debe calcular ajustes.
-   - Si corresponde, elimina ajustes anteriores y genera nuevos registros.
-   - Actualiza el estado `tiene_ajustes` de la factura.
+3. **Cálculo de ajustes**:
+   - Solo se aplican a ítems marcados como mano de obra (`es_material = false`)
+   - El monto de ajuste = `subtotal_item * (porcentaje_ajuste / 100)`
+   - Se recalculan completamente al modificar ítems (elimina y crea nuevos)
 
-### Flujo Completo de Uso
+4. **Flujo de trabajo mejorado**:
+   - **Paso 1:** Al crear/modificar ítems → Se crean ajustes con `aprobado = false`
+   - **Paso 2:** El monto aparece INMEDIATAMENTE en la columna "Ajuste" de la vista de facturas
+   - **Paso 3:** Al pagar completamente → Ajustes se aprueban automáticamente (`aprobado = true`)
+   - **Paso 4:** Ajustes aprobados aparecen en `/dashboard/ajustes` para pago
+   - **Paso 5:** Admin paga los ajustes manualmente desde el dashboard
+
+### Flujo Completo de Uso (ACTUALIZADO OCTUBRE 2025)
 
 1. **Configuración inicial**:
-   - El administrador del sistema configura qué administradores aplicarán ajustes y con qué porcentaje.
+   - El administrador del sistema configura qué administradores aplicarán ajustes y con qué porcentaje
+   - Ubicación: `/dashboard/administradores/[id]`
+   - Campos: `aplica_ajustes` (boolean) y `porcentaje_default` (0-30%)
 
 2. **Creación de factura**:
-   - Se crean ítems de factura que pueden ser materiales o mano de obra.
+   - Se crea la factura vinculada a un presupuesto final
+   - Se crean ítems de factura marcados como materiales (`es_material = true`) o mano de obra (`es_material = false`)
+   - ✅ **AUTOMATISMO:** Al insertar/actualizar ítems, se crean ajustes INMEDIATAMENTE con `aprobado = false`
+   - El monto de ajuste aparece en la columna "Ajuste" de `/dashboard/facturas` desde este momento
 
-3. **Clasificación de ítems**:
-   - Se clasifican los ítems como materiales o mano de obra desde el diálogo de ajustes.
+3. **Clasificación de ítems** (opcional):
+   - Se pueden reclasificar ítems entre material/mano de obra desde el diálogo de ajustes
+   - Al cambiar `es_material`, los ajustes se recalculan automáticamente
 
 4. **Pago de factura**:
-   - Cuando la factura se paga completamente, el sistema evalúa si debe generar ajustes automáticamente.
+   - Usuario registra pagos parciales hasta que `saldo_pendiente` llega a 0
+   - ✅ **AUTOMATISMO:** Cuando `saldo_pendiente ≤ 0`, los ajustes se aprueban automáticamente (`aprobado = false → true`)
+   - Los ajustes ahora aparecen en `/dashboard/ajustes` (tab "Pendientes")
 
-5. **Gestión de ajustes**:
-   - Los ajustes pueden ser aprobados o rechazados posteriormente.
+5. **Pago de ajustes**:
+   - Admin accede a `/dashboard/ajustes`
+   - Filtra por administrador en el dropdown
+   - Ve el resumen de ajustes pendientes en card naranja
+   - Click en "Pagar Todos los Ajustes" → Confirmación → Pago ejecutado
+   - Se genera PDF automáticamente con el comprobante
+   - Ajustes pasan a tab "Pagadas" con `pagado = true`
 
-### Scripts SQL Implementados
+### Estados de Ajustes
 
-1. **`ajustes-facturas-setup.sql`**:
-   - Elimina la tabla obsoleta `config_ajustes_administradores`.
-   - Añade el campo `es_material` a `items_factura` si no existe.
-   - Crea la función `calcular_ajustes_factura()` para el cálculo automático.
-   - Implementa triggers en `items_factura` y `facturas`.
+| Estado | aprobado | pagado | Dónde se ve | Acción siguiente |
+|--------|----------|--------|-------------|------------------|
+| **Calculado** | false | false | Solo en vista facturas (columna Ajuste) | Pagar factura completa |
+| **Aprobado** | true | false | `/dashboard/ajustes` tab Pendientes | Pagar ajustes |
+| **Pagado** | true | true | `/dashboard/ajustes` tab Pagadas | Ninguna |
 
-2. **`agregar-campos-ajustes-administradores.sql`**:
-   - Añade los campos `aplica_ajustes` y `porcentaje_default` a la tabla `administradores`.
+### Scripts SQL Implementados (ACTUALIZADO OCTUBRE 2025)
+
+#### 1. Vista `vista_facturas_completa` (Actualizada)
+
+**Cambio clave:** Ahora muestra TODOS los ajustes, no solo los aprobados.
+
+```sql
+-- Sección de total_ajustes actualizada:
+COALESCE(
+  (SELECT SUM(aj.monto_ajuste) 
+   FROM ajustes_facturas aj 
+   WHERE aj.id_factura = f.id),  -- Sin filtro de aprobado
+  0
+) AS total_ajustes
+```
+
+**Resultado:** La columna "Ajuste" muestra el monto desde que se crea la factura.
+
+#### 2. Función `calcular_ajustes_factura()` (Actualizada)
+
+**Cambios:**
+- Eliminada la condición `IF v_factura_pagada THEN`
+- Ahora crea ajustes SIEMPRE que el admin tenga `aplica_ajustes = true`
+- Se ejecuta al crear/modificar ítems, sin esperar pago
+
+#### 3. Función `aprobar_ajustes_al_pagar()` (Nueva)
+
+**Propósito:** Aprueba automáticamente los ajustes al pagar factura.
+
+```sql
+CREATE OR REPLACE FUNCTION aprobar_ajustes_al_pagar()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.saldo_pendiente <= 0 AND (OLD.saldo_pendiente IS NULL OR OLD.saldo_pendiente > 0) THEN
+        UPDATE ajustes_facturas
+        SET aprobado = true
+        WHERE id_factura = NEW.id AND aprobado = false;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+#### 4. Triggers Activos
+
+1. **`trig_items_factura_ajustes`** en `items_factura` (INSERT/UPDATE)
+   - Llama a `calcular_ajustes_factura()`
+   - Crea ajustes al crear/modificar ítems
+
+2. **`trig_facturas_ajustes`** en `facturas` (UPDATE)
+   - Llama a `calcular_ajustes_factura()`
+   - Recalcula ajustes si cambia la factura
+
+3. **`trig_aprobar_ajustes_al_pagar`** en `facturas` (UPDATE de `saldo_pendiente`)
+   - Llama a `aprobar_ajustes_al_pagar()`
+   - Aprueba ajustes automáticamente al pagar
+
+#### 5. Script de Migración (Ejecutado una sola vez)
+
+Script para generar ajustes en facturas existentes que fueron creadas antes del sistema mejorado.
+
+**Ejecutado:** ✅ 2 de Octubre 2025
+**Resultados:** 4 facturas procesadas, 4 ajustes creados, 2 auto-aprobados (facturas ya pagadas)
 
 ### Consideraciones Técnicas
 
 1. **Retrocompatibilidad**:
-   - Se mantiene el campo `es_producto` en `items_factura` por compatibilidad.
-   - El nuevo sistema utiliza `es_material` como criterio principal para los ajustes.
+   - Se mantiene el campo `es_producto` en `items_factura` por compatibilidad
+   - El nuevo sistema utiliza `es_material` como criterio principal
+   - Diálogo manual de ajustes (`generar-ajustes-dialog.tsx`) sigue disponible como legacy
 
 2. **Rendimiento**:
-   - Los triggers están optimizados para ejecutarse solo cuando es necesario.
-   - La función `calcular_ajustes_factura()` realiza consultas eficientes.
+   - Triggers optimizados con condiciones mínimas
+   - Recalcula completamente al modificar (DELETE + INSERT) para evitar inconsistencias
+   - Consultas eficientes con índices en `id_factura` y `es_material`
 
 3. **Seguridad**:
-   - La configuración de ajustes está protegida por los permisos de administrador.
-   - Los porcentajes tienen límites razonables (0-30%).
+   - Configuración de ajustes protegida por permisos de administrador
+   - Porcentajes limitados a rango razonable (0-30%)
+   - Server action `pagarAjustesAdministrador()` verifica rol admin/supervisor
 
-### Futuras Mejoras
+4. **Transparencia**:
+   - Cliente ve monto de ajuste desde el inicio (no hay sorpresas)
+   - 3 estados claros: Calculado → Aprobado → Pagado
+   - Logs automáticos en triggers para auditoría
 
-1. **Panel de aprobación de ajustes** para revisar y aprobar ajustes generados automáticamente.
-2. **Historial de cambios de ajustes** para auditoría y transparencia.
-3. **Notificaciones** cuando se generan ajustes automáticamente.
-4. **Reportes específicos** para analizar los ajustes aplicados por administrador o período.
+5. **Trazabilidad**:
+   - Campo `created_at` en ajustes
+   - Campo `fecha_pago` se llena al pagar
+   - PDF automático como comprobante
+
+### Beneficios del Sistema Mejorado
+
+| Antes (Julio 2025) | Ahora (Octubre 2025) |
+|-------------------|---------------------|
+| Ajuste visible solo tras pago total | Ajuste visible desde creación |
+| Cliente no sabía monto futuro | Cliente planifica con info completa |
+| Aprobación manual requerida | Aprobación automática al pagar |
+| Columna "Ajuste" en $0 hasta el final | Monto real desde el principio |
+| Proceso opaco | Transparencia total |
+
+### Futuras Mejoras Opcionales
+
+1. **Historial de cambios de ajustes** para auditoría completa
+2. **Notificaciones push** cuando se aprueban ajustes
+3. **Dashboard de métricas** por administrador/período
+4. **Exportación a Excel** además de PDF
+5. **Filtros por rango de fechas** en `/dashboard/ajustes`
+
+---
+
+## 🔄 Lógica de Estados de Presupuestos
+
+### Jerarquía de Estados
+
+Los presupuestos finales siguen una jerarquía de estados bien definida que refleja el flujo de trabajo del negocio:
+
+```
+Borrador → Pendiente → Aprobado → Enviado → Facturado → Pagado → Liquidado
+                                       ↑           ↑
+                                       |           |
+                                  Sin factura  Con factura
+```
+
+### Botón "Marcar como Enviado"
+
+#### Lógica Implementada
+
+Cuando el usuario hace click en el botón 📤 "Marcar como Enviado", el sistema ejecuta una lógica inteligente para determinar el estado correcto:
+
+**1. Verificación de factura vinculada:**
+```sql
+SELECT id FROM facturas WHERE id_presupuesto = {presupuesto_id}
+```
+
+**2. Asignación de estado:**
+- ✅ **Si TIENE factura vinculada** → Estado "Facturado" (id: 4)
+- ✅ **Si NO tiene factura** → Estado "Enviado" (id: 2)
+
+**3. Mensaje al usuario:**
+- Con factura: _"Presupuesto marcado como facturado (tiene factura vinculada)"_
+- Sin factura: _"Presupuesto marcado como enviado exitosamente"_
+
+### Casos de Uso
+
+#### Caso 1: Presupuesto SIN factura
+```
+Usuario: Click en "Marcar como Enviado"
+Sistema: Verifica facturas → No encuentra ninguna
+Resultado: Estado cambia a "Enviado" (id: 2)
+Badge: 🔵 Enviado (azul)
+```
+
+#### Caso 2: Presupuesto CON factura
+```
+Usuario: Click en "Marcar como Enviado"
+Sistema: Verifica facturas → Encuentra al menos 1
+Resultado: Estado cambia a "Facturado" (id: 4)
+Badge: 🟠 Facturado (naranja)
+```
+
+### Validaciones
+
+- ✅ Solo usuarios con rol **admin** o **supervisor** pueden ejecutar esta acción
+- ✅ El botón NO aparece si el estado actual es:
+  - `enviado`
+  - `facturado`
+  - `rechazado`
+
+### Archivos Relacionados
+
+- **Server Action:** `app/dashboard/presupuestos/actions-envio.ts`
+- **Componente Lista:** `components/budget-list.tsx`
+- **Página Detalle:** `app/dashboard/presupuestos/[id]/page.tsx`
+
+### Mantenimiento
+
+Si necesitas cambiar los IDs de los estados, busca estas líneas en el archivo:
+
+```typescript
+// app/dashboard/presupuestos/actions-envio.ts
+const nuevoEstadoId = tieneFactura ? 4 : 2  // 4=facturado, 2=enviado
+```
+
+**IDs actuales en tabla `estados_presupuestos`:**
+- 1 = Borrador
+- 2 = Enviado ← Usado cuando NO hay factura
+- 3 = Aceptado
+- 4 = Facturado ← Usado cuando SÍ hay factura
+- 5 = Rechazado
+
+**Importante:** Asegúrate de que los IDs coincidan con tu tabla `estados_presupuestos`.
+
+### Integración con Sistema de Automatización
+
+Esta lógica se complementa con el sistema de automatización de estados basado en triggers de Supabase (ver sección "Automatización Inteligente SPC" en este documento). El botón "Marcar como Enviado" es una acción manual que respeta la presencia de facturas, mientras que los triggers automatizan cambios basados en eventos de base de datos.
+
+---
