@@ -116,10 +116,10 @@ export default async function InvoicePage({ params }: { params: { id: string } }
             </Button>
           </div>
           
-          {/* Título contextual con edificio y tarea */}
+          {/* Título contextual */}
           <div>
             <h1 className="text-lg sm:text-2xl font-bold tracking-tight">
-              {edificio?.nombre || 'Edificio'} - {tarea?.titulo || 'Tarea'}
+              {tarea?.titulo || 'Sin título'}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="text-xs sm:text-sm text-muted-foreground font-mono">

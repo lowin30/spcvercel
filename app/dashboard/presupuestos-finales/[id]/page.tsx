@@ -236,7 +236,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
             </Button>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight truncate">
-                {presupuesto.nombre_edificio || 'Edificio'} - {presupuesto.titulo_tarea || 'Tarea'}
+                {presupuesto.titulo_tarea || 'Sin título'}
               </h1>
               <div className="flex items-center gap-2 flex-wrap mt-1">
                 <span className="text-xs sm:text-sm text-muted-foreground font-mono">
