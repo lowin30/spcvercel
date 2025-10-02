@@ -18,6 +18,8 @@ interface AdminData {
   id: string;
   nombre: string;
   telefono: string;
+  email1: string;
+  email2: string;
   estado: string;
   aplica_ajustes: boolean;
   porcentaje_default: number;
@@ -26,6 +28,8 @@ interface AdminData {
 export default function EditarAdministradorPage() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [email1, setEmail1] = useState("");
+  const [email2, setEmail2] = useState("");
   const [estado, setEstado] = useState("activo");
   const [aplicaAjustes, setAplicaAjustes] = useState(false);
   const [porcentajeAjuste, setPorcentajeAjuste] = useState(0);
@@ -67,6 +71,8 @@ export default function EditarAdministradorPage() {
         if (data) {
           setNombre(data.nombre);
           setTelefono(data.telefono);
+          setEmail1(data.email1 || "");
+          setEmail2(data.email2 || "");
           setEstado(data.estado);
           setAplicaAjustes(data.aplica_ajustes || false);
           setPorcentajeAjuste(data.porcentaje_default || 0);
@@ -109,6 +115,26 @@ export default function EditarAdministradorPage() {
       return;
     }
 
+    // Validar email1 si se proporciona
+    if (email1.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email1)) {
+      toast({
+        title: "Error de validación",
+        description: "El formato del email principal no es válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar email2 si se proporciona
+    if (email2.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email2)) {
+      toast({
+        title: "Error de validación",
+        description: "El formato del email secundario no es válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -116,7 +142,9 @@ export default function EditarAdministradorPage() {
         .from("administradores")
         .update({ 
           nombre, 
-          telefono, 
+          telefono,
+          email1: email1.trim() || null,
+          email2: email2.trim() || null,
           estado, 
           aplica_ajustes: aplicaAjustes,
           porcentaje_default: porcentajeAjuste
@@ -182,36 +210,67 @@ export default function EditarAdministradorPage() {
         <h1 className="text-3xl font-bold tracking-tight">Editar Administrador</h1>
       </div>
       
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
+      <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-6">
+        {/* Información Básica */}
         <Card>
           <CardHeader>
-            <CardTitle>Información del Administrador</CardTitle>
+            <CardTitle>Información Básica</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="nombre">Nombre completo *</Label>
-              <Input
-                id="nombre"
-                value={nombre}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNombre(e.target.value)}
-                placeholder="Ej: Juan Pérez"
-                required
-                disabled={isSubmitting}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="nombre">Nombre completo *</Label>
+                <Input
+                  id="nombre"
+                  value={nombre}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNombre(e.target.value)}
+                  placeholder="Ej: Juan Pérez"
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="telefono">Teléfono *</Label>
+                <Input
+                  id="telefono"
+                  type="tel"
+                  value={telefono}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTelefono(e.target.value)}
+                  placeholder="Ej: 1122334455"
+                  required
+                  disabled={isSubmitting}
+                />
+                <p className="text-xs text-muted-foreground">Solo números (10-15 dígitos)</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="telefono">Teléfono *</Label>
-              <Input
-                id="telefono"
-                type="tel"
-                value={telefono}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTelefono(e.target.value)}
-                placeholder="Ej: 1122334455"
-                required
-                disabled={isSubmitting}
-              />
-              <p className="text-xs text-muted-foreground">Ingresa solo números (entre 10 y 15 dígitos).</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="email1">Email principal</Label>
+                <Input
+                  id="email1"
+                  type="email"
+                  value={email1}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail1(e.target.value)}
+                  placeholder="Ej: admin@ejemplo.com"
+                  disabled={isSubmitting}
+                />
+                <p className="text-xs text-muted-foreground">Email de contacto principal</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email2">Email secundario</Label>
+                <Input
+                  id="email2"
+                  type="email"
+                  value={email2}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail2(e.target.value)}
+                  placeholder="Ej: admin2@ejemplo.com"
+                  disabled={isSubmitting}
+                />
+                <p className="text-xs text-muted-foreground">Email alternativo (opcional)</p>
+              </div>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
               <Select 
@@ -219,7 +278,7 @@ export default function EditarAdministradorPage() {
                 onValueChange={setEstado}
                 disabled={isSubmitting}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full md:w-[200px]">
                   <SelectValue placeholder="Seleccione un estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -229,13 +288,84 @@ export default function EditarAdministradorPage() {
               </Select>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting} size="lg">
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}\
-              {isSubmitting ? "Guardando cambios..." : "Guardar Cambios"}
-            </Button>
-          </CardFooter>
         </Card>
+
+        {/* Configuración de Ajustes */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Configuración de Ajustes de Facturas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between space-x-4 p-4 border rounded-lg">
+              <div className="flex-1">
+                <Label htmlFor="aplica_ajustes" className="text-base font-medium">
+                  Aplicar ajustes automáticos
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Cuando está activado, se generarán ajustes automáticamente para las facturas de este administrador
+                </p>
+              </div>
+              <Switch
+                id="aplica_ajustes"
+                checked={aplicaAjustes}
+                onCheckedChange={setAplicaAjustes}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {aplicaAjustes && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="porcentaje_ajuste" className="text-base font-medium">
+                      Porcentaje de ajuste
+                    </Label>
+                    <span className="text-2xl font-bold text-primary">
+                      {porcentajeAjuste}%
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Este porcentaje se aplicará sobre el monto de mano de obra (no materiales)
+                  </p>
+                </div>
+                <Slider
+                  id="porcentaje_ajuste"
+                  min={0}
+                  max={30}
+                  step={0.5}
+                  value={[porcentajeAjuste]}
+                  onValueChange={(value) => setPorcentajeAjuste(value[0])}
+                  disabled={isSubmitting}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0%</span>
+                  <span>15%</span>
+                  <span>30%</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Botones de acción */}
+        <div className="flex justify-end gap-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => router.push("/dashboard/administradores")}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSubmitting} size="lg">
+            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+            {isSubmitting ? "Guardando cambios..." : "Guardar Cambios"}
+          </Button>
+        </div>
       </form>
     </div>
   );
