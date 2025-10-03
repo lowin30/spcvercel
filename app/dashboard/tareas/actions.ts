@@ -118,8 +118,8 @@ export async function cloneTask(taskId: number) {
     // 3. Preparar los datos de la nueva tarea (clonada)
     const newTaskData = {
       titulo: `Copia de: ${originalTask.titulo}`,
-      descripcion: originalTask.descripcion,
-      id_estado_nuevo: 1, // Organizar (estado inicial)
+      descripcion: '', // Descripción vacía para que el usuario ingrese una nueva
+      id_estado_nuevo: 10, // Posible (estado para trabajos futuros/potenciales)
       prioridad: originalTask.prioridad,
       id_edificio: originalTask.id_edificio,
       id_administrador: originalTask.id_administrador,
@@ -138,7 +138,34 @@ export async function cloneTask(taskId: number) {
       return { success: false, message: 'Error al crear la tarea clonada.' }
     }
 
-    // 5. Revalidar la ruta para actualizar la UI
+    // 5. Copiar departamentos de la tarea original a la nueva tarea
+    const newTaskId = newTask?.[0]?.id
+    if (newTaskId) {
+      // Obtener departamentos de la tarea original
+      const { data: departamentosOriginales, error: deptError } = await supabase
+        .from('departamentos_tareas')
+        .select('id_departamento')
+        .eq('id_tarea', taskId)
+
+      if (!deptError && departamentosOriginales && departamentosOriginales.length > 0) {
+        // Insertar los mismos departamentos para la nueva tarea
+        const departamentosInserts = departamentosOriginales.map(dept => ({
+          id_tarea: newTaskId,
+          id_departamento: dept.id_departamento
+        }))
+
+        const { error: insertDeptError } = await supabase
+          .from('departamentos_tareas')
+          .insert(departamentosInserts)
+
+        if (insertDeptError) {
+          console.error('Error al clonar departamentos:', insertDeptError)
+          // No retornamos error, la tarea ya fue creada
+        }
+      }
+    }
+
+    // 6. Revalidar la ruta para actualizar la UI
     // Usamos revalidatePath con la opción 'page' para forzar una revalidación completa
     revalidatePath('/dashboard/tareas', 'page')
 

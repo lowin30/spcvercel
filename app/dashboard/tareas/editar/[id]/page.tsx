@@ -133,10 +133,24 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
           }
         }
 
+        // 4. Obtener departamentos asociados a la tarea
+        const { data: departamentosData, error: departamentosError } = await supabase
+          .from('departamentos_tareas')
+          .select('id_departamento')
+          .eq('id_tarea', id);
+
+        if (!departamentosError && departamentosData) {
+          // Convertir a array de strings para el formulario
+          taskData.departamentos_ids = departamentosData.map(dept => dept.id_departamento.toString());
+        } else {
+          taskData.departamentos_ids = [];
+        }
+
         console.log('Datos de la tarea cargados:', taskData);
+        console.log('Departamentos cargados:', taskData.departamentos_ids);
         setTask(taskData);
 
-        // 4. Cargar supervisores y trabajadores para el formulario
+        // 5. Cargar supervisores y trabajadores para el formulario
         const [supervisoresResult, trabajadoresResult] = await Promise.all([
           supabase
             .from('usuarios')

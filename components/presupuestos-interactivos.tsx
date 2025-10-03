@@ -33,6 +33,9 @@ export interface PresupuestoType {
   nota_pb?: string
   // Relaciones
   id_tarea?: number
+  // Estado de facturación (solo para presupuestos finales)
+  tiene_facturas?: boolean
+  facturas_pagadas?: boolean
 }
 
 interface PresupuestosInteractivosProps {
@@ -428,9 +431,26 @@ export function PresupuestosInteractivos({
       <Card className={`${colorClase} border`}>
         <CardHeader className="py-3 flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               {titulo}
               {renderEstadoBadge(estadoPresupuesto)}
+              
+              {/* Estado de facturación (solo para presupuesto final) */}
+              {tipo === "final" && presupuesto.tiene_facturas && (
+                <>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <FileText className="w-3 h-3 mr-1" />
+                    Facturado
+                  </Badge>
+                  
+                  {presupuesto.facturas_pagadas && (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Check className="w-3 h-3 mr-1" />
+                      Pagadas
+                    </Badge>
+                  )}
+                </>
+              )}
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {presupuesto.code} • {formatFecha(presupuesto.created_at)}

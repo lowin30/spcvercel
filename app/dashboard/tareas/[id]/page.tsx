@@ -62,10 +62,16 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   const [mostrarFormularioParte, setMostrarFormularioParte] = useState(false);
   
   // Función para cargar presupuestos desde las tablas correctas
-  const cargarPresupuestos = async () => {
+  const cargarPresupuestos = async (userRol?: string) => {
     try {
       const supabase = createClient()
-      if (!supabase || !tareaId) return
+      if (!supabase || !tareaId) {
+        console.log('[cargarPresupuestos] No hay supabase o tareaId:', { supabase: !!supabase, tareaId })
+        return
+      }
+
+      console.log('[cargarPresupuestos] Iniciando carga para tarea:', tareaId)
+      console.log('[cargarPresupuestos] Rol de usuario:', userRol)
 
       // 1. Cargar presupuesto base desde la tabla 'presupuestos_base'
       const { data: presupuestoBaseData, error: baseError } = await supabase
@@ -82,6 +88,13 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         .eq("id_tarea", tareaId)
         .maybeSingle()
 
+      console.log('[cargarPresupuestos] Resultado presupuesto base:', {
+        data: presupuestoBaseData,
+        error: baseError,
+        hayDatos: !!presupuestoBaseData,
+        idPresupuestoBase: presupuestoBaseData?.id
+      })
+
       if (baseError) {
         console.error("Error al cargar presupuesto base:", baseError)
         toast({
@@ -96,24 +109,92 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
 
       setPresupuestoBase(presupuestoBaseData)
 
-      // 2. Si existe un presupuesto base, buscar el presupuesto final asociado
+      // 2. Buscar presupuesto final (dos casos posibles)
+      let presupuestoFinalData = null
+      
+      // Caso 1: Si existe un presupuesto base, buscar el presupuesto final asociado
       if (presupuestoBaseData?.id) {
-        const { data: presupuestoFinalData, error: finalError } = await supabase
+        console.log('[cargarPresupuestos] Buscando presupuesto final para presupuesto base ID:', presupuestoBaseData.id)
+        
+        const { data, error: finalError } = await supabase
           .from("presupuestos_finales")
           .select("*")
           .eq("id_presupuesto_base", presupuestoBaseData.id)
           .maybeSingle()
 
+        console.log('[cargarPresupuestos] Resultado presupuesto final (vía presupuesto base):', {
+          data,
+          error: finalError,
+          hayDatos: !!data,
+          idPresupuestoFinal: data?.id
+        })
+
         if (finalError) {
           console.error("Error al cargar presupuesto final:", finalError)
-          setPresupuestoFinal(null) // Puede que simplemente no exista aún
-        } else {
-          setPresupuestoFinal(presupuestoFinalData)
+        } else if (data) {
+          presupuestoFinalData = data
         }
-      } else {
-        // Si no hay presupuesto base, no puede haber presupuesto final
-        setPresupuestoFinal(null)
       }
+      
+      // Caso 2: Si no se encontró presupuesto final vía presupuesto base,
+      // buscar presupuesto final vinculado directamente a la tarea (sin presupuesto base)
+      if (!presupuestoFinalData) {
+        console.log('[cargarPresupuestos] Buscando presupuesto final vinculado directamente a la tarea (sin presupuesto base)')
+        
+        const { data, error: finalDirectoError } = await supabase
+          .from("presupuestos_finales")
+          .select("*")
+          .eq("id_tarea", tareaId)
+          .is("id_presupuesto_base", null)
+          .maybeSingle()
+
+        console.log('[cargarPresupuestos] Resultado presupuesto final (vía tarea directa):', {
+          data,
+          error: finalDirectoError,
+          hayDatos: !!data,
+          idPresupuestoFinal: data?.id
+        })
+
+        if (finalDirectoError) {
+          console.error("Error al cargar presupuesto final directo:", finalDirectoError)
+        } else if (data) {
+          presupuestoFinalData = data
+        }
+      }
+      
+      // Consultar facturas asociadas al presupuesto final (solo si es admin)
+      if (presupuestoFinalData && userRol === "admin") {
+        console.log('[cargarPresupuestos] Consultando facturas para presupuesto final ID:', presupuestoFinalData.id)
+        
+        const { data: facturas, error: facturasError } = await supabase
+          .from('facturas')
+          .select('id, pagada')
+          .eq('id_presupuesto_final', presupuestoFinalData.id)
+        
+        console.log('[cargarPresupuestos] Resultado consulta facturas:', {
+          data: facturas,
+          error: facturasError,
+          cantidad: facturas?.length || 0
+        })
+        
+        if (facturasError) {
+          console.error('[cargarPresupuestos] Error al consultar facturas:', facturasError)
+        } else if (facturas && facturas.length > 0) {
+          presupuestoFinalData.tiene_facturas = true
+          presupuestoFinalData.facturas_pagadas = facturas.every(f => f.pagada)
+          console.log('[cargarPresupuestos] Estado de facturas:', {
+            cantidad: facturas.length,
+            tiene_facturas: true,
+            facturas_pagadas: presupuestoFinalData.facturas_pagadas
+          })
+        } else {
+          console.log('[cargarPresupuestos] No se encontraron facturas para este presupuesto final')
+        }
+      }
+      
+      // Establecer el presupuesto final encontrado (o null si no hay ninguno)
+      setPresupuestoFinal(presupuestoFinalData)
+      console.log('[cargarPresupuestos] Presupuesto final establecido:', presupuestoFinalData ? `ID ${presupuestoFinalData.id}` : 'null')
     } catch (error) {
       console.error("Error general al cargar presupuestos:", error)
       toast({
@@ -404,7 +485,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
 
       
       // Cargar datos de presupuestos (base y final)
-      await cargarPresupuestos()
+      await cargarPresupuestos(userData?.rol)
       
     } catch (err) {
       console.error("Error inesperado:", err)
