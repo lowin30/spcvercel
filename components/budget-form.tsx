@@ -427,7 +427,8 @@ export function BudgetForm({
                 precio: itemData.precio,
                 es_producto: typeof itemData.es_producto === 'boolean' ? itemData.es_producto : !!itemData.producto_id,
                 producto_id: itemData.producto_id || null,
-                es_material: itemData.es_material || false,
+                // NO incluimos es_material aquí porque se maneja separadamente con EsMaterialCheckbox
+                // Esto evita sobrescribir el valor cuando se guarda el presupuesto
             };
             return supabase
               .from('items')
@@ -663,7 +664,8 @@ export function BudgetForm({
         precio: item.precio,
         id_presupuesto: presupuesto.id,
         es_producto: typeof item.es_producto === 'boolean' ? item.es_producto : !!item.producto_id,
-        producto_id: item.producto_id || null
+        producto_id: item.producto_id || null,
+        es_material: item.es_material || false
       }))
 
       const { error: itemsError } = await supabase.from("items").insert(itemsData)
@@ -897,7 +899,7 @@ export function BudgetForm({
                         <span className="hidden sm:inline">Subtotal</span>
                         <span className="inline sm:hidden">Total</span>
                       </TableHead>
-                      {tipo === "final" && presupuestoAEditar && (
+                      {tipo === "final" && (
                         <TableHead>
                           <span className="hidden sm:inline">Material</span>
                           <span className="inline sm:hidden">Mat.</span>
@@ -921,13 +923,25 @@ export function BudgetForm({
                         <TableCell className="text-right">{formatCurrency(item.precio)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(item.cantidad * item.precio)}</TableCell>
                         
-                        {tipo === "final" && presupuestoAEditar && item.id && (
+                        {tipo === "final" && (
                           <TableCell>
-                            <EsMaterialCheckbox 
-                              itemId={item.id} 
-                              initialValue={!!item.es_material} 
-                              presupuestoId={presupuestoAEditar.id}
-                            />
+                            {presupuestoAEditar && item.id ? (
+                              <EsMaterialCheckbox 
+                                itemId={item.id} 
+                                initialValue={!!item.es_material} 
+                                presupuestoId={presupuestoAEditar.id}
+                              />
+                            ) : (
+                              <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                  checked={!!item.es_material}
+                                  disabled={true}
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {item.es_material ? 'Material' : 'M.O.'}
+                                </span>
+                              </div>
+                            )}
                           </TableCell>
                         )}
                         

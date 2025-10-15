@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProductoPicker } from "@/components/producto-picker"
 import { formatCurrency } from "@/lib/utils"
@@ -19,6 +20,7 @@ export interface ItemPresupuesto {
   cantidad: number
   precio: number
   es_producto?: boolean
+  es_material?: boolean
   producto_id?: string
   producto?: Producto
 }
@@ -44,6 +46,7 @@ export function ItemPresupuestoModal({
   const [productoId, setProductoId] = useState<string | undefined>(undefined)
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | undefined>(undefined)
   const [esProducto, setEsProducto] = useState(false)
+  const [esMaterial, setEsMaterial] = useState(false)
   
   // Estado para las pestañas
   const [activeTab, setActiveTab] = useState<string>("manual")
@@ -65,6 +68,7 @@ export function ItemPresupuestoModal({
       setProductoId(editingItem.producto_id)
       setProductoSeleccionado(editingItem.producto)
       setEsProducto(!!editingItem.es_producto)
+      setEsMaterial(!!editingItem.es_material)
       
       // Si el ítem es un producto, cambiar a la pestaña de producto
       if (editingItem.es_producto && editingItem.producto_id) {
@@ -81,6 +85,7 @@ export function ItemPresupuestoModal({
       setProductoId(undefined)
       setProductoSeleccionado(undefined)
       setEsProducto(false)
+      setEsMaterial(false)
       setActiveTab("manual")
     }
   }, [editingItem, open])
@@ -118,7 +123,8 @@ export function ItemPresupuestoModal({
       precio,
       producto_id: esProducto ? productoId : undefined,
       producto: esProducto ? productoSeleccionado : undefined,
-      es_producto: esProducto
+      es_producto: esProducto,
+      es_material: esMaterial
     })
     setOpen(false)
   }
@@ -167,6 +173,17 @@ export function ItemPresupuestoModal({
                   onChange={(e) => setCantidad(Number(e.target.value) || 1)}
                 />
               </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="es-material-producto"
+                  checked={esMaterial}
+                  onCheckedChange={(checked) => setEsMaterial(Boolean(checked))}
+                />
+                <Label htmlFor="es-material-producto" className="cursor-pointer">
+                  ¿Es material?
+                </Label>
+              </div>
             </div>
           </TabsContent>
           
@@ -206,6 +223,17 @@ export function ItemPresupuestoModal({
                     onChange={handlePrecioChange}
                   />
                 </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="es-material-manual"
+                  checked={esMaterial}
+                  onCheckedChange={(checked) => setEsMaterial(Boolean(checked))}
+                />
+                <Label htmlFor="es-material-manual" className="cursor-pointer">
+                  ¿Es material?
+                </Label>
               </div>
             </div>
           </TabsContent>

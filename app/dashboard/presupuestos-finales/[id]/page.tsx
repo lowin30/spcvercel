@@ -30,6 +30,7 @@ interface PresupuestoFinalItem {
   precio: number
   // Consider adding es_producto and producto_id if they are used by the component
   es_producto?: boolean 
+  es_material?: boolean
   producto_id?: string 
 }
 
@@ -473,6 +474,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
                 <thead>
                   <tr className="border-b-2 border-primary/20 bg-muted/50">
                     <th className="text-left p-3 font-semibold text-sm uppercase tracking-wide text-muted-foreground">Descripción</th>
+                    <th className="text-center p-3 font-semibold text-sm uppercase tracking-wide text-muted-foreground w-24">Material</th>
                     <th className="text-right p-3 font-semibold text-sm uppercase tracking-wide text-muted-foreground w-24">Cantidad</th>
                     <th className="text-right p-3 font-semibold text-sm uppercase tracking-wide text-muted-foreground w-32">Precio Unit.</th>
                     <th className="text-right p-3 font-semibold text-sm uppercase tracking-wide text-muted-foreground w-32">Subtotal</th>
@@ -487,6 +489,13 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
                           <span>{item.descripcion}</span>
                         </div>
                       </td>
+                      <td className="p-3 text-center">
+                        {item.es_material ? (
+                          <Badge variant="default" className="bg-blue-600">Sí</Badge>
+                        ) : (
+                          <Badge variant="outline">No</Badge>
+                        )}
+                      </td>
                       <td className="p-3 text-right tabular-nums">{item.cantidad}</td>
                       <td className="p-3 text-right tabular-nums">{formatCurrency(item.precio)}</td>
                       <td className="p-3 text-right font-semibold tabular-nums">
@@ -497,7 +506,7 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-primary bg-primary/5">
-                    <td colSpan={3} className="p-3 text-right font-semibold text-base">Total:</td>
+                    <td colSpan={4} className="p-3 text-right font-semibold text-base">Total:</td>
                     <td className="p-3 text-right text-lg font-bold text-primary tabular-nums">
                       {formatCurrency(presupuesto.total)}
                     </td>
@@ -515,6 +524,13 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
                       <div className="flex items-start gap-2">
                         <span className="text-primary font-semibold text-sm flex-shrink-0">{idx + 1}.</span>
                         <p className="font-medium leading-snug">{item.descripcion}</p>
+                      </div>
+                      <div className="mt-2">
+                        {item.es_material ? (
+                          <Badge variant="default" className="bg-blue-600 text-xs">Material</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">Mano de obra</Badge>
+                        )}
                       </div>
                     </div>
                   </div>
