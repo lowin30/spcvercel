@@ -77,7 +77,20 @@ export default function NuevoPresupuestoPage() {
         if (tipoPresupuesto === "final" && idTarea && idPadre) {
           const { data: presupuestoBaseData, error: presupuestoBaseError } = await supabase
             .from("presupuestos_base")
-            .select("*, tareas(titulo, code, edificios(nombre))") // Asegúrate que las relaciones sean correctas
+            .select(`
+              *,
+              tareas!inner(
+                id,
+                titulo,
+                code,
+                id_edificio,
+                id_administrador
+              ),
+              edificios:id_edificio(
+                id,
+                nombre
+              )
+            `)
             .eq("id", idPadre)
             .single();
 

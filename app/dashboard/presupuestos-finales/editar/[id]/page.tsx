@@ -164,7 +164,6 @@ export default function EditarPresupuestoFinalPage({ params: paramsPromise }: Ed
           <AprobadoCheckbox 
             presupuestoId={parseInt(presupuestoId)} 
             initialValue={presupuesto.aprobado || false}
-            disabled={Boolean(presupuesto.aprobado)}
           />
         </div>
       </div>

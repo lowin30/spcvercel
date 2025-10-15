@@ -269,7 +269,6 @@ export default function PresupuestoFinalPage({ params: paramsPromise }: Presupue
           <AprobadoCheckbox 
             presupuestoId={presupuesto.id} 
             initialValue={presupuesto.aprobado || false}
-            disabled={Boolean(presupuesto.aprobado)}
           />
           
           {/* Botón Marcar como Enviado - Responsive */}

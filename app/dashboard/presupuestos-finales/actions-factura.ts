@@ -301,3 +301,108 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     };
   }
 }
+
+/**
+ * Desaprueba un presupuesto final si no tiene facturas asociadas
+ * @param presupuestoId ID del presupuesto final a desaprobar
+ * @returns Objeto con el resultado de la operación
+ */
+export async function desaprobarPresupuesto(presupuestoId: number) {
+  if (!presupuestoId) {
+    return { 
+      success: false, 
+      message: 'ID de presupuesto no proporcionado.' 
+    }
+  }
+
+  const supabase = await createSsrServerClient()
+
+  try {
+    // 1. Verificar si el presupuesto tiene facturas asociadas
+    const { data: facturas, error: facturasError } = await supabase
+      .from('facturas')
+      .select('id')
+      .eq('id_presupuesto_final', presupuestoId)
+      .limit(1)
+
+    if (facturasError) {
+      console.error('Error al verificar facturas asociadas:', facturasError)
+      return { 
+        success: false, 
+        message: 'Error al verificar las facturas asociadas.' 
+      }
+    }
+
+    if (facturas && facturas.length > 0) {
+      return { 
+        success: false, 
+        message: 'No se puede desaprobar un presupuesto que tiene facturas asociadas. Elimina las facturas primero.' 
+      }
+    }
+
+    // 2. Obtener ID de tarea asociada
+    const { data: presupuesto, error: presupuestoError } = await supabase
+      .from('presupuestos_finales')
+      .select('id_tarea')
+      .eq('id', presupuestoId)
+      .single()
+
+    if (presupuestoError) {
+      console.error('Error al obtener datos del presupuesto:', presupuestoError)
+      return { 
+        success: false, 
+        message: 'Error al obtener datos del presupuesto.' 
+      }
+    }
+
+    // 3. Desaprobar el presupuesto y cambiar estado a "presupuestado"
+    const { error: updateError } = await supabase
+      .from('presupuestos_finales')
+      .update({ 
+        aprobado: false,
+        id_estado: 3,  // Estado "presupuestado"
+        fecha_aprobacion: null
+      })
+      .eq('id', presupuestoId)
+
+    if (updateError) {
+      console.error('Error al desaprobar el presupuesto:', updateError)
+      return { 
+        success: false, 
+        message: 'Error al desaprobar el presupuesto.' 
+      }
+    }
+
+    // 4. Actualizar estado de la tarea si existe
+    if (presupuesto?.id_tarea) {
+      const { error: tareaError } = await supabase
+        .from('tareas')
+        .update({ id_estado_nuevo: 3 }) // Estado "presupuestado"
+        .eq('id', presupuesto.id_tarea)
+
+      if (tareaError) {
+        console.error('Error al actualizar estado de la tarea:', tareaError)
+      }
+    }
+
+    // 5. Revalidar rutas
+    revalidatePath('/dashboard/presupuestos-finales')
+    revalidatePath(`/dashboard/presupuestos-finales/${presupuestoId}`)
+    revalidatePath(`/dashboard/presupuestos-finales/editar/${presupuestoId}`)
+    if (presupuesto?.id_tarea) {
+      revalidatePath(`/dashboard/tareas/${presupuesto.id_tarea}`)
+    }
+
+    return {
+      success: true,
+      message: 'Presupuesto desaprobado correctamente.'
+    }
+
+  } catch (error: any) {
+    console.error('Error inesperado al desaprobar presupuesto:', error)
+    return { 
+      success: false, 
+      message: `Error inesperado: ${error.message || 'Error desconocido'}` 
+    }
+  }
+}

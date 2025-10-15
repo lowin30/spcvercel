@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { convertirPresupuestoADosFacturas } from "@/app/dashboard/presupuestos-finales/actions-factura"
+import { convertirPresupuestoADosFacturas, desaprobarPresupuesto } from "@/app/dashboard/presupuestos-finales/actions-factura"
 
 interface AprobadoCheckboxProps {
   presupuestoId: number
@@ -23,8 +23,34 @@ export function AprobadoCheckbox({ presupuestoId, initialValue = false, classNam
 
   const handleChange = async (checked: boolean) => {
     if (!checked) {
-      // Si se está desmarcando, solo actualizamos el estado local
-      setChecked(false)
+      // Si se está desmarcando, intentar desaprobar
+      if (!window.confirm("¿Estás seguro que deseas desaprobar este presupuesto? Esto cambiará el estado a 'Presupuestado'.")) {
+        return
+      }
+
+      setLoading(true)
+      try {
+        const result = await desaprobarPresupuesto(presupuestoId)
+        
+        if (result.success) {
+          toast.success(result.message || "Presupuesto desaprobado correctamente")
+          setChecked(false)
+          
+          // Recargar la página después de un breve retraso
+          setTimeout(() => {
+            window.location.reload()
+          }, 1500)
+        } else {
+          toast.error(result.message || "Error al desaprobar el presupuesto")
+          setChecked(initialValue) // Revertir al valor original
+        }
+      } catch (error: any) {
+        console.error("Error al desaprobar:", error)
+        toast.error(`Error: ${error.message || "Error desconocido"}`)
+        setChecked(initialValue)
+      } finally {
+        setLoading(false)
+      }
       return
     }
 

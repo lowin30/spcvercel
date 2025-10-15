@@ -746,7 +746,7 @@ export function BudgetForm({
                     {presupuestoBase?.tareas?.code || 'Código no disp.'} - {presupuestoBase?.tareas?.titulo || 'Título no disp.'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {presupuestoBase?.tareas?.edificios?.nombre || (presupuestoBase?.id_edificio ? `Edificio ID: ${presupuestoBase.id_edificio}` : 'Edificio no especificado')}
+                    {presupuestoBase?.edificios?.nombre || (presupuestoBase?.id_edificio ? `Edificio ID: ${presupuestoBase.id_edificio}` : 'Edificio no especificado')}
                   </p>
                 </div>
               </div>

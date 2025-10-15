@@ -116,8 +116,21 @@ export async function deleteInvoice(invoiceId: number) {
       return { success: false, message: 'Error al eliminar la factura.' }
     }
     
-    // 4. Si hay un presupuesto asociado, actualizar su estado a "enviado" (id_estado: 2)
+    // 4. Si hay un presupuesto asociado, verificar si quedan otras facturas
     if (idPresupuestoFinal) {
+      // Verificar si quedan otras facturas asociadas al mismo presupuesto
+      const { data: facturasRestantes, error: facturasRestantesError } = await supabase
+        .from('facturas')
+        .select('id')
+        .eq('id_presupuesto_final', idPresupuestoFinal)
+        .limit(1)
+      
+      if (facturasRestantesError) {
+        console.error('Error al verificar facturas restantes:', facturasRestantesError)
+      }
+      
+      const quedanFacturas = facturasRestantes && facturasRestantes.length > 0
+      
       // Obtener la tarea asociada al presupuesto
       const { data: presupuestoData, error: presupuestoError } = await supabase
         .from('presupuestos_finales')
@@ -130,33 +143,48 @@ export async function deleteInvoice(invoiceId: number) {
       } else {
         const idTarea = presupuestoData?.id_tarea
         
-        // 4.1 Actualizar el estado del presupuesto
-        const { error: updateError } = await supabase
-          .from('presupuestos_finales')
-          .update({ id_estado: 2 }) // Estado "enviado"
-          .eq('id', idPresupuestoFinal)
-          
-        if (updateError) {
-          console.error('Error al actualizar estado del presupuesto:', updateError)
-        } else {
-          console.log(`Presupuesto ${idPresupuestoFinal} actualizado a estado "enviado" (id_estado: 2)`)
-          // Revalidar también la ruta de presupuestos para reflejar el cambio de estado
-          revalidatePath('/dashboard/presupuestos-finales')
-        }
-        
-        // 4.2 Actualizar el estado de la tarea si existe
-        if (idTarea) {
-          const { error: tareaError } = await supabase
-            .from('tareas')
-            .update({ id_estado_nuevo: 4 }) // Estado "enviado" (id: 4)
-            .eq('id', idTarea)
+        // 4.1 Actualizar el estado del presupuesto según si quedan facturas
+        if (!quedanFacturas) {
+          // Si NO quedan facturas, volver a estado "presupuestado" y desaprobar
+          const { error: updateError } = await supabase
+            .from('presupuestos_finales')
+            .update({ 
+              id_estado: 3,      // Estado "presupuestado"
+              aprobado: false    // Desaprobar el presupuesto
+            })
+            .eq('id', idPresupuestoFinal)
             
-          if (tareaError) {
-            console.error('Error al actualizar estado de la tarea:', tareaError)
+          if (updateError) {
+            console.error('Error al actualizar estado del presupuesto:', updateError)
           } else {
-            console.log(`Tarea ${idTarea} actualizada a estado "enviado" (id_estado_nuevo: 4)`)
-            // Revalidar también la ruta de tareas
-            revalidatePath('/dashboard/tareas')
+            console.log(`Presupuesto ${idPresupuestoFinal} actualizado a estado "presupuestado" (id_estado: 3) y desaprobado`)
+            revalidatePath('/dashboard/presupuestos-finales')
+            revalidatePath(`/dashboard/presupuestos-finales/${idPresupuestoFinal}`)
+            revalidatePath(`/dashboard/presupuestos-finales/editar/${idPresupuestoFinal}`)
+          }
+          
+          // 4.2 Actualizar el estado de la tarea si existe
+          if (idTarea) {
+            const { error: tareaError } = await supabase
+              .from('tareas')
+              .update({ id_estado_nuevo: 3 }) // Estado "presupuestado" (id: 3)
+              .eq('id', idTarea)
+              
+            if (tareaError) {
+              console.error('Error al actualizar estado de la tarea:', tareaError)
+            } else {
+              console.log(`Tarea ${idTarea} actualizada a estado "presupuestado" (id_estado_nuevo: 3)`)
+              revalidatePath('/dashboard/tareas')
+              revalidatePath(`/dashboard/tareas/${idTarea}`)
+            }
+          }
+        } else {
+          console.log(`Presupuesto ${idPresupuestoFinal} mantiene estado "facturado" porque aún tiene facturas asociadas`)
+          // Revalidar de todas formas para actualizar la UI
+          revalidatePath('/dashboard/presupuestos-finales')
+          revalidatePath(`/dashboard/presupuestos-finales/${idPresupuestoFinal}`)
+          if (idTarea) {
+            revalidatePath(`/dashboard/tareas/${idTarea}`)
           }
         }
       }
