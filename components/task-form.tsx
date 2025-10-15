@@ -200,10 +200,15 @@ export function TaskForm({
   useEffect(() => {
     const fetchEdificios = async () => {
       if (selectedAdministradorId) {
-        form.setValue("id_edificio", ""); 
-        setSelectedEdificioId(null);
-        setSelectedDepartamentosIds([]);
-        form.setValue("departamentos_ids", []);
+        // Solo resetear edificio si NO estamos en modo edición O si el admin cambió
+        const isInitialLoad = task && selectedAdministradorId === task.id_administrador?.toString();
+        if (!isInitialLoad) {
+          form.setValue("id_edificio", ""); 
+          setSelectedEdificioId(null);
+          setSelectedDepartamentosIds([]);
+          form.setValue("departamentos_ids", []);
+        }
+        
         const { data, error } = await supabase
           .from("edificios")
           .select("id, nombre, direccion")
