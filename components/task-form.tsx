@@ -419,9 +419,13 @@ export function TaskForm({
         id_administrador: Number.parseInt(values.id_administrador),
         id_edificio: Number.parseInt(values.id_edificio),
         prioridad: values.prioridad,
-        fecha_visita: values.fecha_visita,
         id_estado_nuevo: Number.parseInt(id_estado_nuevo) // Usar directamente el valor del formulario
       };
+      
+      // Solo incluir fecha_visita si NO estamos en modo edición
+      if (!isEditMode) {
+        taskDataPayload.fecha_visita = values.fecha_visita;
+      }
 
       let taskId: number;
 
@@ -437,26 +441,26 @@ export function TaskForm({
         if (updateError) throw updateError;
         taskId = updatedTask.id;
 
-        // Update supervisor link
-        await supabase.from("supervisores_tareas").delete().eq("id_tarea", taskId);
-        if (id_supervisor && id_supervisor.trim() !== "") {
-          const { error: supervisorError } = await supabase
-            .from("supervisores_tareas")
-            .insert({ id_tarea: taskId, id_supervisor: id_supervisor });
-          if (supervisorError) throw supervisorError;
+        // Solo actualizar supervisor/trabajador si NO estamos en modo edición (isEditMode)
+        if (!isEditMode) {
+          // Update supervisor link
+          await supabase.from("supervisores_tareas").delete().eq("id_tarea", taskId);
+          if (id_supervisor && id_supervisor.trim() !== "") {
+            const { error: supervisorError } = await supabase
+              .from("supervisores_tareas")
+              .insert({ id_tarea: taskId, id_supervisor: id_supervisor });
+            if (supervisorError) throw supervisorError;
+          }
+          
+          // Update trabajador link (tabla relacional)
+          await supabase.from("trabajadores_tareas").delete().eq("id_tarea", taskId);
+          if (id_asignado && id_asignado.trim() !== "") {
+            const { error: trabajadorError } = await supabase
+              .from("trabajadores_tareas")
+              .insert({ id_tarea: taskId, id_trabajador: id_asignado });
+            if (trabajadorError) throw trabajadorError;
+          }
         }
-        
-        // Update trabajador link (tabla relacional)
-        await supabase.from("trabajadores_tareas").delete().eq("id_tarea", taskId);
-        if (id_asignado && id_asignado.trim() !== "") {
-          const { error: trabajadorError } = await supabase
-            .from("trabajadores_tareas")
-            .insert({ id_tarea: taskId, id_trabajador: id_asignado });
-          if (trabajadorError) throw trabajadorError;
-        }
-        
-        // Actualizar departamentos_tareas
-        await supabase.from("departamentos_tareas").delete().eq("id_tarea", taskId);
       } else {
         // Create new task
         const { data: newTask, error: insertError } = await supabase
@@ -485,18 +489,47 @@ export function TaskForm({
         }
       }
       
-      // Insertar múltiples departamentos en departamentos_tareas
+      // Actualizar departamentos usando upsert para evitar conflictos
+      if (task) {
+        // Primero eliminar todos los departamentos existentes
+        console.log('Eliminando departamentos existentes para tarea:', taskId);
+        const { error: deleteDeptoError } = await supabase
+          .from("departamentos_tareas")
+          .delete()
+          .eq("id_tarea", taskId);
+        
+        if (deleteDeptoError) {
+          console.error("Error al eliminar departamentos:", deleteDeptoError);
+          // No lanzar error, intentar continuar con upsert
+        } else {
+          console.log('Departamentos eliminados correctamente');
+        }
+      }
+      
+      // Insertar múltiples departamentos usando upsert
       if (departamentos_ids.length > 0) {
-        const departamentosInserts = departamentos_ids.map(depId => ({
+        // Eliminar duplicados
+        const uniqueDepartamentos = [...new Set(departamentos_ids)];
+        const departamentosInserts = uniqueDepartamentos.map(depId => ({
           id_tarea: taskId,
           id_departamento: Number.parseInt(depId)
         }));
         
+        console.log('Upserting departamentos:', departamentosInserts);
+        
+        // Usar upsert para evitar conflictos de clave duplicada
         const { error: departamentosError } = await supabase
           .from("departamentos_tareas")
-          .insert(departamentosInserts);
+          .upsert(departamentosInserts, {
+            onConflict: 'id_tarea,id_departamento',
+            ignoreDuplicates: false
+          });
         
-        if (departamentosError) throw departamentosError;
+        if (departamentosError) {
+          console.error('Error al upsert departamentos:', departamentosError);
+          throw departamentosError;
+        }
+        console.log('Departamentos actualizados correctamente');
       }
 
       toast({
@@ -829,78 +862,85 @@ export function TaskForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="id_supervisor"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Supervisor</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar supervisor" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {supervisores.map((supervisor) => (
-                      <SelectItem key={supervisor.id} value={supervisor.id}>
-                        {supervisor.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Ocultar Supervisor, Trabajador y Fecha de visita en modo edición */}
+          {!isEditMode && (
+            <>
+              <FormField
+                control={form.control}
+                name="id_supervisor"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Supervisor</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar supervisor" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {supervisores.map((supervisor) => (
+                          <SelectItem key={supervisor.id} value={supervisor.id}>
+                            {supervisor.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="id_asignado"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Asignar a</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+        {!isEditMode && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="id_asignado"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Asignar a</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar trabajador" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {trabajadores.map((trabajador) => (
+                        <SelectItem key={trabajador.id} value={trabajador.id}>
+                          {trabajador.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="fecha_visita"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fecha de visita</FormLabel>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar trabajador" />
-                    </SelectTrigger>
+                    <DatePickerVisual
+                      date={field.value}
+                      onDateChange={(date) => {
+                        field.onChange(date);
+                      }}
+                      disabled={isSubmitting}
+                    />
                   </FormControl>
-                  <SelectContent>
-                    {trabajadores.map((trabajador) => (
-                      <SelectItem key={trabajador.id} value={trabajador.id}>
-                        {trabajador.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="fecha_visita"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fecha de visita</FormLabel>
-                <FormControl>
-                  <DatePickerVisual
-                    date={field.value}
-                    onDateChange={(date) => {
-                      field.onChange(date);
-                    }}
-                    disabled={isSubmitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <Button asChild variant="outline">

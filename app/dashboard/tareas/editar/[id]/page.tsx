@@ -93,47 +93,8 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
           return;
         }
 
-        // Ahora debemos cargar información adicional relacionada con la tarea
-        // 1. Obtener edificio
-        if (taskData.id_edificio) {
-          const { data: edificioData } = await supabase
-            .from('edificios')
-            .select('id, nombre')
-            .eq('id', taskData.id_edificio)
-            .single();
-          
-          if (edificioData) {
-            taskData.edificio = edificioData;
-          }
-        }
-
-        // 2. Obtener supervisor
-        if (taskData.id_supervisor) {
-          const { data: supervisorData } = await supabase
-            .from('usuarios')
-            .select('id, email, rol, color_perfil')
-            .eq('id', taskData.id_supervisor)
-            .single();
-          
-          if (supervisorData) {
-            taskData.supervisor = supervisorData;
-          }
-        }
-
-        // 3. Obtener trabajador asignado
-        if (taskData.id_asignado) {
-          const { data: trabajadorData } = await supabase
-            .from('usuarios')
-            .select('id, email, rol, color_perfil')
-            .eq('id', taskData.id_asignado)
-            .single();
-          
-          if (trabajadorData) {
-            taskData.trabajador_asignado = trabajadorData;
-          }
-        }
-
-        // 4. Obtener departamentos asociados a la tarea
+        // Obtener departamentos asociados a la tarea
+        // Los demás datos (edificio, administrador, supervisor, trabajador) ya vienen de vista_tareas_completa
         const { data: departamentosData, error: departamentosError } = await supabase
           .from('departamentos_tareas')
           .select('id_departamento')
