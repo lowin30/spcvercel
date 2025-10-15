@@ -156,6 +156,29 @@ export function BudgetForm({
   // Efecto para pre-seleccionar Administrador y Edificio basado en la tarea (desde edición o creación)
   useEffect(() => {
     const preseleccionarDesdeTarea = async () => {
+      // Caso 1: Si estamos editando un presupuesto final (presupuestoAEditar)
+      if (presupuestoAEditar && presupuestoBase) {
+        // Obtener id_administrador e id_edificio desde presupuestoBase.tareas
+        if (presupuestoBase.tareas) {
+          const tareaData = presupuestoBase.tareas;
+          
+          if (tareaData.id_administrador) {
+            const adminIdStr = tareaData.id_administrador.toString();
+            setSelectedAdministrador(adminIdStr);
+            await cargarEdificiosPorAdministrador(adminIdStr);
+          }
+          
+          if (tareaData.id_edificio) {
+            setSelectedEdificio(tareaData.id_edificio.toString());
+          } else if (presupuestoBase.id_edificio) {
+            // Fallback: usar id_edificio del presupuesto_base directamente
+            setSelectedEdificio(presupuestoBase.id_edificio.toString());
+          }
+        }
+        return;
+      }
+
+      // Caso 2: Crear presupuesto desde presupuestoBase o idTarea
       const tareaId = presupuestoBase?.id_tarea || (idTarea ? parseInt(idTarea) : null);
 
       if (tareaId) {
@@ -186,7 +209,7 @@ export function BudgetForm({
 
     preseleccionarDesdeTarea();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presupuestoBase, idTarea, supabase]);
+  }, [presupuestoBase, idTarea, presupuestoAEditar, supabase]);
   
   // Cargar lista de administradores al iniciar el formulario
   useEffect(() => {

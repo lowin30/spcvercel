@@ -94,7 +94,23 @@ export default function EditarPresupuestoFinalPage({ params: paramsPromise }: Ed
 
         const { data: presupuestoData, error: presupuestoError } = await supabase
           .from("presupuestos_finales")
-          .select("*, presupuestos_base(*, tareas(*, edificios(*)))")
+          .select(`
+            *,
+            presupuestos_base(
+              *,
+              tareas!inner(
+                id,
+                code,
+                titulo,
+                id_edificio,
+                id_administrador
+              ),
+              edificios:id_edificio(
+                id,
+                nombre
+              )
+            )
+          `)
           .eq("id", presupuestoId)
           .single<PresupuestoFinal>()
 
