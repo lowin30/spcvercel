@@ -8,7 +8,7 @@ import { useState, useEffect } from "react"
 import { useSupabase } from "@/lib/supabase-provider"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatCuit } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -55,6 +55,12 @@ interface PresupuestoBase {
       nombre?: string
     }
   }
+  // Campos opcionales de la vista completa (para compatibilidad)
+  titulo_tarea?: string
+  nombre_edificio?: string
+  edificio_info?: {
+    cuit?: string
+  }
 }
 
 interface Item {
@@ -97,6 +103,17 @@ interface PresupuestoFinal {
   aprobado: boolean;
   id_presupuesto_base: number | null;
   created_at: string;
+  // Campos adicionales de vista_presupuestos_finales_completa
+  id_edificio?: number;
+  id_tarea?: number;
+  id_administrador?: number;
+  nombre_edificio?: string;
+  nombre_administrador?: string;
+  titulo_tarea?: string;
+  // Info adicional del edificio
+  edificio_info?: {
+    cuit?: string;
+  };
 }
 
 export function BudgetForm({
@@ -157,23 +174,16 @@ export function BudgetForm({
   useEffect(() => {
     const preseleccionarDesdeTarea = async () => {
       // Caso 1: Si estamos editando un presupuesto final (presupuestoAEditar)
-      if (presupuestoAEditar && presupuestoBase) {
-        // Obtener id_administrador e id_edificio desde presupuestoBase.tareas
-        if (presupuestoBase.tareas) {
-          const tareaData = presupuestoBase.tareas;
-          
-          if (tareaData.id_administrador) {
-            const adminIdStr = tareaData.id_administrador.toString();
-            setSelectedAdministrador(adminIdStr);
-            await cargarEdificiosPorAdministrador(adminIdStr);
-          }
-          
-          if (tareaData.id_edificio) {
-            setSelectedEdificio(tareaData.id_edificio.toString());
-          } else if (presupuestoBase.id_edificio) {
-            // Fallback: usar id_edificio del presupuesto_base directamente
-            setSelectedEdificio(presupuestoBase.id_edificio.toString());
-          }
+      // Los datos vienen directamente de vista_presupuestos_finales_completa
+      if (presupuestoAEditar) {
+        if (presupuestoAEditar.id_administrador) {
+          const adminIdStr = presupuestoAEditar.id_administrador.toString();
+          setSelectedAdministrador(adminIdStr);
+          await cargarEdificiosPorAdministrador(adminIdStr);
+        }
+        
+        if (presupuestoAEditar.id_edificio) {
+          setSelectedEdificio(presupuestoAEditar.id_edificio.toString());
         }
         return;
       }
@@ -766,10 +776,12 @@ export function BudgetForm({
                 <Label>Tarea</Label>
                 <div className="p-2 border rounded-md">
                   <p className="font-medium">
-                    {presupuestoBase?.tareas?.code || 'Código no disp.'} - {presupuestoBase?.tareas?.titulo || 'Título no disp.'}
+                    {presupuestoAEditar?.titulo_tarea || presupuestoBase?.tareas?.titulo || 'Título no disponible'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {presupuestoBase?.edificios?.nombre || (presupuestoBase?.id_edificio ? `Edificio ID: ${presupuestoBase.id_edificio}` : 'Edificio no especificado')}
+                    {presupuestoAEditar?.edificio_info?.cuit 
+                      ? presupuestoAEditar.edificio_info.cuit 
+                      : (presupuestoAEditar?.nombre_edificio || presupuestoBase?.edificios?.nombre || 'Edificio no especificado')}
                   </p>
                 </div>
               </div>
@@ -797,61 +809,65 @@ export function BudgetForm({
                   </div>
                 </div>
                 
-                {/* Selección en cascada de Administrador y Edificio */}
-                <div className="space-y-2">
-                  <Label htmlFor="administrador">Administrador</Label>
-                  <Select 
-                    value={selectedAdministrador} 
-                    onValueChange={(value) => {
-                      setSelectedAdministrador(value);
-                      cargarEdificiosPorAdministrador(value);
-                      // Al cambiar de administrador, reseteamos el edificio seleccionado
-                      setSelectedEdificio("");
-                    }} 
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un administrador" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {administradores.map((admin) => (
-                        <SelectItem key={admin.id} value={admin.id.toString()}>
-                          {admin.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edificio">Edificio</Label>
-                  <Select 
-                    value={selectedEdificio} 
-                    onValueChange={setSelectedEdificio} 
-                    disabled={isSubmitting || !selectedAdministrador || loadingEdificios}
-                  >
-                    <SelectTrigger>
-                      {loadingEdificios ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Cargando edificios...</span>
-                        </div>
-                      ) : (
-                        <SelectValue placeholder={selectedAdministrador ? "Selecciona un edificio" : "Primero selecciona un administrador"} />
+                {/* Selección en cascada de Administrador y Edificio - Solo para presupuestos nuevos */}
+                {!presupuestoAEditar && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="administrador">Administrador</Label>
+                      <Select 
+                        value={selectedAdministrador} 
+                        onValueChange={(value) => {
+                          setSelectedAdministrador(value);
+                          cargarEdificiosPorAdministrador(value);
+                          // Al cambiar de administrador, reseteamos el edificio seleccionado
+                          setSelectedEdificio("");
+                        }} 
+                        disabled={isSubmitting}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un administrador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {administradores.map((admin) => (
+                            <SelectItem key={admin.id} value={admin.id.toString()}>
+                              {admin.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="edificio">Edificio</Label>
+                      <Select 
+                        value={selectedEdificio} 
+                        onValueChange={setSelectedEdificio} 
+                        disabled={isSubmitting || !selectedAdministrador || loadingEdificios}
+                      >
+                        <SelectTrigger>
+                          {loadingEdificios ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span>Cargando edificios...</span>
+                            </div>
+                          ) : (
+                            <SelectValue placeholder={selectedAdministrador ? "Selecciona un edificio" : "Primero selecciona un administrador"} />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {edificios.map((edificio) => (
+                            <SelectItem key={edificio.id} value={edificio.id.toString()}>
+                              {edificio.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedAdministrador && edificios.length === 0 && !loadingEdificios && (
+                        <p className="text-sm text-muted-foreground">No hay edificios asociados a este administrador</p>
                       )}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {edificios.map((edificio) => (
-                        <SelectItem key={edificio.id} value={edificio.id.toString()}>
-                          {edificio.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedAdministrador && edificios.length === 0 && !loadingEdificios && (
-                    <p className="text-sm text-muted-foreground">No hay edificios asociados a este administrador</p>
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 

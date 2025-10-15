@@ -40,6 +40,7 @@ interface PresupuestoBase {
   aprobado: boolean;
   id_edificio?: number;
   id_tarea?: number;
+  id_administrador?: number;
   tareas?: Tarea;
 }
 
@@ -50,7 +51,18 @@ interface PresupuestoFinal {
   aprobado: boolean;
   id_presupuesto_base: number | null;
   created_at: string;
-  presupuestos_base: PresupuestoBase | null;
+  // Campos directos de la vista
+  id_edificio?: number;
+  id_tarea?: number;
+  id_administrador?: number;
+  nombre_edificio?: string;
+  nombre_administrador?: string;
+  titulo_tarea?: string;
+  presupuestos_base?: PresupuestoBase | null;
+  // Info adicional del edificio
+  edificio_info?: {
+    cuit?: string;
+  };
 }
 
 interface EditarPresupuestoFinalPageProps {
@@ -92,27 +104,38 @@ export default function EditarPresupuestoFinalPage({ params: paramsPromise }: Ed
           return
         }
 
+        // Usar la vista completa que ya tiene todos los datos resueltos
         const { data: presupuestoData, error: presupuestoError } = await supabase
-          .from("presupuestos_finales")
-          .select(`
-            *,
-            presupuestos_base(
-              *,
-              tareas!inner(
-                id,
-                code,
-                titulo,
-                id_edificio,
-                id_administrador
-              ),
-              edificios:id_edificio(
-                id,
-                nombre
-              )
-            )
-          `)
+          .from("vista_presupuestos_finales_completa")
+          .select("*")
           .eq("id", presupuestoId)
           .single<PresupuestoFinal>()
+        
+        // Si tiene presupuesto base asociado, obtenerlo también
+        if (presupuestoData && presupuestoData.id_presupuesto_base) {
+          const { data: presupuestoBase } = await supabase
+            .from("vista_presupuestos_base_completa")
+            .select("*")
+            .eq("id", presupuestoData.id_presupuesto_base)
+            .single()
+          
+          if (presupuestoBase) {
+            presupuestoData.presupuestos_base = presupuestoBase
+          }
+        }
+
+        // Obtener información adicional del edificio (CUIT)
+        if (presupuestoData && presupuestoData.id_edificio) {
+          const { data: edificioData } = await supabase
+            .from("edificios")
+            .select("cuit")
+            .eq("id", presupuestoData.id_edificio)
+            .single()
+          
+          if (edificioData) {
+            presupuestoData.edificio_info = { cuit: edificioData.cuit }
+          }
+        }
 
         if (presupuestoError) throw presupuestoError
         if (!presupuestoData) throw new Error("Presupuesto no encontrado")
