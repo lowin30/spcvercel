@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { AjustesList } from "@/components/ajustes-list"
@@ -31,6 +31,13 @@ interface FacturaConAjuste {
   tiene_ajustes_pendientes?: boolean
   tiene_ajustes_pagados?: boolean
   id_administrador: number | null
+  // Campos para búsqueda (de vista_facturas_completa)
+  nombre_edificio?: string | null
+  direccion_edificio?: string | null
+  cuit_edificio?: string | null
+  titulo_tarea?: string | null
+  code_tarea?: string | null
+  presupuesto_final_code?: string | null
 }
 
 interface Administrador {
@@ -40,7 +47,8 @@ interface Administrador {
 
 export default function AjustesPage() {
   // Estados principales
-  const [facturas, setFacturas] = useState<FacturaConAjuste[]>([])
+  const [facturasBase, setFacturasBase] = useState<FacturaConAjuste[]>([]) // 🆕 Facturas filtradas por admin y vista
+  const [todasLasFacturas, setTodasLasFacturas] = useState<FacturaConAjuste[]>([]) // Todas sin filtrar
   const [administradores, setAdministradores] = useState<Administrador[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,10 +61,10 @@ export default function AjustesPage() {
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [vistaActual, setVistaActual] = useState<'pendientes' | 'liquidadas' | 'calculados' | 'todas'>('pendientes')
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales (SIN searchQuery en dependencias)
   useEffect(() => {
     cargarDatos()
-  }, [filtroAdmin, vistaActual, searchQuery])
+  }, [filtroAdmin, vistaActual])
 
   async function cargarDatos() {
     try {
@@ -96,30 +104,39 @@ export default function AjustesPage() {
         query = query.eq('id_administrador', filtroAdmin)
       }
 
-      // Aplicar filtro por búsqueda
-      if (searchQuery && searchQuery.trim() !== '') {
-        query = query.or(`nombre.ilike.%${searchQuery}%,datos_afip.ilike.%${searchQuery}%,code.ilike.%${searchQuery}%`)
-      }
+      // ⚠️ BÚSQUEDA SE HACE CLIENT-SIDE (más abajo) para evitar errores de Supabase
 
       const { data: facturasData, error: facturasError } = await query
 
       if (facturasError) {
         console.error("Error al cargar facturas:", facturasError)
         setError("Error al cargar las facturas")
-        setFacturas([])
+        setFacturasBase([])
+        setTodasLasFacturas([]) // Todas sin filtrar
         return
       }
 
-      // DEBUG: Log para ver qué facturas se cargaron
-      console.log('📊 Facturas cargadas:', facturasData?.length || 0)
-      console.log('📊 Facturas con total_ajustes > 0:', 
-        facturasData?.filter((f: any) => {
-          const ajustes = typeof f.total_ajustes === 'string' ? parseFloat(f.total_ajustes) : f.total_ajustes
-          return ajustes > 0
-        }).length || 0
+      if (!facturasData || facturasData.length === 0) {
+        console.log("⚠️ No se encontraron facturas")
+        setFacturasBase([])
+        setTodasLasFacturas([]) // Todas sin filtrar
+        return
+      }
+
+      console.log(`✅ Facturas cargadas: ${facturasData.length}`)
+      console.log(
+        'Ejemplo:',
+        facturasData[0]?.total_ajustes_calculados,
+        facturasData[0]?.total_ajustes_pendientes,
+        facturasData[0]?.total_ajustes_liquidados,
+        facturasData[0]?.total_ajustes_todos
       )
 
-      // 🆕 FILTRAR SEGÚN VISTA ACTUAL usando las 4 nuevas columnas
+      // GUARDAR TODAS LAS FACTURAS SIN FILTRAR
+      setTodasLasFacturas(facturasData)
+
+      // FILTRAR SEGÚN VISTA ACTUAL usando las 4 nuevas columnas
+      // Búsqueda se aplica después con useMemo
       let facturasFiltradas = facturasData || []
       
       if (vistaActual === 'pendientes') {
@@ -157,7 +174,7 @@ export default function AjustesPage() {
       }
       
       console.log(`📋 Vista "${vistaActual}":`, facturasFiltradas.length, 'facturas')
-      setFacturas(facturasFiltradas)
+      setFacturasBase(facturasFiltradas)
 
     } catch (err) {
       console.error("Error inesperado:", err)
@@ -167,42 +184,74 @@ export default function AjustesPage() {
     }
   }
 
-  // 🆕 CALCULAR ESTADÍSTICAS usando las 4 columnas
-  const totalCalculados = facturas.reduce((sum, f) => {
+  // 🆕 CALCULAR ESTADÍSTICAS usando TODAS LAS FACTURAS (no filtradas)
+  const totalCalculados = todasLasFacturas.reduce((sum, f) => {
     const val = typeof f.total_ajustes_calculados === 'string' ? parseFloat(f.total_ajustes_calculados) : f.total_ajustes_calculados
     return sum + (val || 0)
   }, 0)
   
-  const totalPendientes = facturas.reduce((sum, f) => {
+  const totalPendientes = todasLasFacturas.reduce((sum, f) => {
     const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
     return sum + (val || 0)
   }, 0)
   
-  const totalLiquidados = facturas.reduce((sum, f) => {
+  const totalLiquidados = todasLasFacturas.reduce((sum, f) => {
     const val = typeof f.total_ajustes_liquidados === 'string' ? parseFloat(f.total_ajustes_liquidados) : f.total_ajustes_liquidados
     return sum + (val || 0)
   }, 0)
   
-  const totalTodos = facturas.reduce((sum, f) => {
+  const totalTodos = todasLasFacturas.reduce((sum, f) => {
     const val = typeof f.total_ajustes_todos === 'string' ? parseFloat(f.total_ajustes_todos) : f.total_ajustes_todos
     return sum + (val || 0)
   }, 0)
   
-  // Contadores
-  const cantidadCalculados = facturas.filter(f => {
+  // Contadores sobre TODAS las facturas
+  const cantidadCalculados = todasLasFacturas.filter(f => {
     const val = typeof f.total_ajustes_calculados === 'string' ? parseFloat(f.total_ajustes_calculados) : f.total_ajustes_calculados
     return val > 0
   }).length
   
-  const cantidadPendientes = facturas.filter(f => {
+  const cantidadPendientes = todasLasFacturas.filter(f => {
     const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
     return val > 0
   }).length
   
-  const cantidadLiquidadas = facturas.filter(f => {
+  const cantidadLiquidadas = todasLasFacturas.filter(f => {
     const val = typeof f.total_ajustes_liquidados === 'string' ? parseFloat(f.total_ajustes_liquidados) : f.total_ajustes_liquidados
     return val > 0
   }).length
+  
+  const cantidadTodas = todasLasFacturas.filter(f => {
+    const val = typeof f.total_ajustes_todos === 'string' ? parseFloat(f.total_ajustes_todos) : f.total_ajustes_todos
+    return val > 0
+  }).length
+
+  // 🔍 BÚSQUEDA CLIENT-SIDE con useMemo (sobre facturasBase)
+  const facturas = useMemo(() => {
+    if (!searchQuery || searchQuery.trim() === '') {
+      return facturasBase;
+    }
+    
+    const termino = searchQuery.toLowerCase();
+    return facturasBase.filter((f) => {
+      // Convertir datos_afip a string (puede ser JSON object)
+      const datosAfipStr = f.datos_afip 
+        ? (typeof f.datos_afip === 'string' ? f.datos_afip : JSON.stringify(f.datos_afip))
+        : '';
+      
+      return (
+        (f.code && f.code.toLowerCase().includes(termino)) ||
+        (f.nombre && f.nombre.toLowerCase().includes(termino)) ||
+        (datosAfipStr && datosAfipStr.toLowerCase().includes(termino)) ||
+        (f.nombre_edificio && f.nombre_edificio.toLowerCase().includes(termino)) ||
+        (f.direccion_edificio && f.direccion_edificio.toLowerCase().includes(termino)) ||
+        (f.cuit_edificio && f.cuit_edificio.toLowerCase().includes(termino)) ||
+        (f.titulo_tarea && f.titulo_tarea.toLowerCase().includes(termino)) ||
+        (f.code_tarea && f.code_tarea.toLowerCase().includes(termino)) ||
+        (f.presupuesto_final_code && f.presupuesto_final_code.toLowerCase().includes(termino))
+      );
+    });
+  }, [facturasBase, searchQuery]);
 
   // Calcular resumen del administrador seleccionado (SOLO PENDIENTES)
   const administradorSeleccionado = administradores.find(a => a.id === filtroAdmin)
@@ -348,7 +397,7 @@ export default function AjustesPage() {
             🟡 Calculados ({cantidadCalculados})
           </TabsTrigger>
           <TabsTrigger value="todas">
-            📋 Todas ({facturas.length})
+            📋 Todas ({cantidadTodas})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -404,7 +453,7 @@ export default function AjustesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>Filtra por administrador o busca por nombre/AFIP</CardDescription>
+          <CardDescription>Filtra por administrador o busca en cualquier campo</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
@@ -414,10 +463,11 @@ export default function AjustesPage() {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Factura, AFIP, código..."
+                  placeholder="Código, edificio, tarea, CUIT, dirección..."
                   className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  title="Busca en: factura, edificio, tarea, presupuesto, CUIT, dirección, datos AFIP"
                 />
               </div>
             </div>

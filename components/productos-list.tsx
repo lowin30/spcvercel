@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { createClient } from "@/lib/supabase-client"
+import { useProductosFilter } from "@/hooks/use-productos-filter"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -24,41 +25,14 @@ interface ProductosListProps {
 
 export function ProductosList({ initialProductos, categorias }: ProductosListProps) {
   const [productos, setProductos] = useState<Producto[]>(initialProductos)
-  const [filteredProductos, setFilteredProductos] = useState<Producto[]>(initialProductos)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoriaFilter, setCategoriaFilter] = useState("all")
   const [estadoFilter, setEstadoFilter] = useState("all")
 
   const supabase = createClient()
 
-  // Aplicar filtros y búsqueda
-  useEffect(() => {
-    let result = [...productos]
-
-    // Aplicar filtro de búsqueda
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(
-        (producto) =>
-          producto.nombre.toLowerCase().includes(term) ||
-          producto.code.toString().includes(term) ||
-          (producto.descripcion && producto.descripcion.toLowerCase().includes(term)),
-      )
-    }
-
-    // Aplicar filtro de categoría
-    if (categoriaFilter && categoriaFilter !== "all") {
-      result = result.filter((producto) => producto.categoria_id === categoriaFilter)
-    }
-
-    // Aplicar filtro de estado
-    if (estadoFilter !== "all") {
-      const activo = estadoFilter === "activo"
-      result = result.filter((producto) => producto.activo === activo)
-    }
-
-    setFilteredProductos(result)
-  }, [productos, searchTerm, categoriaFilter, estadoFilter])
+  // 🎉 Usar hook personalizado para filtrar
+  const filteredProductos = useProductosFilter(productos, searchTerm, categoriaFilter, estadoFilter)
 
   // Función para cambiar el estado de un producto
   const toggleProductoEstado = async (id: string, activo: boolean) => {
@@ -230,10 +204,11 @@ export function ProductosList({ initialProductos, categorias }: ProductosListPro
         <div className="relative w-full md:w-64">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar productos..."
+            placeholder="Buscar por nombre, código, descripción o categoría..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            title="Busca en: nombre, código, descripción y categoría del producto"
           />
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row">

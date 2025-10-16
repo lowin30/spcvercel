@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useProductosFilter } from "@/hooks/use-productos-filter"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -23,7 +24,6 @@ interface ProductosTabProps {
 export function ProductosTab({ productos: initialProductos, categorias: initialCategorias }: ProductosTabProps) {
   const [productos, setProductos] = useState<any[]>(initialProductos)
   const [categorias, setCategorias] = useState<any[]>(initialCategorias)
-  const [filteredProductos, setFilteredProductos] = useState<any[]>(initialProductos)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoriaFilter, setCategoriaFilter] = useState("all")
   const [estadoFilter, setEstadoFilter] = useState("all")
@@ -81,34 +81,8 @@ export function ProductosTab({ productos: initialProductos, categorias: initialC
     loadData()
   }, [initialProductos, initialCategorias])
   
-  // Aplicar filtros y búsqueda
-  useEffect(() => {
-    let result = [...productos]
-
-    // Aplicar filtro de búsqueda
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(
-        (producto) =>
-          producto.nombre.toLowerCase().includes(term) ||
-          producto.code?.toString().includes(term) ||
-          (producto.descripcion && producto.descripcion.toLowerCase().includes(term))
-      )
-    }
-
-    // Aplicar filtro de categoría
-    if (categoriaFilter && categoriaFilter !== "all") {
-      result = result.filter((producto) => producto.categoria_id === categoriaFilter)
-    }
-
-    // Aplicar filtro de estado
-    if (estadoFilter !== "all") {
-      const activo = estadoFilter === "activo"
-      result = result.filter((producto) => producto.activo === activo)
-    }
-
-    setFilteredProductos(result)
-  }, [productos, searchTerm, categoriaFilter, estadoFilter])
+  // 🎉 Usar hook personalizado para filtrar
+  const filteredProductos = useProductosFilter(productos, searchTerm, categoriaFilter, estadoFilter)
 
   // Función para cambiar el estado de un producto
   const toggleProductoEstado = async (id: string, activo: boolean) => {
@@ -176,10 +150,11 @@ export function ProductosTab({ productos: initialProductos, categorias: initialC
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Buscar productos..."
+                placeholder="Buscar por nombre, código, descripción o categoría..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                title="Busca en: nombre, código, descripción y categoría del producto"
               />
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-2 lg:gap-4">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
@@ -12,14 +12,13 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function PresupuestosPage() {
-  const [presupuestos, setPresupuestos] = useState<any[]>([])
+  const [todosLosPresupuestos, setTodosLosPresupuestos] = useState<any[]>([]) // 🆕 Todos sin filtrar
   const [userDetails, setUserDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tabActual, setTabActual] = useState<string>('borrador') // Por defecto: borrador
+  const [searchInput, setSearchInput] = useState<string>('') // 🆕 Búsqueda client-side
   const router = useRouter()
-  const params = useSearchParams()
-  const searchQuery = params.get('q') || ''
 
   useEffect(() => {
     async function cargarPresupuestos() {
@@ -66,7 +65,7 @@ export default function PresupuestosPage() {
 
         // Lógica para que solo los administradores vean presupuestos finales
         if (userRole !== "admin") {
-          setPresupuestos([]) // Asumiendo que 'setPresupuestos' es el setter del estado combinado
+          setTodosLosPresupuestos([])
           setLoading(false)
           console.log("Acceso denegado: Solo los administradores pueden ver presupuestos finales.")
           return
@@ -102,22 +101,13 @@ export default function PresupuestosPage() {
 
         const presupuestosFinales = (presupuestosFinalesData || []).map((p: any) => ({ ...p, tipo: 'final' }))
 
-        // Ahora 'todosLosPresupuestos' solo contendrá presupuestos finales si el rol es admin
-        // o estará vacío si el rol no es admin (debido al return anterior)
-        let todosLosPresupuestos = [...presupuestosFinales]
-
-        // Apply search filter locally
-        let filteredData = todosLosPresupuestos;
-        if (searchQuery) {
-          filteredData = todosLosPresupuestos.filter((p: any) =>
-            p.code && p.code.toLowerCase().includes(searchQuery.toLowerCase())
-          );
-        }
-
-        // Sort data by creation date
-        filteredData.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-        setPresupuestos(filteredData);
+        // 🆕 GUARDAR TODOS SIN FILTRAR
+        // Ordenar por fecha de creación
+        const sorted = [...presupuestosFinales].sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        
+        setTodosLosPresupuestos(sorted);
       } catch (error: any) {
         console.error("Error al obtener presupuestos:", error);
         setError(`No se pudieron cargar los presupuestos: ${error.message}`);
@@ -127,7 +117,31 @@ export default function PresupuestosPage() {
     }
 
     cargarPresupuestos()
-  }, [router, searchQuery])
+  }, [])
+
+  // BÚSQUEDA Y FILTRADO CLIENT-SIDE (sobre todosLosPresupuestos)
+  const presupuestos = useMemo(() => {
+    let result = todosLosPresupuestos;
+    
+    // Aplicar búsqueda
+    if (searchInput.trim()) {
+      const searchLower = searchInput.toLowerCase();
+      result = result.filter((p: any) => {
+        const edificioNombre = p.tareas?.edificios?.nombre || '';
+        const tareaTitulo = p.tareas?.titulo || '';
+        const estadoNombre = p.estados_presupuestos?.nombre || '';
+        
+        return (
+          (p.code && p.code.toLowerCase().includes(searchLower)) ||
+          edificioNombre.toLowerCase().includes(searchLower) ||
+          tareaTitulo.toLowerCase().includes(searchLower) ||
+          estadoNombre.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+    
+    return result;
+  }, [todosLosPresupuestos, searchInput])
 
   // Filtrar presupuestos
   const filterByEstado = (codigo: string) => presupuestos?.filter(p => p.estados_presupuestos?.codigo === codigo) || [];
@@ -308,9 +322,11 @@ export default function PresupuestosPage() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar presupuestos..."
+            placeholder="Buscar por código, edificio, tarea, estado..."
             className="pl-8 w-full"
-            defaultValue={searchQuery || ""}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            title="Busca en: código, nombre del edificio, título de tarea, estado del presupuesto"
           />
         </div>
       </div>
