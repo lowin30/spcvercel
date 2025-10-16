@@ -23,29 +23,48 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
   const router = useRouter()
   const [presupuestosBase, setPresupuestosBase] = useState<any[]>(initialData)
   const [filtroAprobacion, setFiltroAprobacion] = useState<'todos' | 'aprobados' | 'pendientes'>('todos')
+  const [filtroLiquidacion, setFiltroLiquidacion] = useState<'todos' | 'liquidados' | 'por_liquidar'>('por_liquidar')
   const [isLoading, setIsLoading] = useState(false)
   const [busqueda, setBusqueda] = useState("")
   const [isPending, startTransition] = useTransition()
+
+  // Función para normalizar texto (búsqueda inteligente)
+  const normalizarTexto = (texto: string): string => {
+    if (!texto) return ''
+    
+    return texto
+      .toLowerCase()
+      // Remover acentos
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      // s y z son equivalentes
+      .replace(/[sz]/g, 's')
+      // i e y son equivalentes
+      .replace(/[iy]/g, 'i')
+  }
 
   // Filtrar presupuestos según término de búsqueda
   const presupuestosFiltrados = presupuestosBase.filter(presupuesto => {
     // Si hay un término de búsqueda, filtrar por coincidencias en código, nota_pb, o título de tarea
     if (busqueda) {
-      const terminoBusqueda = busqueda.toLowerCase()
+      const terminoBusqueda = normalizarTexto(busqueda)
       return (
-        (presupuesto.code?.toLowerCase().includes(terminoBusqueda) || false) ||
-        (presupuesto.nota_pb?.toLowerCase().includes(terminoBusqueda) || false) ||
-        (presupuesto.tareas?.titulo?.toLowerCase().includes(terminoBusqueda) || false)
+        (normalizarTexto(presupuesto.code || '').includes(terminoBusqueda)) ||
+        (normalizarTexto(presupuesto.nota_pb || '').includes(terminoBusqueda)) ||
+        (normalizarTexto(presupuesto.tareas?.titulo || '').includes(terminoBusqueda))
       )
     }
     return true
   })
 
-  // Cargar presupuestos según filtro seleccionado
-  const cargarPresupuestos = async (filtro: 'todos' | 'aprobados' | 'pendientes') => {
+  // Cargar presupuestos según filtros seleccionados
+  const cargarPresupuestos = async (
+    filtroApro: 'todos' | 'aprobados' | 'pendientes',
+    filtroLiq: 'todos' | 'liquidados' | 'por_liquidar'
+  ) => {
     setIsLoading(true)
     try {
-      const result = await getPresupuestosBase(filtro)
+      const result = await getPresupuestosBase(filtroApro, filtroLiq)
       if (result.success) {
         setPresupuestosBase(result.data)
       } else {
@@ -58,10 +77,16 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
     }
   }
 
-  // Actualizar filtro y cargar datos
-  const cambiarFiltro = (nuevoFiltro: 'todos' | 'aprobados' | 'pendientes') => {
+  // Actualizar filtro de aprobación y cargar datos
+  const cambiarFiltroAprobacion = (nuevoFiltro: 'todos' | 'aprobados' | 'pendientes') => {
     setFiltroAprobacion(nuevoFiltro)
-    cargarPresupuestos(nuevoFiltro)
+    cargarPresupuestos(nuevoFiltro, filtroLiquidacion)
+  }
+
+  // Actualizar filtro de liquidación y cargar datos
+  const cambiarFiltroLiquidacion = (nuevoFiltro: 'todos' | 'liquidados' | 'por_liquidar') => {
+    setFiltroLiquidacion(nuevoFiltro)
+    cargarPresupuestos(filtroAprobacion, nuevoFiltro)
   }
 
   // Eliminar presupuesto base
@@ -113,40 +138,72 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b">
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           {/* Filtros por aprobación */}
-          <div className="flex gap-2">
-            <Button 
-              variant={filtroAprobacion === 'todos' ? "default" : "outline"}
-              size="sm"
-              onClick={() => cambiarFiltro('todos')}
-              disabled={isLoading}
-            >
-              Todos
-            </Button>
-            <Button 
-              variant={filtroAprobacion === 'pendientes' ? "default" : "outline"}
-              size="sm"
-              onClick={() => cambiarFiltro('pendientes')}
-              disabled={isLoading}
-            >
-              Pendientes
-            </Button>
-            <Button 
-              variant={filtroAprobacion === 'aprobados' ? "default" : "outline"}
-              size="sm"
-              onClick={() => cambiarFiltro('aprobados')}
-              disabled={isLoading}
-            >
-              Aprobados
-            </Button>
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">Aprobación:</div>
+            <div className="flex gap-2 flex-wrap">
+              <Button 
+                variant={filtroAprobacion === 'todos' ? "default" : "outline"}
+                size="sm"
+                onClick={() => cambiarFiltroAprobacion('todos')}
+                disabled={isLoading}
+              >
+                Todos
+              </Button>
+              <Button 
+                variant={filtroAprobacion === 'pendientes' ? "default" : "outline"}
+                size="sm"
+                onClick={() => cambiarFiltroAprobacion('pendientes')}
+                disabled={isLoading}
+              >
+                Pendientes
+              </Button>
+              <Button 
+                variant={filtroAprobacion === 'aprobados' ? "default" : "outline"}
+                size="sm"
+                onClick={() => cambiarFiltroAprobacion('aprobados')}
+                disabled={isLoading}
+              >
+                Aprobados
+              </Button>
+            </div>
+
+            <div className="text-xs font-medium text-muted-foreground mt-3">Liquidación:</div>
+            <div className="flex gap-2 flex-wrap">
+              <Button 
+                variant={filtroLiquidacion === 'todos' ? "default" : "outline"}
+                size="sm"
+                onClick={() => cambiarFiltroLiquidacion('todos')}
+                disabled={isLoading}
+              >
+                Todos
+              </Button>
+              <Button 
+                variant={filtroLiquidacion === 'por_liquidar' ? "default" : "outline"}
+                size="sm"
+                onClick={() => cambiarFiltroLiquidacion('por_liquidar')}
+                disabled={isLoading}
+              >
+                Por liquidar
+              </Button>
+              <Button 
+                variant={filtroLiquidacion === 'liquidados' ? "default" : "outline"}
+                size="sm"
+                onClick={() => cambiarFiltroLiquidacion('liquidados')}
+                disabled={isLoading}
+              >
+                Liquidados
+              </Button>
+            </div>
           </div>
 
           {/* Campo de búsqueda */}
           <div className="flex-1 max-w-xs">
             <Input
-              placeholder="Buscar presupuestos..."
+              placeholder="Buscar (código, nota, tarea)..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="text-sm"
+              title="Búsqueda inteligente: ignora acentos, mayúsculas y diferencias entre s/z, i/y"
             />
           </div>
         </div>

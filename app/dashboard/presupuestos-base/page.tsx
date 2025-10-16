@@ -58,23 +58,70 @@ export default function PresupuestosBasePage() {
           return
         }
   
-        // Construir consulta base
-        let query = supabase
-          .from("presupuestos_base")
-          .select(`
-            *,
-            tareas (id, titulo, code)
-          `)
-          
-        // Si es supervisor, filtrar solo sus presupuestos
-        if (userData?.rol === "supervisor") {
-          query = query.eq("id_supervisor", user.id)
-        }
+        // Construir consulta según rol
+        let presupuestosBase;
+        let presupuestosError;
         
-        // Ejecutar la consulta
-        const { data: presupuestosBase, error: presupuestosError } = await query
-          .order('created_at', { ascending: false })
-          .limit(50) // Limitar resultados iniciales para mejor rendimiento
+        if (userData?.rol === "admin") {
+          // Admin ve todos los presupuestos con info de liquidación
+          const result = await supabase
+            .from("presupuestos_base")
+            .select(`
+              *,
+              tareas (id, titulo, code),
+              liquidaciones_nuevas!id_presupuesto_base (id)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(50)
+          
+          presupuestosBase = result.data
+          presupuestosError = result.error
+          
+          // Filtrar por defecto: solo "por liquidar"
+          if (presupuestosBase) {
+            presupuestosBase = presupuestosBase.filter(pb => 
+              !pb.liquidaciones_nuevas || pb.liquidaciones_nuevas.length === 0
+            )
+          }
+          
+        } else if (userData?.rol === "supervisor") {
+          // Supervisor: obtener tareas asignadas y luego presupuestos
+          const { data: tareasAsignadas, error: tareasError } = await supabase
+            .from("supervisores_tareas")
+            .select("id_tarea")
+            .eq("id_supervisor", user.id)
+          
+          if (tareasError) {
+            presupuestosError = tareasError
+          } else if (tareasAsignadas && tareasAsignadas.length > 0) {
+            const idsTareas = tareasAsignadas.map(t => t.id_tarea)
+            
+            const result = await supabase
+              .from("presupuestos_base")
+              .select(`
+                *,
+                tareas (id, titulo, code),
+                liquidaciones_nuevas!id_presupuesto_base (id)
+              `)
+              .in('id_tarea', idsTareas)
+              .order('created_at', { ascending: false })
+              .limit(50)
+            
+            presupuestosBase = result.data
+            presupuestosError = result.error
+            
+            // Filtrar por defecto: solo "por liquidar"
+            if (presupuestosBase) {
+              presupuestosBase = presupuestosBase.filter(pb => 
+                !pb.liquidaciones_nuevas || pb.liquidaciones_nuevas.length === 0
+              )
+            }
+          } else {
+            // Supervisor sin tareas asignadas
+            presupuestosBase = []
+            presupuestosError = null
+          }
+        }
         
         // Manejar error en la consulta
         if (presupuestosError) {

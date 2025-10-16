@@ -5,9 +5,12 @@ import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 
 /**
- * Obtener presupuestos base con filtrado opcional por aprobación
+ * Obtener presupuestos base con filtrado opcional por aprobación y liquidación
  */
-export async function getPresupuestosBase(filtro: 'todos' | 'aprobados' | 'pendientes' = 'todos') {
+export async function getPresupuestosBase(
+  filtro: 'todos' | 'aprobados' | 'pendientes' = 'todos',
+  filtroLiquidacion: 'todos' | 'liquidados' | 'por_liquidar' = 'por_liquidar'
+) {
   // Usamos el cliente SSR server de manera correcta
   const supabase = await createSsrServerClient()
   
@@ -29,27 +32,92 @@ export async function getPresupuestosBase(filtro: 'todos' | 'aprobados' | 'pendi
       return { success: false, message: "No tienes permisos para ver estos datos", data: [] }
     }
     
-    // Construir consulta base usando la vista
-    let query = supabase
-      .from("vista_presupuestos_base_completa")
-      .select('*')
+    // Construir consulta según rol
+    let data;
+    let error;
     
-    // Filtrar por supervisor si el usuario no es admin
-    if (userData.rol === "supervisor") {
-      query = query.eq("id_supervisor", session.user.id)
+    if (userData.rol === "admin") {
+      // Admin ve todos los presupuestos con info de liquidación
+      let query = supabase
+        .from("presupuestos_base")
+        .select(`
+          *,
+          tareas (id, titulo, code),
+          liquidaciones_nuevas!id_presupuesto_base (id)
+        `)
+      
+      // Aplicar filtro por aprobación si no es 'todos'
+      if (filtro === 'aprobados') {
+        query = query.eq("aprobado", true)
+      } else if (filtro === 'pendientes') {
+        query = query.eq("aprobado", false)
+      }
+      
+      // Ordenar por fecha de creación (más reciente primero)
+      query = query.order('created_at', { ascending: false })
+      
+      const result = await query
+      data = result.data
+      error = result.error
+      
+      // Aplicar filtro de liquidación en memoria
+      if (data && filtroLiquidacion !== 'todos') {
+        if (filtroLiquidacion === 'liquidados') {
+          data = data.filter(pb => pb.liquidaciones_nuevas && pb.liquidaciones_nuevas.length > 0)
+        } else if (filtroLiquidacion === 'por_liquidar') {
+          data = data.filter(pb => !pb.liquidaciones_nuevas || pb.liquidaciones_nuevas.length === 0)
+        }
+      }
+      
+    } else if (userData.rol === "supervisor") {
+      // Supervisor: obtener tareas asignadas primero
+      const { data: tareasAsignadas, error: tareasError } = await supabase
+        .from("supervisores_tareas")
+        .select("id_tarea")
+        .eq("id_supervisor", session.user.id)
+      
+      if (tareasError) {
+        error = tareasError
+      } else if (tareasAsignadas && tareasAsignadas.length > 0) {
+        const idsTareas = tareasAsignadas.map(t => t.id_tarea)
+        
+        let query = supabase
+          .from("presupuestos_base")
+          .select(`
+            *,
+            tareas (id, titulo, code),
+            liquidaciones_nuevas!id_presupuesto_base (id)
+          `)
+          .in('id_tarea', idsTareas)
+        
+        // Aplicar filtro por aprobación si no es 'todos'
+        if (filtro === 'aprobados') {
+          query = query.eq("aprobado", true)
+        } else if (filtro === 'pendientes') {
+          query = query.eq("aprobado", false)
+        }
+        
+        // Ordenar por fecha de creación (más reciente primero)
+        query = query.order('created_at', { ascending: false })
+        
+        const result = await query
+        data = result.data
+        error = result.error
+        
+        // Aplicar filtro de liquidación en memoria
+        if (data && filtroLiquidacion !== 'todos') {
+          if (filtroLiquidacion === 'liquidados') {
+            data = data.filter(pb => pb.liquidaciones_nuevas && pb.liquidaciones_nuevas.length > 0)
+          } else if (filtroLiquidacion === 'por_liquidar') {
+            data = data.filter(pb => !pb.liquidaciones_nuevas || pb.liquidaciones_nuevas.length === 0)
+          }
+        }
+      } else {
+        // Supervisor sin tareas asignadas
+        data = []
+        error = null
+      }
     }
-    
-    // Aplicar filtro por aprobación si no es 'todos'
-    if (filtro === 'aprobados') {
-      query = query.eq("aprobado", true)
-    } else if (filtro === 'pendientes') {
-      query = query.eq("aprobado", false)
-    }
-    
-    // Ordenar por fecha de creación (más reciente primero)
-    query = query.order('created_at', { ascending: false })
-    
-    const { data, error } = await query
     
     if (error) {
       throw error
