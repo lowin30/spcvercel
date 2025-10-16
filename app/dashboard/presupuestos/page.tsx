@@ -199,15 +199,35 @@ export default function PresupuestosPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Presupuestos</h1>
         {userDetails?.rol === "admin" && (
-          <div className="flex gap-2">
-            <Button asChild className="w-full sm:w-auto">
-              <Link href="/dashboard/presupuestos/nuevo?tipo=final">
-                <Plus className="mr-2 h-4 w-4" /> Nuevo Presupuesto (Sin tarea)
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              asChild 
+              size="lg"
+              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              title="Crea presupuesto directamente. El sistema genera el presupuesto base automáticamente."
+            >
+              <Link href="/dashboard/presupuestos/nuevo?tipo=final" className="flex items-center justify-center gap-2">
+                <Plus className="h-4 w-4" />
+                <div className="flex flex-col items-start text-left">
+                  <span className="font-semibold text-sm">⚡ Presupuesto Rápido</span>
+                  <span className="text-xs opacity-90 font-normal">Sin presupuesto base previo</span>
+                </div>
               </Link>
             </Button>
-            <Button asChild variant="outline" className="w-full sm:w-auto">
-              <Link href="/dashboard/tareas?crear_presupuesto=true">
-                <Plus className="mr-2 h-4 w-4" /> Seleccionar Tarea
+            
+            <Button 
+              asChild 
+              variant="outline" 
+              size="lg"
+              className="w-full sm:w-auto"
+              title="Flujo tradicional: selecciona una tarea con presupuesto base aprobado"
+            >
+              <Link href="/dashboard/tareas?crear_presupuesto=true" className="flex items-center justify-center gap-2">
+                <Plus className="h-4 w-4" />
+                <div className="flex flex-col items-start text-left">
+                  <span className="font-semibold text-sm">📋 Desde Tarea</span>
+                  <span className="text-xs opacity-70 font-normal">Con presupuesto base</span>
+                </div>
               </Link>
             </Button>
           </div>
