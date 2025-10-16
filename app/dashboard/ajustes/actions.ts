@@ -77,11 +77,12 @@ export async function pagarAjustesAdministrador(idAdministrador: number) {
     // Obtener IDs de los ajustes
     const idsAjustes = ajustesPendientes.map((a: any) => a.id)
 
-    // Actualizar todos los ajustes como pagados
+    // Actualizar todos los ajustes como pagados CON fecha_pago
     const { error: errorUpdate } = await supabase
       .from("ajustes_facturas")
       .update({ 
-        pagado: true
+        pagado: true,
+        fecha_pago: new Date().toISOString()  // 🆕 Guardar fecha de liquidación
       })
       .in("id", idsAjustes)
 

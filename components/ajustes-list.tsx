@@ -15,6 +15,10 @@ interface FacturaConAjuste {
   total: number
   saldo_pendiente: number | string
   total_ajustes: number | string
+  total_ajustes_calculados?: number | string  // 🆕 Calculados
+  total_ajustes_pendientes?: number | string  // 🆕 Pendientes liquidación
+  total_ajustes_liquidados?: number | string  // 🆕 Liquidados
+  total_ajustes_todos?: number | string       // 🆕 Todos
   tiene_ajustes_pendientes?: boolean
   tiene_ajustes_pagados?: boolean
 }
@@ -61,6 +65,19 @@ export function AjustesList({ facturas }: AjustesListProps) {
                 const ajuste = typeof factura.total_ajustes === 'string' 
                   ? parseFloat(factura.total_ajustes) 
                   : factura.total_ajustes
+                
+                // 🆕 Obtener valores de las 4 columnas
+                const calculados = typeof factura.total_ajustes_calculados === 'string' 
+                  ? parseFloat(factura.total_ajustes_calculados) 
+                  : (factura.total_ajustes_calculados || 0)
+                
+                const pendientes = typeof factura.total_ajustes_pendientes === 'string' 
+                  ? parseFloat(factura.total_ajustes_pendientes) 
+                  : (factura.total_ajustes_pendientes || 0)
+                
+                const liquidados = typeof factura.total_ajustes_liquidados === 'string' 
+                  ? parseFloat(factura.total_ajustes_liquidados) 
+                  : (factura.total_ajustes_liquidados || 0)
 
                 const tieneSaldo = saldo > 0
                 const tieneAjuste = ajuste > 0
@@ -80,6 +97,27 @@ export function AjustesList({ facturas }: AjustesListProps) {
                       </Link>
                       <div className="text-xs text-muted-foreground font-mono mt-0.5">
                         {factura.code}
+                      </div>
+                      
+                      {/* 🆕 BADGES INFORMATIVOS */}
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {calculados > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            🟡 {formatCurrency(calculados)}
+                          </Badge>
+                        )}
+                        
+                        {pendientes > 0 && (
+                          <Badge className="bg-orange-500 text-white text-xs font-bold">
+                            🟠 {formatCurrency(pendientes)}
+                          </Badge>
+                        )}
+                        
+                        {liquidados > 0 && (
+                          <Badge variant="outline" className="text-green-600 text-xs">
+                            ✅ {formatCurrency(liquidados)}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
 
@@ -145,6 +183,19 @@ export function AjustesList({ facturas }: AjustesListProps) {
             const ajuste = typeof factura.total_ajustes === 'string' 
               ? parseFloat(factura.total_ajustes) 
               : factura.total_ajustes
+            
+            // 🆕 Obtener valores de las 4 columnas
+            const calculados = typeof factura.total_ajustes_calculados === 'string' 
+              ? parseFloat(factura.total_ajustes_calculados) 
+              : (factura.total_ajustes_calculados || 0)
+            
+            const pendientes = typeof factura.total_ajustes_pendientes === 'string' 
+              ? parseFloat(factura.total_ajustes_pendientes) 
+              : (factura.total_ajustes_pendientes || 0)
+            
+            const liquidados = typeof factura.total_ajustes_liquidados === 'string' 
+              ? parseFloat(factura.total_ajustes_liquidados) 
+              : (factura.total_ajustes_liquidados || 0)
 
             const tieneSaldo = saldo > 0
             const tieneAjuste = ajuste > 0
@@ -164,6 +215,27 @@ export function AjustesList({ facturas }: AjustesListProps) {
                   </Link>
                   <div className="text-xs text-muted-foreground font-mono mt-1">
                     {factura.code}
+                  </div>
+                  
+                  {/* 🆕 BADGES INFORMATIVOS */}
+                  <div className="flex gap-1 mt-2 flex-wrap">
+                    {calculados > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        🟡 {formatCurrency(calculados)} calculado
+                      </Badge>
+                    )}
+                    
+                    {pendientes > 0 && (
+                      <Badge className="bg-orange-500 text-white text-xs font-bold">
+                        🟠 {formatCurrency(pendientes)} para liquidar
+                      </Badge>
+                    )}
+                    
+                    {liquidados > 0 && (
+                      <Badge variant="outline" className="text-green-600 text-xs">
+                        ✅ {formatCurrency(liquidados)} liquidado
+                      </Badge>
+                    )}
                   </div>
                 </div>
 

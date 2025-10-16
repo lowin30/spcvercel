@@ -24,6 +24,10 @@ interface FacturaConAjuste {
   total: number
   saldo_pendiente: number | string
   total_ajustes: number | string
+  total_ajustes_calculados: number | string  // 🆕 Calculados (aprobado=false)
+  total_ajustes_pendientes: number | string  // 🆕 Pendientes liquidación
+  total_ajustes_liquidados: number | string  // 🆕 Liquidados
+  total_ajustes_todos: number | string       // 🆕 Todos
   tiene_ajustes_pendientes?: boolean
   tiene_ajustes_pagados?: boolean
   id_administrador: number | null
@@ -47,7 +51,7 @@ export default function AjustesPage() {
   // Filtros
   const [filtroAdmin, setFiltroAdmin] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
-  const [vistaActual, setVistaActual] = useState<'todas' | 'pendientes' | 'pagadas'>('pendientes')
+  const [vistaActual, setVistaActual] = useState<'pendientes' | 'liquidadas' | 'calculados' | 'todas'>('pendientes')
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -115,62 +119,44 @@ export default function AjustesPage() {
         }).length || 0
       )
 
-      // Necesitamos verificar qué ajustes están pendientes y cuáles pagados
-      // Para cada factura, consultamos ajustes_facturas
-      const facturasConEstado = await Promise.all(
-        (facturasData || []).map(async (factura: any) => {
-          // DEBUG: Consultar TODOS los ajustes (aprobados o no) para debug
-          const { data: ajustes } = await supabase
-            .from('ajustes_facturas')
-            .select('*')
-            .eq('id_factura', factura.id)
-
-          // Log para debug
-          if (ajustes && ajustes.length > 0) {
-            console.log(`🔍 Factura ${factura.code || factura.id}:`, {
-              total_ajustes_vista: factura.total_ajustes,
-              ajustes_encontrados: ajustes.length,
-              ajustes_detalle: ajustes.map(a => ({
-                monto: a.monto_ajuste,
-                aprobado: a.aprobado,
-                pagado: a.pagado
-              }))
-            })
-          }
-
-          // Filtrar solo ajustes aprobados para la lógica
-          const ajustesAprobados = ajustes?.filter((a: any) => a.aprobado === true) || []
-          const { data: _unused } = { data: ajustesAprobados } // Para mantener la estructura
-
-          const tiene_pendientes = ajustesAprobados?.some((a: any) => !a.pagado) || false
-          const tiene_pagados = ajustesAprobados?.some((a: any) => a.pagado) || false
-
-          return {
-            ...factura,
-            tiene_ajustes_pendientes: tiene_pendientes,
-            tiene_ajustes_pagados: tiene_pagados,
-          }
-        })
-      )
-
-      // Primero filtrar solo facturas que tienen ajustes
-      const facturasConAjustes = facturasConEstado.filter(f => {
-        const ajustes = typeof f.total_ajustes === 'string' ? parseFloat(f.total_ajustes) : f.total_ajustes
-        return ajustes > 0
-      })
-
-      console.log('✅ Facturas con ajustes aprobados:', facturasConAjustes.length)
-
-      // Filtrar según vista actual
-      let facturasFiltradas = facturasConAjustes
+      // 🆕 FILTRAR SEGÚN VISTA ACTUAL usando las 4 nuevas columnas
+      let facturasFiltradas = facturasData || []
+      
       if (vistaActual === 'pendientes') {
-        facturasFiltradas = facturasConAjustes.filter(f => f.tiene_ajustes_pendientes)
-      } else if (vistaActual === 'pagadas') {
-        facturasFiltradas = facturasConAjustes.filter(f => f.tiene_ajustes_pagados && !f.tiene_ajustes_pendientes)
+        // Solo facturas con ajustes PENDIENTES de liquidación (aprobado=true, pagado=false)
+        facturasFiltradas = facturasFiltradas.filter((f: any) => {
+          const pendientes = typeof f.total_ajustes_pendientes === 'string' 
+            ? parseFloat(f.total_ajustes_pendientes) 
+            : f.total_ajustes_pendientes
+          return pendientes > 0
+        })
+      } else if (vistaActual === 'liquidadas') {
+        // Solo facturas con ajustes LIQUIDADOS (pagado=true)
+        facturasFiltradas = facturasFiltradas.filter((f: any) => {
+          const liquidados = typeof f.total_ajustes_liquidados === 'string' 
+            ? parseFloat(f.total_ajustes_liquidados) 
+            : f.total_ajustes_liquidados
+          return liquidados > 0
+        })
+      } else if (vistaActual === 'calculados') {
+        // Solo facturas con ajustes CALCULADOS (aprobado=false)
+        facturasFiltradas = facturasFiltradas.filter((f: any) => {
+          const calculados = typeof f.total_ajustes_calculados === 'string' 
+            ? parseFloat(f.total_ajustes_calculados) 
+            : f.total_ajustes_calculados
+          return calculados > 0
+        })
+      } else {
+        // Vista "todas": Mostrar si tiene cualquier ajuste
+        facturasFiltradas = facturasFiltradas.filter((f: any) => {
+          const todos = typeof f.total_ajustes_todos === 'string' 
+            ? parseFloat(f.total_ajustes_todos) 
+            : f.total_ajustes_todos
+          return todos > 0
+        })
       }
-
+      
       console.log(`📋 Vista "${vistaActual}":`, facturasFiltradas.length, 'facturas')
-
       setFacturas(facturasFiltradas)
 
     } catch (err) {
@@ -181,32 +167,58 @@ export default function AjustesPage() {
     }
   }
 
-  // Calcular estadísticas
-  const todasLasFacturas = facturas
-  const facturasPendientes = facturas.filter(f => f.tiene_ajustes_pendientes)
-  const facturasPagadas = facturas.filter(f => f.tiene_ajustes_pagados && !f.tiene_ajustes_pendientes)
-
-  const totalAjustes = todasLasFacturas.reduce((sum, f) => {
-    const ajuste = typeof f.total_ajustes === 'string' ? parseFloat(f.total_ajustes) : f.total_ajustes
-    return sum + (ajuste || 0)
+  // 🆕 CALCULAR ESTADÍSTICAS usando las 4 columnas
+  const totalCalculados = facturas.reduce((sum, f) => {
+    const val = typeof f.total_ajustes_calculados === 'string' ? parseFloat(f.total_ajustes_calculados) : f.total_ajustes_calculados
+    return sum + (val || 0)
   }, 0)
-
-  const totalPendientes = facturasPendientes.reduce((sum, f) => {
-    const ajuste = typeof f.total_ajustes === 'string' ? parseFloat(f.total_ajustes) : f.total_ajustes
-    return sum + (ajuste || 0)
+  
+  const totalPendientes = facturas.reduce((sum, f) => {
+    const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
+    return sum + (val || 0)
   }, 0)
+  
+  const totalLiquidados = facturas.reduce((sum, f) => {
+    const val = typeof f.total_ajustes_liquidados === 'string' ? parseFloat(f.total_ajustes_liquidados) : f.total_ajustes_liquidados
+    return sum + (val || 0)
+  }, 0)
+  
+  const totalTodos = facturas.reduce((sum, f) => {
+    const val = typeof f.total_ajustes_todos === 'string' ? parseFloat(f.total_ajustes_todos) : f.total_ajustes_todos
+    return sum + (val || 0)
+  }, 0)
+  
+  // Contadores
+  const cantidadCalculados = facturas.filter(f => {
+    const val = typeof f.total_ajustes_calculados === 'string' ? parseFloat(f.total_ajustes_calculados) : f.total_ajustes_calculados
+    return val > 0
+  }).length
+  
+  const cantidadPendientes = facturas.filter(f => {
+    const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
+    return val > 0
+  }).length
+  
+  const cantidadLiquidadas = facturas.filter(f => {
+    const val = typeof f.total_ajustes_liquidados === 'string' ? parseFloat(f.total_ajustes_liquidados) : f.total_ajustes_liquidados
+    return val > 0
+  }).length
 
-  const totalPagados = totalAjustes - totalPendientes
-
-  // Calcular resumen del administrador seleccionado
+  // Calcular resumen del administrador seleccionado (SOLO PENDIENTES)
   const administradorSeleccionado = administradores.find(a => a.id === filtroAdmin)
   const facturasAdminPendientes = filtroAdmin && filtroAdmin !== 0
-    ? facturas.filter(f => f.id_administrador === filtroAdmin && f.tiene_ajustes_pendientes)
+    ? facturas.filter(f => {
+        if (f.id_administrador !== filtroAdmin) return false
+        const pendientes = typeof f.total_ajustes_pendientes === 'string' 
+          ? parseFloat(f.total_ajustes_pendientes) 
+          : f.total_ajustes_pendientes
+        return pendientes > 0
+      })
     : []
 
   const totalAdminPendiente = facturasAdminPendientes.reduce((sum, f) => {
-    const ajuste = typeof f.total_ajustes === 'string' ? parseFloat(f.total_ajustes) : f.total_ajustes
-    return sum + (ajuste || 0)
+    const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
+    return sum + (val || 0)
   }, 0)
 
   // Función para pagar ajustes
@@ -323,58 +335,67 @@ export default function AjustesPage() {
         </div>
       </div>
 
-      {/* TABS */}
+      {/* 🆕 TABS ACTUALIZADOS */}
       <Tabs value={vistaActual} onValueChange={(v) => setVistaActual(v as any)}>
         <TabsList>
-          <TabsTrigger value="todas">📋 Todas</TabsTrigger>
-          <TabsTrigger value="pendientes">⏳ Pendientes</TabsTrigger>
-          <TabsTrigger value="pagadas">✅ Pagadas</TabsTrigger>
+          <TabsTrigger value="pendientes">
+            🟠 Para Liquidar ({cantidadPendientes})
+          </TabsTrigger>
+          <TabsTrigger value="liquidadas">
+            ✅ Liquidadas ({cantidadLiquidadas})
+          </TabsTrigger>
+          <TabsTrigger value="calculados">
+            🟡 Calculados ({cantidadCalculados})
+          </TabsTrigger>
+          <TabsTrigger value="todas">
+            📋 Todas ({facturas.length})
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {/* CARDS DE RESUMEN */}
+      {/* 🆕 CARDS DE RESUMEN ACTUALIZADOS (4 COLUMNAS) */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Facturas</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Calculados</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todasLasFacturas.length}</div>
-            <p className="text-xs text-muted-foreground">{formatCurrency(totalAjustes)}</p>
+            <div className="text-2xl font-bold text-yellow-600">{formatCurrency(totalCalculados)}</div>
+            <p className="text-xs text-muted-foreground">{cantidadCalculados} facturas</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-orange-500 border-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-orange-600">Para Liquidar</CardTitle>
+            <DollarSign className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-600">{formatCurrency(totalPendientes)}</div>
+            <p className="text-xs text-orange-700 font-medium">{cantidadPendientes} facturas</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aprobados</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{todasLasFacturas.length}</div>
-            <p className="text-xs text-muted-foreground">Todos aprobados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes Pago</CardTitle>
-            <Clock className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{facturasPendientes.length}</div>
-            <p className="text-xs text-muted-foreground">{formatCurrency(totalPendientes)}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pagados</CardTitle>
+            <CardTitle className="text-sm font-medium text-green-600">Liquidados</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{facturasPagadas.length}</div>
-            <p className="text-xs text-muted-foreground">{formatCurrency(totalPagados)}</p>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalLiquidados)}</div>
+            <p className="text-xs text-muted-foreground">{cantidadLiquidadas} facturas</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Histórico</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalTodos)}</div>
+            <p className="text-xs text-muted-foreground">Todos los ajustes</p>
           </CardContent>
         </Card>
       </div>
