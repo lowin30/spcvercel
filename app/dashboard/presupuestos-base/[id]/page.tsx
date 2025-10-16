@@ -54,10 +54,21 @@ export default function PresupuestoBasePage() {
           return
         }
         
-        // Obtener presupuesto base completo usando la vista
+        // Obtener presupuesto base con relación a supervisores_tareas
         const { data: presupuestoCompleto, error: presupuestoError } = await supabase
-          .from("vista_presupuestos_base_completa")
-          .select("*")
+          .from("presupuestos_base")
+          .select(`
+            *,
+            tareas (
+              id,
+              titulo,
+              code,
+              edificios (
+                id,
+                nombre
+              )
+            )
+          `)
           .eq("id", params.id)
           .single()
         
@@ -67,32 +78,23 @@ export default function PresupuestoBasePage() {
           return
         }
         
-        // Si es supervisor, verificar que el presupuesto le corresponde
-        if (userData.rol === "supervisor" && presupuestoCompleto.id_supervisor !== session.user.id) {
-          setError("No tienes permiso para ver este presupuesto")
-          return
-        }
-        
-        // Adaptamos el formato para que sea compatible con el cliente
-        // La vista ya incluye la información de la tarea asociada
-        // Creamos un objeto tareas para mantener compatibilidad con el componente cliente
-        const tareas = {
-          id: presupuestoCompleto.id_tarea,
-          titulo: presupuestoCompleto.titulo_tarea,
-          code: presupuestoCompleto.code_tarea,
-          edificios: {
-            id: presupuestoCompleto.id_edificio,
-            nombre: presupuestoCompleto.nombre_edificio
+        // Si es supervisor, verificar que está asignado a la tarea
+        if (userData.rol === "supervisor") {
+          const { data: supervisorAsignado, error: supervisorError } = await supabase
+            .from("supervisores_tareas")
+            .select("id")
+            .eq("id_tarea", presupuestoCompleto.id_tarea)
+            .eq("id_supervisor", session.user.id)
+            .single()
+          
+          if (supervisorError || !supervisorAsignado) {
+            setError("No tienes permiso para ver este presupuesto")
+            return
           }
         }
-
-        // Añadimos el objeto tareas al presupuestoCompleto para mantener compatibilidad
-        const presupuestoFormateado = {
-          ...presupuestoCompleto,
-          tareas: tareas
-        }
-
-        setPresupuesto(presupuestoFormateado)
+        
+        // El presupuesto ya viene con las relaciones correctas desde Supabase
+        setPresupuesto(presupuestoCompleto)
         
       } catch (err: any) {
         console.error("Error inesperado:", err)
