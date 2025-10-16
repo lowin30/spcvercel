@@ -123,6 +123,12 @@ export default function TareasPage() {
   // En la vista "Todas" excluimos las tareas finalizadas (finalizada = true)
   const tareasFiltradas = applyFilters(tareas || [], true)
   
+  // 🆕 Vista de tareas FINALIZADAS (finalizada = true)
+  const tareasFinalizadas = applyFilters(
+    (tareas || []).filter(t => t.finalizada === true), 
+    false // No excluir finalizadas porque ya están filtradas
+  )
+  
   // Aplicar filtros a las tareas por estado normalizado
   const tareasPorEstadoFiltradas: Record<number, any[]> = {}
   
@@ -690,14 +696,14 @@ export default function TareasPage() {
       
       {/* Tabs de estados normalizados */}
       <Tabs defaultValue="todas" className="mt-5 pt-2">
-        <TabsList className="flex flex-col md:flex-row w-full gap-0.5 md:gap-2 bg-transparent p-0">
+        <TabsList className="grid grid-cols-3 md:flex md:flex-row w-full gap-1 md:gap-2 bg-transparent p-0">
           <TabsTrigger 
             value="todas" 
-            className="w-full h-8 md:h-auto data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            className="h-9 md:h-auto data-[state=active]:bg-blue-600 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Todas las tareas"
           >
-            <span>Todas</span>
-            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+            <span className="truncate">Todas</span>
+            <Badge variant="outline" className="py-0 h-4 md:h-5 text-[9px] md:text-xs px-1 bg-background shrink-0">
               {tareasFiltradas.length}
             </Badge>
           </TabsTrigger>
@@ -705,11 +711,11 @@ export default function TareasPage() {
           {/* Pestaña Organizar - gris */}
           <TabsTrigger 
             value="estado-1" 
-            className="w-full h-8 md:h-auto data-[state=active]:bg-gray-500 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            className="h-9 md:h-auto data-[state=active]:bg-gray-500 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Tarea en fase inicial de organización"
           >
-            <span>Organizar</span>
-            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+            <span className="truncate">Organizar</span>
+            <Badge variant="outline" className="py-0 h-4 md:h-5 text-[9px] md:text-xs px-1 bg-background shrink-0">
               {tareasPorEstadoFiltradas[1]?.length || 0}
             </Badge>
           </TabsTrigger>
@@ -717,11 +723,11 @@ export default function TareasPage() {
           {/* Pestaña Aprobado - verde */}
           <TabsTrigger 
             value="estado-5" 
-            className="w-full h-8 md:h-auto data-[state=active]:bg-green-600 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            className="h-9 md:h-auto data-[state=active]:bg-green-600 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Presupuesto aprobado por el cliente"
           >
-            <span>Aprobado</span>
-            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+            <span className="truncate">Aprobado</span>
+            <Badge variant="outline" className="py-0 h-4 md:h-5 text-[9px] md:text-xs px-1 bg-background shrink-0">
               {tareasPorEstadoFiltradas[5]?.length || 0}
             </Badge>
           </TabsTrigger>
@@ -729,12 +735,24 @@ export default function TareasPage() {
           {/* Pestaña para el estado "Posible" - amarillo */}
           <TabsTrigger 
             value="estado-10" 
-            className="w-full h-8 md:h-auto data-[state=active]:bg-yellow-500 data-[state=active]:text-white text-xs md:text-sm py-1 md:py-2 px-2 justify-between flex items-center"
+            className="h-9 md:h-auto data-[state=active]:bg-yellow-500 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Son posibles trabajos a futuro"
           >
-            <span>Posible</span>
-            <Badge variant="outline" className="ml-1 py-0 h-5 bg-background">
+            <span className="truncate">Posible</span>
+            <Badge variant="outline" className="py-0 h-4 md:h-5 text-[9px] md:text-xs px-1 bg-background shrink-0">
               {tareasPorEstadoFiltradas[10]?.length || 0}
+            </Badge>
+          </TabsTrigger>
+          
+          {/* 🆕 Pestaña Finalizadas - azul oscuro */}
+          <TabsTrigger 
+            value="finalizadas" 
+            className="h-9 md:h-auto data-[state=active]:bg-slate-700 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
+            title="Tareas marcadas como finalizadas"
+          >
+            <span className="truncate">Finalizadas</span>
+            <Badge variant="outline" className="py-0 h-4 md:h-5 text-[9px] md:text-xs px-1 bg-background shrink-0">
+              {tareasFinalizadas.length}
             </Badge>
           </TabsTrigger>
         </TabsList>
@@ -778,6 +796,19 @@ export default function TareasPage() {
           </div>
           <TaskList 
             tasks={tareasPorEstadoFiltradas[10] || []} 
+            userRole={userDetails?.rol || ""}
+          />
+        </TabsContent>
+        
+        {/* 🆕 Contenido para Finalizadas */}
+        <TabsContent value="finalizadas" className="mt-8 pt-2">
+          <div className="mb-4">
+            <Badge variant="outline" className="bg-slate-100 text-slate-800 hover:bg-slate-200">
+              Tareas Finalizadas - Trabajos completados y archivados
+            </Badge>
+          </div>
+          <TaskList 
+            tasks={tareasFinalizadas} 
             userRole={userDetails?.rol || ""}
           />
         </TabsContent>

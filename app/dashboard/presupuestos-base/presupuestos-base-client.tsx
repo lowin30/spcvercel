@@ -1,16 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus, Loader2 } from "lucide-react"
+import { Plus, Loader2, Trash2 } from "lucide-react"
 import { formatDate } from "@/lib/date-utils"
 import { formatCurrency } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { getPresupuestosBase } from "./actions"
+import { getPresupuestosBase, deletePresupuestoBase } from "./actions"
 import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 
 interface PresupuestosBaseClientProps {
   initialData: any[]
@@ -24,6 +25,7 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
   const [filtroAprobacion, setFiltroAprobacion] = useState<'todos' | 'aprobados' | 'pendientes'>('todos')
   const [isLoading, setIsLoading] = useState(false)
   const [busqueda, setBusqueda] = useState("")
+  const [isPending, startTransition] = useTransition()
 
   // Filtrar presupuestos según término de búsqueda
   const presupuestosFiltrados = presupuestosBase.filter(presupuesto => {
@@ -60,6 +62,33 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
   const cambiarFiltro = (nuevoFiltro: 'todos' | 'aprobados' | 'pendientes') => {
     setFiltroAprobacion(nuevoFiltro)
     cargarPresupuestos(nuevoFiltro)
+  }
+
+  // Eliminar presupuesto base
+  const handleDelete = async (e: React.MouseEvent, id: number, aprobado: boolean) => {
+    e.preventDefault() // Evitar navegación del Link
+    e.stopPropagation()
+    
+    if (aprobado) {
+      toast.error("No se pueden eliminar presupuestos aprobados")
+      return
+    }
+    
+    if (!confirm("¿Estás seguro de que deseas eliminar este presupuesto base? Esta acción no se puede deshacer.")) {
+      return
+    }
+    
+    startTransition(async () => {
+      const result = await deletePresupuestoBase(id)
+      
+      if (result.success) {
+        toast.success(result.message)
+        // Actualizar lista local
+        setPresupuestosBase(prev => prev.filter(p => p.id !== id))
+      } else {
+        toast.error(result.message)
+      }
+    })
   }
 
   return (
@@ -132,18 +161,34 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
         <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {presupuestosFiltrados.length > 0 ? (
             presupuestosFiltrados.map((presupuesto) => (
-              <Link href={`/dashboard/presupuestos-base/${presupuesto.id}`} key={presupuesto.id}>
-                <Card className="cursor-pointer transition-all hover:bg-muted/50 max-w-full overflow-hidden h-full">
-                  <CardHeader className="pb-1 sm:pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg sm:text-xl truncate">
-                        {presupuesto.code || "Sin código"}
-                      </CardTitle>
-                      <Badge className={presupuesto.aprobado ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                        {presupuesto.aprobado ? "Aprobado" : "Pendiente"}
-                      </Badge>
-                    </div>
-                  </CardHeader>
+              <div key={presupuesto.id} className="relative">
+                <Link href={`/dashboard/presupuestos-base/${presupuesto.id}`}>
+                  <Card className="cursor-pointer transition-all hover:bg-muted/50 max-w-full overflow-hidden h-full">
+                    <CardHeader className="pb-1 sm:pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg sm:text-xl truncate">
+                          {presupuesto.code || "Sin código"}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge className={presupuesto.aprobado ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                            {presupuesto.aprobado ? "Aprobado" : "Pendiente"}
+                          </Badge>
+                          {/* Botón eliminar (solo admin y no aprobados) */}
+                          {userRole === "admin" && !presupuesto.aprobado && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => handleDelete(e, presupuesto.id, presupuesto.aprobado)}
+                              disabled={isPending}
+                              title="Eliminar presupuesto"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
                   <CardContent>
                     <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
                       <p className="truncate">Creado: {formatDate(presupuesto.created_at)}</p>
@@ -172,6 +217,7 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
                   </CardContent>
                 </Card>
               </Link>
+              </div>
             ))
           ) : (
             <div className="col-span-full text-center py-10">

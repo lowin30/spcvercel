@@ -289,3 +289,82 @@ export async function anularAprobacionPresupuestoBase(id: number) {
     return { success: false, message: error.message || "Error al anular la aprobación del presupuesto base" }
   }
 }
+
+/**
+ * Eliminar un presupuesto base (solo admin)
+ */
+export async function deletePresupuestoBase(id: number) {
+  const supabase = await createSsrServerClient()
+  
+  try {
+    console.log("Iniciando eliminación del presupuesto base ID:", id)
+    
+    // Verificar sesión
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    
+    if (sessionError || !session) {
+      return { success: false, message: "No autorizado" }
+    }
+    
+    // Verificar rol
+    const { data: userData, error: userError } = await supabase
+      .from("usuarios")
+      .select("rol")
+      .eq("id", session.user.id)
+      .single()
+    
+    if (userError || !userData) {
+      return { success: false, message: "Error al verificar permisos" }
+    }
+    
+    // Solo admin puede eliminar
+    if (userData.rol !== "admin") {
+      return { success: false, message: "Solo los administradores pueden eliminar presupuestos base" }
+    }
+    
+    // Verificar que el presupuesto no esté aprobado
+    const { data: presupuestoData, error: checkError } = await supabase
+      .from("presupuestos_base")
+      .select("aprobado")
+      .eq("id", id)
+      .single()
+    
+    if (checkError) {
+      return { success: false, message: "No se pudo verificar el presupuesto" }
+    }
+    
+    if (presupuestoData.aprobado) {
+      return { success: false, message: "No se pueden eliminar presupuestos aprobados" }
+    }
+    
+    // Eliminar items asociados primero
+    const { error: deleteItemsError } = await supabase
+      .from("items_presupuesto_base")
+      .delete()
+      .eq("id_presupuesto_base", id)
+    
+    if (deleteItemsError) {
+      console.error("Error al eliminar items:", deleteItemsError)
+      return { success: false, message: "Error al eliminar los items del presupuesto" }
+    }
+    
+    // Eliminar presupuesto
+    const { error: deleteError } = await supabase
+      .from("presupuestos_base")
+      .delete()
+      .eq("id", id)
+    
+    if (deleteError) {
+      console.error("Error al eliminar presupuesto:", deleteError)
+      return { success: false, message: "Error al eliminar el presupuesto" }
+    }
+    
+    // Revalidar rutas
+    revalidatePath('/dashboard/presupuestos-base')
+    
+    return { success: true, message: "Presupuesto eliminado correctamente" }
+  } catch (error: any) {
+    console.error("Error al eliminar presupuesto base:", error)
+    return { success: false, message: error.message || "Error al eliminar el presupuesto base" }
+  }
+}
