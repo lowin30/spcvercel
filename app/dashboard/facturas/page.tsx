@@ -206,18 +206,37 @@ export default function FacturasPage({
       return false; // Ocultar facturas con estado "Pagado" cuando no hay filtro específico
     }
     
-    // Filtro por texto de búsqueda
+    // 🔍 BÚSQUEDA AVANZADA EN TODOS LOS CAMPOS RELEVANTES
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase();
-      const tituloTarea = invoice.presupuestos_finales?.tareas?.titulo || '';
       
-      if (!(
-        invoice.code?.toLowerCase().includes(searchLower) ||
-        invoice.datos_afip?.toLowerCase().includes(searchLower) ||
-        tituloTarea.toLowerCase().includes(searchLower) ||
+      // Acceder directamente a los campos planos de la vista (no anidados)
+      const factura = invoice as any; // Casting para acceder a campos de la vista
+      
+      const matchesSearch = 
+        // 📄 Datos de la factura
+        factura.code?.toLowerCase().includes(searchLower) ||
+        factura.nombre?.toLowerCase().includes(searchLower) ||
+        factura.datos_afip?.toString().toLowerCase().includes(searchLower) ||
+        
+        // 🏢 Datos del edificio (cliente)
+        factura.nombre_edificio?.toLowerCase().includes(searchLower) ||
+        factura.direccion_edificio?.toLowerCase().includes(searchLower) ||
+        factura.cuit_edificio?.toLowerCase().includes(searchLower) ||
+        
+        // 📝 Datos de la tarea
+        factura.titulo_tarea?.toLowerCase().includes(searchLower) ||
+        factura.code_tarea?.toLowerCase().includes(searchLower) ||
+        factura.descripcion_tarea?.toLowerCase().includes(searchLower) ||
+        
+        // 🔧 Datos del presupuesto
+        factura.presupuesto_final_code?.toLowerCase().includes(searchLower) ||
+        
+        // 👤 Administrador y estado
         getNombreAdministrador(invoice.id_administrador).toLowerCase().includes(searchLower) ||
-        getNombreEstado(invoice.id_estado_nuevo).toLowerCase().includes(searchLower)
-      )) {
+        getNombreEstado(invoice.id_estado_nuevo).toLowerCase().includes(searchLower);
+      
+      if (!matchesSearch) {
         return false;
       }
     }
@@ -354,10 +373,11 @@ export default function FacturasPage({
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
                   type="search" 
-                  placeholder="Factura, datos AFIP, tarea..." 
+                  placeholder="Código, edificio, tarea, CUIT, dirección..." 
                   className="pl-8 w-full" 
                   value={searchQuery} 
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  title="Busca en: factura, edificio, tarea, presupuesto, CUIT, dirección, datos AFIP, administrador, estado"
                 />
               </div>
             </div>
