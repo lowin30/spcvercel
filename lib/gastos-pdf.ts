@@ -66,12 +66,13 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     throw new Error(`Error al obtener datos de la tarea: ${errorTarea?.message || 'No se encontró la tarea'}`)
   }
   
-  // Obtener gastos de la tarea con imágenes procesadas
+  // Obtener SOLO gastos de MATERIALES con imágenes (procesadas o originales)
   const { data: gastos, error: errorGastos } = await supabase
     .from('gastos_tarea')
     .select('*')
     .eq('id_tarea', tareaId)
-    // .not('imagen_procesada_url', 'is', null) // Comentado para mostrar todos los gastos aunque no tengan imagen
+    .eq('tipo_gasto', 'material') // ✅ SOLO MATERIALES
+    .or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null') // ✅ SOLO CON FOTOS
     .order('fecha_gasto', { ascending: true })
   
   if (errorGastos || !gastos) {
@@ -110,7 +111,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(22)
     doc.setTextColor(40, 40, 40)
-    doc.text('Informe de Gastos', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' })
+    doc.text('Informe de Gastos - MATERIALES', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' })
     
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(14)
@@ -240,7 +241,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
                   throw new Error('El resultado de la lectura está vacío')
                 }
               } catch (err) {
-                errorMessage = `Error al procesar imagen: ${err.message || 'Desconocido'}`
+                errorMessage = `Error al procesar imagen: ${err instanceof Error ? err.message : 'Desconocido'}`
                 console.error(errorMessage)
               }
               resolve()
@@ -254,7 +255,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
           })
           
         } catch (err) {
-          errorMessage = `Error al procesar imagen: ${err.message || 'Desconocido'}`
+          errorMessage = `Error al procesar imagen: ${err instanceof Error ? err.message : 'Desconocido'}`
           console.error(errorMessage)
         } finally {
           if (errorMessage) {
@@ -319,16 +320,18 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     doc.setFont('helvetica', 'normal')
     doc.text(`Fecha de generación: ${fechaActual}`, doc.internal.pageSize.getWidth() / 2, 90, { align: 'center' })
     
-    // Generar nombre del archivo sanitizado (eliminar caracteres especiales)
-    // Asegurarse que tiene un nombre de tarea válido y sanitizado para el archivo
-    const codigoTarea = (
+    // Generar nombre del archivo: {NombreTarea}_Materiales_${Total}.pdf
+    const nombreTarea = (
+      datosTarea.titulo ||
+      datosTarea.nombre ||
       datosTarea.code ||
       datosTarea.codigo ||
-      `Tarea_${tareaId}`
-    ).replace(/[^a-zA-Z0-9]/g, '_')
+      `Tarea${tareaId}`
+    ).replace(/[^a-zA-Z0-9\s]/g, '_').trim()
     
-    const timestamp = format(new Date(), 'yyyyMMdd_HHmmss')
-    const filename = `Gastos_${codigoTarea}_${timestamp}.pdf`
+    // Formato del total: $XXX.XXX (sin decimales)
+    const totalFormateado = montoTotal.toLocaleString('es-CL').replace(/\./g, '')
+    const filename = `${nombreTarea}_Materiales_$${totalFormateado}.pdf`
     
     return {
       blob: doc.output('blob'),

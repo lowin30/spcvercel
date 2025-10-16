@@ -23,6 +23,8 @@ interface Gasto {
   descripcion: string
   fecha_gasto: string
   metodo_registro: string
+  tipo_gasto: string // "material" | "mano_de_obra" | "manual"
+  liquidado: boolean | null // Si el gasto ya fue liquidado
   confianza_ocr: number | null
   datos_ocr: any
   comprobante_url: string | null
@@ -49,7 +51,8 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
           usuarios (email, color_perfil)
         `)
         .eq("id_tarea", tareaId)
-        .is('liquidado', false) // Solo mostrar los gastos no liquidados
+        // ✅ FILTRO INTELIGENTE: Mostrar todos los gastos no liquidados + materiales liquidados
+        .or('liquidado.is.null,liquidado.eq.false,and(liquidado.eq.true,tipo_gasto.eq.material)')
         .order("created_at", { ascending: false })
 
       if (gastosResponse.error) throw gastosResponse.error
@@ -167,7 +170,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
     return pdfUrl;
   };
   
-  // Función para exportar a PDF los gastos
+  // Función para exportar a PDF los gastos (SOLO MATERIALES CON FOTOS)
   const exportarPDF = async () => {
     // Validar que existan gastos para exportar
     if (!gastos || gastos.length === 0) {
@@ -177,13 +180,20 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
     
     try {
       setExportando(true);
-      toast.info('Generando PDF de gastos con imágenes procesadas...');
+      toast.info('Generando PDF de materiales con fotos...');
       
-      // Generar el PDF con las imágenes procesadas
+      // Generar el PDF (solo materiales con imágenes)
       const resultado = await generarGastosTareaPDF(tareaId);
       
+      // Verificar si hay materiales con fotos
+      if (resultado.montoTotal === 0) {
+        toast.warning('⚠️ No hay gastos de materiales con fotos para exportar');
+        setExportando(false);
+        return;
+      }
+      
       // Mostrar el monto total
-      toast.info(`Monto total de gastos: $${resultado.montoTotal.toLocaleString('es-CL')}`);
+      toast.success(`PDF generado: $${resultado.montoTotal.toLocaleString('es-CL')} en materiales`);
       
       // Descargar el archivo automáticamente
       const url = window.URL.createObjectURL(resultado.blob);
@@ -202,10 +212,10 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
       // Guardar la referencia en Supabase
       try {
         const pdfUrl = await guardarPDFEnSupabase(resultado.blob, resultado.filename, tareaId);
-        toast.success('PDF de gastos generado, descargado y guardado en la base de datos');
+        toast.success('✅ PDF de materiales descargado y guardado en base de datos');
       } catch (storageError: any) {
         console.error('Error al guardar en Supabase:', storageError);
-        toast.error(`El PDF se descargó pero no se pudo guardar en la base de datos: ${storageError.message}`);
+        toast.error(`El PDF se descargó pero no se pudo guardar: ${storageError.message}`);
       }
       
     } catch (error: any) {
@@ -359,11 +369,17 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
     return <AlertCircle className="w-4 h-4" />
   }
 
+  // Estadísticas generales
   const totalGastos = gastos.reduce((sum, gasto) => sum + gasto.monto, 0)
-  const gastosOCR = gastos.filter((g) => g.metodo_registro?.includes("ocr")).length
   const gastosManuales = gastos.filter((g) => g.metodo_registro === "manual").length
   const gastosCamara = gastos.filter((g) => g.metodo_registro === "camara").length
   const gastosArchivo = gastos.filter((g) => g.metodo_registro === "archivo").length
+  
+  // Estadísticas por tipo y estado de liquidación
+  const gastosMateriales = gastos.filter((g) => g.tipo_gasto === "material").length
+  const gastosManoObra = gastos.filter((g) => g.tipo_gasto === "mano_de_obra" || g.tipo_gasto === "manual").length
+  const gastosLiquidados = gastos.filter((g) => g.liquidado === true).length
+  const gastosNoLiquidados = gastos.filter((g) => !g.liquidado).length
 
   if (loading) {
     return (
@@ -395,9 +411,10 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
             {gastos.length > 0 && (
               <div className="flex flex-wrap gap-2 text-xs mt-1">
                 <Badge variant="outline">💰 Total: ${totalGastos.toLocaleString("es-CL")}</Badge>
-                <Badge variant="outline">📸 Cámara: {gastosCamara}</Badge>
-                <Badge variant="outline">📄 Archivo: {gastosArchivo}</Badge>
-                <Badge variant="outline">✏️ Manual: {gastosManuales}</Badge>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">📦 Materiales: {gastosMateriales}</Badge>
+                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">👷 M. Obra: {gastosManoObra}</Badge>
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">✓ Liquidados: {gastosLiquidados}</Badge>
+                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">⏳ Pendientes: {gastosNoLiquidados}</Badge>
               </div>
             )}
           </div>
@@ -410,9 +427,10 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                 onClick={() => exportarPDF()}
                 disabled={exportando}
                 className="text-xs h-7"
+                title="Exporta solo gastos de materiales con fotos"
               >
                 <Download className="h-3 w-3 mr-1" />
-                Exportar PDF
+                PDF Materiales
               </Button>
             </div>
           )}
@@ -433,12 +451,14 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                   <div className="space-y-2">
                     {/* Línea principal */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <div
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: gasto.usuarios.color_perfil }}
                         />
                         <span className="font-medium text-sm">${gasto.monto.toLocaleString("es-CL")}</span>
+                        
+                        {/* Badge Método de Registro */}
                         <Badge
                           variant={(gasto.metodo_registro === "camara" || gasto.metodo_registro === "archivo") ? "default" : "secondary"}
                           className="text-xs"
@@ -446,6 +466,30 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                           {gasto.metodo_registro === "camara" ? "📸 Cámara" : 
                            gasto.metodo_registro === "archivo" ? "📄 Archivo" : "✏️ Manual"}
                         </Badge>
+                        
+                        {/* Badge Tipo de Gasto */}
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            gasto.tipo_gasto === 'material' 
+                              ? 'bg-blue-50 text-blue-700 border-blue-300' 
+                              : 'bg-orange-50 text-orange-700 border-orange-300'
+                          }`}
+                        >
+                          {gasto.tipo_gasto === 'material' ? '📦 Material' : '👷 M. Obra'}
+                        </Badge>
+                        
+                        {/* Badge Estado Liquidación */}
+                        {gasto.liquidado && (
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs bg-green-50 text-green-700 border-green-300 font-semibold"
+                          >
+                            ✓ Liquidado
+                          </Badge>
+                        )}
+                        
+                        {/* Badge Confianza OCR */}
                         {gasto.confianza_ocr && (
                           <Badge variant="outline" className={`text-xs ${getConfianzaColor(gasto.confianza_ocr)}`}>
                             {getConfianzaIcon(gasto.confianza_ocr)}

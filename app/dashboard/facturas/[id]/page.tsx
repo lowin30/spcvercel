@@ -5,12 +5,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, Download, FileText, Send, Building2, Briefcase, Calendar, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Send, Building2, Briefcase, Calendar, CheckCircle2, XCircle, Clock, Receipt } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EsMaterialCheckbox } from './es-material-checkbox'
 import { DatosAFIPEditor } from './datos-afip-editor'
 import { MarcarEnviadaButton } from './marcar-enviada-button'
+import { HistorialGastosFactura } from '@/components/historial-gastos-factura'
 
 // Definimos un tipo para los items para mayor seguridad
 type Item = {
@@ -86,6 +87,12 @@ export default async function InvoicePage({ params }: { params: { id: string } }
     : factura.estados_facturas;
 
   const itemsToShow: Item[] = (itemsFactura && itemsFactura.length > 0) ? itemsFactura : (items || []);
+
+  // Determinar si la factura es de materiales
+  // Una factura es "de materiales" si TODOS sus items tienen es_material = true
+  const esFacturaMateriales = itemsFactura && itemsFactura.length > 0
+    ? itemsFactura.every((item: any) => item.es_material === true)
+    : false;
 
   // Función auxiliar para formatear fechas
   const formatDate = (date: string | null) => {
@@ -424,6 +431,39 @@ export default async function InvoicePage({ params }: { params: { id: string } }
                   </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* CARD GASTOS RELACIONADOS */}
+        {tarea?.id && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Receipt className="h-5 w-5" />
+                    Gastos de la Tarea
+                  </CardTitle>
+                  <CardDescription>
+                    {esFacturaMateriales 
+                      ? "Comprobantes de gastos de materiales relacionados con esta factura"
+                      : "Comprobantes de gastos de mano de obra relacionados con esta factura"}
+                  </CardDescription>
+                </div>
+                
+                {/* Badge indicador de tipo de factura */}
+                <Badge variant={esFacturaMateriales ? "default" : "secondary"} className="ml-2">
+                  {esFacturaMateriales ? "📦 Materiales" : "👷 Mano de Obra"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <HistorialGastosFactura 
+                facturaId={Number(factura.id)}
+                tareaId={Number(tarea.id)}
+                esFacturaMateriales={esFacturaMateriales}
+              />
             </CardContent>
           </Card>
         )}
