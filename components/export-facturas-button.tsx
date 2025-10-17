@@ -14,7 +14,7 @@ interface FacturaParaExportar {
   estado_nombre: string
   total: number
   saldo_pendiente: number | string
-  total_ajustes: number | string
+  total_ajustes_todos: number | string
 }
 
 interface ExportFacturasButtonProps {

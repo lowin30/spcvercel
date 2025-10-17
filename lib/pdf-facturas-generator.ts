@@ -13,7 +13,7 @@ interface FacturaParaPDF {
   estado_nombre: string
   total: number
   saldo_pendiente: number | string
-  total_ajustes: number | string
+  total_ajustes_todos: number | string
 }
 
 interface DatosExportFacturas {
@@ -42,9 +42,9 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
   }, 0)
 
   const totalAjustes = facturas.reduce((sum, f) => {
-    const ajuste = typeof f.total_ajustes === 'string' 
-      ? parseFloat(f.total_ajustes) 
-      : f.total_ajustes
+    const ajuste = typeof f.total_ajustes_todos === 'string' 
+      ? parseFloat(f.total_ajustes_todos) 
+      : f.total_ajustes_todos
     return sum + (ajuste || 0)
   }, 0)
 
@@ -106,9 +106,9 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
       ? parseFloat(factura.saldo_pendiente) 
       : factura.saldo_pendiente
 
-    const ajuste = typeof factura.total_ajustes === 'string' 
-      ? parseFloat(factura.total_ajustes) 
-      : factura.total_ajustes
+    const ajuste = typeof factura.total_ajustes_todos === 'string' 
+      ? parseFloat(factura.total_ajustes_todos) 
+      : factura.total_ajustes_todos
 
     return [
       factura.nombre || factura.code || `Factura #${factura.id}`,

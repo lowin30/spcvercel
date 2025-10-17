@@ -248,15 +248,53 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                     {/* 6. AJUSTE */}
                     <TableCell className="text-right">
                       {(() => {
-                        const totalAjustes = typeof invoice.total_ajustes === 'string' 
-                          ? parseFloat(invoice.total_ajustes) 
-                          : (invoice.total_ajustes || 0);
+                        // Usar total_ajustes_todos para mostrar TODOS los ajustes
+                        const totalAjustes = typeof invoice.total_ajustes_todos === 'string' 
+                          ? parseFloat(invoice.total_ajustes_todos) 
+                          : (invoice.total_ajustes_todos || 0);
+                        
+                        // Calcular cada categoría para el badge
+                        const calculados = typeof invoice.total_ajustes_calculados === 'string'
+                          ? parseFloat(invoice.total_ajustes_calculados)
+                          : (invoice.total_ajustes_calculados || 0);
+                        
+                        const pendientes = typeof invoice.total_ajustes_pendientes === 'string'
+                          ? parseFloat(invoice.total_ajustes_pendientes)
+                          : (invoice.total_ajustes_pendientes || 0);
+                        
+                        const liquidados = typeof invoice.total_ajustes_liquidados === 'string'
+                          ? parseFloat(invoice.total_ajustes_liquidados)
+                          : (invoice.total_ajustes_liquidados || 0);
                         
                         return (
-                          <div className={`font-semibold tabular-nums ${
-                            totalAjustes > 0 ? 'text-orange-600' : 'text-muted-foreground'
-                          }`}>
-                            {formatCurrency(totalAjustes)}
+                          <div className="space-y-1">
+                            {/* Monto total */}
+                            <div className={`font-semibold tabular-nums ${
+                              totalAjustes > 0 ? 'text-orange-600' : 'text-muted-foreground'
+                            }`}>
+                              {formatCurrency(totalAjustes)}
+                            </div>
+                            
+                            {/* Badge de estado */}
+                            {totalAjustes > 0 && (
+                              <div className="flex justify-end">
+                                {calculados > 0 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    🟡 Calculados
+                                  </span>
+                                )}
+                                {pendientes > 0 && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                    🟠 Pendientes
+                                  </span>
+                                )}
+                                {liquidados > 0 && !calculados && !pendientes && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    ✅ Liquidados
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })()}

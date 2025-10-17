@@ -12,6 +12,7 @@ import { EsMaterialCheckbox } from './es-material-checkbox'
 import { DatosAFIPEditor } from './datos-afip-editor'
 import { MarcarEnviadaButton } from './marcar-enviada-button'
 import { HistorialGastosFactura } from '@/components/historial-gastos-factura'
+import { AjustesFacturaSection } from '@/components/ajustes-factura-section'
 
 // Definimos un tipo para los items para mayor seguridad
 type Item = {
@@ -467,6 +468,18 @@ export default async function InvoicePage({ params }: { params: { id: string } }
             </CardContent>
           </Card>
         )}
+
+        {/* CARD AJUSTES DE FACTURA */}
+        <AjustesFacturaSection 
+          factura={{
+            id: factura.id,
+            code: factura.code,
+            total: factura.total,
+            pagada: factura.pagada || false,
+            id_estado_nuevo: factura.id_estado_nuevo || 1,
+          }}
+          esFacturaMateriales={esFacturaMateriales}
+        />
       </div>
     </div>
   )
