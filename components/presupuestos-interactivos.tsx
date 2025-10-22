@@ -30,9 +30,11 @@ export interface PresupuestoType {
   aprobado?: boolean
   rechazado?: boolean
   observaciones?: string
+  observaciones_admin?: string  // ← Agregado
   nota_pb?: string
   // Relaciones
   id_tarea?: number
+  id_estado?: number  // ← Agregado para referencia a estados_presupuestos
   // Estado de facturación (solo para presupuestos finales)
   tiene_facturas?: boolean
   facturas_pagadas?: boolean
@@ -200,6 +202,20 @@ export function PresupuestosInteractivos({
         throw new Error("No se pudo inicializar el cliente de Supabase")
       }
       
+      // Obtener el ID del estado "rechazado"
+      const { data: estadoData, error: estadoError } = await supabase
+        .from("estados_presupuestos")
+        .select("id")
+        .ilike("nombre", "%rechazado%")
+        .single()
+      
+      if (estadoError) {
+        console.error("Error al obtener estado rechazado:", estadoError)
+        throw new Error("No se pudo obtener el estado rechazado")
+      }
+      
+      const idEstadoRechazado = estadoData?.id
+      
       // Actualizar en la base de datos según tipo de presupuesto
       const tabla = presupuesto.tipo === "base" ? "presupuestos_base" : "presupuestos_finales"
       const { error } = await supabase
@@ -207,7 +223,8 @@ export function PresupuestosInteractivos({
         .update({ 
           aprobado: false,
           rechazado: true,
-          observaciones: observacion || undefined,
+          observaciones_admin: observacion || undefined,
+          id_estado: idEstadoRechazado,
           updated_at: new Date().toISOString()
         })
         .eq("id", presupuesto.id)
@@ -220,7 +237,8 @@ export function PresupuestosInteractivos({
           ...presupuesto,
           aprobado: false,
           rechazado: true,
-          observaciones: observacion || undefined,
+          observaciones_admin: observacion || undefined,
+          id_estado: idEstadoRechazado,
           updated_at: new Date().toISOString()
         })
       } else {
@@ -228,7 +246,8 @@ export function PresupuestosInteractivos({
           ...presupuesto,
           aprobado: false,
           rechazado: true,
-          observaciones: observacion || undefined,
+          observaciones_admin: observacion || undefined,
+          id_estado: idEstadoRechazado,
           updated_at: new Date().toISOString()
         })
       }
@@ -481,11 +500,11 @@ export function PresupuestosInteractivos({
         </CardHeader>
         <CardContent className="py-3 space-y-3">
           {/* Observaciones o notas si existen */}
-          {(presupuesto.observaciones || presupuesto.nota_pb) && (
+          {(presupuesto.observaciones_admin || presupuesto.nota_pb) && (
             <div className="text-sm bg-amber-50 px-3 py-2 rounded-md border border-amber-100 mb-3">
               <p className="font-medium text-amber-800 mb-1">Notas:</p>
               <p className="text-amber-700">
-                {presupuesto.observaciones || presupuesto.nota_pb}
+                {presupuesto.observaciones_admin || presupuesto.nota_pb}
               </p>
             </div>
           )}
