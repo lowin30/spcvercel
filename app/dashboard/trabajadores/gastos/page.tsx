@@ -3,11 +3,16 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RegistroGastosForm } from "@/components/registro-gastos-form"
+import { ProcesadorImagen } from "@/components/procesador-imagen"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { HistorialGastos } from "@/components/historial-gastos"
+import { HistorialGastosOCR } from "@/components/historial-gastos-ocr"
+import { HistorialJornalesTarea } from "@/components/historial-jornales-tarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase-client"
 import { UserSessionData, GastoCompleto } from "@/lib/types"
-import { Plus, Receipt, DollarSign, Loader2, CheckCircle2, AlertCircle, Check } from "lucide-react"
+import { Plus, Receipt, DollarSign, Loader2, CheckCircle2, AlertCircle, Check, X, ArrowLeft, CalendarDays } from "lucide-react"
 
 interface Tarea {
   id: number
@@ -24,6 +29,7 @@ export default function GastosPage() {
   const [tareas, setTareas] = useState<Tarea[]>([])
   const [usuario, setUsuario] = useState<UserSessionData | null>(null)
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const [tareaSeleccionada, setTareaSeleccionada] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
@@ -70,7 +76,7 @@ export default function GastosPage() {
           .limit(1),
         userData.rol === 'trabajador' ?
           supabase.from('trabajadores_tareas').select('tareas(id, titulo, code)').eq('id_trabajador', session.user.id) :
-          supabase.from('tareas').select('id, titulo, code').order('titulo')
+          supabase.from('tareas').select('id, titulo, code').eq('finalizada', false).order('titulo')
       ]);
 
       if (gastosResponse.error) throw new Error(gastosResponse.error.message);
@@ -167,15 +173,107 @@ export default function GastosPage() {
       </div>
 
       {mostrarFormulario ? (
-        <RegistroGastosForm 
-          tareas={tareas}
-          usuario={usuario}
-          onClose={() => setMostrarFormulario(false)}
-          onSuccess={() => {
-            setMostrarFormulario(false);
-            cargarDatos();
-          }}
-        />
+        !tareaSeleccionada ? (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Seleccionar Tarea</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setMostrarFormulario(false);
+                    setTareaSeleccionada("");
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="tarea">Seleccionar Tarea *</Label>
+                <Select value={tareaSeleccionada} onValueChange={setTareaSeleccionada}>
+                  <SelectTrigger id="tarea">
+                    <SelectValue placeholder="Selecciona una tarea" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tareas.map((tarea) => (
+                      <SelectItem key={tarea.id} value={tarea.id.toString()}>
+                        {tarea.code} - {tarea.titulo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>
+                    {tareas.find(t => t.id === Number(tareaSeleccionada))?.code} - {tareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Vista detallada de gastos y jornales</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTareaSeleccionada("");
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Volver
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="gastos" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="gastos" className="flex items-center gap-2">
+                    <Receipt className="h-4 w-4" />
+                    Gastos
+                  </TabsTrigger>
+                  <TabsTrigger value="jornales" className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4" />
+                    Jornales
+                  </TabsTrigger>
+                  <TabsTrigger value="registrar" className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Registrar
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="gastos" className="mt-4">
+                  <HistorialGastosOCR
+                    tareaId={Number(tareaSeleccionada)}
+                    userRole={usuario?.rol}
+                    userId={usuario?.id}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="jornales" className="mt-4">
+                  <HistorialJornalesTarea
+                    tareaId={Number(tareaSeleccionada)}
+                    userRole={usuario?.rol}
+                    userId={usuario?.id}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="registrar" className="mt-4">
+                  <ProcesadorImagen
+                    tareaId={Number(tareaSeleccionada)}
+                    tareaCodigo={tareas.find(t => t.id === Number(tareaSeleccionada))?.code}
+                    tareaTitulo={tareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
+                  />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        )
       ) : (
         <>
           {/* Resumen rápido */}
