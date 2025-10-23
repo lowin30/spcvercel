@@ -108,24 +108,24 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
     return histograma
   }
   
-  // Función para mejorar contraste usando enfoque menos agresivo
+  // ✅ AJUSTADO: Contraste MUY suave preservando ABSOLUTAMENTE todos los detalles
   const aplicarUmbralizacionAdaptativa = (data: Uint8ClampedArray, umbral: number): void => {
-    // Umbral más suave, aumentamos para preservar mejor las letras
+    // ✅ Umbral ajustado para mejor separación blanco/negro
     const umbralAjustado = Math.min(200, umbral + 10)
     
     for (let i = 0; i < data.length; i += 4) {
       const valorOriginal = data[i]
       
-      // Aplicar contraste mejorado con enfoque muy sutil para preservar detalles
+      // ✅ CONTRASTE MUY SUAVE (NO binarización pura)
+      // Preserva ABSOLUTAMENTE todos los bordes suaves y anti-aliasing de las letras
       if (valorOriginal < umbralAjustado) {
-        // Para píxeles oscuros, conservamos 65% del valor original
-        // Esto preserva mucho mejor los trazos finos y detalles del texto
-        const nuevoValor = Math.max(0, valorOriginal * 0.65)
+        // Píxeles oscuros (letras) → Oscurecer al 60% para máxima preservación
+        // Esto mantiene TODOS los detalles finos, bordes y anti-aliasing
+        const nuevoValor = Math.max(0, Math.floor(valorOriginal * 0.6))
         data[i] = data[i+1] = data[i+2] = nuevoValor
       } else {
-        // Para píxeles claros, muy conservadores
-        const nuevoValor = Math.min(255, 190 + (valorOriginal - umbralAjustado) * 0.65)
-        data[i] = data[i+1] = data[i+2] = nuevoValor
+        // Píxeles claros (fondo) → BLANCO PURO para contraste
+        data[i] = data[i+1] = data[i+2] = 255
       }
       // El canal alpha (i+3) se mantiene igual
     }
@@ -216,12 +216,14 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
       const data = imageData.data
       
       // 1. Convertir a escala de grises / blanco y negro
+      // ✅ AJUSTADO: Contraste muy suave + brillo mínimo para máxima preservación
       for (let i = 0; i < data.length; i += 4) {
         const grayValue = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
         
-        // Aumentar un poco el contraste para resaltar texto
-        const contrastFactor = 1.2
-        const contrastedValue = Math.min(255, Math.max(0, (grayValue - 128) * contrastFactor + 128))
+        // ✅ AJUSTADO: Contraste y brillo MUY suaves para preservar TODOS los detalles
+        const contrastFactor = 1.3  // Contraste muy suave (era 1.2 original)
+        const brightness = 10        // Brillo mínimo para blancos
+        const contrastedValue = Math.min(255, Math.max(0, (grayValue - 128) * contrastFactor + 128 + brightness))
         
         // Asignar el valor a los canales R, G, B (escala de grises)
         data[i] = contrastedValue     // R
@@ -367,69 +369,18 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
       const anchoBorde = bordeDerecho - bordeIzquierdo
       const altoBorde = bordeInferior - bordeSuperior
       
-      // FORZAMOS el recorte siempre para que sea visible la transformación
-      // Criterios adaptativos en función de la distribución de píxeles
+      // ✅ DESACTIVADO: NO recortar la imagen automáticamente
+      // El usuario quiere ver la imagen completa sin recortes
       
-      // Calculamos la cobertura de la imagen (píxeles oscuros vs total)
-      const pixelesOscuros = histograma.slice(0, umbralOscuro).reduce((sum, freq) => sum + freq, 0)
-      const porcentajeOscuro = pixelesOscuros / pixelesTotales
+      console.log('Recorte automático DESACTIVADO - manteniendo imagen completa')
       
-      console.log('Porcentaje de píxeles oscuros:', Math.round(porcentajeOscuro * 100) + '%')
+      // Forzar que NO se recorte nada
+      const recortarHorizontal = false
+      const recortarVertical = false
       
-      // Calculamos límites adaptativos basándonos en la cobertura
-      // Si hay muchos píxeles oscuros, somos más conservadores con el recorte
-      const limiteInferior = porcentajeOscuro > 0.1 ? 0.3 : 0.5
-      const limiteSuperior = porcentajeOscuro > 0.1 ? 0.95 : 0.98
-      
-      let recortarHorizontal = anchoBorde < (canvas.width * limiteSuperior) && anchoBorde > (canvas.width * limiteInferior)
-      let recortarVertical = altoBorde < (canvas.height * limiteSuperior) && altoBorde > (canvas.height * limiteInferior)
-      
-      // Si no se cumplen las condiciones para recorte horizontal o vertical, forzamos un recorte predeterminado
-      if (!recortarHorizontal && !recortarVertical) {
-        // Recorte predeterminado adaptativo según la densidad de píxeles oscuros
-        const recorteMinimo = porcentajeOscuro > 0.1 ? 0.05 : 0.08
-        
-        console.log('Aplicando recorte predeterminado adaptativo:', recorteMinimo * 100 + '%')
-        
-        bordeSuperior = Math.floor(canvas.height * recorteMinimo)
-        bordeInferior = Math.floor(canvas.height * (1 - recorteMinimo))
-        bordeIzquierdo = Math.floor(canvas.width * recorteMinimo) 
-        bordeDerecho = Math.floor(canvas.width * (1 - recorteMinimo))
-        
-        recortarHorizontal = true
-        recortarVertical = true
-      }
-      
-      // Crear nuevo canvas solo con la región recortada
-      const canvasFinal = document.createElement('canvas')
-      const ctxFinal = canvasFinal.getContext('2d')
-      
-      if (!ctxFinal) {
-        throw new Error('No se pudo crear el contexto del canvas final')
-      }
-      
-      // Dimensiones del área recortada
-      const anchoFinal = recortarHorizontal ? anchoBorde : canvas.width
-      const altoFinal = recortarVertical ? altoBorde : canvas.height
-      
-      // Configurar tamaño del canvas final
-      canvasFinal.width = anchoFinal
-      canvasFinal.height = altoFinal
-      
-      // Copiar solo la región recortada al canvas final
-      const xOrigen = recortarHorizontal ? bordeIzquierdo : 0
-      const yOrigen = recortarVertical ? bordeSuperior : 0
-      
-      ctxFinal.drawImage(
-        canvas, 
-        xOrigen, yOrigen, anchoFinal, altoFinal,
-        0, 0, anchoFinal, altoFinal
-      )
-      
-      // Reemplazar el canvas original con el recortado
-      canvas.width = canvasFinal.width
-      canvas.height = canvasFinal.height
-      ctx.drawImage(canvasFinal, 0, 0)
+      // ✅ SIMPLIFICADO: Como no recortamos, usamos el canvas original directamente
+      // No se necesita crear un canvas final ni copiar regiones
+      console.log('Usando imagen completa sin recorte:', canvas.width, 'x', canvas.height)
       
       // Convertir el canvas a Blob/File
       const nuevaImagenPromise = new Promise<File>((resolve, reject) => {
