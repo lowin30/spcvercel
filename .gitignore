@@ -26,3 +26,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Archivos de diagnóstico temporal (no subir a producción)
+DIAG-*.sql
+DIAGNOSTICO-*.sql
+EJECUTAR-DIAGNOSTICO-*.md
+ANALISIS-USO-*.md
+PLAN-OPTIMIZACION-*.md
+README-OPTIMIZACION-*.md
