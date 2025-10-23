@@ -8,16 +8,24 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { DesgloseGastosReales } from '@/components/desglose-gastos-reales'
 
 // Tipos
 interface PresupuestoFinal {
   id: number
+  code: string
   id_tarea: number
   total: number
   total_base: number
-  id_supervisor?: string | null
+  id_estado: number
+  aprobado: boolean
+  rechazado: boolean
+  observaciones_admin: string | null
+  id_supervisor: string | null
+  email_supervisor: string | null
   tareas: {
     titulo: string
     id: number
@@ -26,12 +34,19 @@ interface PresupuestoFinal {
     id: number
     total: number
   }
+  supervisores_tareas: {
+    id_supervisor: string
+    usuarios: {
+      email: string
+    }
+  }
 }
 
 type Calculos = {
   gananciaNeta: number
   gananciaSupervisor: number
   gananciaAdmin: number
+  totalSupervisor: number  // ✅ NUEVO: Total a pagar al supervisor (ganancia + gastos)
   sobrecosto: boolean
   montoSobrecosto: number
   sobrecostoSupervisor: number
@@ -64,6 +79,11 @@ export default function NuevaLiquidacionSupervisorPage () {
   const [gastosReales, setGastosReales] = useState<number | null>(null)
   const [ajusteAdmin, setAjusteAdmin] = useState<number>(0)
 
+  // Estados de filtros
+  const [filtroEstado, setFiltroEstado] = useState<number[]>([3, 4]) // Aceptados y Facturados por defecto
+  const [filtroSupervisor, setFiltroSupervisor] = useState(true) // Solo con supervisor por defecto
+  const [busquedaTexto, setBusquedaTexto] = useState("")
+
   // Efecto para verificar permisos al cargar la página
   useEffect(() => {
     const checkAuthorization = async () => {
@@ -84,23 +104,34 @@ export default function NuevaLiquidacionSupervisorPage () {
 
     try {
       // 1. Obtenemos los presupuestos finales sin liquidación
-      const { data: presupuestosData, error: presupuestosError } = await supabase
+      let query = supabase
         .from('presupuestos_finales')
         .select(`
           id,
+          code,
           id_tarea,
           total,
           total_base,
-          tareas (
-            id,
-            titulo
-          ),
-          presupuestos_base (
-            id,
-            total
-          )
+          id_estado,
+          aprobado,
+          rechazado,
+          observaciones_admin,
+          tareas (id, titulo),
+          presupuestos_base (id, total)
         `)
-        .is('id_liquidacion_supervisor', null) // Filtrar donde no hay liquidación
+        .is('id_liquidacion_supervisor', null)
+
+      // Aplicar filtros
+      if (filtroEstado && filtroEstado.length > 0) {
+        query = query.in('id_estado', filtroEstado)
+      }
+
+      // Aplicar búsqueda si hay texto
+      if (busquedaTexto) {
+        query = query.ilike('tareas.titulo', `%${busquedaTexto}%`)
+      }
+
+      const { data: presupuestosData, error: presupuestosError } = await query.order('total_base', { ascending: false })
 
       if (presupuestosError) {
         throw presupuestosError
@@ -114,36 +145,42 @@ export default function NuevaLiquidacionSupervisorPage () {
 
       // 2. Para cada presupuesto, obtenemos el supervisor de la tarea asociada
       const presupuestosConSupervisores = await Promise.all(presupuestosData.map(async (presupuesto: any) => {
-        // Obtenemos el id_tarea del presupuesto
         const idTarea = presupuesto.id_tarea
 
         if (!idTarea) {
           return {
             ...presupuesto,
-            id_supervisor: null
+            id_supervisor: null,
+            email_supervisor: null
           }
         }
 
         // Buscamos en supervisores_tareas el supervisor asignado a esta tarea
         const { data: supervisorData, error: supervisorError } = await supabase
           .from('supervisores_tareas')
-          .select('id_supervisor')
+          .select('id_supervisor, usuarios (email)')
           .eq('id_tarea', idTarea)
-          .limit(1) // Tomamos solo el primer supervisor si hay varios
+          .limit(1)
           .maybeSingle()
 
         if (supervisorError) {
-          // Si hay un error que no sea 'cero filas' (que maybeSingle maneja), lo lanzamos
-          throw supervisorError
+          console.error('Error al obtener supervisor:', supervisorError)
         }
 
         return {
           ...presupuesto,
-          id_supervisor: supervisorData?.id_supervisor || null
+          id_supervisor: supervisorData?.id_supervisor || null,
+          email_supervisor: supervisorData?.usuarios?.email || null  // ✅ CORREGIDO: usuarios es objeto, no array
         }
       }))
 
-      setPresupuestos(presupuestosConSupervisores as PresupuestoFinal[])
+      // 3. Filtrar por supervisor si está activo el filtro
+      let presupuestosFiltrados = presupuestosConSupervisores
+      if (filtroSupervisor) {
+        presupuestosFiltrados = presupuestosConSupervisores.filter(p => p.id_supervisor !== null)
+      }
+
+      setPresupuestos(presupuestosFiltrados as PresupuestoFinal[])
     } catch (error) {
       toast.error('Error al cargar los presupuestos.')
       console.error(error)
@@ -157,7 +194,7 @@ export default function NuevaLiquidacionSupervisorPage () {
     if (isAuthorized) {
       fetchPresupuestosSinLiquidar()
     }
-  }, [isAuthorized])
+  }, [isAuthorized, filtroEstado, filtroSupervisor])
 
   // Presupuesto seleccionado
   const selectedPresupuesto = useMemo(() => {
@@ -206,11 +243,15 @@ export default function NuevaLiquidacionSupervisorPage () {
     const montoSobrecosto = haySobrecosto ? Math.abs(gananciaNeta) : 0
     const sobrecostoSupervisor = haySobrecosto ? Math.abs(gananciaSupervisor) : 0
     const sobrecostoAdmin = haySobrecosto ? Math.abs(gananciaAdmin) : 0
+    
+    // ✅ NUEVO: Total que recibe el supervisor (ganancia + gastos reales para pagarlos)
+    const totalSupervisor = gananciaSupervisor + gastosReales
 
     return {
       gananciaNeta, 
       gananciaSupervisor, 
       gananciaAdmin,
+      totalSupervisor,  // ✅ NUEVO
       sobrecosto: haySobrecosto,
       montoSobrecosto,
       sobrecostoSupervisor,
@@ -268,6 +309,7 @@ export default function NuevaLiquidacionSupervisorPage () {
           ganancia_neta: calculos.gananciaNeta,
           ganancia_supervisor: calculos.gananciaSupervisor,
           ganancia_admin: calculos.gananciaAdmin,
+          total_supervisor: calculos.totalSupervisor, // ✅ NUEVO: Total que recibe el supervisor
           code: code, // Código único generado
           total_base: selectedPresupuesto.total_base, // Total base del presupuesto
           ajuste_admin: ajusteAdmin, // Ajuste administrativo
@@ -295,7 +337,7 @@ export default function NuevaLiquidacionSupervisorPage () {
         toast.error('La liquidación se creó, pero falló al actualizar el presupuesto.')
         console.error('Error al actualizar presupuesto_final:', updateError)
       } else {
-        toast.success('Liquidación creada y presupuesto actualizado con éxito!')
+        toast.success('Liquidación creada con éxito!')
       }
 
       // Resetear estado
@@ -327,8 +369,54 @@ export default function NuevaLiquidacionSupervisorPage () {
       <h1 className="text-2xl font-bold mb-4">Crear Nueva Liquidación de Supervisor</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Columna de Selección y Creación */}
+        {/* Columna de Filtros y Selección */}
         <div className="space-y-6">
+          {/* Filtros */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Filtros</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Button
+                  variant={filtroEstado.length === 2 && filtroEstado.includes(3) && filtroEstado.includes(4) ? "default" : "outline"}
+                  onClick={() => setFiltroEstado([3, 4])}
+                  size="sm"
+                >
+                  Aceptados/Facturados
+                </Button>
+                <Button
+                  variant={filtroEstado.length === 0 ? "default" : "outline"}
+                  onClick={() => setFiltroEstado([])}
+                  size="sm"
+                >
+                  Todos
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={filtroSupervisor ? "default" : "outline"}
+                  onClick={() => setFiltroSupervisor(!filtroSupervisor)}
+                  size="sm"
+                >
+                  {filtroSupervisor ? "Con Supervisor" : "Todas"}
+                </Button>
+              </div>
+              <Input
+                placeholder="Buscar por título de tarea..."
+                value={busquedaTexto}
+                onChange={(e) => setBusquedaTexto(e.target.value)}
+              />
+              <Button
+                onClick={fetchPresupuestosSinLiquidar}
+                disabled={loading}
+                size="sm"
+              >
+                Aplicar Filtros
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>1. Seleccionar Tarea a Liquidar</CardTitle>
@@ -346,7 +434,19 @@ export default function NuevaLiquidacionSupervisorPage () {
                 <SelectContent>
                   {presupuestos.map(p => (
                     <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.tareas?.titulo || 'Tarea sin título'} (ID: {p.id})
+                      <div className="flex flex-col gap-1 py-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{p.tareas?.titulo || 'Tarea sin título'}</span>
+                          <Badge className="bg-green-100 text-green-800 text-xs">
+                            {p.id_estado === 3 ? 'Aceptado' : p.id_estado === 4 ? 'Facturado' : 'Otro'}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex flex-col sm:flex-row sm:gap-3">
+                          <span>Base: ${p.presupuestos_base?.total?.toLocaleString() || 'N/A'}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span>Supervisor: {p.email_supervisor || 'Sin asignar'}</span>
+                        </div>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -447,11 +547,45 @@ export default function NuevaLiquidacionSupervisorPage () {
                           </div>
                         </>
                       )}
+                      
+                      {/* ✅ NUEVO: Mostrar total para supervisor */}
+                      <hr className="my-3" />
+                      <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                        <p className="text-xs text-muted-foreground mb-2 text-center font-medium">LIQUIDACIÓN FINAL - SUPERVISOR</p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span>Ganancia del Supervisor:</span>
+                            <MontoFormateado valor={calculos.gananciaSupervisor} />
+                          </div>
+                          <div className="flex justify-between">
+                            <span>(+) Gastos Reales (reembolso):</span>
+                            <span className="font-mono">${gastosReales?.toLocaleString('es-AR')}</span>
+                          </div>
+                          <hr className="my-2" />
+                          <div className="flex justify-between font-bold text-base text-primary">
+                            <span>TOTAL A PAGAR:</span>
+                            <span className="font-mono">${calculos.totalSupervisor.toLocaleString('es-AR')}</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2 text-center italic">
+                          * Incluye reembolso de gastos pagados por el supervisor
+                        </p>
+                      </div>
                     </div>
                   </>
                 )}
               </CardContent>
             </Card>
+          )}
+          
+          {/* ✅ NUEVO: Desglose de Gastos Reales */}
+          {selectedPresupuesto && gastosReales !== null && (
+            <div className="mt-6">
+              <DesgloseGastosReales 
+                idTarea={selectedPresupuesto.id_tarea} 
+                totalGastos={gastosReales}
+              />
+            </div>
           )}
         </div>
       </div>
