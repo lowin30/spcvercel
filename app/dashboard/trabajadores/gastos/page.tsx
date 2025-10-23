@@ -9,10 +9,13 @@ import { Label } from "@/components/ui/label"
 import { HistorialGastos } from "@/components/historial-gastos"
 import { HistorialGastosOCR } from "@/components/historial-gastos-ocr"
 import { HistorialJornalesTarea } from "@/components/historial-jornales-tarea"
+import { ResumenLiquidaciones } from "@/components/resumen-liquidaciones"
+import { HistorialJornalesGlobal } from "@/components/historial-jornales-global"
+import { HistorialPagos } from "@/components/historial-pagos"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase-client"
 import { UserSessionData, GastoCompleto } from "@/lib/types"
-import { Plus, Receipt, DollarSign, Loader2, CheckCircle2, AlertCircle, Check, X, ArrowLeft, CalendarDays } from "lucide-react"
+import { Plus, Receipt, DollarSign, Loader2, CheckCircle2, AlertCircle, Check, X, ArrowLeft, CalendarDays, TrendingUp } from "lucide-react"
 
 interface Tarea {
   id: number
@@ -23,6 +26,31 @@ interface Tarea {
 interface Liquidacion {
   gastos_reembolsados: number;
   created_at: string;
+  total_pagar: number;
+}
+
+interface ParteTrabajoConSalario {
+  id: number;
+  fecha: string;
+  tipo_jornada: 'dia_completo' | 'medio_dia';
+  id_tarea: number;
+  id_trabajador: string;
+  liquidado: boolean;
+  titulo_tarea: string;
+  code_tarea: string;
+  nombre_edificio: string;
+  salario_diario: number;
+}
+
+interface ResumenPorTarea {
+  id_tarea: number;
+  titulo_tarea: string;
+  code_tarea: string;
+  gastos_monto: number;
+  gastos_count: number;
+  jornales_monto: number;
+  jornales_dias: number;
+  total_tarea: number;
 }
 
 export default function GastosPage() {
@@ -40,6 +68,11 @@ export default function GastosPage() {
   const [pendingStats, setPendingStats] = useState({ total: 0, count: 0 })
   const [historyFilter, setHistoryFilter] = useState<'all' | 'this_week' | 'pending_previous'>('all')
   const [filteredHistory, setFilteredHistory] = useState<GastoCompleto[]>([])
+  const [jornalesPendientes, setJornalesPendientes] = useState<ParteTrabajoConSalario[]>([])
+  const [totalJornales, setTotalJornales] = useState(0)
+  const [totalDias, setTotalDias] = useState(0)
+  const [desglosePorTarea, setDesglosePorTarea] = useState<ResumenPorTarea[]>([])
+  const [tabActual, setTabActual] = useState('resumen')
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -66,22 +99,29 @@ export default function GastosPage() {
         gastosQuery = gastosQuery.eq('id_usuario', session.user.id);
       }
 
-      const [gastosResponse, liquidacionResponse, tareasResponse] = await Promise.all([
+      const [gastosResponse, liquidacionResponse, tareasResponse, jornalesResponse] = await Promise.all([
         gastosQuery.order('fecha_gasto', { ascending: false }),
         supabase
           .from('liquidaciones_trabajadores')
-          .select('gastos_reembolsados, created_at')
+          .select('gastos_reembolsados, created_at, total_pagar')
           .eq('id_trabajador', session.user.id)
           .order('created_at', { ascending: false })
           .limit(1),
         userData.rol === 'trabajador' ?
           supabase.from('trabajadores_tareas').select('tareas(id, titulo, code)').eq('id_trabajador', session.user.id) :
-          supabase.from('tareas').select('id, titulo, code').eq('finalizada', false).order('titulo')
+          supabase.from('tareas').select('id, titulo, code').eq('finalizada', false).order('titulo'),
+        supabase
+          .from('vista_partes_trabajo_completa')
+          .select('*')
+          .eq('id_trabajador', session.user.id)
+          .eq('liquidado', false)
+          .order('fecha', { ascending: false })
       ]);
 
       if (gastosResponse.error) throw new Error(gastosResponse.error.message);
       if (liquidacionResponse.error) throw new Error(liquidacionResponse.error.message);
       if (tareasResponse.error) throw new Error(tareasResponse.error.message);
+      if (jornalesResponse.error) throw new Error(jornalesResponse.error.message);
 
       const gastos = gastosResponse.data as GastoCompleto[] || [];
       setAllNonLiquidatedExpenses(gastos);
@@ -106,6 +146,90 @@ export default function GastosPage() {
         total: gastosPendientesAnteriores.reduce((sum, g) => sum + g.monto, 0),
         count: gastosPendientesAnteriores.length
       });
+
+      // Procesar jornales pendientes
+      const jornalesData = jornalesResponse.data || [];
+      const jornalesConSalario: ParteTrabajoConSalario[] = [];
+
+      for (const parte of jornalesData) {
+        // Obtener salario del trabajador
+        const { data: configData } = await supabase
+          .from('configuracion_trabajadores')
+          .select('salario_diario')
+          .eq('id_trabajador', parte.id_trabajador)
+          .single();
+
+        if (configData) {
+          jornalesConSalario.push({
+            ...parte,
+            salario_diario: configData.salario_diario
+          });
+        }
+      }
+
+      setJornalesPendientes(jornalesConSalario);
+
+      // Calcular total de jornales
+      const totalJornalesMonto = jornalesConSalario.reduce((sum, parte) => {
+        const monto = parte.tipo_jornada === 'dia_completo' ? parte.salario_diario : parte.salario_diario * 0.5;
+        return sum + monto;
+      }, 0);
+
+      const totalDiasTrabajados = jornalesConSalario.reduce((sum, parte) => {
+        return sum + (parte.tipo_jornada === 'dia_completo' ? 1 : 0.5);
+      }, 0);
+
+      setTotalJornales(totalJornalesMonto);
+      setTotalDias(totalDiasTrabajados);
+
+      // Calcular desglose por tarea
+      const tareaMap: Record<number, ResumenPorTarea> = {};
+
+      // Agregar gastos
+      gastos.forEach(gasto => {
+        if (!tareaMap[gasto.id_tarea]) {
+          tareaMap[gasto.id_tarea] = {
+            id_tarea: gasto.id_tarea,
+            titulo_tarea: gasto.titulo_tarea,
+            code_tarea: gasto.code_tarea,
+            gastos_monto: 0,
+            gastos_count: 0,
+            jornales_monto: 0,
+            jornales_dias: 0,
+            total_tarea: 0
+          };
+        }
+        tareaMap[gasto.id_tarea].gastos_monto += gasto.monto;
+        tareaMap[gasto.id_tarea].gastos_count += 1;
+      });
+
+      // Agregar jornales
+      jornalesConSalario.forEach(parte => {
+        if (!tareaMap[parte.id_tarea]) {
+          tareaMap[parte.id_tarea] = {
+            id_tarea: parte.id_tarea,
+            titulo_tarea: parte.titulo_tarea,
+            code_tarea: parte.code_tarea,
+            gastos_monto: 0,
+            gastos_count: 0,
+            jornales_monto: 0,
+            jornales_dias: 0,
+            total_tarea: 0
+          };
+        }
+        const monto = parte.tipo_jornada === 'dia_completo' ? parte.salario_diario : parte.salario_diario * 0.5;
+        const dias = parte.tipo_jornada === 'dia_completo' ? 1 : 0.5;
+        tareaMap[parte.id_tarea].jornales_monto += monto;
+        tareaMap[parte.id_tarea].jornales_dias += dias;
+      });
+
+      // Calcular totales por tarea
+      const resumenTareas = Object.values(tareaMap).map(tarea => ({
+        ...tarea,
+        total_tarea: tarea.gastos_monto + tarea.jornales_monto
+      }));
+
+      setDesglosePorTarea(resumenTareas.sort((a, b) => b.total_tarea - a.total_tarea));
 
     } catch (error: any) {
       console.error("Error cargando datos:", error);
@@ -160,7 +284,12 @@ export default function GastosPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{mostrarFormulario ? 'Registrar Nuevo Gasto' : 'Gastos de Materiales'}</h1>
+        <div>
+          <h1 className="text-3xl font-bold">{mostrarFormulario ? 'Registrar Nuevo Gasto' : 'Mi Centro de Liquidaciones'}</h1>
+          {!mostrarFormulario && (
+            <p className="text-muted-foreground mt-1">Gestiona tus gastos, jornales y pagos en un solo lugar</p>
+          )}
+        </div>
         {!mostrarFormulario && (
           <Button 
             onClick={() => setMostrarFormulario(true)} 
@@ -275,57 +404,66 @@ export default function GastosPage() {
           </Card>
         )
       ) : (
-        <>
-          {/* Resumen rápido */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card onClick={() => setHistoryFilter('this_week')} className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Gastos de Esta Semana</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">${weekStats.total.toLocaleString('es-CL')}</div>
-                <p className="text-xs text-muted-foreground">{weekStats.count} comprobantes registrados</p>
-              </CardContent>
-            </Card>
-            <Card onClick={() => pendingStats.total > 0 && setHistoryFilter('pending_previous')} className={pendingStats.total > 0 ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pendiente de Pago (Acumulado)</CardTitle>
-                {pendingStats.total === 0 ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <AlertCircle className="h-4 w-4 text-red-500" />}
-              </CardHeader>
-              <CardContent>
-                {pendingStats.total === 0 ? (
-                  <>
-                    <div className="text-2xl font-bold text-green-600">¡Estás al día!</div>
-                    <p className="text-xs text-muted-foreground">No hay gastos atrapados.</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold text-red-600">${pendingStats.total.toLocaleString('es-CL')}</div>
-                    <p className="text-xs text-muted-foreground">{pendingStats.count} gastos de semanas anteriores sin pagar.</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Último Reembolso Pagado</CardTitle>
-                <Check className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {lastLiquidation ? `$${lastLiquidation.gastos_reembolsados.toLocaleString('es-CL')}` : 'N/A'}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {lastLiquidation ? `Pagado el ${new Date(lastLiquidation.created_at).toLocaleDateString('es-CL')}` : '---'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+        <Tabs value={tabActual} onValueChange={setTabActual} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="resumen" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Resumen</span>
+            </TabsTrigger>
+            <TabsTrigger value="gastos" className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              <span className="hidden sm:inline">Gastos</span>
+            </TabsTrigger>
+            <TabsTrigger value="jornales" className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />
+              <span className="hidden sm:inline">Jornales</span>
+            </TabsTrigger>
+            <TabsTrigger value="historial" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">Pagos</span>
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Historial de Gastos */}
-          <HistorialGastos gastos={filteredHistory} isLoading={loading} />
-        </>
+          <TabsContent value="resumen" className="mt-6">
+            <ResumenLiquidaciones
+              userId={usuario?.id || ''}
+              userRole={usuario?.rol || 'trabajador'}
+              gastosPendientes={{
+                total: allNonLiquidatedExpenses.reduce((sum, g) => sum + g.monto, 0),
+                count: allNonLiquidatedExpenses.length
+              }}
+              jornalesPendientes={{
+                total: totalJornales,
+                count: jornalesPendientes.length,
+                dias: totalDias
+              }}
+              ultimaLiquidacion={lastLiquidation ? {
+                monto: lastLiquidation.total_pagar,
+                fecha: lastLiquidation.created_at
+              } : null}
+              desglosePorTarea={desglosePorTarea}
+            />
+          </TabsContent>
+
+          <TabsContent value="gastos" className="mt-6">
+            <HistorialGastos gastos={filteredHistory} isLoading={loading} />
+          </TabsContent>
+
+          <TabsContent value="jornales" className="mt-6">
+            <HistorialJornalesGlobal
+              userId={usuario?.id || ''}
+              userRole={usuario?.rol || 'trabajador'}
+              showOnlyPending={true}
+            />
+          </TabsContent>
+
+          <TabsContent value="historial" className="mt-6">
+            <HistorialPagos
+              userId={usuario?.id || ''}
+              userRole={usuario?.rol || 'trabajador'}
+            />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   )

@@ -111,14 +111,19 @@ LIMIT 5;
 -- ========================================
 -- 9. DATOS DE EJEMPLO - liquidaciones_trabajadores
 -- ========================================
+-- Primero ver todos los campos disponibles
+SELECT 
+  '=== CAMPOS liquidaciones_trabajadores ===' as info,
+  column_name, 
+  data_type
+FROM information_schema.columns
+WHERE table_name = 'liquidaciones_trabajadores'
+ORDER BY ordinal_position;
+
+-- Luego ver datos de ejemplo (SIN asumir campos)
 SELECT 
   '=== EJEMPLO liquidaciones_trabajadores ===' as seccion,
-  id,
-  id_trabajador,
-  gastos_reembolsados,
-  total_jornales,
-  total_general,
-  created_at
+  *
 FROM liquidaciones_trabajadores
 ORDER BY created_at DESC
 LIMIT 3;

@@ -2,8 +2,52 @@
 ## Sistema "Mis Liquidaciones" - Centro Unificado de Pagos
 
 **Fecha:** 23 de Octubre, 2025  
-**Estado:** 🟡 ANÁLISIS - ESPERANDO CONSULTAS A SUPABASE  
+**Estado:** 🟢 INFORMACIÓN CRÍTICA CONFIRMADA  
 **Objetivo:** Verificar TODO antes de implementar, sin hacer suposiciones
+
+---
+
+## ✅ **INFORMACIÓN CONFIRMADA POR USUARIO**
+
+### **1. Vista `vista_partes_trabajo_completa` - ✅ EXISTE**
+
+**Campos disponibles:**
+- `id`, `created_at`, `id_trabajador`, `id_tarea`, `fecha`, `tipo_jornada`
+- `id_registrador`, `comentarios`, `liquidado`, `id_liquidacion`
+- `titulo_tarea`, `code_tarea`, `email_trabajador`, `nombre_edificio`
+
+**Campo crítico:** `liquidado` (boolean) - para filtrar pendientes
+
+---
+
+### **2. Diferencia entre las DOS tablas de liquidaciones - ✅ CONFIRMADO**
+
+**`liquidaciones_trabajadores`:**
+- 💰 Para pagar a trabajadores
+- ⏰ Se hace semanalmente (al finalizar cada semana)
+- 👷 Incluye jornales + gastos de trabajadores
+
+**`liquidaciones_nuevas`:**
+- 💼 Para liquidar a supervisores
+- 🏗️ Se paga cuando terminan la tarea que supervisan
+- 📊 Basada en presupuestos finales
+
+---
+
+### **3. Supervisores pueden registrar partes de trabajo - ✅ CONFIRMADO**
+
+Los supervisores SÍ pueden:
+- Registrar sus propios partes de trabajo
+- En las tareas que supervisan
+- Por lo tanto, también tienen jornales pendientes como trabajadores
+
+---
+
+### **4. Campo `id_liquidacion` en partes_de_trabajo - ✅ CONFIRMADO**
+
+- Apunta a `liquidaciones_trabajadores`
+- Se usa para marcar partes como liquidados
+- Filtrar pendientes: `WHERE id_liquidacion IS NULL` o `WHERE liquidado = false`
 
 ---
 
