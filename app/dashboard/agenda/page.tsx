@@ -8,11 +8,13 @@ import { AgendaFilters } from "@/components/agenda-filters"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AgendaList } from "@/components/agenda-list"
 import { Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase-client"
 
 export default function AgendaPage() {
   const [tareas, setTareas] = useState<any[]>([])
   const [tareasCalendar, setTareasCalendar] = useState<any[]>([])
+  const [calendarFilter, setCalendarFilter] = useState<'ambos' | 'trabajo' | 'visitas'>('ambos')
   const [edificios, setEdificios] = useState<any[]>([])
   const [usuarios, setUsuarios] = useState<any[]>([])
   const [estadosTareas, setEstadosTareas] = useState<any[]>([])
@@ -182,8 +184,11 @@ export default function AgendaPage() {
         const tareasVisitas = tareasResponse.data || []
         setTareas(tareasVisitas)
 
+        // Anotar tipo para el calendario
+        const visitasConTipo = (tareasVisitas || []).map((t: any) => ({ ...t, tipo: 'visita' as const }))
+
         // Por defecto, el calendario muestra al menos las visitas
-        let calendarioCombinado: any[] = [...tareasVisitas]
+        let calendarioCombinado: any[] = [...visitasConTipo]
 
         // Agregar "trabajo real" desde partes_de_trabajo (solo para el calendario)
         try {
@@ -268,6 +273,7 @@ export default function AgendaPage() {
                 prioridad: it.prioridad || 'media',
                 estado_tarea: it.estado_tarea,
                 fecha_visita: `${g.fecha}T00:00:00`,
+                tipo: 'trabajo' as const,
                 // Campos adicionales que AgendaList ignora; CalendarView solo usa los anteriores
               })
             }
@@ -382,17 +388,28 @@ export default function AgendaPage() {
         <TabsContent value="calendario" className="mt-2">
           <Card className="shadow-sm overflow-hidden">
             <CardHeader className="px-3 py-2 sm:p-4">
-              <CardTitle className="text-base sm:text-lg">
-                Calendario de Tareas {tareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({tareas.length})</span>}
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base sm:text-lg">
+                  Calendario de Tareas {tareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({tareas.length})</span>}
+                </CardTitle>
+                <div className="flex items-center gap-1">
+                  <Button variant={calendarFilter === 'trabajo' ? 'default' : 'outline'} size="sm" onClick={() => setCalendarFilter('trabajo')}>Trabajo</Button>
+                  <Button variant={calendarFilter === 'visitas' ? 'default' : 'outline'} size="sm" onClick={() => setCalendarFilter('visitas')}>Visitas</Button>
+                  <Button variant={calendarFilter === 'ambos' ? 'default' : 'outline'} size="sm" onClick={() => setCalendarFilter('ambos')}>Ambos</Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0 sm:p-4">
               {/* Envolver el calendario en un try-catch para evitar que rompa toda la página */}
               {(() => {
                 try {
+                  const baseCal = (tareasCalendar && tareasCalendar.length > 0) ? tareasCalendar : (tareas || [])
+                  const filteredCal = calendarFilter === 'ambos'
+                    ? baseCal
+                    : baseCal.filter((t: any) => t?.tipo === (calendarFilter === 'trabajo' ? 'trabajo' : 'visita'))
                   return (
                     <CalendarWrapper 
-                      tareas={(tareasCalendar && tareasCalendar.length > 0) ? tareasCalendar : (tareas || [])} 
+                      tareas={filteredCal} 
                       estadosTareas={estadosTareas || []}
                       userRole={userDetails?.rol} 
                       userId={userDetails?.id} 
