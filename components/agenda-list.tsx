@@ -1,28 +1,25 @@
 "use client"
 
 import Link from "next/link"
+import { useMemo } from "react"
 import { formatDate, getEstadoTareaColor, getPrioridadColor } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Clock, AlertCircle } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
+// Interface optimizada: solo campos que vienen del servidor
 interface Tarea {
   id: number
+  code: string
   titulo: string
   descripcion: string | null
   prioridad: "baja" | "media" | "alta" | "urgente"
-  estado: "pendiente" | "asignada" | "completada" | "cancelada"
+  id_estado_nuevo: number
+  estado_tarea: string
   fecha_visita: string | null
-  code: string
-  // Campos de la vista tareas_completa
-  edificio_nombre: string
-  edificio_direccion: string
-  // Campos de trabajador y supervisor
-  trabajador_email?: string
-  trabajador_color?: string
-  supervisor_email?: string
-  supervisor_color?: string
+  nombre_edificio: string
+  trabajadores_emails?: string
 }
 
 interface AgendaListProps {
@@ -35,7 +32,9 @@ export function AgendaList({ tareas, userRole }: AgendaListProps) {
   const isMobile = useMediaQuery("(max-width: 768px)")
   
   // Ordenar tareas: primero las que tienen fecha de visita, luego por prioridad
-  const tareasOrdenadas = [...tareas].sort((a, b) => {
+  // Optimización: useMemo para evitar re-ordenar en cada render
+  const tareasOrdenadas = useMemo(() => {
+    return [...tareas].sort((a, b) => {
     // Si ambas tienen fecha de visita, ordenar por fecha
     if (a.fecha_visita && b.fecha_visita) {
       return new Date(a.fecha_visita).getTime() - new Date(b.fecha_visita).getTime()
@@ -44,10 +43,11 @@ export function AgendaList({ tareas, userRole }: AgendaListProps) {
     if (a.fecha_visita && !b.fecha_visita) return -1
     if (!a.fecha_visita && b.fecha_visita) return 1
 
-    // Si ninguna tiene fecha de visita, ordenar por prioridad
-    const prioridadOrden = { baja: 4, media: 3, alta: 2, urgente: 1 }
-    return prioridadOrden[a.prioridad] - prioridadOrden[b.prioridad]
-  })
+      // Si ninguna tiene fecha de visita, ordenar por prioridad
+      const prioridadOrden = { baja: 4, media: 3, alta: 2, urgente: 1 }
+      return prioridadOrden[a.prioridad] - prioridadOrden[b.prioridad]
+    })
+  }, [tareas])
 
   if (tareasOrdenadas.length === 0) {
     return (
@@ -79,14 +79,14 @@ export function AgendaList({ tareas, userRole }: AgendaListProps) {
               
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 pt-2 border-t">
                 <div className="flex items-center">
-                  <Badge variant="secondary" className={`${getEstadoTareaColor(tarea.estado)} text-[10px]`}>
-                    {tarea.estado}
+                  <Badge variant="secondary" className="text-[10px]">
+                    {tarea.estado_tarea || 'Sin estado'}
                   </Badge>
                 </div>
                 
                 <div className="flex items-center text-xs text-muted-foreground">
                   <MapPin className="h-3 w-3 mr-1" />
-                  <span className="truncate max-w-[100px] sm:max-w-[150px]">{tarea.edificio_nombre}</span>
+                  <span className="truncate max-w-[100px] sm:max-w-[150px]">{tarea.nombre_edificio}</span>
                 </div>
                 
                 {tarea.fecha_visita && (
@@ -96,14 +96,12 @@ export function AgendaList({ tareas, userRole }: AgendaListProps) {
                   </div>
                 )}
                 
-                {/* Mostrar el email del trabajador o supervisor */}
-                {(tarea.trabajador_email || tarea.supervisor_email) && (
+                {/* Mostrar trabajadores asignados */}
+                {tarea.trabajadores_emails && (
                   <div className="flex items-center text-xs text-muted-foreground ml-auto">
-                    <div
-                      className="w-3 h-3 rounded-full mr-1"
-                      style={{ backgroundColor: tarea.trabajador_color || tarea.supervisor_color || '#888888' }}
-                    />
-                    <span className="truncate max-w-[80px] sm:max-w-[150px]">{tarea.trabajador_email || tarea.supervisor_email}</span>
+                    <span className="truncate max-w-[80px] sm:max-w-[150px]">
+                      {tarea.trabajadores_emails}
+                    </span>
                   </div>
                 )}
               </div>

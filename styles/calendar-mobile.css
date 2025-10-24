@@ -10,59 +10,144 @@
     overflow-x: hidden !important;
   }
   
-  /* Ajustar altura de los días para evitar scrolling innecesario */
+  /* Altura adaptativa para las filas del mes - permite más líneas si hay más eventos */
   .rbc-month-view .rbc-month-row {
-    min-height: 5rem !important;
-    max-height: 6rem !important;
-    overflow: hidden;
+    min-height: 4.5rem !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   
-  /* Evitar que la vista mensual genere scroll horizontal */
+  /* Contenedor principal sin scroll */
   .rbc-month-view {
     max-width: 100% !important;
-    overflow-x: hidden !important;
+    overflow: hidden !important;
   }
   
-  /* Ajustar el ancho de las celdas */
-  .rbc-month-view .rbc-month-row .rbc-row-content {
+  /* Contenido de la fila - sin scroll */
+  .rbc-month-row .rbc-row-content {
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
   
-  /* Asegurar que las celdas de días se ajusten al ancho disponible */
+  /* Contenedor de eventos - sin scroll */
   .rbc-row-content .rbc-row {
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
   
-  .rbc-row-content .rbc-row .rbc-date-cell {
-    flex: 1 0 14.285% !important; /* 1/7 del ancho */
+  /* Celdas de fecha - Cada celda individual sin scroll */
+  .rbc-date-cell {
+    flex: 1 0 14.285% !important;
     max-width: 14.285% !important;
     min-width: 2rem !important;
+    overflow: hidden !important;
+    padding: 2px !important;
+    height: 100% !important;
   }
   
-  /* Ajustar toolbar */
+  /* Día individual - contenedor de la celda */
+  .rbc-month-view .rbc-day-bg {
+    overflow: hidden !important;
+  }
+  
+  /* Barra de herramientas */
   .rbc-toolbar {
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
+    gap: 0.25rem;
+    padding: 0.25rem 0;
+    margin-bottom: 0.5rem !important;
   }
   
-  /* Mejorar visibilidad de eventos en móvil */
+  /* Estilos de eventos */
   .rbc-event {
-    padding: 1px !important;
+    padding: 0 !important;
+    margin: 0 0 1px 0 !important;
     border-radius: 2px !important;
-    margin: 0 !important;
-    min-height: 1.5rem !important;
+    min-height: 16px !important;
+    max-height: 16px !important;
+    line-height: 16px !important;
     max-width: 100% !important;
+    overflow: hidden !important;
+    /* NO forzar background - el div interno lo maneja */
+    border: none !important;
+    box-shadow: none !important;
   }
   
-  /* Asegurar que el contenido de los eventos no desborde */
+  /* El div interno maneja los estilos visuales */
+  .rbc-event > div {
+    height: 100%;
+    width: 100%;
+  }
+  
+  /* Asegurar que el contenido del evento ocupe todo el espacio */
   .rbc-event-content {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Mejorar la visibilidad del indicador de más eventos */
+  .rbc-show-more {
     font-size: 0.7rem !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    color: #3B82F6 !important;
+    font-weight: 500;
+    margin-top: 2px;
+    padding: 0 2px;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 2px;
+    display: inline-block;
+    width: 100%;
+    text-align: left;
+  }
+  
+  /* Contenedor de eventos por día */
+  .rbc-month-view .rbc-row-content {
+    position: relative;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Contenedor de eventos en cada celda */
+  .rbc-month-view .rbc-row-content .rbc-row {
+    position: relative;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: none !important;
+  }
+  
+  /* Limitar eventos visibles por día - EVITA SCROLL VERTICAL */
+  .rbc-month-view .rbc-row-content .rbc-events-container {
+    margin: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  
+  /* Asegurar que los eventos no causen overflow */
+  .rbc-month-view .rbc-row .rbc-event {
+    flex-shrink: 0 !important;
+  }
+  
+  /* Mostrar indicador de más eventos si hay más de 3 */
+  .rbc-month-view .rbc-row-content .rbc-show-more {
+    display: block;
+    font-size: 9px !important;
+    line-height: 1;
+    padding: 0 2px;
+    margin-top: 1px;
+    color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 2px;
+    text-align: center;
   }
   
   /* Ajustar el popup de "mostrar más" */
@@ -115,9 +200,7 @@
   text-transform: capitalize;
 }
 
-.rbc-event {
-  background-color: var(--primary);
-}
+/* Los eventos manejan su propio background via inline styles */
 
 /* Optimizaciones para eventos superpuestos */
 .rbc-event-overlaps {

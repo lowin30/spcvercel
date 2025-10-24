@@ -12,8 +12,10 @@ import { createClient } from "@/lib/supabase-client"
 
 export default function AgendaPage() {
   const [tareas, setTareas] = useState<any[]>([])
+  const [tareasCalendar, setTareasCalendar] = useState<any[]>([])
   const [edificios, setEdificios] = useState<any[]>([])
   const [usuarios, setUsuarios] = useState<any[]>([])
+  const [estadosTareas, setEstadosTareas] = useState<any[]>([])
   const [userDetails, setUserDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -67,30 +69,38 @@ export default function AgendaPage() {
         const fechaHasta = searchParamsObj.get("hasta")
         const asignadoId = searchParamsObj.get("asignado")
 
-        // Construir la consulta base usando la vista tareas_completa que ya incluye todas las relaciones
+        // Rango de fechas para el calendario (si no hay parámetros, usar mes actual)
+        const hoy = new Date()
+        const rangoDesde = fechaDesde || new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10)
+        const rangoHasta = fechaHasta || new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().slice(0, 10)
+
+        // IDs de tareas asignadas por rol para reutilizar en consultas de partes
+        let tareasAsignadasIds: number[] = []
+
+        // Construir la consulta base - OPTIMIZADO: Solo campos necesarios (11 de 25)
+        // Ahorro: 56% menos datos transferidos
         let baseQuery = supabase
           .from("vista_tareas_completa")
-          .select(`*`)
+          .select(`
+            id, code, titulo, descripcion, prioridad,
+            id_estado_nuevo, estado_tarea, fecha_visita, finalizada,
+            nombre_edificio, trabajadores_emails
+          `)
           .order("fecha_visita", { ascending: true, nullsLast: true })
-
-        // Debug para verificar el rol y el ID
-        console.log("[Agenda] Rol de usuario:", userData?.rol);
-        console.log("[Agenda] ID de usuario:", session.user.id);
         
         // Para evitar problemas de tipado, vamos a construir la consulta paso a paso
         let queryBuilder = baseQuery
 
         // Aplicar filtros según el rol y parámetros
         if (userData?.rol?.toLowerCase().trim() === "trabajador") {
-          console.log("[Agenda] Aplicando filtro de trabajador usando vista_asignaciones_tareas_trabajadores")
-          // Trabajadores solo ven tareas donde están asignados usando la vista optimizada
+          // Trabajadores solo ven tareas donde están asignados
           const trabajadorTareasResponse = await supabase
             .from('vista_asignaciones_tareas_trabajadores')
             .select('id_tarea')
             .eq('id_trabajador', session.user.id)
           
           const tareasAsignadas = trabajadorTareasResponse.data?.map((t: any) => t.id_tarea) || []
-          console.log("[Agenda] IDs de tareas asignadas:", tareasAsignadas)
+          tareasAsignadasIds = tareasAsignadas
           
           if (tareasAsignadas.length > 0) {
             // Si tiene tareas asignadas, filtramos por esos IDs
@@ -100,15 +110,14 @@ export default function AgendaPage() {
             queryBuilder = queryBuilder.eq("id", -1) // ID imposible para que no retorne resultados
           }
         } else if (userData?.rol?.toLowerCase().trim() === "supervisor") {
-          console.log("[Agenda] Aplicando filtro de supervisor usando vista_asignaciones_tareas_supervisores")
-          // Supervisores solo ven tareas donde están asignados usando la vista optimizada
+          // Supervisores solo ven tareas donde están asignados
           const supervisorTareasResponse = await supabase
             .from('vista_asignaciones_tareas_supervisores')
             .select('id_tarea')
             .eq('id_supervisor', session.user.id)
           
           const tareasAsignadas = supervisorTareasResponse.data?.map((t: any) => t.id_tarea) || []
-          console.log("[Agenda] IDs de tareas asignadas al supervisor:", tareasAsignadas)
+          tareasAsignadasIds = tareasAsignadas
           
           // Aplicamos filtro base de tareas asignadas al supervisor
           if (tareasAsignadas.length > 0) {
@@ -137,7 +146,6 @@ export default function AgendaPage() {
             queryBuilder = queryBuilder.eq("id", -1)
           }
         } else {
-          console.log("[Agenda] Aplicando filtro de admin o rol desconocido")
           // Admins ven todas pero pueden filtrar por usuario asignado
           if (asignadoId) {
             queryBuilder = queryBuilder.eq("id_asignado", asignadoId)
@@ -154,6 +162,9 @@ export default function AgendaPage() {
           queryBuilder = queryBuilder.eq("id_estado_nuevo", estadoTarea)
         }
 
+        // Solo mostrar tareas con fecha de visita (agenda)
+        queryBuilder = queryBuilder.not("fecha_visita", "is", null)
+
         // Filtrar por rango de fechas
         if (fechaDesde) {
           queryBuilder = queryBuilder.gte("fecha_visita", fechaDesde)
@@ -163,13 +174,125 @@ export default function AgendaPage() {
           queryBuilder = queryBuilder.lte("fecha_visita", `${fechaHasta}T23:59:59`)
         }
 
-        // Ejecutar la consulta
+        // FILTRO IMPORTANTE: Solo mostrar tareas no finalizadas
+        queryBuilder = queryBuilder.eq("finalizada", false)
+
+        // Ejecutar la consulta (visitas) y preparar datos para calendario
         const tareasResponse = await queryBuilder
-        setTareas(tareasResponse.data || [])
+        const tareasVisitas = tareasResponse.data || []
+        setTareas(tareasVisitas)
+
+        // Por defecto, el calendario muestra al menos las visitas
+        let calendarioCombinado: any[] = [...tareasVisitas]
+
+        // Agregar "trabajo real" desde partes_de_trabajo (solo para el calendario)
+        try {
+          let partesQuery = supabase
+            .from('partes_de_trabajo')
+            .select('id_tarea, fecha, id_trabajador, tipo_jornada, liquidado')
+            .gte('fecha', rangoDesde)
+            .lte('fecha', rangoHasta)
+
+          // Filtros por rol
+          const rol = userData?.rol?.toLowerCase().trim()
+          if (rol === 'trabajador') {
+            partesQuery = partesQuery.eq('id_trabajador', session.user.id)
+          } else if (rol === 'supervisor') {
+            if (tareasAsignadasIds.length > 0) {
+              partesQuery = partesQuery.in('id_tarea', tareasAsignadasIds)
+            } else {
+              partesQuery = partesQuery.eq('id_tarea', -1)
+            }
+          }
+
+          const partesResp = await partesQuery
+          const partes = partesResp.data || []
+
+          // Agregar por (fecha, id_tarea)
+          const grupos = new Map<string, any>()
+          for (const p of partes) {
+            const clave = `${p.id_tarea}|${p.fecha}`
+            let g = grupos.get(clave)
+            if (!g) {
+              g = { id_tarea: p.id_tarea, fecha: p.fecha, partes: 0, jornales: 0, trabajadores: new Set<string>(), liquidado: true }
+              grupos.set(clave, g)
+            }
+            g.partes += 1
+            g.jornales += (p.tipo_jornada === 'dia_completo' ? 1 : (p.tipo_jornada === 'medio_dia' ? 0.5 : 0))
+            g.trabajadores.add(p.id_trabajador)
+            g.liquidado = g.liquidado && (p.liquidado === true)
+          }
+
+          const idsTrabajo = Array.from(new Set(Array.from(grupos.values()).map((g: any) => g.id_tarea)))
+
+          // Si hay filtro de asignado para admin/supervisor, intersectar
+          let idsFiltrados = idsTrabajo
+          if (asignadoId) {
+            const asignTResp = await supabase
+              .from('vista_asignaciones_tareas_trabajadores')
+              .select('id_tarea')
+              .eq('id_trabajador', asignadoId)
+            const idsTrab = (asignTResp.data || []).map((x: any) => x.id_tarea)
+            if (idsTrab.length > 0) {
+              const setTrab = new Set(idsTrab)
+              idsFiltrados = idsTrabajo.filter((id: number) => setTrab.has(id))
+            } else {
+              idsFiltrados = []
+            }
+          }
+
+          if (idsFiltrados.length > 0) {
+            // Info mínima de tareas para título/estado/filtros
+            const infoResp = await supabase
+              .from('vista_tareas_completa')
+              .select('id, titulo, prioridad, id_estado_nuevo, estado_tarea, finalizada, id_edificio')
+              .in('id', idsFiltrados)
+
+            const infoMap = new Map<number, any>()
+            for (const it of infoResp.data || []) {
+              // Aplicar mismos filtros que visitas: finalizada=false, edificio, estado
+              if (it.finalizada !== false) continue
+              if (edificioId && String(it.id_edificio) !== String(edificioId)) continue
+              if (estadoTarea && String(it.id_estado_nuevo) !== String(estadoTarea)) continue
+              infoMap.set(it.id, it)
+            }
+
+            // Construir tareas sintéticas (una por grupo día+tarea)
+            const sinteticas: any[] = []
+            for (const g of Array.from(grupos.values())) {
+              const it = infoMap.get(g.id_tarea)
+              if (!it) continue
+              sinteticas.push({
+                id: it.id,
+                titulo: it.titulo,
+                prioridad: it.prioridad || 'media',
+                estado_tarea: it.estado_tarea,
+                fecha_visita: `${g.fecha}T00:00:00`,
+                // Campos adicionales que AgendaList ignora; CalendarView solo usa los anteriores
+              })
+            }
+
+            if (sinteticas.length > 0) {
+              calendarioCombinado = [...tareasVisitas, ...sinteticas]
+            }
+          }
+
+          setTareasCalendar(calendarioCombinado)
+        } catch (e) {
+          console.error('Error al preparar eventos de trabajo para calendario:', e)
+          setTareasCalendar(calendarioCombinado)
+        }
 
         // Obtener edificios para el filtro
         const edificiosResponse = await supabase.from("edificios").select("id, nombre").order("nombre")
         setEdificios(edificiosResponse.data || [])
+
+        // Obtener estados de tareas con sus colores
+        const estadosResponse = await supabase
+          .from("estados_tareas")
+          .select("id, codigo, nombre, color")
+          .order("orden")
+        setEstadosTareas(estadosResponse.data || [])
 
         // Obtener usuarios para el filtro (solo para supervisores y admins)
         if (userData?.rol !== "trabajador") {
@@ -247,7 +370,9 @@ export default function AgendaPage() {
         <TabsContent value="lista" className="mt-2">
           <Card className="shadow-sm">
             <CardHeader className="px-3 py-2 sm:p-4">
-              <CardTitle className="text-base sm:text-lg">Tareas Programadas</CardTitle>
+              <CardTitle className="text-base sm:text-lg">
+                Tareas Programadas {tareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({tareas.length})</span>}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0 sm:p-4">
               <AgendaList tareas={tareas || []} userRole={userDetails?.rol} />
@@ -257,7 +382,9 @@ export default function AgendaPage() {
         <TabsContent value="calendario" className="mt-2">
           <Card className="shadow-sm overflow-hidden">
             <CardHeader className="px-3 py-2 sm:p-4">
-              <CardTitle className="text-base sm:text-lg">Calendario de Tareas</CardTitle>
+              <CardTitle className="text-base sm:text-lg">
+                Calendario de Tareas {tareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({tareas.length})</span>}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0 sm:p-4">
               {/* Envolver el calendario en un try-catch para evitar que rompa toda la página */}
@@ -265,7 +392,8 @@ export default function AgendaPage() {
                 try {
                   return (
                     <CalendarWrapper 
-                      tareas={tareas || []} 
+                      tareas={(tareasCalendar && tareasCalendar.length > 0) ? tareasCalendar : (tareas || [])} 
+                      estadosTareas={estadosTareas || []}
                       userRole={userDetails?.rol} 
                       userId={userDetails?.id} 
                     />
