@@ -340,6 +340,28 @@ export default function NuevaLiquidacionSupervisorPage () {
         toast.success('Liquidación creada con éxito!')
       }
 
+      // Marcar como pagados los gastos de admin/supervisor para esta tarea
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('liquidar_gastos_supervision', {
+          p_id_tarea: selectedPresupuesto.id_tarea,
+          p_id_liquidacion: liquidacionData.id
+        })
+        if (rpcError) {
+          console.error('Error al liquidar gastos de supervisión:', rpcError)
+          toast.warning('La liquidación se creó, pero no se pudieron marcar gastos de admin/supervisor')
+        } else {
+          const actualizados = Array.isArray(rpcData)
+            ? (rpcData[0]?.gastos_actualizados ?? 0)
+            : ((rpcData as any)?.gastos_actualizados ?? 0)
+          if (actualizados > 0) {
+            toast.success(`Se marcaron ${actualizados} gastos de admin/supervisor como pagados`)
+          }
+        }
+      } catch (e) {
+        console.error('Excepción al ejecutar liquidar_gastos_supervision:', e)
+        toast.warning('Liquidación creada, pero hubo un problema marcando gastos')
+      }
+
       // Resetear estado
       setSelectedPresupuestoId('')
       setGastosReales(null)
