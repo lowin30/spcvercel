@@ -298,6 +298,8 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           startAccessor="start"
           endAccessor="end"
           style={{ height: '100%' }}
+          defaultView="month"
+          views={['month']}
           selectable
           dayPropGetter={(date) => {
             if (!estaEnSemanaActual(date as Date)) {
