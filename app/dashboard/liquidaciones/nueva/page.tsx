@@ -229,33 +229,34 @@ export default function NuevaLiquidacionSupervisorPage () {
   const calculos = useMemo((): Calculos | null => {
     if (!selectedPresupuesto || !selectedPresupuesto.presupuestos_base || gastosReales === null) return null
 
-    const totalBase = selectedPresupuesto.presupuestos_base.total
-    const haySobrecosto = gastosReales > totalBase
+    const totalBaseInt = Math.round(selectedPresupuesto.presupuestos_base.total)
+    const gastosRealesInt = Math.round(gastosReales)
+    const haySobrecosto = gastosRealesInt > totalBaseInt
     
     // Calcular la ganancia neta (positiva o negativa)
-    const gananciaNeta = totalBase - gastosReales
+    const gananciaNetaInt = totalBaseInt - gastosRealesInt
     
     // Distribuir la ganancia/pérdida entre supervisor y administración
-    const gananciaSupervisor = gananciaNeta * 0.50
-    const gananciaAdmin = gananciaNeta * 0.50
+    const gananciaSupervisorInt = Math.round(gananciaNetaInt * 0.5)
+    const gananciaAdminInt = gananciaNetaInt - gananciaSupervisorInt
     
     // Calcular el sobrecosto (para mantener el campo sobrecosto)
-    const montoSobrecosto = haySobrecosto ? Math.abs(gananciaNeta) : 0
-    const sobrecostoSupervisor = haySobrecosto ? Math.abs(gananciaSupervisor) : 0
-    const sobrecostoAdmin = haySobrecosto ? Math.abs(gananciaAdmin) : 0
+    const montoSobrecostoInt = haySobrecosto ? Math.abs(gananciaNetaInt) : 0
+    const sobrecostoSupervisorInt = haySobrecosto ? Math.abs(gananciaSupervisorInt) : 0
+    const sobrecostoAdminInt = haySobrecosto ? Math.abs(gananciaAdminInt) : 0
     
     // ✅ NUEVO: Total que recibe el supervisor (ganancia + gastos reales para pagarlos)
-    const totalSupervisor = gananciaSupervisor + gastosReales
+    const totalSupervisorInt = gananciaSupervisorInt + gastosRealesInt
 
     return {
-      gananciaNeta, 
-      gananciaSupervisor, 
-      gananciaAdmin,
-      totalSupervisor,  // ✅ NUEVO
+      gananciaNeta: gananciaNetaInt, 
+      gananciaSupervisor: gananciaSupervisorInt, 
+      gananciaAdmin: gananciaAdminInt,
+      totalSupervisor: totalSupervisorInt,  // ✅ NUEVO
       sobrecosto: haySobrecosto,
-      montoSobrecosto,
-      sobrecostoSupervisor,
-      sobrecostoAdmin
+      montoSobrecosto: montoSobrecostoInt,
+      sobrecostoSupervisor: sobrecostoSupervisorInt,
+      sobrecostoAdmin: sobrecostoAdminInt
     }
   }, [selectedPresupuesto, gastosReales])
 
@@ -297,6 +298,10 @@ export default function NuevaLiquidacionSupervisorPage () {
       const randomSuffix = Math.floor(Math.random() * 1000)
       const code = `LIQ-${timestamp}-${randomSuffix}`
       
+      const gastosRealesIntForInsert = Math.round(gastosReales ?? 0)
+      const totalBaseIntForInsert = Math.round(selectedPresupuesto.total_base)
+      const ajusteAdminIntForInsert = Math.round(ajusteAdmin ?? 0)
+
       const { data: liquidacionData, error: liquidacionError } = await supabase
         .from('liquidaciones_nuevas')
         .insert({
@@ -305,14 +310,14 @@ export default function NuevaLiquidacionSupervisorPage () {
           id_tarea: selectedPresupuesto.id_tarea, // ID de la tarea
           id_usuario_admin: adminId,
           id_usuario_supervisor: supervisorId,
-          gastos_reales: gastosReales,
+          gastos_reales: gastosRealesIntForInsert,
           ganancia_neta: calculos.gananciaNeta,
           ganancia_supervisor: calculos.gananciaSupervisor,
           ganancia_admin: calculos.gananciaAdmin,
           total_supervisor: calculos.totalSupervisor, // ✅ NUEVO: Total que recibe el supervisor
           code: code, // Código único generado
-          total_base: selectedPresupuesto.total_base, // Total base del presupuesto
-          ajuste_admin: ajusteAdmin, // Ajuste administrativo
+          total_base: totalBaseIntForInsert, // Total base del presupuesto
+          ajuste_admin: ajusteAdminIntForInsert, // Ajuste administrativo
           id_factura: facturaData?.id || null, // Relación con la factura si existe
           sobrecosto: calculos.sobrecosto, // Indicador de sobrecosto
           monto_sobrecosto: calculos.montoSobrecosto, // Monto total del sobrecosto
