@@ -20,9 +20,13 @@ interface Trabajador {
 
 interface RegistroParteTrabajoFormProps {
   usuarioActual: any
+  tareaIdInicial?: number | null
+  onParteRegistrado?: () => void
+  fechaInicial?: Date
+  trabajadorIdInicial?: string | null
 }
 
-export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajoFormProps) {
+export function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabajadorIdInicial }: RegistroParteTrabajoFormProps) {
   const supabase = createClient()
 
   // Estados del componente
@@ -56,7 +60,13 @@ export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajo
       if (usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') {
         const { data, error } = await supabase.from('tareas').select('id, titulo').order('titulo', { ascending: true })
         if (error) toast({ title: 'Error', description: 'No se pudieron cargar las tareas.', variant: 'destructive' })
-        else setTareas(data || [])
+        else {
+          setTareas(data || [])
+          // Preseleccionar tarea si viene desde página de tarea
+          if (tareaIdInicial) {
+            setSelectedTareaId(Number(tareaIdInicial))
+          }
+        }
       } else { // Rol: trabajador
         const { data, error } = await supabase.from('vista_asignaciones_tareas_trabajadores').select('id_tarea, titulo_tarea').eq('id_trabajador', usuarioActual.id)
         if (error || !data) {
@@ -68,8 +78,10 @@ export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajo
           // Para trabajadores, SIEMPRE auto-seleccionar su propio ID como trabajador
           setSelectedTrabajadorId(usuarioActual.id)
           
-          // Auto-seleccionar tarea solo si hay exactamente 1
-          if (tareasUnicas.length === 1) {
+          // Si viene tareaIdInicial (página de tarea), usarla; si no, auto-seleccionar solo si hay 1
+          if (tareaIdInicial) {
+            setSelectedTareaId(Number(tareaIdInicial))
+          } else if (tareasUnicas.length === 1) {
             setSelectedTareaId(tareasUnicas[0].id)
           }
         }
@@ -77,7 +89,7 @@ export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajo
       setLoadingTareas(false)
     }
     fetchTareas()
-  }, [supabase, usuarioActual.id, usuarioActual.rol])
+  }, [supabase, usuarioActual.id, usuarioActual.rol, tareaIdInicial])
 
   // Efecto para cargar los trabajadores cuando se selecciona una tarea
   useEffect(() => {
@@ -101,6 +113,14 @@ export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajo
     }
     fetchTrabajadores()
   }, [selectedTareaId, supabase, usuarioActual.rol])
+
+  // Efecto: si es admin/supervisor y hay trabajadorIdInicial, preseleccionarlo cuando ya tengamos la lista
+  useEffect(() => {
+    if ((usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') && trabajadorIdInicial && selectedTareaId) {
+      // Verificamos si el trabajador inicial está en la lista, si no, igual lo seteamos y el calendario se mostrará
+      setSelectedTrabajadorId(trabajadorIdInicial)
+    }
+  }, [usuarioActual.rol, trabajadorIdInicial, selectedTareaId, trabajadores])
 
   if (loadingTareas) {
     return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -143,7 +163,7 @@ export function RegistroParteTrabajoForm({ usuarioActual }: RegistroParteTrabajo
       )}
 
       {/* Selector de Tarea SOLO para Trabajadores con múltiples tareas */}
-      {usuarioActual.rol === 'trabajador' && tareas.length > 1 && (
+      {usuarioActual.rol === 'trabajador' && tareas.length > 1 && !tareaIdInicial && (
         <div className="mb-4">
           <label htmlFor="tarea-select-trabajador" className="block text-sm font-medium text-gray-700 mb-2">
             Selecciona la tarea para registrar tus días de trabajo:

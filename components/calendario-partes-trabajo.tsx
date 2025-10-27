@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Calendar, Event } from 'react-big-calendar'
 import format from 'date-fns/format'
+import { startOfWeek, endOfWeek, isWithinInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { useSupabase } from '@/lib/supabase-provider'
@@ -12,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button"
 import { Loader2, Trash2, Sun, Moon, InfoIcon, AlertTriangle } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { toast } from "@/components/ui/use-toast"
 
 // Tipos
 type ParteDeTrabajo = Database['public']['Tables']['partes_de_trabajo']['Row']
@@ -26,6 +28,12 @@ interface CalendarEvent extends Event {
 type Jornada = 'dia_completo' | 'medio_dia'
 
 export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuarioActual }: CalendarioPartesTrabajoProps) {
+  // Helper: validar si una fecha pertenece a la semana actual (L→D) según locale
+  const estaEnSemanaActual = useCallback((d: Date) => {
+    const inicio = startOfWeek(new Date(), { locale: es })
+    const fin = endOfWeek(inicio, { locale: es })
+    return isWithinInterval(d, { start: inicio, end: fin })
+  }, [])
   // Función para colorear eventos según tarea
   const eventStyleGetter = (event: CalendarEvent) => {
     const esEstaTarea = event.resource.id_tarea === parseInt(tareaId)
@@ -101,6 +109,15 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   }, [fetchPartes])
 
   const openModalWithData = async (date: Date) => {
+    // Bloqueo visual inmediato: solo semana actual
+    if (!estaEnSemanaActual(date)) {
+      toast({
+        title: 'Fecha no permitida',
+        description: 'Solo puedes registrar/modificar en la semana actual (L→D).',
+        variant: 'destructive'
+      })
+      return
+    }
     setIsDialogOpen(true)
     setModalState({ date, isLoading: true, parteExistente: null, cargaTotalDia: 0, jornadaSeleccionada: '', partesEnOtrasTareas: [] })
 
@@ -144,19 +161,45 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
 
     const fechaISO = modalState.date.toISOString().split('T')[0]
 
+    // Validación previa a operación: semana actual
+    if (!estaEnSemanaActual(modalState.date)) {
+      toast({
+        title: 'Fecha fuera de rango',
+        description: 'Solo se permiten cambios en la semana actual (L→D).',
+        variant: 'destructive'
+      })
+      return
+    }
+
     if (modalState.parteExistente) {
       // Actualizar
       const { error } = await supabase
         .from('partes_de_trabajo')
         .update({ tipo_jornada: modalState.jornadaSeleccionada })
         .eq('id', modalState.parteExistente.id)
-      if (error) console.error('Error updating parte:', error)
+      if (error) {
+        console.error('Error updating parte:', error)
+        toast({
+          title: 'Operación no permitida',
+          description: 'No puedes modificar partes fuera de la semana actual o en semanas cerradas.',
+          variant: 'destructive'
+        })
+        return
+      }
     } else {
       // Insertar
       const { error } = await supabase
         .from('partes_de_trabajo')
         .insert([{ id_tarea: parseInt(tareaId), id_trabajador: trabajadorId, fecha: fechaISO, tipo_jornada: modalState.jornadaSeleccionada, id_registrador: (usuarioActual as any).id }])
-      if (error) console.error('Error inserting parte:', error)
+      if (error) {
+        console.error('Error inserting parte:', error)
+        toast({
+          title: 'Operación no permitida',
+          description: 'No puedes registrar partes fuera de la semana actual o en semanas cerradas.',
+          variant: 'destructive'
+        })
+        return
+      }
     }
     
     await fetchPartes() // Recargar todos los partes
@@ -165,13 +208,29 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
 
   const handleDelete = async () => {
     if (!modalState.parteExistente) return
+    if (modalState.date && !estaEnSemanaActual(modalState.date)) {
+      toast({
+        title: 'No permitido',
+        description: 'Eliminar solo es posible en la semana actual (L→D) y si no está liquidada.',
+        variant: 'destructive'
+      })
+      return
+    }
 
     const { error } = await supabase
       .from('partes_de_trabajo')
       .delete()
       .eq('id', modalState.parteExistente.id)
 
-    if (error) console.error('Error deleting parte:', error)
+    if (error) {
+      console.error('Error deleting parte:', error)
+      toast({
+        title: 'Operación no permitida',
+        description: 'No puedes eliminar partes fuera de la semana actual o en semanas cerradas.',
+        variant: 'destructive'
+      })
+      return
+    }
     
     await fetchPartes() // Recargar
     setIsDialogOpen(false)
@@ -240,7 +299,27 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           endAccessor="end"
           style={{ height: '100%' }}
           selectable
-          onSelectSlot={(slotInfo) => openModalWithData(slotInfo.start)}
+          dayPropGetter={(date) => {
+            if (!estaEnSemanaActual(date as Date)) {
+              return {
+                className: 'cursor-not-allowed',
+                style: { backgroundColor: '#fafafa', opacity: 0.6 }
+              }
+            }
+            return {}
+          }}
+          onSelectSlot={(slotInfo) => {
+            // Bloquear selección fuera de semana actual
+            if (!estaEnSemanaActual(slotInfo.start as Date)) {
+              toast({
+                title: 'Fecha no permitida',
+                description: 'Solo puedes registrar/modificar en la semana actual (L→D).',
+                variant: 'destructive'
+              })
+              return
+            }
+            openModalWithData(slotInfo.start)
+          }}
           onSelectEvent={(event) => openModalWithData(event.start as Date)}
           culture='es'
           messages={calendarMessages}

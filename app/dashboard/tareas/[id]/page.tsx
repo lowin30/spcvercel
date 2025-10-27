@@ -1228,7 +1228,8 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                       <CardContent className="pt-2">
                         <RegistroParteTrabajoForm
                           tareaIdInicial={tareaId}
-                          usuarioActual={userDetails} 
+                          usuarioActual={userDetails}
+                          trabajadorIdInicial={(esAdmin || esSupervisorDeTarea) && (trabajadoresAsignados?.filter(t => t.usuarios)?.length === 1) ? trabajadoresAsignados[0]?.usuarios?.id : null}
                           onParteRegistrado={() => {
                             setMostrarFormularioParte(false);
                             toast({ title: 'Parte Registrado', description: 'El parte de trabajo ha sido registrado con éxito.' });

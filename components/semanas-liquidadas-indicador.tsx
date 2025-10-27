@@ -80,7 +80,8 @@ export function SemanasLiquidadasIndicador({ trabajadorId }: SemanasLiquidadasIn
     ultimasSemanas.push({
       inicio,
       fin,
-      liquidada: estaLiquidada
+      liquidada: estaLiquidada,
+      actual: i === 0
     })
   }
   
@@ -120,8 +121,10 @@ export function SemanasLiquidadasIndicador({ trabajadorId }: SemanasLiquidadasIn
                 <p className="text-sm">
                   {semana.liquidada ? (
                     "Esta semana ya está liquidada. No se pueden registrar ni modificar partes de trabajo."
-                  ) : (
+                  ) : semana.actual ? (
                     "Semana abierta. Puedes registrar o modificar partes de trabajo."
+                  ) : (
+                    "Por política, solo se puede registrar/modificar en la semana actual (L→D)."
                   )}
                 </p>
               </div>
