@@ -48,7 +48,7 @@ interface DatosTarea {
  * @param tareaId ID de la tarea para generar el PDF
  * @returns Objeto con el blob del PDF, nombre de archivo y monto total
  */
-export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blob, filename: string, montoTotal: number}> {
+export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?: number }): Promise<{blob: Blob, filename: string, montoTotal: number}> {
   // Obtener cliente Supabase
   const supabase = createClient()
   if (!supabase) {
@@ -79,8 +79,38 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     throw new Error(`Error al obtener gastos de la tarea: ${errorGastos?.message || 'No se encontraron gastos'}`)
   }
   
-  // Si no hay gastos, lanzar error
-  if (gastos.length === 0) {
+  // Si viene facturaId, cargar todos los gastos reales con imagen (sin filtrar por tipo)
+  let gastosReales: any[] = gastos as any[]
+  if (opts?.facturaId) {
+    const { data: gastosTodos, error: errorGastosTodos } = await supabase
+      .from('gastos_tarea')
+      .select('*')
+      .eq('id_tarea', tareaId)
+      .or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null')
+      .order('fecha_gasto', { ascending: true })
+    if (!errorGastosTodos && Array.isArray(gastosTodos)) {
+      gastosReales = gastosTodos as any[]
+    }
+  }
+
+  let extras: any[] = []
+  if (opts?.facturaId) {
+    const { data: extrasData, error: extrasError } = await supabase
+      .from('gastos_extra_pdf_factura')
+      .select('id, fecha, monto, descripcion, comprobante_url, imagen_procesada_url')
+      .eq('id_factura', opts.facturaId)
+      .order('fecha', { ascending: true })
+    if (!extrasError && extrasData) {
+      // Solo incluir extras que tengan al menos una URL de imagen
+      extras = (extrasData as any[]).filter((e) => e?.imagen_procesada_url || e?.comprobante_url)
+    }
+  }
+
+  // Solo incluir reales con imagen (por si alguna fila no tiene URL)
+  const realesConImagen = (gastosReales as any[]).filter((g) => g?.imagen_procesada_url || g?.comprobante_url)
+  const gastosFinales = [...realesConImagen, ...extras]
+
+  if (gastosFinales.length === 0) {
     throw new Error('No hay gastos para generar el PDF')
   }
   
@@ -99,7 +129,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
   
   // Calcular monto total de los gastos
   let montoTotal = 0;
-  for (const gasto of gastos) {
+  for (const gasto of gastosFinales) {
     montoTotal += Number(gasto.monto) || 0;
   }
   
@@ -111,7 +141,8 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(22)
     doc.setTextColor(40, 40, 40)
-    doc.text('Informe de Gastos - MATERIALES', doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' })
+    const tituloInforme = opts?.facturaId ? 'Informe de Gastos' : 'Informe de Gastos - MATERIALES'
+    doc.text(tituloInforme, doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' })
     
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(14)
@@ -143,11 +174,11 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
       doc.text(`Fecha de la tarea: ${format(fechaTarea, 'dd/MM/yyyy', { locale: es })}`, margenIzquierdo, 80)
     }
     doc.text(`Total gastos: $${montoTotal.toLocaleString('es-CL')}`, margenIzquierdo, 90)
-    doc.text(`Número de comprobantes: ${gastos.length}`, margenIzquierdo, 100)
+    doc.text(`Número de comprobantes: ${gastosFinales.length}`, margenIzquierdo, 100)
     
     // Agregar página nueva para cada gasto
-    for (let i = 0; i < gastos.length; i++) {
-      const gasto = gastos[i]
+    for (let i = 0; i < gastosFinales.length; i++) {
+      const gasto = gastosFinales[i]
       if (i > 0) { // No agregar nueva página después de la portada
         doc.addPage()
       } else {
@@ -158,43 +189,42 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
       // Variables para usar en toda la función
       let imageHeight = doc.internal.pageSize.height * 0.7 // 70% de la altura por defecto
       let errorMessage = ''
-          // Verificar que la URL de la imagen procesada es válida
-      if (gasto.imagen_procesada_url) {
+      const imageUrl = (gasto as any).imagen_procesada_url || (gasto as any).comprobante_url
+      if (imageUrl) {
         try {
           // Extraer la ruta de la imagen desde la URL completa
-          console.log(`Procesando imagen de URL: ${gasto.imagen_procesada_url}`)
+          console.log(`Procesando imagen de URL: ${imageUrl}`)
           
           // URL ejemplo: https://ejemplo.supabase.co/storage/v1/object/public/comprobantes/ruta/archivo.jpg
-          const urlPartes = new URL(gasto.imagen_procesada_url as string)
+          const urlPartes = new URL(imageUrl as string)
           const fullPath = urlPartes.pathname
           let rutaImagen = ''
+          let bucketName = 'comprobantes'
           
-          // Método 1: Extracción por patrón '/storage/v1/object/public/comprobantes/'
-          const storageIndex = fullPath.indexOf('/storage/v1/object/public/comprobantes/')
-          if (storageIndex !== -1) {
-            rutaImagen = fullPath.substring(storageIndex + '/storage/v1/object/public/comprobantes/'.length)
-            console.log(`Método 1 - Ruta extraída: ${rutaImagen}`)
-          } 
-          // Método 2: Buscar 'comprobantes' en la URL
-          else {
+          const idxExtras = fullPath.indexOf('/storage/v1/object/public/comprobantes_extras/')
+          const idxComprobantes = fullPath.indexOf('/storage/v1/object/public/comprobantes/')
+          if (idxExtras !== -1) {
+            bucketName = 'comprobantes_extras'
+            rutaImagen = fullPath.substring(idxExtras + '/storage/v1/object/public/comprobantes_extras/'.length)
+          } else if (idxComprobantes !== -1) {
+            bucketName = 'comprobantes'
+            rutaImagen = fullPath.substring(idxComprobantes + '/storage/v1/object/public/comprobantes/'.length)
+          } else {
             const pathParts = fullPath.split('/')
-            const comprobantesIndex = pathParts.indexOf('comprobantes')
-            if (comprobantesIndex !== -1 && comprobantesIndex < pathParts.length - 1) {
-              rutaImagen = pathParts.slice(comprobantesIndex + 1).join('/')
-              console.log(`Método 2 - Ruta extraída: ${rutaImagen}`)
-            } 
-            // Método 3: Usar últimas dos partes como fallback
-            else {
+            const idxBucket = pathParts.indexOf('comprobantes_extras') !== -1 ? pathParts.indexOf('comprobantes_extras') : pathParts.indexOf('comprobantes')
+            if (idxBucket !== -1 && idxBucket < pathParts.length - 1) {
+              bucketName = pathParts[idxBucket]
+              rutaImagen = pathParts.slice(idxBucket + 1).join('/')
+            } else {
               rutaImagen = pathParts.slice(-2).join('/')
-              console.log(`Método 3 - Ruta extraída: ${rutaImagen}`)
             }
           }
           
-          console.log(`Intentando descargar imagen de ruta: ${rutaImagen}`)
+          console.log(`Intentando descargar imagen de bucket '${bucketName}' ruta: ${rutaImagen}`)
           
           // Intentar obtener la imagen como blob
           const { data: imagenBlob, error: errorImagen } = await supabase.storage
-            .from('comprobantes')
+            .from(bucketName)
             .download(rutaImagen)
           
           if (errorImagen) {
@@ -276,7 +306,8 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(14)
       doc.setTextColor(0, 0, 0)
-      const alturaInfo = imageHeight + 30
+      const footerY = doc.internal.pageSize.getHeight() - 10
+      const alturaInfo = footerY - 20
       
       const montoFormateado = Number(gasto.monto).toLocaleString('es-CL', {
         minimumFractionDigits: 0,
@@ -292,7 +323,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
       doc.setFontSize(10)
       doc.setTextColor(150, 150, 150)
       doc.text(
-        `Página ${i + 1} de ${gastos.length + 1}`,
+        `Página ${i + 1} de ${gastosFinales.length + 1}`,
         doc.internal.pageSize.getWidth() - 20,
         doc.internal.pageSize.getHeight() - 10,
         { align: 'right' }

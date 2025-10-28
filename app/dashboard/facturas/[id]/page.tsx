@@ -14,6 +14,8 @@ import { MarcarEnviadaButton } from './marcar-enviada-button'
 import { HistorialGastosFactura } from '@/components/historial-gastos-factura'
 import { AjustesFacturaSection } from '@/components/ajustes-factura-section'
 import { ProcesadorImagen } from '@/components/procesador-imagen'
+import { GastosExtraPdfButton } from './gastos-extra-pdf-button'
+import { EliminarGastoExtraButton } from './eliminar-gasto-extra-button'
 
 // Definimos un tipo para los items para mayor seguridad
 type Item = {
@@ -175,6 +177,9 @@ export default async function InvoicePage({ params }: { params: { id: string } }
         {/* Botones de acción responsive */}
         <div className="flex items-center gap-2 flex-wrap">
           <MarcarEnviadaButton facturaId={factura.id} enviada={factura.enviada} />
+          {tarea?.id && (
+            <GastosExtraPdfButton tareaId={Number(tarea.id)} facturaId={Number(factura.id)} />
+          )}
           
           {factura.pdf_url && (
             <Button size="sm" variant="outline" asChild>
@@ -470,11 +475,30 @@ export default async function InvoicePage({ params }: { params: { id: string } }
                 <div className="space-y-2">
                   {extras.map((g: any) => (
                     <div key={g.id} className="flex items-center justify-between border rounded-md px-3 py-2">
-                      <div className="text-sm">
-                        <div className="font-medium">{g.descripcion}</div>
-                        <div className="text-xs text-muted-foreground">{g.fecha ? new Date(g.fecha).toLocaleDateString('es-AR') : ''}</div>
+                      <div className="flex items-center gap-3">
+                        {(g.imagen_procesada_url || g.comprobante_url) && (
+                          <a href={g.imagen_procesada_url || g.comprobante_url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img
+                              src={g.imagen_procesada_url || g.comprobante_url}
+                              alt={g.descripcion || 'Comprobante extra'}
+                              className="h-12 w-12 rounded object-cover border"
+                              loading="lazy"
+                            />
+                          </a>
+                        )}
+                        <div className="text-sm">
+                          <div className="font-medium">{g.descripcion}</div>
+                          <div className="text-xs text-muted-foreground">{g.fecha ? new Date(g.fecha).toLocaleDateString('es-AR') : ''}</div>
+                        </div>
                       </div>
-                      <div className="text-sm font-semibold">{formatCurrency(Number(g.monto || 0))}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold">{formatCurrency(Number(g.monto || 0))}</div>
+                        <EliminarGastoExtraButton 
+                          extraId={g.id} 
+                          comprobanteUrl={g.comprobante_url}
+                          imagenProcesadaUrl={g.imagen_procesada_url}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -517,17 +541,26 @@ export default async function InvoicePage({ params }: { params: { id: string } }
         )}
 
         {/* CARD AJUSTES DE FACTURA */}
-        <AjustesFacturaSection 
-          factura={{
-            id: factura.id,
-            code: factura.code,
-            total: factura.total,
-            pagada: factura.pagada || false,
-            id_estado_nuevo: factura.id_estado_nuevo || 1,
-            id_administrador: (Array.isArray(presupuestoFinal?.edificios) ? presupuestoFinal?.edificios[0]?.id_administrador : presupuestoFinal?.edificios?.id_administrador) || edificio?.id_administrador
-          }}
-          esFacturaMateriales={esFacturaMateriales}
-        />
+        {(() => {
+          const idAdminDerivado = (
+            Array.isArray((presupuestoFinal as any)?.edificios)
+              ? (presupuestoFinal as any)?.edificios?.[0]?.id_administrador
+              : (presupuestoFinal as any)?.edificios?.id_administrador
+          ) ?? (edificio as any)?.id_administrador
+          return (
+            <AjustesFacturaSection 
+              factura={{
+                id: factura.id,
+                code: factura.code,
+                total: factura.total,
+                pagada: factura.pagada || false,
+                id_estado_nuevo: factura.id_estado_nuevo || 1,
+                id_administrador: idAdminDerivado
+              }}
+              esFacturaMateriales={esFacturaMateriales}
+            />
+          )
+        })()}
       </div>
     </div>
   )
