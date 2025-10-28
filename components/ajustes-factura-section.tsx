@@ -25,6 +25,7 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const supabase = createClient()
+  const [adminConfig, setAdminConfig] = useState<{ aplica_ajustes: boolean; porcentaje_default: number } | null>(null)
 
   // Cargar ajustes existentes
   useEffect(() => {
@@ -38,6 +39,23 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
       if (!error && data) {
         setAjustes(data)
       }
+      if (factura.id_administrador) {
+        const { data: admin, error: adminError } = await supabase
+          .from('administradores')
+          .select('aplica_ajustes, porcentaje_default')
+          .eq('id', factura.id_administrador)
+          .single()
+        if (!adminError && admin) {
+          setAdminConfig({
+            aplica_ajustes: !!admin.aplica_ajustes,
+            porcentaje_default: Number(admin.porcentaje_default || 0)
+          })
+        } else {
+          setAdminConfig({ aplica_ajustes: false, porcentaje_default: 0 })
+        }
+      } else {
+        setAdminConfig({ aplica_ajustes: false, porcentaje_default: 0 })
+      }
       setLoading(false)
     }
     cargarAjustes()
@@ -45,6 +63,11 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
 
   // Si es factura de materiales, no mostrar ajustes
   if (esFacturaMateriales) {
+    return null
+  }
+
+  const shouldShow = (ajustes.length > 0) || (adminConfig?.aplica_ajustes === true)
+  if (!shouldShow) {
     return null
   }
 
@@ -79,7 +102,7 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
               Ajustes de Factura
             </CardTitle>
             <CardDescription>
-              Gestión de ajustes por mano de obra (10% sobre el total)
+              Gestión de ajustes por mano de obra ({(adminConfig?.porcentaje_default ?? 0)}% sobre el total)
             </CardDescription>
           </div>
           

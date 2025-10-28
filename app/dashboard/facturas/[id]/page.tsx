@@ -49,7 +49,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
       presupuestos_finales!inner (
         id, code, id_tarea, id_edificio, total,
         tareas (id, titulo, code),
-        edificios (id, nombre, direccion, cuit)
+        edificios (id, nombre, direccion, cuit, id_administrador)
       )
     `)
     .eq('id', facturaId)
@@ -524,6 +524,7 @@ export default async function InvoicePage({ params }: { params: { id: string } }
             total: factura.total,
             pagada: factura.pagada || false,
             id_estado_nuevo: factura.id_estado_nuevo || 1,
+            id_administrador: (Array.isArray(presupuestoFinal?.edificios) ? presupuestoFinal?.edificios[0]?.id_administrador : presupuestoFinal?.edificios?.id_administrador) || edificio?.id_administrador
           }}
           esFacturaMateriales={esFacturaMateriales}
         />
