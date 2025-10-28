@@ -13,6 +13,7 @@ import { DatosAFIPEditor } from './datos-afip-editor'
 import { MarcarEnviadaButton } from './marcar-enviada-button'
 import { HistorialGastosFactura } from '@/components/historial-gastos-factura'
 import { AjustesFacturaSection } from '@/components/ajustes-factura-section'
+import { ProcesadorImagen } from '@/components/procesador-imagen'
 
 // Definimos un tipo para los items para mayor seguridad
 type Item = {
@@ -94,6 +95,12 @@ export default async function InvoicePage({ params }: { params: { id: string } }
   const esFacturaMateriales = itemsFactura && itemsFactura.length > 0
     ? itemsFactura.every((item: any) => item.es_material === true)
     : false;
+
+  const { data: extras } = await supabase
+    .from('gastos_extra_pdf_factura')
+    .select('id, fecha, monto, descripcion, comprobante_url, imagen_procesada_url, created_at')
+    .eq('id_factura', factura.id)
+    .order('fecha', { ascending: false })
 
   // Función auxiliar para formatear fechas
   const formatDate = (date: string | null) => {
@@ -435,6 +442,46 @@ export default async function InvoicePage({ params }: { params: { id: string } }
             </CardContent>
           </Card>
         )}
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  Gastos adicionales
+                </CardTitle>
+                <CardDescription>
+                  Agregar comprobantes que se suman al PDF
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <ProcesadorImagen
+                tareaId={Number(tarea?.id || 0)}
+                tareaCodigo={tarea?.code || ''}
+                tareaTitulo={tarea?.titulo || ''}
+                mode="extra_pdf"
+                facturaId={Number(factura.id)}
+              />
+              {Array.isArray(extras) && extras.length > 0 && (
+                <div className="space-y-2">
+                  {extras.map((g: any) => (
+                    <div key={g.id} className="flex items-center justify-between border rounded-md px-3 py-2">
+                      <div className="text-sm">
+                        <div className="font-medium">{g.descripcion}</div>
+                        <div className="text-xs text-muted-foreground">{g.fecha ? new Date(g.fecha).toLocaleDateString('es-AR') : ''}</div>
+                      </div>
+                      <div className="text-sm font-semibold">{formatCurrency(Number(g.monto || 0))}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* CARD GASTOS RELACIONADOS */}
         {tarea?.id && (

@@ -18,6 +18,8 @@ interface ProcesadorImagenProps {
   tareaId: number;
   tareaCodigo?: string;
   tareaTitulo?: string;
+  mode?: 'normal' | 'extra_pdf';
+  facturaId?: number;
 }
 
 interface DatosGasto {
@@ -36,7 +38,7 @@ type PasoType = 'seleccion' | 'captura' | 'procesando' | 'confirmacion' | 'guard
 type ModoRegistroType = 'camara' | 'archivo' | 'manual'
 type CategoriaGastoType = 'materiales' | 'mano_de_obra'
 
-export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }: ProcesadorImagenProps) {
+export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', ...restProps }: ProcesadorImagenProps) {
   // Estado para controlar la pestaña activa
   const [modoRegistro, setModoRegistro] = useState<ModoRegistroType>('camara')
   
@@ -63,6 +65,8 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
   
   // Obtener cliente de Supabase
   const supabase = createClient()
+  const mode: 'normal' | 'extra_pdf' = (restProps as any)?.mode ?? 'normal'
+  const facturaId: number | undefined = (restProps as any)?.facturaId
   const [user, setUser] = useState<any>(null)
 
   // Obtener usuario actual
@@ -482,13 +486,13 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
       let comprobanteUrl = null
       let imagenProcesadaUrl = null
       
-      // Asegurar estructura organizada por tarea
+      // Asegurar estructura organizada
       if (imagen) {
         // Nombre de archivo con formato: tarea_timestamp.extension
         const extension = imagen.name.split('.').pop() || 'jpg'
         const nombreArchivo = `tarea${tareaId}_${timestamp}.${extension}`
-        // Ruta organizada: comprobantes/tarea_ID/
-        const rutaArchivo = `comprobantes/tarea_${tareaId}/${nombreArchivo}`
+        const basePath = mode === 'extra_pdf' && facturaId ? `comprobantes_extras/factura_${facturaId}` : `comprobantes/tarea_${tareaId}`
+        const rutaArchivo = `${basePath}/${nombreArchivo}`
         
         const { data: uploadResult, error: uploadError } = await supabase.storage
           .from('comprobantes')
@@ -516,7 +520,8 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
         // Usar el mismo nombre base pero añadiendo un sufijo
         const extension = imagen?.name.split('.').pop() || 'jpg'
         const nombreProcesado = `tarea${tareaId}_${timestamp}_procesado.${extension}`
-        const rutaProcesado = `comprobantes/tarea_${tareaId}/procesados/${nombreProcesado}`
+        const basePathProcesado = mode === 'extra_pdf' && facturaId ? `comprobantes_extras/factura_${facturaId}` : `comprobantes/tarea_${tareaId}`
+        const rutaProcesado = `${basePathProcesado}/procesados/${nombreProcesado}`
         
         const { data: uploadResult, error: uploadError } = await supabase.storage
           .from('comprobantes')
@@ -545,20 +550,36 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
       
       // Incluir información del gasto en el campo descripcion para facilitar búsquedas posteriores
       const descripcionEnriquecida = `${formData.descripcion} [${formData.tipo_gasto}] [${formData.fecha_gasto}]`;
-      
-      const { error: insertError } = await supabase.from('gastos_tarea').insert({
-        id_tarea: tareaId,
-        id_usuario: user?.id,
-        monto: parseFloat(formData.monto),
-        descripcion: descripcionEnriquecida,
-        fecha_gasto: formData.fecha_gasto,
-        tipo_gasto: formData.tipo_gasto,
-        comprobante_url: comprobanteUrl,
-        imagen_procesada_url: imagenProcesadaUrl,
-        metodo_registro: modoRegistro,
-        confianza_ocr: null,
-        datos_ocr: null
-      })
+
+      let insertError: any = null
+      if (mode === 'extra_pdf' && facturaId) {
+        const { error } = await supabase.from('gastos_extra_pdf_factura').insert({
+          id_factura: facturaId,
+          id_tarea: tareaId,
+          id_usuario: user?.id,
+          monto: parseFloat(formData.monto),
+          descripcion: formData.descripcion,
+          fecha: formData.fecha_gasto,
+          comprobante_url: comprobanteUrl,
+          imagen_procesada_url: imagenProcesadaUrl
+        })
+        insertError = error
+      } else {
+        const { error } = await supabase.from('gastos_tarea').insert({
+          id_tarea: tareaId,
+          id_usuario: user?.id,
+          monto: parseFloat(formData.monto),
+          descripcion: descripcionEnriquecida,
+          fecha_gasto: formData.fecha_gasto,
+          tipo_gasto: formData.tipo_gasto,
+          comprobante_url: comprobanteUrl,
+          imagen_procesada_url: imagenProcesadaUrl,
+          metodo_registro: modoRegistro,
+          confianza_ocr: null,
+          datos_ocr: null
+        })
+        insertError = error
+      }
       
       if (insertError) {
         throw new Error(`Error al guardar en la base de datos: ${insertError.message}`)
@@ -610,22 +631,40 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '' }
       }
       
       // Insertar registro en la base de datos
-      const { data, error: insertError } = await supabase
-        .from('gastos_tarea')
-        .insert({
-          id_tarea: tareaId,
-          id_usuario: user?.id,
-          monto: parseFloat(formData.monto),
-          descripcion: formData.descripcion,
-          fecha_gasto: formData.fecha_gasto,
-          tipo_gasto: formData.tipo_gasto,
-          comprobante_url: null,
-          imagen_procesada_url: null,
-          metodo_registro: modoRegistro,
-          confianza_ocr: null,
-          datos_ocr: descripcionEnriquecida
-        })
-      
+      let insertError: any = null
+      if (mode === 'extra_pdf' && facturaId) {
+        const { error } = await supabase
+          .from('gastos_extra_pdf_factura')
+          .insert({
+            id_factura: facturaId,
+            id_tarea: tareaId,
+            id_usuario: user?.id,
+            monto: parseFloat(formData.monto),
+            descripcion: formData.descripcion,
+            fecha: formData.fecha_gasto,
+            comprobante_url: null,
+            imagen_procesada_url: null
+          })
+        insertError = error
+      } else {
+        const { error } = await supabase
+          .from('gastos_tarea')
+          .insert({
+            id_tarea: tareaId,
+            id_usuario: user?.id,
+            monto: parseFloat(formData.monto),
+            descripcion: formData.descripcion,
+            fecha_gasto: formData.fecha_gasto,
+            tipo_gasto: formData.tipo_gasto,
+            comprobante_url: null,
+            imagen_procesada_url: null,
+            metodo_registro: modoRegistro,
+            confianza_ocr: null,
+            datos_ocr: descripcionEnriquecida
+          })
+        insertError = error
+      }
+
       if (insertError) {
         throw new Error(`Error al guardar en la base de datos: ${insertError.message}`)
       }
