@@ -77,7 +77,7 @@ export const getSupabaseServer = createServerClient
 export async function getSession() {
   // Usar try-catch global para manejar cualquier error inesperado
   try {
-    const supabase = getSupabaseServer()
+    const supabase = await getSupabaseServer()
     
     // Si no tenemos cliente Supabase, retornar null de inmediato
     if (!supabase) {
@@ -116,7 +116,7 @@ export async function getSession() {
 export async function getUserDetails() {
   try {
     // Obtener cliente Supabase del singleton
-    const supabase = getSupabaseServer()
+    const supabase = await getSupabaseServer()
 
     // Usar supabase.auth.getUser() para obtener la información del usuario de forma segura
     const { data: { user }, error: userError } = await supabase.auth.getUser()

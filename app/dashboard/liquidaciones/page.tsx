@@ -31,6 +31,7 @@ export default function LiquidacionesSupervisorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLiquidaciones = async () => {
@@ -38,7 +39,22 @@ export default function LiquidacionesSupervisorPage() {
       setError(null);
 
       try {
-        const { data, error: fetchError } = await supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        const userEmail = session?.user?.email || null;
+
+        let rol: string | null = null;
+        if (userId) {
+          const { data: userData } = await supabase
+            .from('usuarios')
+            .select('rol')
+            .eq('id', userId)
+            .single();
+          rol = userData?.rol || null;
+          setUserRole(rol);
+        }
+
+        let query = supabase
           .from('vista_liquidaciones_completa')
           .select(`
             id,
@@ -55,6 +71,12 @@ export default function LiquidacionesSupervisorPage() {
           `)
           .order('created_at', { ascending: false });
 
+        if (rol === 'supervisor' && userEmail) {
+          query = query.eq('email_supervisor', userEmail);
+        }
+
+        const { data, error: fetchError } = await query;
+
         if (fetchError) {
           throw fetchError;
         }
@@ -70,6 +92,26 @@ export default function LiquidacionesSupervisorPage() {
     };
 
     fetchLiquidaciones();
+  }, [supabase]);
+
+  // Cargar rol del usuario para habilitar navegación al detalle solo a admin/supervisor
+  useEffect(() => {
+    const cargarRol = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        if (!userId) return;
+        const { data } = await supabase
+          .from('usuarios')
+          .select('rol')
+          .eq('id', userId)
+          .single();
+        setUserRole(data?.rol || null);
+      } catch (e) {
+        // ignorar
+      }
+    };
+    cargarRol();
   }, [supabase]);
 
   const formatCurrency = (amount: number) => {
@@ -141,7 +183,15 @@ export default function LiquidacionesSupervisorPage() {
               {liquidaciones.length > 0 ? (
                 liquidaciones.map((liq) => (
                   <TableRow key={liq.id}>
-                    <TableCell className="font-medium">{liq.titulo_tarea || 'N/A'}</TableCell>
+                    <TableCell className="font-medium">
+                      {(userRole === 'admin' || userRole === 'supervisor') ? (
+                        <Link href={`/dashboard/liquidaciones/${liq.id}`} className="hover:underline">
+                          {liq.titulo_tarea || 'N/A'}
+                        </Link>
+                      ) : (
+                        liq.titulo_tarea || 'N/A'
+                      )}
+                    </TableCell>
                     <TableCell>{liq.code_presupuesto_final || 'N/A'}</TableCell>
                     <TableCell>{formatCurrency(liq.ganancia_neta)}</TableCell>
                     <TableCell className="font-semibold text-green-600">{formatCurrency(liq.ganancia_supervisor)}</TableCell>
@@ -184,6 +234,13 @@ export default function LiquidacionesSupervisorPage() {
                   <div className="text-sm text-muted-foreground">Fecha:</div>
                   <div className="text-sm font-medium">{formatDate(liq.created_at)}</div>
                 </div>
+                {(userRole === 'admin' || userRole === 'supervisor') && (
+                  <div className="pt-2">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/dashboard/liquidaciones/${liq.id}`}>Ver detalle</Link>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))

@@ -1,12 +1,12 @@
 import { getSession, getUserDetails, createServerClient } from "@/lib/supabase-server"
+import { DescargarLiquidacionPdfButton } from "./descargar-liquidacion-pdf-button"
 import { redirect, notFound } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowLeft, Calculator, FileText } from "lucide-react"
-import { SettlementChart } from "@/components/settlement-chart"
+import { ArrowLeft, Calculator } from "lucide-react"
 
 interface SettlementPageProps {
   params: {
@@ -15,6 +15,7 @@ interface SettlementPageProps {
 }
 
 export default async function SettlementPage({ params }: SettlementPageProps) {
+  const resolvedParams: any = await (params as any)
   const session = await getSession()
 
   if (!session) {
@@ -23,12 +24,12 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
 
   const userDetails = await getUserDetails()
 
-  // Solo admins pueden ver liquidaciones
-  if (userDetails?.rol !== "admin") {
+  // Admin y Supervisor pueden ver liquidaciones
+  if (userDetails?.rol !== "admin" && userDetails?.rol !== "supervisor") {
     redirect("/dashboard")
   }
 
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   if (!supabase) {
     throw new Error("No se pudo inicializar el cliente de Supabase")
@@ -38,17 +39,33 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
   const { data: liquidacion } = await supabase
     .from("vista_liquidaciones_completa")
     .select(`*`)
-    .eq("id", params.id)
+    .eq("id", resolvedParams.id)
     .single()
 
   if (!liquidacion) {
     notFound()
   }
   
+  // Restringir acceso: el supervisor solo puede ver sus propias liquidaciones
+  if (userDetails?.rol === "supervisor") {
+    const sessionEmail = (session as any)?.user?.email || null
+    if (liquidacion.email_supervisor && sessionEmail && liquidacion.email_supervisor !== sessionEmail) {
+      redirect("/dashboard/liquidaciones")
+    }
+  }
+  
   // En la vista optimizada, estos datos ya vienen calculados
   const totalPresupuestoBase = liquidacion.total_base || 0
   const gananciaNeta = liquidacion.ganancia_neta || 0
-  const ajusteAdmin = liquidacion.ajuste_admin || 0
+  // Cargar desglose de gastos (materiales y jornales) para secciones
+  const { data: desglose } = await supabase.rpc(
+    'obtener_desglose_gastos_para_liquidacion',
+    { p_id_tarea: liquidacion.id_tarea }
+  )
+  const materiales = Array.isArray(desglose) ? desglose.find((d: any) => d.categoria === 'materiales') : null
+  const jornales = Array.isArray(desglose) ? desglose.find((d: any) => d.categoria === 'jornales') : null
+  const materialesDetalle = materiales?.detalle || []
+  const jornalesDetalle = jornales?.detalle || []
 
   return (
     <div className="space-y-6">
@@ -59,10 +76,13 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
           </Link>
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">Liquidación {liquidacion.code}</h1>
+        <div className="ml-auto">
+          <DescargarLiquidacionPdfButton liquidacionId={Number(resolvedParams.id)} />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-3 space-y-6">
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -78,8 +98,7 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
                   {liquidacion.titulo_tarea || "Sin título"} ({liquidacion.code || "Sin código"})
                 </Link>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <h3 className="font-medium mb-1">Presupuesto Base (Referencia)</h3>
                   <Link
@@ -92,34 +111,6 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
                   <p className="text-sm text-muted-foreground mt-1">Total: ${totalPresupuestoBase.toLocaleString()}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium mb-1">Presupuesto Final</h3>
-                  <Link
-                    href={`/dashboard/presupuestos/${liquidacion.id_presupuesto_final}`}
-                    className="flex items-center text-primary hover:underline"
-                  >
-                    <Calculator className="h-4 w-4 mr-1" />
-                    {liquidacion.code_presupuesto_final || "N/A"}
-                  </Link>
-                  <p className="text-sm text-muted-foreground mt-1">Total: ${(totalPresupuestoBase + (ajusteAdmin || 0)).toLocaleString()}</p>
-                  <p className="text-xs text-green-600">Ajuste Admin: ${ajusteAdmin.toLocaleString()}</p>
-                </div>
-              </div>
-
-              {liquidacion.code_factura && (
-                <div>
-                  <h3 className="font-medium mb-1">Factura</h3>
-                  <Link
-                    href={`/dashboard/facturas/${liquidacion.id_factura}`}
-                    className="flex items-center text-primary hover:underline"
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    {liquidacion.code_factura}
-                  </Link>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
                   <h3 className="font-medium mb-1">Gastos reales</h3>
                   <p className="text-lg">${liquidacion.gastos_reales.toLocaleString()}</p>
                 </div>
@@ -127,111 +118,95 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
                   <h3 className="font-medium mb-1">Ganancia neta</h3>
                   <p className="text-lg text-green-600">${gananciaNeta.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">
-                    Presupuesto Base - Gastos Reales = ${totalPresupuestoBase.toLocaleString()} - $
-                    {liquidacion.gastos_reales.toLocaleString()}
+                    Presupuesto Base - Gastos Reales = ${totalPresupuestoBase.toLocaleString()} - ${liquidacion.gastos_reales.toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-medium mb-1">Ganancia supervisor (50%)</h3>
-                  <p className="text-lg">${liquidacion.ganancia_supervisor.toLocaleString()}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-1">Ganancia administrador</h3>
-                  <p className="text-lg">${liquidacion.ganancia_admin.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">
-                    50% Ganancia Neta + Ajuste = ${Math.round(gananciaNeta / 2).toLocaleString()} + $
-                    {ajusteAdmin.toLocaleString()}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <h3 className="font-medium mb-1">Ganancia total</h3>
-                  <p className="text-xl font-bold">
-                    ${(liquidacion.ganancia_supervisor + liquidacion.ganancia_admin).toLocaleString()}
-                  </p>
+                  <h3 className="font-medium mb-1">Liquidación Supervisor</h3>
+                  <p className="text-lg font-semibold">${liquidacion.ganancia_supervisor.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total a pagar al supervisor</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Jornales (Partes de trabajo) */}
           <Card>
             <CardHeader>
-              <CardTitle>Distribución Financiera</CardTitle>
-              <CardDescription>Análisis visual de la distribución de costos y ganancias</CardDescription>
+              <CardTitle>Partes de trabajo (Jornales)</CardTitle>
+              <CardDescription>Detalle de jornadas reales liquidadas</CardDescription>
             </CardHeader>
             <CardContent>
-              <SettlementChart settlement={liquidacion} />
+              {jornalesDetalle.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-1.5 text-left">Fecha</th>
+                        <th className="py-1.5 text-left">Tipo</th>
+                        <th className="py-1.5 text-right">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jornalesDetalle.map((it: any, idx: number) => (
+                        <tr key={idx} className="border-b">
+                          <td className="py-1.5">{it.fecha ? new Date(it.fecha).toLocaleDateString("es-CO") : "-"}</td>
+                          <td className="py-1.5">{it.tipo_jornada || it.descripcion || "-"}</td>
+                          <td className="py-1.5 text-right">${(it.monto || it.monto_total || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t">
+                        <td className="py-1.5 font-semibold" colSpan={2}>Total jornales</td>
+                        <td className="py-1.5 text-right font-semibold">${(jornales?.monto_total || 0).toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay partes de trabajo registrados.</p>
+              )}
             </CardContent>
           </Card>
-        </div>
 
-        <div>
+          {/* Materiales */}
           <Card>
             <CardHeader>
-              <CardTitle>Resumen Financiero</CardTitle>
-              <CardDescription>Análisis de rentabilidad del proyecto</CardDescription>
+              <CardTitle>Materiales</CardTitle>
+              <CardDescription>Detalle de gastos de materiales</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-blue-50 p-3 rounded-md">
-                <h3 className="text-sm font-medium mb-1">Base para Liquidación</h3>
-                <p className="text-lg font-bold">${totalPresupuestoBase.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Presupuesto Base (no el Final)</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-1">Presupuesto final</h3>
-                <p className="text-lg">${(totalPresupuestoBase + (ajusteAdmin || 0)).toLocaleString()}</p>
-                <p className="text-xs text-green-600">Ajuste Admin: ${ajusteAdmin.toLocaleString()}</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-1">Gastos reales</h3>
-                <p className="text-lg">${liquidacion.gastos_reales.toLocaleString()}</p>
-              </div>
-
-              <div className="pt-2 border-t">
-                <h3 className="text-sm font-medium mb-1">Ganancia neta</h3>
-                <p className="text-lg text-green-600">${gananciaNeta.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">Presupuesto Base - Gastos Reales</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-1">Rentabilidad</h3>
-                <p className="text-lg">
-                  {gananciaNeta > 0 ? ((gananciaNeta / liquidacion.gastos_reales) * 100).toFixed(2) : "0.00"}%
-                </p>
-              </div>
-
-              <div className="pt-2 border-t">
-                <h3 className="text-sm font-medium mb-1">Distribución de ganancias</h3>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="bg-orange-50 p-2 rounded">
-                    <p className="text-xs text-muted-foreground">Supervisor (50%)</p>
-                    <p className="font-medium">
-                      ${liquidacion.ganancia_supervisor.toLocaleString()} (
-                      {(
-                        (liquidacion.ganancia_supervisor /
-                          (liquidacion.ganancia_supervisor + liquidacion.ganancia_admin)) *
-                        100
-                      ).toFixed(0)}
-                      %)
-                    </p>
-                  </div>
-                  <div className="bg-green-50 p-2 rounded">
-                    <p className="text-xs text-muted-foreground">Administrador</p>
-                    <p className="font-medium">
-                      ${liquidacion.ganancia_admin.toLocaleString()} (
-                      {(
-                        (liquidacion.ganancia_admin / (liquidacion.ganancia_supervisor + liquidacion.ganancia_admin)) *
-                        100
-                      ).toFixed(0)}
-                      %)
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      50% Ganancia + ${ajusteAdmin.toLocaleString()} (ajuste)
-                    </p>
-                  </div>
+            <CardContent>
+              {materialesDetalle.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-1.5 text-left">Fecha</th>
+                        <th className="py-1.5 text-left">Descripción</th>
+                        <th className="py-1.5 text-right">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {materialesDetalle.map((it: any, idx: number) => (
+                        <tr key={idx} className="border-b">
+                          <td className="py-1.5">{it.fecha ? new Date(it.fecha).toLocaleDateString("es-CO") : "-"}</td>
+                          <td className="py-1.5">{it.descripcion || it.detalle || "-"}</td>
+                          <td className="py-1.5 text-right">${(it.monto || 0).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t">
+                        <td className="py-1.5 font-semibold" colSpan={2}>Total materiales</td>
+                        <td className="py-1.5 text-right font-semibold">${(materiales?.monto_total || 0).toLocaleString()}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay materiales registrados.</p>
+              )}
             </CardContent>
           </Card>
         </div>
