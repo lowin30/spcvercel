@@ -244,3 +244,17 @@ const [tareaSeleccionada, setTareaSeleccionada] = useState<string>("")
 - [x] Documentación creada
 - [ ] Probado en localhost
 - [ ] Commit y push a GitHub
+
+---
+
+## 🗓️ Registro de avances — 30 Oct 2025
+
+- **Ajustes por rol en** `app/dashboard/trabajadores/gastos/page.tsx`:
+  - Supervisor: selector de tareas limitado a tareas que supervisa (no finalizadas).
+  - Gastos (Resumen): propios + de tareas supervisadas (`OR id_usuario = supervisor, id_tarea IN (supervisadas)`).
+  - Jornales del Desglose: propios + de tareas supervisadas (`OR id_trabajador = supervisor, id_tarea IN (supervisadas)`), `liquidado = false`.
+  - Admin: visión global; Trabajador: sin cambios (solo propios).
+
+- **Efecto:** El “Desglose por Tarea” ahora muestra jornales del equipo del supervisor; el flujo “Registrar Gasto” lista solamente tareas permitidas.
+
+- **Pendiente:** Verificar RLS para `supervisores_tareas`, `vista_gastos_tarea_completa` y `vista_partes_trabajo_completa`; desplegar en Vercel y validar en producción.

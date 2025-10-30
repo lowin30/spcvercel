@@ -91,12 +91,46 @@ export default function GastosPage() {
       if (userError) throw new Error(userError.message);
       setUsuario(userData as UserSessionData);
 
+      let idsTareasSuper: number[] = [];
+      if (userData.rol === 'supervisor') {
+        const { data: tareasSuper, error: tareasError } = await supabase
+          .from('supervisores_tareas')
+          .select('id_tarea')
+          .eq('id_supervisor', session.user.id);
+        if (tareasError) throw new Error(tareasError.message);
+        idsTareasSuper = (tareasSuper || []).map((t: any) => t.id_tarea);
+      }
+
       let gastosQuery = supabase
         .from('vista_gastos_tarea_completa')
         .select('*')
         .eq('liquidado', false);
       if (userData.rol === 'trabajador') {
         gastosQuery = gastosQuery.eq('id_usuario', session.user.id);
+      } else if (userData.rol === 'supervisor') {
+        if (idsTareasSuper.length > 0) {
+          const idsList = idsTareasSuper.join(',');
+          gastosQuery = gastosQuery.or(`id_usuario.eq.${session.user.id},id_tarea.in.(${idsList})`);
+        } else {
+          gastosQuery = gastosQuery.eq('id_usuario', session.user.id);
+        }
+      }
+
+      // Construir consulta de jornales según rol (para el Desglose por Tarea)
+      let jornalesQuery = supabase
+        .from('vista_partes_trabajo_completa')
+        .select('*')
+        .eq('liquidado', false);
+
+      if (userData.rol === 'trabajador') {
+        jornalesQuery = jornalesQuery.eq('id_trabajador', session.user.id);
+      } else if (userData.rol === 'supervisor') {
+        if (idsTareasSuper.length > 0) {
+          const idsList = idsTareasSuper.join(',');
+          jornalesQuery = jornalesQuery.or(`id_trabajador.eq.${session.user.id},id_tarea.in.(${idsList})`);
+        } else {
+          jornalesQuery = jornalesQuery.eq('id_trabajador', session.user.id);
+        }
       }
 
       const [gastosResponse, liquidacionResponse, tareasResponse, jornalesResponse] = await Promise.all([
@@ -108,14 +142,11 @@ export default function GastosPage() {
           .order('created_at', { ascending: false })
           .limit(1),
         userData.rol === 'trabajador' ?
-          supabase.from('trabajadores_tareas').select('tareas(id, titulo, code)').eq('id_trabajador', session.user.id) :
+          supabase.from('trabajadores_tareas').select('tareas(id, titulo, code, finalizada)').eq('id_trabajador', session.user.id) :
+          userData.rol === 'supervisor' ?
+          supabase.from('supervisores_tareas').select('tareas(id, titulo, code, finalizada)').eq('id_supervisor', session.user.id) :
           supabase.from('tareas').select('id, titulo, code').eq('finalizada', false).order('titulo'),
-        supabase
-          .from('vista_partes_trabajo_completa')
-          .select('*')
-          .eq('id_trabajador', session.user.id)
-          .eq('liquidado', false)
-          .order('fecha', { ascending: false })
+        jornalesQuery.order('fecha', { ascending: false })
       ]);
 
       if (gastosResponse.error) throw new Error(gastosResponse.error.message);
@@ -127,7 +158,9 @@ export default function GastosPage() {
       setAllNonLiquidatedExpenses(gastos);
       setLastLiquidation(liquidacionResponse.data?.[0] || null);
 
-      const tareasData = userData.rol === 'trabajador' ? tareasResponse.data?.map((item: any) => item.tareas).filter(Boolean) || [] : tareasResponse.data || [];
+      const tareasData = (userData.rol === 'trabajador' || userData.rol === 'supervisor')
+        ? (tareasResponse.data?.map((item: any) => item.tareas).filter((t: any) => t && t.finalizada === false) || [])
+        : (tareasResponse.data || []);
       setTareas(tareasData);
 
       const hoy = new Date();

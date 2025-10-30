@@ -540,3 +540,25 @@ Una página `/dashboard/trabajadores/gastos` que:
 7. ✅ Todo en una sola página (sin navegación extra)
 
 **Ventaja:** Aprovecha componentes existentes y no duplica código. 🚀
+
+## 🗓️ Registro de avances — 30 Oct 2025
+
+- **Filtros por rol en** `app/dashboard/trabajadores/gastos/page.tsx`:
+  - **Supervisor**:
+    - Selector de tareas: solo tareas que supervisa y no finalizadas.
+    - Gastos (Resumen): propios + de tareas supervisadas (`OR id_usuario = supervisor, id_tarea IN (supervisadas)`).
+    - Jornales del Desglose: propios + de tareas supervisadas (`OR id_trabajador = supervisor, id_tarea IN (supervisadas)`), siempre `liquidado = false`.
+  - **Admin**:
+    - Selector de tareas: todas las activas (no finalizadas).
+    - Gastos/Jornales: visión global (según RLS).
+  - **Trabajador**: sin cambios (solo propios).
+
+- **Unificación de lógica de jornales** con `components/historial-jornales-global.tsx` para construir el “Desglose por Tarea” en la pestaña Resumen.
+
+- **Impacto funcional**:
+  - Supervisor ahora ve gastos y jornales de su equipo en `Resumen` y en el “Desglose por Tarea”.
+  - El flujo “Registrar Gasto” muestra solo tareas permitidas por rol.
+
+- **Pendiente**:
+  - Verificar RLS para `supervisores_tareas`, `vista_gastos_tarea_completa` y `vista_partes_trabajo_completa`.
+  - Desplegar en Vercel y validar diferencias por rol en producción.
