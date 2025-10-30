@@ -58,32 +58,52 @@ export function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabaj
     async function fetchTareas() {
       setLoadingTareas(true)
       if (usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') {
-        const { data, error } = await supabase.from('tareas').select('id, titulo').order('titulo', { ascending: true })
+        const { data, error } = await supabase
+          .from('tareas')
+          .select('id, titulo')
+          .eq('finalizada', false)
+          .order('titulo', { ascending: true })
         if (error) toast({ title: 'Error', description: 'No se pudieron cargar las tareas.', variant: 'destructive' })
         else {
           setTareas(data || [])
           // Preseleccionar tarea si viene desde página de tarea
-          if (tareaIdInicial) {
+          if (tareaIdInicial && (data || []).some(t => t.id === Number(tareaIdInicial))) {
             setSelectedTareaId(Number(tareaIdInicial))
           }
         }
       } else { // Rol: trabajador
-        const { data, error } = await supabase.from('vista_asignaciones_tareas_trabajadores').select('id_tarea, titulo_tarea').eq('id_trabajador', usuarioActual.id)
-        if (error || !data) {
+        const { data: asignaciones, error: asignError } = await supabase
+          .from('vista_asignaciones_tareas_trabajadores')
+          .select('id_tarea')
+          .eq('id_trabajador', usuarioActual.id)
+        if (asignError || !asignaciones) {
           setTareas([])
         } else {
-          const tareasUnicas = Array.from(new Map(data.map(t => [t.id_tarea, { id: t.id_tarea, titulo: t.titulo_tarea }])).values());
-          setTareas(tareasUnicas)
-          
+          const ids = Array.from(new Set(asignaciones.map(t => Number(t.id_tarea)))).filter(id => !Number.isNaN(id))
+          if (ids.length === 0) {
+            setTareas([])
+          } else {
+            const { data: tareasData, error: tareasError } = await supabase
+              .from('tareas')
+              .select('id, titulo')
+              .in('id', ids)
+              .eq('finalizada', false)
+              .order('titulo', { ascending: true })
+            if (tareasError || !tareasData) {
+              setTareas([])
+            } else {
+              setTareas(tareasData)
+              // Si viene tareaIdInicial (página de tarea), usarla; si no, auto-seleccionar solo si hay 1
+              if (tareaIdInicial && tareasData.some(t => t.id === Number(tareaIdInicial))) {
+                setSelectedTareaId(Number(tareaIdInicial))
+              } else if (tareasData.length === 1) {
+                setSelectedTareaId(tareasData[0].id)
+              }
+            }
+          }
+
           // Para trabajadores, SIEMPRE auto-seleccionar su propio ID como trabajador
           setSelectedTrabajadorId(usuarioActual.id)
-          
-          // Si viene tareaIdInicial (página de tarea), usarla; si no, auto-seleccionar solo si hay 1
-          if (tareaIdInicial) {
-            setSelectedTareaId(Number(tareaIdInicial))
-          } else if (tareasUnicas.length === 1) {
-            setSelectedTareaId(tareasUnicas[0].id)
-          }
         }
       }
       setLoadingTareas(false)
