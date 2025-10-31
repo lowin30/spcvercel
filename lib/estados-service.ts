@@ -27,7 +27,8 @@ export const ESTADOS_FALLBACK: EstadoTarea[] = [
 // Cache en memoria para estados
 let estadosCache: EstadoTarea[] | null = null;
 let ultimaActualizacion: number = 0;
-const TIEMPO_CACHE_MS = 30 * 1000; // Reducido a 30 segundos para pruebas
+const TIEMPO_CACHE_MS = 5 * 60 * 1000; // 5 minutos para reducir llamadas repetidas
+let estadosPromise: Promise<EstadoTarea[]> | null = null;
 
 /**
  * Obtiene los estados de tareas desde Supabase o caché
@@ -43,31 +44,42 @@ export async function obtenerEstadosTarea(forzarActualizacion = false): Promise<
     return estadosCache;
   }
   
+  // Si hay una carga en curso y no se fuerza, reutilizarla
+  if (estadosPromise && !forzarActualizacion) {
+    return estadosPromise;
+  }
+  
   try {
-    console.log("Cargando estados de tareas desde Supabase");
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("estados_tareas")
-      .select("id, codigo, nombre, descripcion, color, orden")
-      .order("orden");
-      
-    if (error) {
-      console.error("Error al cargar estados de tareas:", error);
-      throw error;
+    // Iniciar (o reutilizar) una carga en curso
+    if (!estadosPromise || forzarActualizacion) {
+      console.log("Cargando estados de tareas desde Supabase");
+      estadosPromise = (async () => {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("estados_tareas")
+          .select("id, codigo, nombre, descripcion, color, orden")
+          .order("orden");
+        
+        if (error) {
+          console.error("Error al cargar estados de tareas:", error);
+          throw error;
+        }
+        
+        if (!data || data.length === 0) {
+          console.warn("No se encontraron estados de tareas en Supabase, usando fallback");
+          return ESTADOS_FALLBACK;
+        }
+        
+        // Actualizar la caché y timestamp
+        estadosCache = data;
+        ultimaActualizacion = ahora;
+        
+        console.log("Estados cargados desde Supabase:", { cantidad: data.length, estados: data });
+        return estadosCache;
+      })();
     }
-    
-    if (!data || data.length === 0) {
-      console.warn("No se encontraron estados de tareas en Supabase, usando fallback");
-      return ESTADOS_FALLBACK;
-    }
-    
-    // Actualizar la caché y timestamp
-    estadosCache = data;
-    ultimaActualizacion = ahora;
-    
-    console.log("Estados cargados desde Supabase:", { cantidad: data.length, estados: data });
-    
-    return estadosCache;
+    const result = await estadosPromise;
+    return result;
   } catch (error) {
     console.error("Error al cargar estados de tareas:", error);
     
@@ -80,6 +92,9 @@ export async function obtenerEstadosTarea(forzarActualizacion = false): Promise<
     // Si no hay caché o está vacía, usar los valores predeterminados
     console.warn("Usando estados predeterminados debido a error");
     return ESTADOS_FALLBACK;
+  } finally {
+    // Limpiar la promesa pendiente para permitir futuras recargas
+    estadosPromise = null;
   }
 }
 

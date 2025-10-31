@@ -21,6 +21,14 @@ interface FinancialStats {
   presupuestos_monto_total?: number;
   facturas_pendientes?: number;
   liquidaciones_pendientes?: number;
+  gastos_no_liquidados_semana?: number;
+  monto_jornales_pendientes_semana?: number;
+  ingresos_mes_actual?: number;
+  facturas_por_cobrar_total?: number;
+  saldos_pendientes_total?: number;
+  jornales_pendientes_mayor_7d?: number;
+  monto_jornales_pendientes_mayor_7d?: number;
+  visitas_hoy_total?: number;
 }
 
 interface Task {
@@ -69,7 +77,7 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Presupuestos Activos</p>
                 <p className="text-2xl font-bold">{financialStats?.presupuestos_activos || 0}</p>
@@ -85,6 +93,34 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Liquidaciones Pendientes</p>
                 <p className="text-2xl font-bold">{financialStats?.liquidaciones_pendientes || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Gastos Semana</p>
+                <p className="text-2xl font-bold">${financialStats?.gastos_no_liquidados_semana?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Jornales Semana</p>
+                <p className="text-2xl font-bold">${financialStats?.monto_jornales_pendientes_semana?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Ingresos Mes</p>
+                <p className="text-2xl font-bold">${financialStats?.ingresos_mes_actual?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Saldos Pendientes</p>
+                <p className="text-2xl font-bold text-red-600">${financialStats?.saldos_pendientes_total?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Jornales 7d+</p>
+                <p className="text-2xl font-bold">{financialStats?.jornales_pendientes_mayor_7d || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Monto Jornales 7d+</p>
+                <p className="text-2xl font-bold text-amber-600">${financialStats?.monto_jornales_pendientes_mayor_7d?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Visitas Hoy</p>
+                <p className="text-2xl font-bold text-sky-600">{financialStats?.visitas_hoy_total || 0}</p>
               </div>
             </div>
             <div className="mt-4 flex justify-between gap-2">
@@ -155,7 +191,6 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
             <AlertTitle>Liquidaciones por procesar</AlertTitle>
             <AlertDescription>
               Hay {financialStats.liquidaciones_pendientes} liquidaciones pendientes que requieren revisión.
-              <Link href="/dashboard/liquidaciones" className="ml-2 underline">Ver liquidaciones</Link>
             </AlertDescription>
           </Alert>
         ) : null}
@@ -191,7 +226,7 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
                       <td className="px-4 py-2">
                         <TaskStatusBadge task={task} />
                       </td>
-                      <td className="px-4 py-2">{formatDate(task.created_at)}</td>
+                      <td className="px-4 py-2">{formatDate(task.created_at || "")}</td>
                     </tr>
                   ))
                 ) : (

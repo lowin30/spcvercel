@@ -16,9 +16,23 @@ import {
 // Definición de tipos
 interface SupervisorStats {
   tareas_supervisadas?: number;
-  presupuestos_pendientes?: number;
   trabajadores_asignados?: number;
   liquidaciones_propias?: number;
+  // Nuevos KPIs desde vista_finanzas_supervisor
+  visitas_hoy_total?: number;
+  liquidaciones_pendientes?: number;
+  liquidaciones_mes?: number;
+  ganancia_supervisor_mes?: number;
+  gastos_sin_comprobante_total?: number;
+  gastos_no_liquidados?: number;
+  jornales_no_liquidados?: number;
+  gastos_no_liquidados_semana?: number;
+  jornales_pendientes_semana?: number;
+  monto_jornales_pendientes_semana?: number;
+  jornales_pendientes_mayor_7d?: number;
+  monto_jornales_pendientes_mayor_7d?: number;
+  presupuestos_base_total?: number;
+  presupuestos_base_monto_total?: number;
 }
 
 interface Task {
@@ -60,14 +74,10 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Tareas Supervisadas</p>
                 <p className="text-2xl font-bold">{supervisorStats?.tareas_supervisadas || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Presup. Pendientes</p>
-                <p className="text-2xl font-bold">{supervisorStats?.presupuestos_pendientes || 0}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Trabajadores</p>
@@ -76,6 +86,50 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Liquidaciones</p>
                 <p className="text-2xl font-bold">{supervisorStats?.liquidaciones_propias || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Visitas Hoy</p>
+                <p className="text-2xl font-bold text-sky-600">{supervisorStats?.visitas_hoy_total || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Listas para liquidar</p>
+                <p className="text-2xl font-bold text-purple-600">{supervisorStats?.liquidaciones_pendientes || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Liquidaciones (Mes)</p>
+                <p className="text-2xl font-bold text-emerald-600">{supervisorStats?.liquidaciones_mes || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Ganancia Sup. (Mes)</p>
+                <p className="text-2xl font-bold text-blue-600">${supervisorStats?.ganancia_supervisor_mes?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Gastos sin Comprobante</p>
+                <p className="text-2xl font-bold text-red-600">{supervisorStats?.gastos_sin_comprobante_total || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Jornales 7d+</p>
+                <p className="text-2xl font-bold">{supervisorStats?.jornales_pendientes_mayor_7d || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Monto Jornales 7d+</p>
+                <p className="text-2xl font-bold text-amber-600">${supervisorStats?.monto_jornales_pendientes_mayor_7d?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Gasto Semana</p>
+                <p className="text-2xl font-bold">${supervisorStats?.gastos_no_liquidados_semana?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Jornal Semana</p>
+                <p className="text-2xl font-bold">${supervisorStats?.monto_jornales_pendientes_semana?.toLocaleString() || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">PB (Cantidad)</p>
+                <p className="text-2xl font-bold">{supervisorStats?.presupuestos_base_total || 0}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">PB (Monto)</p>
+                <p className="text-2xl font-bold">${supervisorStats?.presupuestos_base_monto_total?.toLocaleString() || 0}</p>
               </div>
             </div>
             <div className="mt-4 flex justify-between gap-2">
@@ -125,13 +179,12 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
       {/* Alertas y Notificaciones */}
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">Alertas y Notificaciones</h2>
-        {supervisorStats?.presupuestos_pendientes ? supervisorStats.presupuestos_pendientes > 0 && (
+        {supervisorStats?.jornales_pendientes_mayor_7d ? supervisorStats.jornales_pendientes_mayor_7d > 0 && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Presupuestos pendientes</AlertTitle>
+            <AlertTitle>Jornales pendientes (7d+)</AlertTitle>
             <AlertDescription>
-              Tienes {supervisorStats.presupuestos_pendientes} tareas que necesitan presupuestos base.
-              <Link href="/dashboard/presupuestos-base/nuevo" className="ml-2 underline">Crear presupuesto</Link>
+              Tienes {supervisorStats.jornales_pendientes_mayor_7d} jornales sin liquidar con más de 7 días.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -167,7 +220,7 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
                       <td className="px-4 py-2">
                         <TaskStatusBadge task={task} />
                       </td>
-                      <td className="px-4 py-2">{formatDate(task.fecha_visita)}</td>
+                      <td className="px-4 py-2">{formatDate(task.fecha_visita || "")}</td>
                     </tr>
                   ))
                 ) : (

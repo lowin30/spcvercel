@@ -107,16 +107,6 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }: Tra
                   Ver Todas Mis Tareas
                 </Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/tareas?estado=pendiente">
-                  Ver Tareas Pendientes
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/trabajadores/materiales">
-                  Solicitar Materiales
-                </Link>
-              </Button>
             </div>
           </CardContent>
         </Card>

@@ -1,7 +1,7 @@
 "use client"
 
 // Componente para renderizar el Badge de estado de la tarea
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
@@ -10,7 +10,7 @@ import { toast } from "@/components/ui/use-toast"
 
 // Definir interfaces para TypeScript
 interface TaskProps {
-  id?: number;
+  id?: number | string;
   titulo?: string;
   estado_tarea?: string;
   id_estado_nuevo?: number | string;
@@ -31,49 +31,51 @@ export function TaskStatusBadge({ task }: TaskStatusBadgeProps) {
   const [estadoColor, setEstadoColor] = useState<string>("#6b7280") // gris por defecto
   const [loading, setLoading] = useState(true)
   
-  // Cargar datos del estado al montar el componente
-  useEffect(() => {
-    const cargarEstado = async () => {
-      setLoading(true)
-      try {
-        // Determinar nombre del estado
-        let nombre = "Sin estado"
-        if (task.estado_tarea) {
-          nombre = task.estado_tarea
-          // Primera letra en mayúscula si no lo está ya
-          if (nombre.length > 0 && nombre[0] === nombre[0].toLowerCase()) {
-            nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1)
-          }
-        } else if (task.estado) {
-          nombre = task.estado
-          // Primera letra en mayúscula si no lo está ya
-          if (nombre.length > 0 && nombre[0] === nombre[0].toLowerCase()) {
-            nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1)
-          }
+  // Preparar función para cargar datos del estado (reutilizable)
+  const cargarEstado = useCallback(async () => {
+    setLoading(true)
+    try {
+      // Determinar nombre del estado
+      let nombre = "Sin estado"
+      if (task.estado_tarea) {
+        nombre = task.estado_tarea
+        // Primera letra en mayúscula si no lo está ya
+        if (nombre.length > 0 && nombre[0] === nombre[0].toLowerCase()) {
+          nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1)
         }
-        setEstadoNombre(nombre)
-        
-        // Obtener color basado en ID
-        let color = "#6b7280" // gris por defecto
-        if (task.id_estado_nuevo) {
-          const idEstado = typeof task.id_estado_nuevo === 'string' 
-            ? parseInt(task.id_estado_nuevo) 
-            : task.id_estado_nuevo
-          
-          // Usar nuestro servicio centralizado
-          const estadoColor = await obtenerColorEstado(idEstado)
-          color = estadoColor
+      } else if (task.estado) {
+        nombre = task.estado
+        // Primera letra en mayúscula si no lo está ya
+        if (nombre.length > 0 && nombre[0] === nombre[0].toLowerCase()) {
+          nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1)
         }
-        setEstadoColor(color)
-      } catch (error) {
-        console.error("Error al cargar estado de tarea:", error)
-      } finally {
-        setLoading(false)
+      } else if (task.estados?.nombre) {
+        nombre = task.estados.nombre
       }
+      setEstadoNombre(nombre)
+      
+      // Obtener color basado en ID
+      let color = task.estados?.color || "#6b7280" // usar color embebido si viene
+      if (!task.estados?.color && task.id_estado_nuevo) {
+        const idEstado = typeof task.id_estado_nuevo === 'string' 
+          ? parseInt(task.id_estado_nuevo) 
+          : (task.id_estado_nuevo as number)
+        // Usar nuestro servicio centralizado solo si no vino el color embebido
+        const estadoColor = await obtenerColorEstado(idEstado)
+        color = estadoColor
+      }
+      setEstadoColor(color)
+    } catch (error) {
+      console.error("Error al cargar estado de tarea:", error)
+    } finally {
+      setLoading(false)
     }
-    
+  }, [task.estado_tarea, task.estado, task.id_estado_nuevo, task.estados?.color, task.estados?.nombre])
+
+  // Cargar datos del estado al montar/actualizar dependencias
+  useEffect(() => {
     cargarEstado()
-  }, [task.estado_tarea, task.estado, task.id_estado_nuevo])
+  }, [cargarEstado])
   
   // Determinar color de texto (blanco para fondos oscuros, negro para fondos claros)
   function esColorOscuro(color: string) {
