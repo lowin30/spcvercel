@@ -147,7 +147,10 @@ export default function TareasClient() {
       let query = supabase.from('vista_tareas_completa').select('*')
 
       if (userDetailsData?.rol === 'supervisor') {
-        query = query.eq('id_delegacion', userDetailsData.id_delegacion)
+        // Supervisores: ver solo tareas de su delegación y no mostrar liquidadas (id_estado_nuevo = 9)
+        query = query
+          .eq('id_delegacion', userDetailsData.id_delegacion)
+          .neq('id_estado_nuevo', 9)
       }
 
       const { data: tareasData, error: tareasError } = await query.order('id', { ascending: false })
