@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card"
 // Ya no usamos pestañas
 import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase-client"
-import { PrinterIcon, ArrowLeft } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
+import { DescargarLiquidacionTrabajadorPdfButton } from "@/app/dashboard/trabajadores/liquidaciones/[id]/descargar-liquidacion-trabajador-pdf-button"
 
 // Definir interfaces para los tipos de datos
 interface Tarea {
@@ -302,10 +303,7 @@ export default function DetalleDeUnaLiquidacion() {
             </p>
           </div>
         </div>
-        <Button onClick={() => window.print()} className="print:hidden">
-          <PrinterIcon className="mr-2 h-4 w-4" />
-          Imprimir
-        </Button>
+        <DescargarLiquidacionTrabajadorPdfButton liquidacionId={detalle.id} />
       </div>
 
       {/* Contenido principal - Este será lo que se imprima */}
