@@ -1,0 +1,8 @@
+BEGIN;
+
+DROP POLICY IF EXISTS phase_c_departamentos_tareas_restrictive_select ON public.departamentos_tareas;
+DROP POLICY IF EXISTS phase_c_departamentos_tareas_restrictive_insert ON public.departamentos_tareas;
+DROP POLICY IF EXISTS phase_c_departamentos_tareas_restrictive_update ON public.departamentos_tareas;
+DROP POLICY IF EXISTS phase_c_departamentos_tareas_restrictive_delete ON public.departamentos_tareas;
+
+COMMIT;

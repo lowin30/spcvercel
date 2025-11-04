@@ -25,46 +25,76 @@ export async function saveInvoice(
   const supabase = await createSsrServerClient();
 
   try {
-    // 1. OBTENER DATOS DE LA EMPRESA
-    const selectedPresupuestoResponse = await supabase
-      .from('presupuestos_finales')
-      .select('edificios!inner(id_administrador)')
-      .eq('id', data.id_presupuesto)
-      .single();
-
-    if (selectedPresupuestoResponse.error || !selectedPresupuestoResponse.data) {
-      throw new Error('Presupuesto no válido o error al buscarlo.');
-    }
-
-    const edificioData = selectedPresupuestoResponse.data.edificios;
-    const edificio = Array.isArray(edificioData) ? edificioData[0] : edificioData;
-
-    if (!edificio?.id_administrador) {
-      throw new Error('El presupuesto seleccionado no tiene una empresa asignada.');
-    }
-    
-    const idEmpresaAsignada = edificio.id_administrador;
-
-    // 2. PREPARAR Y GUARDAR DATOS DE FACTURA
-    const dataForDb = {
-      id_presupuesto: data.id_presupuesto ? Number(data.id_presupuesto) : null,
-      total: data.total,
-    };
-
+    // 1. CREAR O EDITAR FACTURA
     let facturaId: number;
 
     if (facturaIdToEdit) {
       facturaId = facturaIdToEdit;
-      const { error } = await supabase.from('facturas').update(dataForDb).eq('id', facturaId);
-      if (error) throw error;
+
+      const updatePayload: any = { total: data.total };
+      if (typeof data.id_presupuesto === 'string' && data.id_presupuesto.trim() !== '') {
+        updatePayload.id_presupuesto = Number(data.id_presupuesto);
+      }
+
+      const { error: updateError } = await supabase
+        .from('facturas')
+        .update(updatePayload)
+        .eq('id', facturaId);
+      if (updateError) {
+        throw updateError;
+      }
     } else {
-      const dataToInsert = { ...dataForDb, pagada: false, id_empresa_asignada: idEmpresaAsignada };
-      const { data: newFactura, error } = await supabase.from('facturas').insert(dataToInsert).select('id').single();
+      if (!data.id_presupuesto) {
+        throw new Error('Debe seleccionar un presupuesto para crear la factura.');
+      }
+
+      // Obtener id_empresa_asignada navegando PF -> PB -> tareas -> edificios
+      const presResp = await supabase
+        .from('presupuestos_finales')
+        .select(`
+          id,
+          presupuestos_base (
+            tareas (
+              edificios (
+                id_administrador
+              )
+            )
+          )
+        `)
+        .eq('id', data.id_presupuesto)
+        .single();
+
+      if (presResp.error || !presResp.data) {
+        throw new Error('Presupuesto no válido o error al buscarlo.');
+      }
+
+      const pb: any = Array.isArray((presResp.data as any).presupuestos_base)
+        ? (presResp.data as any).presupuestos_base[0]
+        : (presResp.data as any).presupuestos_base;
+      const tarea: any = pb ? (Array.isArray(pb.tareas) ? pb.tareas[0] : pb.tareas) : null;
+      const edificio: any = tarea ? (Array.isArray(tarea.edificios) ? tarea.edificios[0] : tarea.edificios) : null;
+
+      if (!edificio?.id_administrador) {
+        throw new Error('El presupuesto seleccionado no tiene una empresa asignada.');
+      }
+      const idEmpresaAsignada = edificio.id_administrador;
+
+      const dataToInsert = {
+        id_presupuesto: Number(data.id_presupuesto),
+        total: data.total,
+        pagada: false,
+        id_empresa_asignada: idEmpresaAsignada,
+      };
+      const { data: newFactura, error } = await supabase
+        .from('facturas')
+        .insert(dataToInsert)
+        .select('id')
+        .single();
       if (error || !newFactura) throw error || new Error('No se pudo crear la factura.');
       facturaId = newFactura.id;
     }
 
-    // 3. GESTIONAR ITEMS
+    // 2. GESTIONAR ITEMS
     // Obtener los IDs de los items iniciales si estamos editando
     let initialItemIds = new Set<number>();
     if (facturaIdToEdit) {
