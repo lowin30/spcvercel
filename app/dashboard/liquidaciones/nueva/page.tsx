@@ -78,6 +78,8 @@ export default function NuevaLiquidacionSupervisorPage () {
   const [selectedPresupuestoId, setSelectedPresupuestoId] = useState<string>('')
   const [gastosReales, setGastosReales] = useState<number | null>(null)
   const [ajusteAdmin, setAjusteAdmin] = useState<number>(0)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [facturaTotal, setFacturaTotal] = useState<number | null>(null)
 
   // Estados de filtros
   const [filtroEstado, setFiltroEstado] = useState<number[]>([3, 4]) // Aceptados y Facturados por defecto
@@ -97,6 +99,14 @@ export default function NuevaLiquidacionSupervisorPage () {
     }
     checkAuthorization()
   }, [router])
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUserId(user?.id || null)
+    }
+    loadUser()
+  }, [])
 
   // Función para obtener los presupuestos finales que no tienen liquidación
   const fetchPresupuestosSinLiquidar = async () => {
@@ -225,40 +235,79 @@ export default function NuevaLiquidacionSupervisorPage () {
     fetchGastosReales()
   }, [selectedPresupuesto])
 
+  useEffect(() => {
+    const fetchFacturaTotal = async () => {
+      if (!selectedPresupuesto) {
+        setFacturaTotal(null)
+        return
+      }
+      const { data, error } = await supabase
+        .from('facturas')
+        .select('id, total, fecha_pago, created_at')
+        .eq('id_presupuesto_final', selectedPresupuesto.id)
+      if (error) {
+        setFacturaTotal(null)
+      } else {
+        const arr = Array.isArray(data) ? data as any[] : []
+        const sum = arr.reduce((acc, f) => acc + (f.total ?? 0), 0)
+        setFacturaTotal(sum > 0 ? sum : 0)
+      }
+    }
+    fetchFacturaTotal()
+  }, [selectedPresupuesto])
+
   // Memo para calcular las ganancias
   const calculos = useMemo((): Calculos | null => {
-    if (!selectedPresupuesto || !selectedPresupuesto.presupuestos_base || gastosReales === null) return null
-
-    const totalBaseInt = Math.round(selectedPresupuesto.presupuestos_base.total)
+    if (!selectedPresupuesto || gastosReales === null) return null
+    const basePF = Math.round(selectedPresupuesto.total_base ?? 0)
+    const basePB = Math.round(selectedPresupuesto.presupuestos_base?.total ?? 0)
+    const baseFactura = Math.round(facturaTotal ?? 0)
+    const totalBaseInt = basePF > 0 ? basePF : (basePB > 0 ? basePB : (baseFactura > 0 ? baseFactura : 0))
     const gastosRealesInt = Math.round(gastosReales)
-    const haySobrecosto = gastosRealesInt > totalBaseInt
-    
-    // Calcular la ganancia neta (positiva o negativa)
+    const propietario = !!(currentUserId && selectedPresupuesto.id_supervisor && currentUserId === selectedPresupuesto.id_supervisor)
+    if (totalBaseInt <= 0) {
+      return {
+        gananciaNeta: 0,
+        gananciaSupervisor: 0,
+        gananciaAdmin: 0,
+        totalSupervisor: propietario ? 0 : gastosRealesInt,
+        sobrecosto: false,
+        montoSobrecosto: 0,
+        sobrecostoSupervisor: 0,
+        sobrecostoAdmin: 0
+      }
+    }
     const gananciaNetaInt = totalBaseInt - gastosRealesInt
-    
-    // Distribuir la ganancia/pérdida entre supervisor y administración
+    if (propietario) {
+      return {
+        gananciaNeta: gananciaNetaInt,
+        gananciaSupervisor: 0,
+        gananciaAdmin: gananciaNetaInt,
+        totalSupervisor: 0,
+        sobrecosto: false,
+        montoSobrecosto: 0,
+        sobrecostoSupervisor: 0,
+        sobrecostoAdmin: 0
+      }
+    }
     const gananciaSupervisorInt = Math.round(gananciaNetaInt * 0.5)
     const gananciaAdminInt = gananciaNetaInt - gananciaSupervisorInt
-    
-    // Calcular el sobrecosto (para mantener el campo sobrecosto)
+    const haySobrecosto = gananciaNetaInt < 0
     const montoSobrecostoInt = haySobrecosto ? Math.abs(gananciaNetaInt) : 0
     const sobrecostoSupervisorInt = haySobrecosto ? Math.abs(gananciaSupervisorInt) : 0
     const sobrecostoAdminInt = haySobrecosto ? Math.abs(gananciaAdminInt) : 0
-    
-    // ✅ NUEVO: Total que recibe el supervisor (ganancia + gastos reales para pagarlos)
     const totalSupervisorInt = gananciaSupervisorInt + gastosRealesInt
-
     return {
-      gananciaNeta: gananciaNetaInt, 
-      gananciaSupervisor: gananciaSupervisorInt, 
+      gananciaNeta: gananciaNetaInt,
+      gananciaSupervisor: gananciaSupervisorInt,
       gananciaAdmin: gananciaAdminInt,
-      totalSupervisor: totalSupervisorInt,  // ✅ NUEVO
+      totalSupervisor: totalSupervisorInt,
       sobrecosto: haySobrecosto,
       montoSobrecosto: montoSobrecostoInt,
       sobrecostoSupervisor: sobrecostoSupervisorInt,
       sobrecostoAdmin: sobrecostoAdminInt
     }
-  }, [selectedPresupuesto, gastosReales])
+  }, [selectedPresupuesto, gastosReales, facturaTotal, currentUserId])
 
   // Manejador para crear la liquidación
   const handleCreateLiquidacion = async () => {
@@ -280,9 +329,8 @@ export default function NuevaLiquidacionSupervisorPage () {
       // Buscar la factura asociada al presupuesto final seleccionado
       const { data: facturaData, error: facturaError } = await supabase
         .from('facturas')
-        .select('id')
+        .select('id, total, fecha_pago, created_at')
         .eq('id_presupuesto_final', selectedPresupuesto.id)
-        .maybeSingle()
         
       if (facturaError) {
         console.error('Error al buscar la factura:', facturaError)
@@ -299,30 +347,64 @@ export default function NuevaLiquidacionSupervisorPage () {
       const code = `LIQ-${timestamp}-${randomSuffix}`
       
       const gastosRealesIntForInsert = Math.round(gastosReales ?? 0)
-      const totalBaseIntForInsert = Math.round(selectedPresupuesto.total_base)
+      const basePFInsert = Math.round(selectedPresupuesto.total_base ?? 0)
+      const basePBInsert = Math.round(selectedPresupuesto.presupuestos_base?.total ?? 0)
+      const facturasArr = Array.isArray(facturaData) ? (facturaData as any[]) : []
+      const baseFacturaInsert = Math.round(facturasArr.reduce((acc, f) => acc + (f.total ?? 0), 0))
+      const totalBaseIntForInsert = basePFInsert > 0 ? basePFInsert : (basePBInsert > 0 ? basePBInsert : (baseFacturaInsert > 0 ? baseFacturaInsert : 0))
       const ajusteAdminIntForInsert = Math.round(ajusteAdmin ?? 0)
+      const propietario = (user.id && selectedPresupuesto.id_supervisor && user.id === selectedPresupuesto.id_supervisor)
+      const gananciaNetaInt = totalBaseIntForInsert > 0 ? (totalBaseIntForInsert - gastosRealesIntForInsert) : 0
+      let gananciaSupervisorInt = Math.round(gananciaNetaInt * 0.5)
+      let gananciaAdminInt = gananciaNetaInt - gananciaSupervisorInt
+      if (propietario) {
+        gananciaSupervisorInt = 0
+        gananciaAdminInt = gananciaNetaInt
+      }
+      const totalSupervisorInsert = totalBaseIntForInsert > 0
+        ? (propietario ? 0 : (gananciaSupervisorInt + gastosRealesIntForInsert))
+        : (propietario ? 0 : gastosRealesIntForInsert)
+
+      const haySobrecostoInsert = (!propietario && totalBaseIntForInsert > 0 && gananciaNetaInt < 0)
+      const montoSobrecostoInsert = haySobrecostoInsert ? Math.abs(gananciaNetaInt) : 0
+      const sobrecostoSupervisorInsert = haySobrecostoInsert ? Math.abs(Math.round(gananciaNetaInt * 0.5)) : 0
+      const sobrecostoAdminInsert = haySobrecostoInsert ? Math.abs(gananciaAdminInt) : 0
+
+      let latestFacturaId: number | null = null
+      if (facturasArr.length > 0) {
+        let latest: any = null
+        for (const f of facturasArr) {
+          const ts = new Date(f.fecha_pago || f.created_at || 0).getTime()
+          if (!latest) {
+            latest = { ...f, _ts: ts }
+          } else if (ts > latest._ts) {
+            latest = { ...f, _ts: ts }
+          }
+        }
+        latestFacturaId = latest?.id ?? null
+      }
 
       const { data: liquidacionData, error: liquidacionError } = await supabase
         .from('liquidaciones_nuevas')
         .insert({
           id_presupuesto_final: selectedPresupuesto.id,
-          id_presupuesto_base: selectedPresupuesto.presupuestos_base.id, // Añadimos el id del presupuesto base
+          id_presupuesto_base: selectedPresupuesto.presupuestos_base?.id ?? null,
           id_tarea: selectedPresupuesto.id_tarea, // ID de la tarea
           id_usuario_admin: adminId,
           id_usuario_supervisor: supervisorId,
           gastos_reales: gastosRealesIntForInsert,
-          ganancia_neta: calculos.gananciaNeta,
-          ganancia_supervisor: calculos.gananciaSupervisor,
-          ganancia_admin: calculos.gananciaAdmin,
-          total_supervisor: calculos.totalSupervisor, // ✅ NUEVO: Total que recibe el supervisor
+          ganancia_neta: gananciaNetaInt,
+          ganancia_supervisor: gananciaSupervisorInt,
+          ganancia_admin: gananciaAdminInt,
+          total_supervisor: totalSupervisorInsert,
           code: code, // Código único generado
-          total_base: totalBaseIntForInsert, // Total base del presupuesto
+          total_base: totalBaseIntForInsert,
           ajuste_admin: ajusteAdminIntForInsert, // Ajuste administrativo
-          id_factura: facturaData?.id || null, // Relación con la factura si existe
-          sobrecosto: calculos.sobrecosto, // Indicador de sobrecosto
-          monto_sobrecosto: calculos.montoSobrecosto, // Monto total del sobrecosto
-          sobrecosto_supervisor: calculos.sobrecostoSupervisor, // Parte del sobrecosto del supervisor
-          sobrecosto_admin: calculos.sobrecostoAdmin // Parte del sobrecosto del administrador
+          id_factura: latestFacturaId, // Relación con la última factura si existe
+          sobrecosto: haySobrecostoInsert,
+          monto_sobrecosto: montoSobrecostoInsert,
+          sobrecosto_supervisor: sobrecostoSupervisorInsert,
+          sobrecosto_admin: sobrecostoAdminInsert
         })
         .select('id')
         .single()
