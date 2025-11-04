@@ -114,13 +114,26 @@ export function BuildingForm({ administradores, supabase }: BuildingFormProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Error al procesar la URL")
+        let serverMsg = "Error al procesar la URL"
+        try {
+          const err = await response.json()
+          serverMsg = err?.error || err?.message || serverMsg
+        } catch {}
+        throw new Error(serverMsg)
       }
 
       const data = await response.json()
 
       if (data.error) {
         throw new Error(data.error)
+      }
+
+      if (data.isUnresolved) {
+        toast({
+          title: "No se pudo resolver automáticamente",
+          description: data.message || "Pegá la URL larga de Google Maps o completa los campos manualmente.",
+        })
+        return
       }
 
       if (data.coordinates) {
@@ -130,6 +143,15 @@ export function BuildingForm({ administradores, supabase }: BuildingFormProps) {
 
         if (data.address) {
           form.setValue("direccion", data.address)
+        }
+
+        // Autorellenar 'nombre' si está vacío (editable por el usuario)
+        const currentNombre = (form.getValues("nombre") || "").trim()
+        if (!currentNombre) {
+          const suggestedNombre = (data.address ? String(data.address).split(",")[0] : "").trim()
+          if (suggestedNombre) {
+            form.setValue("nombre", suggestedNombre)
+          }
         }
 
         // Si se usaron valores predeterminados, mostrar un mensaje diferente
@@ -290,8 +312,8 @@ export function BuildingForm({ administradores, supabase }: BuildingFormProps) {
                 </div>
               </FormControl>
               <FormDescription>
-                URL de Google Maps (puede dejarse en blanco). La información se obtendrá automáticamente al pegar la URL
-                o al hacer clic en "Obtener".
+                URL de Google Maps (puede dejarse en blanco). Acepta URLs largas y acortadas (maps.app.goo.gl, goo.gl/maps).
+                La información se obtendrá automáticamente al pegar la URL o al hacer clic en "Obtener".
               </FormDescription>
               <FormMessage />
             </FormItem>
