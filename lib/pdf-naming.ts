@@ -5,14 +5,42 @@ export type PdfTipo =
   | 'presupuesto'
   | 'gastos_tarea'
 
+// Normaliza acentos conservando la letra ñ/Ñ y transformando ü/Ü → u/U
+function normalizeAccentsKeepEnye(value: string): string {
+  if (!value) return ''
+  let s = value.normalize('NFC')
+  // Vocales con tilde/diacríticos → base sin tilde
+  s = s
+    .replace(/[ÁÀÂÄÃÅ]/g, 'A')
+    .replace(/[áàâäãå]/g, 'a')
+    .replace(/[ÉÈÊË]/g, 'E')
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[ÍÌÎÏ]/g, 'I')
+    .replace(/[íìîï]/g, 'i')
+    .replace(/[ÓÒÔÖÕ]/g, 'O')
+    .replace(/[óòôöõ]/g, 'o')
+    // ü/Ü explícitamente a u/U
+    .replace(/[ÚÙÛÜ]/g, 'U')
+    .replace(/[úùûü]/g, 'u')
+  return s
+}
+
 export function sanitizeFilename(value: string): string {
   if (!value) return 'archivo'
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9-_. ]/g, '')
+  // 1) Normalizar acentos manteniendo ñ/Ñ y mapeando ü→u
+  let s = normalizeAccentsKeepEnye(value)
+  // 2) Permitir solo caracteres seguros, conservando ñ/Ñ; otros se reemplazan por espacio
+  s = s.replace(/[^0-9A-Za-z_.\- ñÑ]/g, ' ')
+  // 3) Espacios → guion, colapsar guiones y recortar guiones/puntos al borde
+  s = s
     .replace(/\s+/g, '-')
-    .slice(0, 120)
+    .replace(/-+/g, '-')
+    .replace(/^(?:[.\-])+/, '')
+    .replace(/(?:[.\-])+$/, '')
+  // 4) Fallback si quedó vacío
+  if (!s) s = 'archivo'
+  // 5) Limitar longitud
+  return s.slice(0, 120)
 }
 
 export function dateToISO(date: Date | string | null | undefined): string {

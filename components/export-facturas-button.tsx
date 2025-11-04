@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { FileText, Loader2 } from "lucide-react"
 import { generarFacturasPDF } from "@/lib/pdf-facturas-generator"
 import { toast } from "sonner"
+import { getPdfFilename, dateToISO } from "@/lib/pdf-naming"
 
 interface FacturaParaExportar {
   id: number
@@ -50,14 +51,13 @@ export function ExportFacturasButton({
       const url = URL.createObjectURL(pdfBlob)
       const link = document.createElement("a")
       link.href = url
-      
-      // Nombre del archivo
-      const timestamp = new Date().toISOString().split('T')[0]
-      const nombreArchivo = nombreAdministrador 
-        ? `Facturas_${nombreAdministrador.replace(/\s+/g, '_')}_${timestamp}` 
-        : `Facturas_${timestamp}`
-        
-      link.download = `${nombreArchivo}.pdf`
+
+      // Nombre del archivo (centralizado y amigable)
+      const filename = getPdfFilename('facturas_listado', {
+        admin: nombreAdministrador || 'Todas',
+        fecha: dateToISO(new Date()),
+      })
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
