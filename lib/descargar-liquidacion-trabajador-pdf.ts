@@ -1,25 +1,7 @@
 import React from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { generarLiquidacionTrabajadorPDF } from './pdf-liquidacion-trabajador-generator'
-
-function sanitizeFilename(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9-_\. ]/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 120)
-}
-
-function formatDateISO(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'fecha'
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return 'fecha'
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${dd}`
-}
+import { getPdfFilename, dateToISO } from '@/lib/pdf-naming'
 
 export async function descargarLiquidacionTrabajadorPDF(liquidacionId: number): Promise<void> {
   const supabase = createClient()
@@ -90,11 +72,12 @@ export async function descargarLiquidacionTrabajadorPDF(liquidacionId: number): 
     })),
   })
 
-  // 6) Descargar PDF con nombre: <Trabajador>_<YYYY-MM-DD>_<Monto>
-  const trabajador = sanitizeFilename(trabajadorObj?.nombre || 'Trabajador')
-  const fecha = formatDateISO(fechaFin)
-  const monto = Math.round(liq.total_pagar || 0)
-  const filename = `${trabajador}_${fecha}_${monto}.pdf`
+  // 6) Descargar PDF con nombre centralizado
+  const filename = getPdfFilename('liquidacion_trabajador', {
+    trabajador: trabajadorObj?.nombre || 'Trabajador',
+    fecha: dateToISO(fechaFin),
+    monto: liq.total_pagar || 0,
+  })
 
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

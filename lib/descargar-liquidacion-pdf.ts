@@ -6,6 +6,7 @@
 import React from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { generarLiquidacionPDF } from './pdf-liquidacion-generator'
+import { getPdfFilename, dateToISO } from '@/lib/pdf-naming'
 
 interface DatosLiquidacion {
   id: number
@@ -79,11 +80,17 @@ export async function descargarLiquidacionPDF(liquidacionId: number): Promise<vo
       desglose: desgloseData || [],
     })
 
-    // 4. Descargar PDF
+    // 4. Descargar PDF (centralizado)
+    const filename = getPdfFilename('liquidacion_supervisor', {
+      tarea: liquidacion.titulo_tarea || liquidacion.code_presupuesto_final || 'Tarea',
+      fecha: dateToISO(liquidacion.created_at),
+      total: liquidacion.total_supervisor || 0,
+    })
+
     const url = URL.createObjectURL(pdfBlob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `Liquidacion_${liquidacion.code}.pdf`
+    link.download = filename
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
