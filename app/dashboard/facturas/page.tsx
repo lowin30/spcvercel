@@ -304,26 +304,26 @@ export default function FacturasPage({
 
       {/* Tabs de navegación rápida */}
       <Tabs value={vistaActual} onValueChange={(value) => setVistaActual(value as any)}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="todas" className="text-xs sm:text-sm">
+        <TabsList className="w-full h-auto min-h-10 grid grid-cols-2 gap-2 sm:flex sm:flex-nowrap sm:h-10">
+          <TabsTrigger value="todas" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             📋 Todas
             <span className="ml-1.5 rounded-full bg-blue-100 dark:bg-blue-900 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
               {totalFacturas}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pendientes" className="text-xs sm:text-sm">
+          <TabsTrigger value="pendientes" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             ⏳ Pendientes
             <span className="ml-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900 px-2 py-0.5 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
               {totalPendientes}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pagadas" className="text-xs sm:text-sm">
+          <TabsTrigger value="pagadas" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             ✅ Pagadas
             <span className="ml-1.5 rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-300">
               {totalPagadas}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="vencidas" className="text-xs sm:text-sm">
+          <TabsTrigger value="vencidas" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             ⚠️ Vencidas
             <span className="ml-1.5 rounded-full bg-red-100 dark:bg-red-900 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
               {totalVencidas}
@@ -332,31 +332,7 @@ export default function FacturasPage({
         </TabsList>
       </Tabs>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumen de Facturas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-lg">
-              <h3 className="font-medium">Total</h3>
-              <p className="text-2xl font-bold">{totalFacturas}</p>
-            </div>
-            <div className="bg-green-100 dark:bg-green-900 p-4 rounded-lg">
-              <h3 className="font-medium">Pagadas</h3>
-              <p className="text-2xl font-bold">{totalPagadas}</p>
-            </div>
-            <div className="bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg">
-              <h3 className="font-medium">Pendientes</h3>
-              <p className="text-2xl font-bold">{totalPendientes}</p>
-            </div>
-            <div className="bg-purple-100 dark:bg-purple-900 p-4 rounded-lg">
-              <h3 className="font-medium">Monto Total</h3>
-              <p className="text-2xl font-bold">${montoTotal.toLocaleString()}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      
 
       <Card>
         <CardHeader>
