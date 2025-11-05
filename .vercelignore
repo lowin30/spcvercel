@@ -1,0 +1,6 @@
+# Excluir toda la documentación Markdown de los despliegues
+*.md
+ 
+ # Excluir scripts SQL del despliegue
+ *.sql
+ db/**/*.sql

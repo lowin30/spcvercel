@@ -2,389 +2,6 @@
 
 ---
 
-## 🤖 30 de Septiembre de 2025: Sistema de Automatización Inteligente de Estados
-
-### Resumen Ejecutivo
-
-Se implementó un **sistema completo de automatización inteligente** que sincroniza automáticamente los estados entre Tareas, Presupuestos Finales, Facturas y Liquidaciones. El sistema utiliza triggers de base de datos para garantizar que los cambios de estado se propaguen instantáneamente sin intervención manual, eliminando errores y mejorando la trazabilidad.
-
-### Objetivo
-
-Eliminar la necesidad de actualizar manualmente los estados de las tareas cuando ocurren eventos importantes en el flujo de trabajo (creación/aprobación de presupuestos, pago de facturas, generación de liquidaciones), garantizando consistencia y reduciendo la carga operativa.
-
-### Implementación Técnica
-
-Se crearon **4 triggers en PostgreSQL** que se ejecutan automáticamente en la base de datos:
-
-#### TRIGGER 1: Presupuesto Final Creado → Tarea "Presupuestado"
-
-```sql
-CREATE OR REPLACE FUNCTION sync_presupuesto_final_creado()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE tareas
-    SET 
-      id_estado_nuevo = (SELECT id FROM estados_tareas WHERE codigo = 'presupuestado' LIMIT 1),
-      updated_at = NOW()
-    WHERE id = NEW.id_tarea;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_presupuesto_final_creado
-  AFTER INSERT ON presupuestos_finales
-  FOR EACH ROW
-  EXECUTE FUNCTION sync_presupuesto_final_creado();
-```
-
-**Funcionamiento:** Cuando se crea un presupuesto final para una tarea, automáticamente actualiza el estado de la tarea a "Presupuestado".
-
-#### TRIGGER 2: Presupuesto Final Aprobado → Tarea "Aprobado"
-
-```sql
-CREATE OR REPLACE FUNCTION sync_presupuesto_final_aprobado()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.aprobado = true AND (OLD.aprobado IS NULL OR OLD.aprobado = false) THEN
-    UPDATE tareas
-    SET 
-      id_estado_nuevo = (SELECT id FROM estados_tareas WHERE codigo = 'aprobado' LIMIT 1),
-      updated_at = NOW()
-    WHERE id = NEW.id_tarea;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_presupuesto_final_aprobado
-  AFTER UPDATE ON presupuestos_finales
-  FOR EACH ROW
-  EXECUTE FUNCTION sync_presupuesto_final_aprobado();
-```
-
-**Funcionamiento:** Cuando se aprueba un presupuesto final, automáticamente actualiza el estado de la tarea a "Aprobado". Además, el sistema ya tenía implementada la creación automática de 2 facturas al aprobar el presupuesto final.
-
-#### TRIGGER 3: Todas las Facturas Pagadas → Tarea "Facturado"
-
-```sql
-CREATE OR REPLACE FUNCTION sync_factura_pagada()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_id_tarea INTEGER;
-  v_id_presupuesto_final INTEGER;
-  v_todas_pagadas BOOLEAN;
-  v_total_facturas INTEGER;
-  v_facturas_pagadas INTEGER;
-BEGIN
-  IF NEW.pagada = true AND (OLD.pagada IS NULL OR OLD.pagada = false) THEN
-    v_id_presupuesto_final := NEW.id_presupuesto_final;
-    
-    SELECT id_tarea INTO v_id_tarea
-    FROM presupuestos_finales
-    WHERE id = v_id_presupuesto_final;
-    
-    IF v_id_tarea IS NOT NULL THEN
-      SELECT 
-        COUNT(*),
-        COUNT(*) FILTER (WHERE pagada = true)
-      INTO v_total_facturas, v_facturas_pagadas
-      FROM facturas 
-      WHERE id_presupuesto_final = v_id_presupuesto_final;
-      
-      v_todas_pagadas := (v_total_facturas = v_facturas_pagadas);
-      
-      IF v_todas_pagadas THEN
-        UPDATE tareas
-        SET 
-          id_estado_nuevo = (SELECT id FROM estados_tareas WHERE codigo = 'facturado' LIMIT 1),
-          updated_at = NOW()
-        WHERE id = v_id_tarea;
-      END IF;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_factura_pagada
-  AFTER UPDATE ON facturas
-  FOR EACH ROW
-  EXECUTE FUNCTION sync_factura_pagada();
-```
-
-**Funcionamiento:** Cuando se marca una factura como pagada, el trigger verifica si TODAS las facturas del mismo presupuesto final están pagadas. Solo cuando la última factura se marca como pagada, actualiza el estado de la tarea a "Facturado".
-
-#### TRIGGER 4: Liquidación Creada → Tarea "Liquidada"
-
-```sql
-CREATE OR REPLACE FUNCTION sync_liquidacion_creada()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE tareas
-    SET 
-      id_estado_nuevo = (SELECT id FROM estados_tareas WHERE codigo = 'liquidada' LIMIT 1),
-      updated_at = NOW()
-    WHERE id = NEW.id_tarea;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_liquidacion_creada
-  AFTER INSERT ON liquidaciones_nuevas
-  FOR EACH ROW
-  EXECUTE FUNCTION sync_liquidacion_creada();
-```
-
-**Funcionamiento:** Cuando se crea una liquidación para una tarea, automáticamente actualiza el estado de la tarea a "Liquidada".
-
-### Validaciones Preventivas
-
-Además de la automatización, se creó el archivo `lib/validaciones-flujo.ts` con funciones de validación para prevenir errores en el flujo de trabajo:
-
-#### Validación 1: Generar Liquidación
-
-```typescript
-export async function validarGenerarLiquidacion(idTarea: number) {
-  const supabase = await createSsrServerClient()
-  
-  // Verificar que existan facturas
-  const { data: facturas, error } = await supabase
-    .from('facturas')
-    .select('pagada, presupuestos_finales!inner(id_tarea)')
-    .eq('presupuestos_finales.id_tarea', idTarea)
-  
-  if (error || !facturas || facturas.length === 0) {
-    return {
-      valido: false,
-      mensaje: '⚠️ No hay facturas creadas para esta tarea'
-    }
-  }
-  
-  // Verificar que TODAS estén pagadas
-  const todasPagadas = facturas.every(f => f.pagada === true)
-  
-  if (!todasPagadas) {
-    const pendientes = facturas.filter(f => !f.pagada).length
-    return {
-      valido: false,
-      mensaje: `⚠️ Quedan ${pendientes} factura(s) sin pagar`
-    }
-  }
-  
-  return { valido: true }
-}
-```
-
-**Uso:** Se puede integrar en el botón o página de generación de liquidaciones para prevenir que se creen liquidaciones sin que las facturas estén pagadas.
-
-#### Validación 2: Marcar Factura como Pagada
-
-```typescript
-export async function validarMarcarFacturaPagada(idFactura: number) {
-  const supabase = await createSsrServerClient()
-  
-  const { data: factura, error } = await supabase
-    .from('facturas')
-    .select('id_presupuesto_final, presupuestos_finales(aprobado)')
-    .eq('id', idFactura)
-    .single()
-  
-  if (error || !factura) {
-    return {
-      valido: false,
-      mensaje: '⚠️ Factura no encontrada'
-    }
-  }
-  
-  const presupuestoAprobado = factura.presupuestos_finales?.aprobado
-  
-  if (!presupuestoAprobado) {
-    return {
-      valido: false,
-      mensaje: '⚠️ El presupuesto final debe estar aprobado antes de marcar la factura como pagada'
-    }
-  }
-  
-  return { valido: true }
-}
-```
-
-**Uso:** Se puede integrar en el componente de edición de facturas para prevenir que se marquen facturas como pagadas si el presupuesto no está aprobado.
-
-### Flujo de Trabajo Automatizado
-
-```mermaid
-graph TD
-    A[Tarea Creada] -->|Estado inicial| B[Tarea: Estado Inicial]
-    B -->|Admin crea Presupuesto Final| C[🤖 AUTOMÁTICO: Tarea → Presupuestado]
-    C -->|Admin aprueba Presupuesto Final| D[🤖 AUTOMÁTICO: Tarea → Aprobado]
-    D -->|Sistema crea 2 Facturas| E[Facturas Creadas]
-    E -->|Cliente paga Factura 1| F[Factura 1 Pagada]
-    F -->|Cliente paga Factura 2| G[🤖 AUTOMÁTICO: Tarea → Facturado]
-    G -->|Admin genera Liquidación| H[🤖 AUTOMÁTICO: Tarea → Liquidada]
-```
-
-### Beneficios
-
-| Aspecto | Antes | Después |
-|---------|-------|----------|
-| **Actualización de Estados** | Manual, propenso a errores | 100% automático |
-| **Consistencia** | Dependía de recordar actualizar | Garantizada por triggers |
-| **Clicks necesarios** | 4-6 clicks por cambio de estado | 0 clicks (automático) |
-| **Errores humanos** | Posibles olvidos | Eliminados |
-| **Trazabilidad** | Parcial | Completa y automática |
-| **Ubicación de lógica** | Frontend (frágil) | Base de datos (robusto) |
-| **Funciona con cambios manuales** | No | Sí, siempre activo |
-
-### Impacto Operativo
-
-- ✅ **Reducción del 90%** en errores de actualización de estados
-- ✅ **Eliminación del 100%** de los clicks manuales para cambios de estado
-- ✅ **Trazabilidad automática** de todo el flujo de trabajo
-- ✅ **Funcionamiento garantizado** incluso con cambios directos en la base de datos
-- ✅ **Sin dependencias del frontend** - los triggers funcionan siempre
-
-### Consideraciones Técnicas
-
-#### Seguridad
-- Los triggers utilizan `DROP TRIGGER IF EXISTS` para permitir actualizaciones seguras
-- Las funciones usan `CREATE OR REPLACE` para facilitar el mantenimiento
-- Todos los triggers incluyen validaciones NULL-safe
-- Las operaciones son transaccionales (rollback automático si hay errores)
-
-#### Performance
-- Los triggers se ejecutan en milisegundos
-- No hay overhead significativo en las operaciones normales
-- Las consultas están optimizadas con índices existentes
-
-#### Debugging
-- Todos los triggers incluyen `RAISE NOTICE` para logging
-- Se puede verificar el estado de los triggers con:
-  ```sql
-  SELECT trigger_name, event_manipulation, event_object_table
-  FROM information_schema.triggers
-  WHERE trigger_name LIKE 'trigger_%';
-  ```
-
-#### Mantenimiento
-- Los triggers no interfieren con funciones existentes:
-  - `calcular_gastos_reales_tarea()`
-  - `actualizar_liquidaciones_automatico()`
-  - `calcular_liquidacion_semanal()`
-  - `registrar_parte_de_trabajo()`
-  - `eliminar_parte_de_trabajo()`
-
-### Instalación
-
-Los triggers se instalan ejecutando el script SQL completo en el SQL Editor de Supabase. El script incluye:
-1. Creación de las 4 funciones
-2. Creación de los 4 triggers
-3. Consulta de verificación al final
-
-La instalación es idempotente (se puede ejecutar múltiples veces sin problemas).
-
-### Testing
-
-Para verificar el funcionamiento:
-
-1. **Test Presupuesto Final Creado:**
-   - Crear un presupuesto final para una tarea
-   - Verificar que la tarea cambie a "Presupuestado"
-
-2. **Test Presupuesto Final Aprobado:**
-   - Aprobar el presupuesto final
-   - Verificar que la tarea cambie a "Aprobado"
-   - Verificar que se creen 2 facturas automáticamente
-
-3. **Test Facturas Pagadas:**
-   - Marcar primera factura como pagada → Tarea NO cambia
-   - Marcar segunda factura como pagada → Tarea cambia a "Facturado"
-
-4. **Test Liquidación Creada:**
-   - Crear liquidación para la tarea
-   - Verificar que la tarea cambie a "Liquidada"
-
-### Archivos Modificados
-
-- ✅ **Nuevo:** `lib/validaciones-flujo.ts` - Validaciones preventivas en TypeScript
-- ✅ **Scripts SQL:** Ejecutados directamente en Supabase (no en repositorio)
-
-### Estado Actual
-
-✅ **IMPLEMENTADO Y ACTIVO** en producción desde el 30 de Septiembre de 2025.
-
----
-
-## 📅 30 de Septiembre de 2025: Mejoras Críticas de UX en Registro de Partes de Trabajo
-
-### Resumen
-
-Se implementaron **tres mejoras críticas** en el módulo de registro de días trabajados para resolver problemas de claridad, prevenir doble-registros y mejorar la visualización del calendario.
-
-#### MEJORA #1: Calendario Consolidado para Trabajadores
-- **Problema:** Los trabajadores con múltiples tareas solo veían los partes de la tarea actual, causando confusión y doble-registros accidentales.
-- **Solución:** Vista consolidada que muestra TODOS los partes del trabajador en TODAS sus tareas.
-- **Diferenciación visual:**
-  - Tarea actual: Verde (`#10B981`) para día completo, Naranja (`#F59E0B`) para medio día (editables)
-  - Otras tareas: Gris (`#6B7280` / `#9CA3AF`) con borde (solo lectura)
-- **Filtrado por rol:**
-  ```typescript
-  if (usuarioActual.rol === 'trabajador') {
-    query = query.eq('id_trabajador', trabajadorId) // Todos los partes
-  } else {
-    query = query.eq('id_tarea', tareaId).eq('id_trabajador', trabajadorId) // Solo esta tarea
-  }
-  ```
-
-#### MEJORA #2: Banner Consolidado Inteligente
-- **Problema:** Múltiples banners separados (azul + naranja/rojo) que no comunicaban claramente el estado total del día.
-- **Solución:** Banner único con 3 secciones claras:
-  1. ✏️ **En esta tarea:** Parte existente con opción de modificar/eliminar
-  2. 📌 **En otras tareas:** Lista detallada con código + título de cada tarea
-  3. **Total ocupado:** Resumen claro (ej: "1 día(s) de 1")
-- **Color dinámico:** Azul cuando hay espacio, Rojo cuando día completo ocupado
-- **Información de tareas:** JOIN con tabla `tareas` para mostrar `code` y `titulo`
-- **Estado extendido:**
-  ```typescript
-  const [modalState, setModalState] = useState<{ 
-    // ...
-    partesEnOtrasTareas: ParteDeTrabajo[]  // Lista completa para detalles
-  }>()
-  const [tareasInfo, setTareasInfo] = useState<Record<number, { codigo, titulo }>>({})
-  ```
-
-#### MEJORA #3: Eventos Compactos en Calendario
-- **Problema:** Texto largo en eventos causaba solapamiento cuando había múltiples registros el mismo día.
-- **Solución:** Títulos simplificados a solo emojis:
-  - ☀️ = Día Completo
-  - 🌙 = Medio Día
-- **Beneficio:** Múltiples eventos caben perfectamente, sin solapamiento
-- **Colores:** Mantienen distinción visual entre tarea actual (brillante) y otras (gris)
-
-### Impacto
-
-| Aspecto | Antes | Después |
-|---------|-------|----------|
-| **Visibilidad** | Solo partes de tarea actual | TODOS los partes en todas las tareas |
-| **Banners** | 2-3 separados, confusos | 1 consolidado, claro y completo |
-| **Calendario** | Texto largo, solapamiento | Emojis compactos, limpio |
-| **Prevención de errores** | Doble-registros frecuentes | Prevención efectiva con info clara |
-| **UX** | Confusa, fragmentada | Profesional, intuitiva |
-
-**Usuarios afectados:**
-- ⭐⭐⭐ **Trabajadores:** Experiencia transformada (vista consolidada + banner claro)
-- ⭐⭐ **Supervisores/Admin:** Mayor claridad al registrar para trabajadores
-
-**Archivos modificados:**
-- `components/calendario-partes-trabajo.tsx`
-- `components/registro-parte-trabajo-form.tsx`
-
----
-
 ## ⚠️ Observaciones Críticas sobre Roles y Módulos de Liquidaciones (Agosto 2025)
 
 ### Diferencia entre "Administrador" y "Admin"
@@ -574,96 +191,6 @@ El **SPC Sistema de Gestión** es una plataforma integral desarrollada en Next.j
 - Catálogo de productos y servicios
 - Categorías personalizables
 - Integración con presupuestos y facturas
-
----
-
-## 🔐 Matriz de Permisos por Rol (Seguridad RLS)
-
-A continuación, se detalla la matriz de permisos oficial que se utilizará para configurar la Seguridad a Nivel de Fila (RLS) en la base de datos. Esta configuración sigue el principio de **mínimo privilegio**, garantizando que cada rol solo tenga acceso a los datos estrictamente necesarios para cumplir su función.
-
-### **Grupo 1: Tablas de Configuración Central (Solo `admin`)**
-Acceso exclusivo para el rol `admin` para prevenir modificaciones accidentales que puedan comprometer la estabilidad del sistema.
-
-- **`ajustes_facturas`**: Solo `admin`.
-- **`alertas_sistema`**: Solo `admin`.
-- **`configuracion_trabajadores`**: Solo `admin`.
-- **`categorias_productos`**: Solo `admin`.
-- **`estados_facturas`**: Solo `admin`.
-- **`estados_presupuestos`**: Solo `admin`.
-- **`estados_tareas`**: Solo `admin`.
-- **`logs`**: Solo `admin`.
-- **`temp_maps`**: Solo `admin`.
-
-### **Grupo 2: Tablas de Gestión Principal (Acceso por Jerarquía)**
-El acceso se basa en la relación del usuario con los datos (ej. si es su tarea, su parte de trabajo, etc.).
-
-- **`usuarios`**:
-    - `admin`: TODO (Control total).
-    - `supervisor`: SELECT (trabajadores a cargo), UPDATE (su propio perfil).
-    - `trabajador`: SELECT y UPDATE (solo su propio perfil).
-- **`edificios`**:
-    - `admin`: TODO.
-    - `supervisor` / `trabajador`: SELECT (solo en tareas donde están asignados).
-- **`tareas`**:
-    - `admin`: TODO.
-    - `supervisor`: SELECT (todas), INSERT, UPDATE (solo las que supervisa).
-    - `trabajador`: SELECT (solo las tareas a las que está asignado).
-- **`comentarios`**:
-    - `admin`: TODO.
-    - `supervisor` / `trabajador`: SELECT e INSERT (solo en sus tareas).
-- **`partes_de_trabajo`**:
-    - `admin`: TODO.
-    - `supervisor`: SELECT (de los trabajadores en sus tareas).
-    - `trabajador`: SELECT e INSERT (solo los suyos).
-- **`gastos_tarea`**:
-    - `admin`: TODO.
-    - `supervisor`: SELECT e INSERT (en tareas que supervisa).
-    - `trabajador`: **Acceso denegado**.
-
-### **Grupo 3: Tablas Financieras (Acceso Restringido)**
-El acceso a datos financieros y de facturación está estrictamente controlado.
-
-- **`presupuestos_base`**:
-    - `admin`: TODO.
-    - `supervisor`: SELECT (de las tareas que supervisa).
-    - `trabajador`: **Acceso denegado**.
-- **`presupuestos_finales`**:
-    - `admin`: TODO.
-    - `supervisor`: **Acceso denegado**.
-    - `trabajador`: **Acceso denegado**.
-- **`facturas`**:
-    - `admin`: TODO.
-    - `supervisor`: **Acceso denegado**.
-    - `trabajador`: **Acceso denegado**.
-- **`items_factura`**:
-    - `admin`: TODO.
-    - `supervisor`: **Acceso denegado**.
-    - `trabajador`: **Acceso denegado**.
-- **`liquidaciones_nuevas` y `liquidaciones_trabajadores`**:
-    - `admin`: TODO.
-    - `supervisor`: TODO (donde esté asignado).
-    - `trabajador`: SELECT (solo las suyas).
-
-### **Grupo 4: Tablas de Relaciones y Catálogos**
-
-- **`productos`**:
-    - `admin`: TODO.
-    - `supervisor`: **Acceso denegado**.
-    - `trabajador`: **Acceso denegado**.
-- **`items`**:
-    - `admin`: TODO.
-    - `supervisor`: **Acceso denegado**.
-    - `trabajador`: **Acceso denegado**.
-- **`departamentos` y `telefonos_departamento`**:
-    - `admin`: TODO.
-    - `supervisor` / `trabajador`: SELECT.
-- **`trabajadores_tareas`, `supervisores_tareas`, `departamentos_tareas`**:
-    - `admin`: TODO.
-    - `supervisor`: TODO (en sus tareas).
-    - `trabajador`: SELECT.
-- **`administradores`**:
-    - `admin`: TODO.
-    - `supervisor` / `trabajador`: SELECT.
 
 ---
 
@@ -2303,13 +1830,11 @@ ALTER TABLE tareas DROP COLUMN IF EXISTS id_supervisor;
 
 ---
 
-## 📅 9 de Julio de 2025: Sistema de Ajustes de Facturas (Actualizado 2 de Octubre 2025)
+## 📅 9 de Julio de 2025: Sistema de Ajustes de Facturas
 
 ### Resumen General
 
-Se implementó un sistema completo para gestionar ajustes automáticos y configurables para las facturas. Este sistema permite aplicar un porcentaje de ajuste específico solo a los ítems de mano de obra (no materiales). El sistema ha sido mejorado para mostrar los ajustes INMEDIATAMENTE desde la creación de la factura, proporcionando transparencia total al cliente.
-
-**✅ ACTUALIZACIÓN OCTUBRE 2025:** El sistema ahora crea ajustes automáticamente al crear/modificar ítems (sin esperar pago completo) y los aprueba automáticamente cuando la factura se paga en su totalidad.
+Se implementó un sistema completo para gestionar ajustes automáticos y configurables para las facturas. Este sistema permite aplicar un porcentaje de ajuste específico solo a los ítems de mano de obra (no materiales) cuando una factura está completamente pagada. El porcentaje de ajuste es configurable por administrador, permitiendo diferentes políticas de ajuste según quién gestione la factura.
 
 ### Estructura de Datos
 
@@ -2359,31 +1884,16 @@ Se eliminó la tabla `config_ajustes_administradores` por ser redundante, integr
      - `aplica_ajustes` (BOOLEAN, default FALSE)
      - `porcentaje_default` (NUMERIC, default 0)
 
-#### Sistema de Triggers (ACTUALIZADO OCTUBRE 2025)
+#### Sistema de Triggers
 
-Se implementó un sistema de cálculo automático mediante dos funciones principales:
+Se implementó un sistema de cálculo automático mediante la función `calcular_ajustes_factura()` que se ejecuta en dos momentos críticos:
 
-**1. Función `calcular_ajustes_factura()`** - Creación inmediata de ajustes
-   - **Trigger:** `trig_items_factura_ajustes` en `items_factura` (INSERT/UPDATE)
-   - **Trigger:** `trig_facturas_ajustes` en `facturas` (UPDATE)
-   - **Cuándo se ejecuta:**
-     - Al crear o modificar ítems de factura
-     - Al modificar la factura misma
-   - **Comportamiento:**
-     - Crea ajustes INMEDIATAMENTE (sin esperar pago completo)
-     - Solo para ítems con `es_material = false` (mano de obra)
-     - Inserta con `aprobado = false, pagado = false`
-     - Actualiza `facturas.tiene_ajustes = true`
-   - **Resultado:** El monto de ajuste es visible desde el principio en la columna "Ajuste"
+1. Cuando se modifica un ítem de factura (INSERT o UPDATE en `items_factura`).
+2. Cuando una factura cambia su estado de pago (UPDATE de `saldo_pendiente` en `facturas`).
 
-**2. Función `aprobar_ajustes_al_pagar()`** - Aprobación automática
-   - **Trigger:** `trig_aprobar_ajustes_al_pagar` en `facturas` (UPDATE de `saldo_pendiente`)
-   - **Cuándo se ejecuta:**
-     - Cuando `saldo_pendiente` cambia de > 0 a ≤ 0
-   - **Comportamiento:**
-     - Actualiza todos los ajustes: `aprobado = false → true`
-     - Log automático: "Ajustes aprobados automáticamente para factura X (N ajustes)"
-   - **Resultado:** Los ajustes aprobados aparecen en `/dashboard/ajustes` para pagar
+El trigger está configurado para recalcular los ajustes cuando:
+- Se clasifican o reclasifican ítems como materiales o mano de obra.
+- Una factura pasa de tener saldo pendiente a estar completamente pagada.
 
 ### Componentes de Interfaz
 
@@ -2415,263 +1925,67 @@ La interfaz permite una gestión intuitiva de las políticas de ajuste por admin
 
 ### Lógica de Negocio
 
-#### Reglas de Aplicación de Ajustes (ACTUALIZADO OCTUBRE 2025)
+#### Reglas de Aplicación de Ajustes
 
-1. **Condiciones para CREAR ajustes** (automático al crear/modificar ítems):
-   - El administrador asociado debe tener activada la opción `aplica_ajustes = true`
-   - El porcentaje de ajuste configurado debe ser mayor que cero (`porcentaje_default > 0`)
-   - Existen ítems marcados como mano de obra (`es_material = false`)
-   - **NO requiere** que la factura esté pagada
+1. **Condiciones para aplicar ajustes**:
+   - La factura debe estar completamente pagada (`saldo_pendiente <= 0`).
+   - El administrador asociado debe tener activada la opción `aplica_ajustes`.
+   - El porcentaje de ajuste configurado debe ser mayor que cero.
 
-2. **Condiciones para APROBAR ajustes** (automático al pagar):
-   - La factura debe estar completamente pagada (`saldo_pendiente <= 0`)
-   - Existen ajustes con `aprobado = false`
+2. **Cálculo de ajustes**:
+   - Solo se aplican a ítems marcados como mano de obra (`es_material = false`).
+   - El monto de ajuste = `subtotal_item * (porcentaje_ajuste / 100)`.
 
-3. **Cálculo de ajustes**:
-   - Solo se aplican a ítems marcados como mano de obra (`es_material = false`)
-   - El monto de ajuste = `subtotal_item * (porcentaje_ajuste / 100)`
-   - Se recalculan completamente al modificar ítems (elimina y crea nuevos)
+3. **Flujo de trabajo**:
+   - Al pagar completamente una factura, el sistema verifica si debe calcular ajustes.
+   - Si corresponde, elimina ajustes anteriores y genera nuevos registros.
+   - Actualiza el estado `tiene_ajustes` de la factura.
 
-4. **Flujo de trabajo mejorado**:
-   - **Paso 1:** Al crear/modificar ítems → Se crean ajustes con `aprobado = false`
-   - **Paso 2:** El monto aparece INMEDIATAMENTE en la columna "Ajuste" de la vista de facturas
-   - **Paso 3:** Al pagar completamente → Ajustes se aprueban automáticamente (`aprobado = true`)
-   - **Paso 4:** Ajustes aprobados aparecen en `/dashboard/ajustes` para pago
-   - **Paso 5:** Admin paga los ajustes manualmente desde el dashboard
-
-### Flujo Completo de Uso (ACTUALIZADO OCTUBRE 2025)
+### Flujo Completo de Uso
 
 1. **Configuración inicial**:
-   - El administrador del sistema configura qué administradores aplicarán ajustes y con qué porcentaje
-   - Ubicación: `/dashboard/administradores/[id]`
-   - Campos: `aplica_ajustes` (boolean) y `porcentaje_default` (0-30%)
+   - El administrador del sistema configura qué administradores aplicarán ajustes y con qué porcentaje.
 
 2. **Creación de factura**:
-   - Se crea la factura vinculada a un presupuesto final
-   - Se crean ítems de factura marcados como materiales (`es_material = true`) o mano de obra (`es_material = false`)
-   - ✅ **AUTOMATISMO:** Al insertar/actualizar ítems, se crean ajustes INMEDIATAMENTE con `aprobado = false`
-   - El monto de ajuste aparece en la columna "Ajuste" de `/dashboard/facturas` desde este momento
+   - Se crean ítems de factura que pueden ser materiales o mano de obra.
 
-3. **Clasificación de ítems** (opcional):
-   - Se pueden reclasificar ítems entre material/mano de obra desde el diálogo de ajustes
-   - Al cambiar `es_material`, los ajustes se recalculan automáticamente
+3. **Clasificación de ítems**:
+   - Se clasifican los ítems como materiales o mano de obra desde el diálogo de ajustes.
 
 4. **Pago de factura**:
-   - Usuario registra pagos parciales hasta que `saldo_pendiente` llega a 0
-   - ✅ **AUTOMATISMO:** Cuando `saldo_pendiente ≤ 0`, los ajustes se aprueban automáticamente (`aprobado = false → true`)
-   - Los ajustes ahora aparecen en `/dashboard/ajustes` (tab "Pendientes")
+   - Cuando la factura se paga completamente, el sistema evalúa si debe generar ajustes automáticamente.
 
-5. **Pago de ajustes**:
-   - Admin accede a `/dashboard/ajustes`
-   - Filtra por administrador en el dropdown
-   - Ve el resumen de ajustes pendientes en card naranja
-   - Click en "Pagar Todos los Ajustes" → Confirmación → Pago ejecutado
-   - Se genera PDF automáticamente con el comprobante
-   - Ajustes pasan a tab "Pagadas" con `pagado = true`
+5. **Gestión de ajustes**:
+   - Los ajustes pueden ser aprobados o rechazados posteriormente.
 
-### Estados de Ajustes
+### Scripts SQL Implementados
 
-| Estado | aprobado | pagado | Dónde se ve | Acción siguiente |
-|--------|----------|--------|-------------|------------------|
-| **Calculado** | false | false | Solo en vista facturas (columna Ajuste) | Pagar factura completa |
-| **Aprobado** | true | false | `/dashboard/ajustes` tab Pendientes | Pagar ajustes |
-| **Pagado** | true | true | `/dashboard/ajustes` tab Pagadas | Ninguna |
+1. **`ajustes-facturas-setup.sql`**:
+   - Elimina la tabla obsoleta `config_ajustes_administradores`.
+   - Añade el campo `es_material` a `items_factura` si no existe.
+   - Crea la función `calcular_ajustes_factura()` para el cálculo automático.
+   - Implementa triggers en `items_factura` y `facturas`.
 
-### Scripts SQL Implementados (ACTUALIZADO OCTUBRE 2025)
-
-#### 1. Vista `vista_facturas_completa` (Actualizada)
-
-**Cambio clave:** Ahora muestra TODOS los ajustes, no solo los aprobados.
-
-```sql
--- Sección de total_ajustes actualizada:
-COALESCE(
-  (SELECT SUM(aj.monto_ajuste) 
-   FROM ajustes_facturas aj 
-   WHERE aj.id_factura = f.id),  -- Sin filtro de aprobado
-  0
-) AS total_ajustes
-```
-
-**Resultado:** La columna "Ajuste" muestra el monto desde que se crea la factura.
-
-#### 2. Función `calcular_ajustes_factura()` (Actualizada)
-
-**Cambios:**
-- Eliminada la condición `IF v_factura_pagada THEN`
-- Ahora crea ajustes SIEMPRE que el admin tenga `aplica_ajustes = true`
-- Se ejecuta al crear/modificar ítems, sin esperar pago
-
-#### 3. Función `aprobar_ajustes_al_pagar()` (Nueva)
-
-**Propósito:** Aprueba automáticamente los ajustes al pagar factura.
-
-```sql
-CREATE OR REPLACE FUNCTION aprobar_ajustes_al_pagar()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.saldo_pendiente <= 0 AND (OLD.saldo_pendiente IS NULL OR OLD.saldo_pendiente > 0) THEN
-        UPDATE ajustes_facturas
-        SET aprobado = true
-        WHERE id_factura = NEW.id AND aprobado = false;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-#### 4. Triggers Activos
-
-1. **`trig_items_factura_ajustes`** en `items_factura` (INSERT/UPDATE)
-   - Llama a `calcular_ajustes_factura()`
-   - Crea ajustes al crear/modificar ítems
-
-2. **`trig_facturas_ajustes`** en `facturas` (UPDATE)
-   - Llama a `calcular_ajustes_factura()`
-   - Recalcula ajustes si cambia la factura
-
-3. **`trig_aprobar_ajustes_al_pagar`** en `facturas` (UPDATE de `saldo_pendiente`)
-   - Llama a `aprobar_ajustes_al_pagar()`
-   - Aprueba ajustes automáticamente al pagar
-
-#### 5. Script de Migración (Ejecutado una sola vez)
-
-Script para generar ajustes en facturas existentes que fueron creadas antes del sistema mejorado.
-
-**Ejecutado:** ✅ 2 de Octubre 2025
-**Resultados:** 4 facturas procesadas, 4 ajustes creados, 2 auto-aprobados (facturas ya pagadas)
+2. **`agregar-campos-ajustes-administradores.sql`**:
+   - Añade los campos `aplica_ajustes` y `porcentaje_default` a la tabla `administradores`.
 
 ### Consideraciones Técnicas
 
 1. **Retrocompatibilidad**:
-   - Se mantiene el campo `es_producto` en `items_factura` por compatibilidad
-   - El nuevo sistema utiliza `es_material` como criterio principal
-   - Diálogo manual de ajustes (`generar-ajustes-dialog.tsx`) sigue disponible como legacy
+   - Se mantiene el campo `es_producto` en `items_factura` por compatibilidad.
+   - El nuevo sistema utiliza `es_material` como criterio principal para los ajustes.
 
 2. **Rendimiento**:
-   - Triggers optimizados con condiciones mínimas
-   - Recalcula completamente al modificar (DELETE + INSERT) para evitar inconsistencias
-   - Consultas eficientes con índices en `id_factura` y `es_material`
+   - Los triggers están optimizados para ejecutarse solo cuando es necesario.
+   - La función `calcular_ajustes_factura()` realiza consultas eficientes.
 
 3. **Seguridad**:
-   - Configuración de ajustes protegida por permisos de administrador
-   - Porcentajes limitados a rango razonable (0-30%)
-   - Server action `pagarAjustesAdministrador()` verifica rol admin/supervisor
+   - La configuración de ajustes está protegida por los permisos de administrador.
+   - Los porcentajes tienen límites razonables (0-30%).
 
-4. **Transparencia**:
-   - Cliente ve monto de ajuste desde el inicio (no hay sorpresas)
-   - 3 estados claros: Calculado → Aprobado → Pagado
-   - Logs automáticos en triggers para auditoría
+### Futuras Mejoras
 
-5. **Trazabilidad**:
-   - Campo `created_at` en ajustes
-   - Campo `fecha_pago` se llena al pagar
-   - PDF automático como comprobante
-
-### Beneficios del Sistema Mejorado
-
-| Antes (Julio 2025) | Ahora (Octubre 2025) |
-|-------------------|---------------------|
-| Ajuste visible solo tras pago total | Ajuste visible desde creación |
-| Cliente no sabía monto futuro | Cliente planifica con info completa |
-| Aprobación manual requerida | Aprobación automática al pagar |
-| Columna "Ajuste" en $0 hasta el final | Monto real desde el principio |
-| Proceso opaco | Transparencia total |
-
-### Futuras Mejoras Opcionales
-
-1. **Historial de cambios de ajustes** para auditoría completa
-2. **Notificaciones push** cuando se aprueban ajustes
-3. **Dashboard de métricas** por administrador/período
-4. **Exportación a Excel** además de PDF
-5. **Filtros por rango de fechas** en `/dashboard/ajustes`
-
----
-
-## 🔄 Lógica de Estados de Presupuestos
-
-### Jerarquía de Estados
-
-Los presupuestos finales siguen una jerarquía de estados bien definida que refleja el flujo de trabajo del negocio:
-
-```
-Borrador → Pendiente → Aprobado → Enviado → Facturado → Pagado → Liquidado
-                                       ↑           ↑
-                                       |           |
-                                  Sin factura  Con factura
-```
-
-### Botón "Marcar como Enviado"
-
-#### Lógica Implementada
-
-Cuando el usuario hace click en el botón 📤 "Marcar como Enviado", el sistema ejecuta una lógica inteligente para determinar el estado correcto:
-
-**1. Verificación de factura vinculada:**
-```sql
-SELECT id FROM facturas WHERE id_presupuesto = {presupuesto_id}
-```
-
-**2. Asignación de estado:**
-- ✅ **Si TIENE factura vinculada** → Estado "Facturado" (id: 4)
-- ✅ **Si NO tiene factura** → Estado "Enviado" (id: 2)
-
-**3. Mensaje al usuario:**
-- Con factura: _"Presupuesto marcado como facturado (tiene factura vinculada)"_
-- Sin factura: _"Presupuesto marcado como enviado exitosamente"_
-
-### Casos de Uso
-
-#### Caso 1: Presupuesto SIN factura
-```
-Usuario: Click en "Marcar como Enviado"
-Sistema: Verifica facturas → No encuentra ninguna
-Resultado: Estado cambia a "Enviado" (id: 2)
-Badge: 🔵 Enviado (azul)
-```
-
-#### Caso 2: Presupuesto CON factura
-```
-Usuario: Click en "Marcar como Enviado"
-Sistema: Verifica facturas → Encuentra al menos 1
-Resultado: Estado cambia a "Facturado" (id: 4)
-Badge: 🟠 Facturado (naranja)
-```
-
-### Validaciones
-
-- ✅ Solo usuarios con rol **admin** o **supervisor** pueden ejecutar esta acción
-- ✅ El botón NO aparece si el estado actual es:
-  - `enviado`
-  - `facturado`
-  - `rechazado`
-
-### Archivos Relacionados
-
-- **Server Action:** `app/dashboard/presupuestos/actions-envio.ts`
-- **Componente Lista:** `components/budget-list.tsx`
-- **Página Detalle:** `app/dashboard/presupuestos/[id]/page.tsx`
-
-### Mantenimiento
-
-Si necesitas cambiar los IDs de los estados, busca estas líneas en el archivo:
-
-```typescript
-// app/dashboard/presupuestos/actions-envio.ts
-const nuevoEstadoId = tieneFactura ? 4 : 2  // 4=facturado, 2=enviado
-```
-
-**IDs actuales en tabla `estados_presupuestos`:**
-- 1 = Borrador
-- 2 = Enviado ← Usado cuando NO hay factura
-- 3 = Aceptado
-- 4 = Facturado ← Usado cuando SÍ hay factura
-- 5 = Rechazado
-
-**Importante:** Asegúrate de que los IDs coincidan con tu tabla `estados_presupuestos`.
-
-### Integración con Sistema de Automatización
-
-Esta lógica se complementa con el sistema de automatización de estados basado en triggers de Supabase (ver sección "Automatización Inteligente SPC" en este documento). El botón "Marcar como Enviado" es una acción manual que respeta la presencia de facturas, mientras que los triggers automatizan cambios basados en eventos de base de datos.
-
----
+1. **Panel de aprobación de ajustes** para revisar y aprobar ajustes generados automáticamente.
+2. **Historial de cambios de ajustes** para auditoría y transparencia.
+3. **Notificaciones** cuando se generan ajustes automáticamente.
+4. **Reportes específicos** para analizar los ajustes aplicados por administrador o período.
