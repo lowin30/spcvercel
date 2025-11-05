@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { PlusCircle, Loader2, AlertCircle } from 'lucide-react'
 import { formatDate } from '@/lib/date-utils'
 import { toast } from 'sonner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // Define la estructura de la liquidación del supervisor
 interface LiquidacionSupervisor {
@@ -32,6 +33,8 @@ export default function LiquidacionesSupervisorPage() {
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [supervisores, setSupervisores] = useState<{ id: string; email: string }[]>([])
+  const [supervisorEmail, setSupervisorEmail] = useState<string | '_todos_' | ''>('_todos_')
 
   useEffect(() => {
     const fetchLiquidaciones = async () => {
@@ -75,6 +78,10 @@ export default function LiquidacionesSupervisorPage() {
           query = query.eq('email_supervisor', userEmail);
         }
 
+        if (supervisorEmail && supervisorEmail !== '_todos_') {
+          query = query.eq('email_supervisor', supervisorEmail)
+        }
+
         const { data, error: fetchError } = await query;
 
         if (fetchError) {
@@ -92,7 +99,7 @@ export default function LiquidacionesSupervisorPage() {
     };
 
     fetchLiquidaciones();
-  }, [supabase]);
+  }, [supabase, supervisorEmail]);
 
   // Cargar rol del usuario para habilitar navegación al detalle solo a admin/supervisor
   useEffect(() => {
@@ -113,6 +120,18 @@ export default function LiquidacionesSupervisorPage() {
     };
     cargarRol();
   }, [supabase]);
+
+  useEffect(() => {
+    const fetchSupervisores = async () => {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, email')
+        .eq('rol', 'supervisor')
+        .order('email')
+      if (!error && data) setSupervisores(data)
+    }
+    fetchSupervisores()
+  }, [supabase])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -151,19 +170,35 @@ export default function LiquidacionesSupervisorPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Liquidaciones de Proyectos</h1>
           <p className="text-muted-foreground">
             Listado de ganancias calculadas por proyecto finalizado.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/liquidaciones/nueva">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nueva Liquidación
-          </Link>
-        </Button>
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <Select
+            value={supervisorEmail || '_todos_'}
+            onValueChange={(v) => setSupervisorEmail(v)}
+          >
+            <SelectTrigger className="w-full sm:w-[240px]">
+              <SelectValue placeholder="Todos los supervisores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_todos_">Todos los supervisores</SelectItem>
+              {supervisores.map(s => (
+                <SelectItem key={s.id} value={s.email}>{s.email}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/dashboard/liquidaciones/nueva">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nueva Liquidación
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Vista de tabla para pantallas medianas y grandes */}

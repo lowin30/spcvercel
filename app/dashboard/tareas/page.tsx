@@ -35,6 +35,7 @@ export default function TareasPage() {
   const [administradores, setAdministradores] = useState<{id: string, nombre: string}[]>([])
   const [edificios, setEdificios] = useState<{id: string, nombre: string}[]>([]) 
   const [todosLosEdificios, setTodosLosEdificios] = useState<{id: string, nombre: string, id_administrador: string}[]>([]) 
+  const [supervisores, setSupervisores] = useState<{id: string, email: string}[]>([])
   
   // Edificios filtrados según el administrador seleccionado
   const edificiosFiltrados = activeFilters.administrador
@@ -97,6 +98,19 @@ export default function TareasPage() {
       // Filtro por estado normalizado
       if (activeFilters.estado && tarea.id_estado_nuevo !== parseInt(activeFilters.estado)) {
         return false
+      }
+      
+      if (activeFilters.supervisorEmail) {
+        const emailsField = (tarea as any).supervisores_emails
+        let emails: string[] = []
+        if (Array.isArray(emailsField)) {
+          emails = emailsField
+        } else if (typeof emailsField === 'string') {
+          emails = emailsField.split(/[,;\s]+/).map((s: string) => s.trim()).filter(Boolean)
+        }
+        if (!emails.includes(activeFilters.supervisorEmail)) {
+          return false
+        }
       }
       
       return true
@@ -209,6 +223,17 @@ export default function TareasPage() {
       } else if (edificiosData) {
         setTodosLosEdificios(edificiosData)
         setEdificios(edificiosData)
+      }
+
+      const { data: supData, error: supError } = await supabase
+        .from('usuarios')
+        .select('id, email')
+        .eq('rol', 'supervisor')
+        .order('email')
+      if (supError) {
+        console.error("Error al cargar supervisores:", supError)
+      } else if (supData) {
+        setSupervisores(supData)
       }
     } catch (err) {
       console.error("Error al cargar datos de referencia:", err)
@@ -574,7 +599,7 @@ export default function TareasPage() {
           {/* Sección de filtros */}
           <div className="border-t pt-4">
             <h4 className="font-medium mb-3">Filtros avanzados</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Filtro por estado */}
               <div className="space-y-2">
                 <p className="text-sm">Estado</p>
@@ -651,6 +676,31 @@ export default function TareasPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <p className="text-sm">Supervisor</p>
+                <Select
+                  value={activeFilters.supervisorEmail || '_todos_'}
+                  onValueChange={(value) => 
+                    setActiveFilters(prev => value === '_todos_' ? {...prev, supervisorEmail: undefined} : {...prev, supervisorEmail: value})
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los supervisores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_todos_">Todos los supervisores</SelectItem>
+                    {supervisores
+                      .sort((a, b) => a.email.localeCompare(b.email))
+                      .map(sup => (
+                        <SelectItem key={sup.id} value={sup.email}>
+                          {sup.email}
+                        </SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             {/* Botón para limpiar filtros */}
@@ -675,11 +725,13 @@ export default function TareasPage() {
                 {Object.entries(activeFilters).map(([key, value]) => (
                   value && (
                     <Badge key={key} variant="secondary" className="gap-1">
-                      {key === 'administrador' ? 'Administrador:' : key === 'edificio' ? 'Edificio:' : 'Estado:'}
+                      {key === 'administrador' ? 'Administrador:' : key === 'edificio' ? 'Edificio:' : key === 'supervisorEmail' ? 'Supervisor:' : 'Estado:'}
                       {key === 'administrador' 
                         ? administradores.find(a => a.id === value)?.nombre || value
                         : key === 'edificio'
                         ? edificios.find(e => e.id === value)?.nombre || value
+                        : key === 'supervisorEmail'
+                        ? (value as string)
                         : estadosTarea.find(e => e.id.toString() === value)?.nombre || value}
                       <X 
                         className="h-3 w-3 ml-1 cursor-pointer" 

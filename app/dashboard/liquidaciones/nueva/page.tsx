@@ -80,6 +80,8 @@ export default function NuevaLiquidacionSupervisorPage () {
   const [ajusteAdmin, setAjusteAdmin] = useState<number>(0)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [facturaTotal, setFacturaTotal] = useState<number | null>(null)
+  const [supervisores, setSupervisores] = useState<{ id: string; email: string }[]>([])
+  const [supervisorEmail, setSupervisorEmail] = useState<string | '_todos_' | ''>('_todos_')
 
   // Estados de filtros
   const [filtroEstado, setFiltroEstado] = useState<number[]>([3, 4]) // Aceptados y Facturados por defecto
@@ -106,6 +108,18 @@ export default function NuevaLiquidacionSupervisorPage () {
       setCurrentUserId(user?.id || null)
     }
     loadUser()
+  }, [])
+
+  useEffect(() => {
+    const loadSupervisores = async () => {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, email')
+        .eq('rol', 'supervisor')
+        .order('email')
+      if (!error && data) setSupervisores(data)
+    }
+    loadSupervisores()
   }, [])
 
   // Función para obtener los presupuestos finales que no tienen liquidación
@@ -189,6 +203,9 @@ export default function NuevaLiquidacionSupervisorPage () {
       if (filtroSupervisor) {
         presupuestosFiltrados = presupuestosConSupervisores.filter(p => p.id_supervisor !== null)
       }
+      if (supervisorEmail && supervisorEmail !== '_todos_') {
+        presupuestosFiltrados = presupuestosFiltrados.filter(p => (p as any).email_supervisor === supervisorEmail)
+      }
 
       setPresupuestos(presupuestosFiltrados as PresupuestoFinal[])
     } catch (error) {
@@ -204,7 +221,7 @@ export default function NuevaLiquidacionSupervisorPage () {
     if (isAuthorized) {
       fetchPresupuestosSinLiquidar()
     }
-  }, [isAuthorized, filtroEstado, filtroSupervisor])
+  }, [isAuthorized, filtroEstado, filtroSupervisor, supervisorEmail])
 
   // Presupuesto seleccionado
   const selectedPresupuesto = useMemo(() => {
@@ -510,6 +527,19 @@ export default function NuevaLiquidacionSupervisorPage () {
                 >
                   {filtroSupervisor ? "Con Supervisor" : "Todas"}
                 </Button>
+              </div>
+              <div>
+                <Select value={supervisorEmail || '_todos_'} onValueChange={(v) => setSupervisorEmail(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los supervisores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_todos_">Todos los supervisores</SelectItem>
+                    {supervisores.map(s => (
+                      <SelectItem key={s.id} value={s.email}>{s.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Input
                 placeholder="Buscar por título de tarea..."
