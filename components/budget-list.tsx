@@ -121,50 +121,131 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
         {/* Eliminamos el botón duplicado de aquí */}
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-hidden">
+        <div className="block sm:hidden space-y-3">
+          {filteredBudgets.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-6">
+              No se encontraron presupuestos
+            </div>
+          ) : (
+            filteredBudgets.map((budget) => {
+              const codigo = budget.estados_presupuestos?.codigo
+              return (
+                <div key={budget.id} className="border rounded-lg p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-primary hover:underline font-medium break-words">
+                      {budget.tareas?.titulo || ('Presupuesto #' + budget.id)}
+                    </Link>
+                    <EstadoBadge
+                      estado={budget.estados_presupuestos}
+                      fallbackText="Sin estado"
+                    />
+                  </div>
+                  <div className="mt-2 text-right text-lg font-bold">
+                    ${(budget.materiales + budget.mano_obra).toLocaleString()}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Editar">
+                      <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    {(codigo !== 'enviado' && codigo !== 'facturado' && codigo !== 'rechazado' && (userRole === 'admin' || userRole === 'supervisor')) && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                        onClick={() => handleMarcarComoEnviado(budget.id)}
+                        title="Marcar como Enviado"
+                        disabled={enviandoId === budget.id}
+                      >
+                        {enviandoId === budget.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                    {budget.aprobado === true && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                        onClick={() => handleConvertirAFactura(budget.id)}
+                        title="Convertir a Factura"
+                        disabled={processingId === budget.id || budget.estados_presupuestos?.codigo === 'facturado'}
+                      >
+                        {processingId === budget.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleDelete(budget.id)}
+                      title="Eliminar"
+                      disabled={deletingId === budget.id}
+                    >
+                      {deletingId === budget.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="hidden sm:block rounded-md border overflow-hidden budget-table-wrapper">
           <style jsx global>{`
-            /* Estilos para evitar scroll horizontal en móvil */
-            @media (max-width: 640px) {            
+            @media (max-width: 640px) {
+              .budget-table-wrapper > div { /* override Table wrapper */
+                overflow-x: hidden !important;
+                max-width: 100% !important;
+              }
+              table.budget-table th,
+              table.budget-table td {
+                white-space: normal;
+                overflow-wrap: anywhere;
+              }
               table.budget-table {
                 width: 100%;
                 table-layout: fixed;
+                border-collapse: collapse;
               }
-              
-              /* Ocultar columna de Edificio en móvil */
               table.budget-table th:nth-child(2),
               table.budget-table td:nth-child(2) {
                 display: none;
               }
-              
-              /* Ajustar anchos de las columnas visibles */
               table.budget-table th:nth-child(1),
               table.budget-table td:nth-child(1) {
                 width: 40%;
                 white-space: normal;
                 padding: 10px 5px;
               }
-              
               table.budget-table th:nth-child(3),
               table.budget-table td:nth-child(3) {
                 width: 22%;
                 padding: 10px 3px;
               }
-              
               table.budget-table th:nth-child(4),
               table.budget-table td:nth-child(4) {
                 width: 18%;
                 padding: 10px 2px;
                 text-align: right;
               }
-              
               table.budget-table th:nth-child(5),
               table.budget-table td:nth-child(5) {
                 width: 20%;
                 padding: 8px 2px;
                 text-align: center;
               }
-              
-              /* Centra los botones de acción */
               table.budget-table td:nth-child(5) > div {
                 justify-content: center;
               }
@@ -239,8 +320,8 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                       ${(budget.materiales + budget.mano_obra).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <Button asChild variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Editar">
+                      <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end sm:gap-2">
+                        <Button asChild variant="outline" size="icon" className="h-7 w-7 sm:h-9 sm:w-9" title="Editar">
                           <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
                             <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Link>
@@ -250,7 +331,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                            className="h-7 w-7 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
                             onClick={() => handleMarcarComoEnviado(budget.id)}
                             title="Marcar como Enviado (o Facturado si ya tiene factura)"
                             disabled={enviandoId === budget.id}
@@ -267,7 +348,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 sm:h-9 sm:w-9 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            className="h-7 w-7 sm:h-9 sm:w-9 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             onClick={() => handleConvertirAFactura(budget.id)}
                             title="Convertir a Factura"
                             disabled={processingId === budget.id || budget.estados_presupuestos?.codigo === 'facturado'}
@@ -282,7 +363,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 sm:h-9 sm:w-9"
+                          className="h-7 w-7 sm:h-9 sm:w-9"
                           onClick={() => handleDelete(budget.id)}
                           title="Eliminar"
                           disabled={deletingId === budget.id}

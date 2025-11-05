@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { BudgetList } from "@/components/budget-list"
 import Link from "next/link"
 import { Plus, Search, Loader2 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 export default function PresupuestosPage() {
   const [todosLosPresupuestos, setTodosLosPresupuestos] = useState<any[]>([]) // 🆕 Todos sin filtrar
@@ -18,6 +18,8 @@ export default function PresupuestosPage() {
   const [error, setError] = useState<string | null>(null)
   const [tabActual, setTabActual] = useState<string>('borrador') // Por defecto: borrador
   const [searchInput, setSearchInput] = useState<string>('') // 🆕 Búsqueda client-side
+  const [administradores, setAdministradores] = useState<any[]>([])
+  const [filtroAdmin, setFiltroAdmin] = useState<string>('todos')
   const router = useRouter()
 
   useEffect(() => {
@@ -81,12 +83,20 @@ export default function PresupuestosPage() {
             `
             *,
             estados_presupuestos:id_estado (id, nombre, color, codigo),
-            tareas:id_tarea (id, titulo, edificios:id_edificio (id, nombre))
+            tareas:id_tarea (id, titulo, edificios:id_edificio (id, nombre, id_administrador))
           `
           )
 
         // Los filtros anteriores para 'cliente' y 'trabajador' se mantienen comentados 
         // ya que ahora solo 'admin' llega a este punto.
+
+        // Cargar administradores para filtro
+        const { data: adminsData } = await supabase
+          .from("vista_administradores")
+          .select("id, nombre, estado")
+          .order("nombre", { ascending: true })
+
+        setAdministradores((adminsData || []).filter((a: any) => a.estado === 'activo'))
 
         const { data: presupuestosFinalesData, error: errorFinal } = await queryFinal
 
@@ -139,9 +149,14 @@ export default function PresupuestosPage() {
         );
       });
     }
+
+    if (filtroAdmin !== 'todos') {
+      const adminIdNum = Number(filtroAdmin);
+      result = result.filter((p: any) => (p.tareas?.edificios?.id_administrador === adminIdNum));
+    }
     
     return result;
-  }, [todosLosPresupuestos, searchInput])
+  }, [todosLosPresupuestos, searchInput, filtroAdmin])
 
   // Filtrar presupuestos
   const filterByEstado = (codigo: string) => presupuestos?.filter(p => p.estados_presupuestos?.codigo === codigo) || [];
@@ -195,11 +210,11 @@ export default function PresupuestosPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Presupuestos</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight min-w-0">Presupuestos</h1>
         {userDetails?.rol === "admin" && (
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <Button 
               asChild 
               size="lg"
@@ -234,110 +249,24 @@ export default function PresupuestosPage() {
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumen de Presupuestos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {/* Card Borrador - DESTACADA con badge rojo pulsante */}
-            <div 
-              onClick={() => setTabActual('borrador')} 
-              className={`
-                cursor-pointer p-4 rounded-lg transition-all relative
-                ${
-                  tabActual === 'borrador' 
-                    ? 'ring-4 ring-blue-500 shadow-2xl scale-105' 
-                    : 'hover:scale-105 hover:shadow-lg'
-                }
-                bg-gradient-to-br from-blue-100 to-blue-200 
-                dark:from-blue-900 dark:to-blue-800
-              `}
-            >
-              {presupuestosBorrador.length > 0 && (
-                <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold animate-pulse text-sm">
-                  {presupuestosBorrador.length}
-                </div>
-              )}
-              <h3 className="font-medium text-lg">📝 Borrador</h3>
-              <p className="text-3xl font-bold">{presupuestosBorrador.length}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                Acción inmediata
-              </p>
-            </div>
-            
-            {/* Card Enviado */}
-            <div 
-              onClick={() => setTabActual('enviado')} 
-              className={`
-                cursor-pointer p-4 rounded-lg transition-all
-                ${
-                  tabActual === 'enviado' 
-                    ? 'ring-2 ring-blue-500 shadow-lg' 
-                    : 'hover:scale-105'
-                }
-                bg-blue-100 dark:bg-blue-900
-              `}
-            >
-              <h3 className="font-medium">📤 Enviado</h3>
-              <p className="text-2xl font-bold">{presupuestosEnviado.length}</p>
-            </div>
-            
-            {/* Card Aceptado */}
-            <div 
-              onClick={() => setTabActual('aceptado')} 
-              className={`
-                cursor-pointer p-4 rounded-lg transition-all
-                ${
-                  tabActual === 'aceptado' 
-                    ? 'ring-2 ring-green-500 shadow-lg' 
-                    : 'hover:scale-105'
-                }
-                bg-green-100 dark:bg-green-900
-              `}
-            >
-              <h3 className="font-medium">✅ Aceptado</h3>
-              <p className="text-2xl font-bold">{presupuestosAceptado.length}</p>
-            </div>
-            
-            {/* Card Facturado */}
-            <div 
-              onClick={() => setTabActual('facturado')} 
-              className={`
-                cursor-pointer p-4 rounded-lg transition-all
-                ${
-                  tabActual === 'facturado' 
-                    ? 'ring-2 ring-purple-500 shadow-lg' 
-                    : 'hover:scale-105'
-                }
-                bg-purple-100 dark:bg-purple-900
-              `}
-            >
-              <h3 className="font-medium">💰 Facturado</h3>
-              <p className="text-2xl font-bold">{presupuestosFacturado.length}</p>
-            </div>
-            
-            {/* Card Rechazado */}
-            <div 
-              onClick={() => setTabActual('rechazado')} 
-              className={`
-                cursor-pointer p-4 rounded-lg transition-all
-                ${
-                  tabActual === 'rechazado' 
-                    ? 'ring-2 ring-red-500 shadow-lg' 
-                    : 'hover:scale-105'
-                }
-                bg-red-100 dark:bg-red-900
-              `}
-            >
-              <h3 className="font-medium">❌ Rechazado</h3>
-              <p className="text-2xl font-bold">{presupuestosRechazado.length}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      
 
-      <div className="flex items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+        <div>
+          <Select value={filtroAdmin} onValueChange={setFiltroAdmin}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Administrador: Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los administradores</SelectItem>
+              {administradores.map((a: any) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {a.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="relative w-full">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -352,35 +281,35 @@ export default function PresupuestosPage() {
       </div>
 
       <Tabs value={tabActual} onValueChange={setTabActual} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 md:grid-cols-7 overflow-x-auto">
-          <TabsTrigger value="borrador" className="text-xs sm:text-sm font-semibold">
+        <TabsList className="w-full h-auto min-h-10 grid grid-cols-2 gap-2 sm:flex sm:flex-nowrap sm:h-10">
+          <TabsTrigger value="borrador" className="w-full sm:w-auto text-center text-xs sm:text-sm font-semibold whitespace-normal break-words leading-tight px-2 sm:px-3">
             📝 Borrador
             <span className="ml-1.5 rounded-full bg-red-100 dark:bg-red-900 px-2 py-0.5 text-xs font-semibold text-red-700 dark:text-red-300">
               {presupuestosBorrador.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pendientes" className="text-xs sm:text-sm">
+          <TabsTrigger value="pendientes" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             ⚡ Pendientes
             <span className="ml-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900 px-2 py-0.5 text-xs font-semibold text-yellow-700 dark:text-yellow-300">
               {presupuestosPendientes.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="todos" className="text-xs sm:text-sm">
+          <TabsTrigger value="todos" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             📋 Todos
             <span className="ml-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
               {presupuestos.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="enviado" className="text-xs sm:text-sm">
+          <TabsTrigger value="enviado" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             📤 Enviado ({presupuestosEnviado.length})
           </TabsTrigger>
-          <TabsTrigger value="aceptado" className="text-xs sm:text-sm">
+          <TabsTrigger value="aceptado" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             ✅ Aceptado ({presupuestosAceptado.length})
           </TabsTrigger>
-          <TabsTrigger value="facturado" className="text-xs sm:text-sm">
+          <TabsTrigger value="facturado" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             💰 Facturado ({presupuestosFacturado.length})
           </TabsTrigger>
-          <TabsTrigger value="rechazado" className="text-xs sm:text-sm">
+          <TabsTrigger value="rechazado" className="w-full sm:w-auto text-center text-xs sm:text-sm whitespace-normal break-words leading-tight px-2 sm:px-3">
             ❌ Rechazado ({presupuestosRechazado.length})
           </TabsTrigger>
         </TabsList>

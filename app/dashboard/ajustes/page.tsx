@@ -369,11 +369,12 @@ export default function AjustesPage() {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Ajustes de Facturas</h1>
-        <div className="flex gap-2">
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Button
             variant="outline"
             onClick={handleExportarPDF}
             disabled={exportandoPDF || facturas.length === 0}
+            className="w-full sm:w-auto"
           >
             {exportandoPDF ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando...</>
@@ -386,7 +387,7 @@ export default function AjustesPage() {
 
       {/* 🆕 TABS ACTUALIZADOS */}
       <Tabs value={vistaActual} onValueChange={(v) => setVistaActual(v as any)}>
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="pendientes">
             🟠 Para Liquidar ({cantidadPendientes})
           </TabsTrigger>
