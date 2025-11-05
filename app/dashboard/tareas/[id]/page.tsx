@@ -66,12 +66,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
     try {
       const supabase = createClient()
       if (!supabase || !tareaId) {
-        console.log('[cargarPresupuestos] No hay supabase o tareaId:', { supabase: !!supabase, tareaId })
         return
       }
 
-      console.log('[cargarPresupuestos] Iniciando carga para tarea:', tareaId)
-      console.log('[cargarPresupuestos] Rol de usuario:', userRol)
+      
 
       // 1. Cargar presupuesto base desde la tabla 'presupuestos_base'
       const { data: presupuestoBaseData, error: baseError } = await supabase
@@ -88,12 +86,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         .eq("id_tarea", tareaId)
         .maybeSingle()
 
-      console.log('[cargarPresupuestos] Resultado presupuesto base:', {
-        data: presupuestoBaseData,
-        error: baseError,
-        hayDatos: !!presupuestoBaseData,
-        idPresupuestoBase: presupuestoBaseData?.id
-      })
+      
 
       if (baseError) {
         console.error("Error al cargar presupuesto base:", baseError)
@@ -114,7 +107,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       
       // Caso 1: Si existe un presupuesto base, buscar el presupuesto final asociado
       if (presupuestoBaseData?.id) {
-        console.log('[cargarPresupuestos] Buscando presupuesto final para presupuesto base ID:', presupuestoBaseData.id)
+        
         
         const { data, error: finalError } = await supabase
           .from("presupuestos_finales")
@@ -122,15 +115,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .eq("id_presupuesto_base", presupuestoBaseData.id)
           .maybeSingle()
 
-        console.log('[cargarPresupuestos] Resultado presupuesto final (vía presupuesto base):', {
-          data,
-          error: finalError,
-          hayDatos: !!data,
-          idPresupuestoFinal: data?.id
-        })
+        
 
         if (finalError) {
-          console.error("Error al cargar presupuesto final:", finalError)
+          
         } else if (data) {
           presupuestoFinalData = data
         }
@@ -139,7 +127,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       // Caso 2: Si no se encontró presupuesto final vía presupuesto base,
       // buscar presupuesto final vinculado directamente a la tarea (sin presupuesto base)
       if (!presupuestoFinalData) {
-        console.log('[cargarPresupuestos] Buscando presupuesto final vinculado directamente a la tarea (sin presupuesto base)')
         
         const { data, error: finalDirectoError } = await supabase
           .from("presupuestos_finales")
@@ -148,15 +135,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .is("id_presupuesto_base", null)
           .maybeSingle()
 
-        console.log('[cargarPresupuestos] Resultado presupuesto final (vía tarea directa):', {
-          data,
-          error: finalDirectoError,
-          hayDatos: !!data,
-          idPresupuestoFinal: data?.id
-        })
+        
 
         if (finalDirectoError) {
-          console.error("Error al cargar presupuesto final directo:", finalDirectoError)
+          
         } else if (data) {
           presupuestoFinalData = data
         }
@@ -164,39 +146,30 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       
       // Consultar facturas asociadas al presupuesto final (solo si es admin)
       if (presupuestoFinalData && userRol === "admin") {
-        console.log('[cargarPresupuestos] Consultando facturas para presupuesto final ID:', presupuestoFinalData.id)
+        
         
         const { data: facturas, error: facturasError } = await supabase
           .from('facturas')
           .select('id, pagada')
           .eq('id_presupuesto_final', presupuestoFinalData.id)
         
-        console.log('[cargarPresupuestos] Resultado consulta facturas:', {
-          data: facturas,
-          error: facturasError,
-          cantidad: facturas?.length || 0
-        })
         
         if (facturasError) {
-          console.error('[cargarPresupuestos] Error al consultar facturas:', facturasError)
+          
         } else if (facturas && facturas.length > 0) {
           presupuestoFinalData.tiene_facturas = true
           presupuestoFinalData.facturas_pagadas = facturas.every(f => f.pagada)
-          console.log('[cargarPresupuestos] Estado de facturas:', {
-            cantidad: facturas.length,
-            tiene_facturas: true,
-            facturas_pagadas: presupuestoFinalData.facturas_pagadas
-          })
+          
         } else {
-          console.log('[cargarPresupuestos] No se encontraron facturas para este presupuesto final')
+          
         }
       }
       
       // Establecer el presupuesto final encontrado (o null si no hay ninguno)
       setPresupuestoFinal(presupuestoFinalData)
-      console.log('[cargarPresupuestos] Presupuesto final establecido:', presupuestoFinalData ? `ID ${presupuestoFinalData.id}` : 'null')
+      
     } catch (error) {
-      console.error("Error general al cargar presupuestos:", error)
+      
       toast({
         title: "Error",
         description: "Ocurrió un error inesperado al cargar los presupuestos.",
@@ -239,7 +212,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       const userError = userResponse.error
       
       if (userError) {
-        console.error("Error al obtener detalles del usuario:", userError)
         setError("Error al obtener detalles del usuario")
         return
       }
@@ -266,12 +238,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         return
       }
       
-      // Añadir log para depurar los datos del edificio
-      console.log('Datos de edificio cargados:', {
-        edificioId: tareaData.id_edificio,
-        edificioData: tareaData.edificios,
-        rolUsuario: userDetails?.rol
-      });
+      
       
       setTarea(tareaData)
       
@@ -290,7 +257,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         // Asegurarse de que la prioridad sea uno de los valores válidos
         const prioridad = tareaData.prioridad || '';
         setPrioridadActual(prioridad === 'baja' || prioridad === 'media' || prioridad === 'alta' || prioridad === 'urgente' ? prioridad : 'media');
-        console.log('Prioridad inicializada:', prioridad);
+        
       }
       
       // Extraer supervisores y trabajadores de la vista optimizada
@@ -301,7 +268,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       // para obtener los datos más actualizados y evitar problemas con la vista
       let supervisorData = null;
       
-      console.log('Obteniendo supervisor directamente de la tabla supervisores_tareas para tarea:', tareaId);
+      
       
       // 1. Primero obtenemos el id_supervisor de la tabla supervisores_tareas
       const { data: supervisorAsignado, error: errorSupervisor } = await supabase
@@ -311,12 +278,11 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         .maybeSingle();
         
       if (errorSupervisor) {
-        console.error('Error al consultar supervisor asignado:', errorSupervisor);
+        
       }
       
       // 2. Si hay un supervisor asignado, obtenemos sus datos completos de la tabla usuarios
       if (supervisorAsignado?.id_supervisor) {
-        console.log('Supervisor asignado encontrado, ID:', supervisorAsignado.id_supervisor);
         
         const { data: supervisorUserData, error: errorUsuario } = await supabase
           .from("usuarios")
@@ -325,7 +291,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .maybeSingle();
           
         if (errorUsuario) {
-          console.error('Error al obtener datos del usuario supervisor:', errorUsuario);
+          
         }
         
         if (supervisorUserData) {
@@ -334,17 +300,17 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           };
         }
       } else {
-        console.log('No se encontró supervisor asignado para esta tarea');
+        
       }
       
-      console.log('Supervisor obtenido directamente de la BD:', supervisorData);
+      
       setSupervisor(supervisorData);
 
       // Para los trabajadores: Consultamos directamente la tabla trabajadores_tareas
       // para obtener los datos más actualizados y evitar problemas con la vista
       const trabajadoresData = [];
       
-      console.log('Obteniendo trabajadores directamente de la tabla trabajadores_tareas para tarea:', tareaId);
+      
       
       // 1. Obtenemos los id_trabajador de la tabla trabajadores_tareas
       const { data: trabajadoresAsignados, error: errorTrabajadores } = await supabase
@@ -353,12 +319,11 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         .eq("id_tarea", tareaId);
         
       if (errorTrabajadores) {
-        console.error('Error al consultar trabajadores asignados:', errorTrabajadores);
+        
       }
       
       // 2. Si hay trabajadores asignados, obtenemos sus datos completos de la tabla usuarios
       if (trabajadoresAsignados && trabajadoresAsignados.length > 0) {
-        console.log('Encontrados', trabajadoresAsignados.length, 'trabajadores asignados a la tarea');
         
         // Extraer los IDs de trabajadores
         const idsTrabajos = trabajadoresAsignados.map(t => t.id_trabajador);
@@ -370,7 +335,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .in("id", idsTrabajos);
           
         if (errorUsuarios) {
-          console.error('Error al obtener datos de los usuarios trabajadores:', errorUsuarios);
+          
         }
         
         if (trabajadoresUserData && trabajadoresUserData.length > 0) {
@@ -382,10 +347,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           }
         }
       } else {
-        console.log('No se encontraron trabajadores asignados para esta tarea');
+        
       }
       
-      console.log('Trabajadores obtenidos directamente de la BD:', trabajadoresData.length);
+      
       setTrabajadoresAsignados(trabajadoresData || [])
       
       // Cargar todos los usuarios que son supervisores
@@ -396,13 +361,13 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .eq("rol", "supervisor")
         
         if (errorSupervisores) {
-          console.error("Error al obtener supervisores disponibles:", errorSupervisores)
+          
         } else {
-          console.log('Supervisores disponibles cargados:', supervisores?.length || 0)
+          
           setSupervisoresDisponibles(supervisores || [])
         }
       } catch (error) {
-        console.error("Error al obtener supervisores:", error)
+        
       }
       
       // Cargar todos los trabajadores ACTIVOS disponibles
@@ -415,7 +380,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .eq("configuracion_trabajadores.activo", true)
         
         if (errorTrabajadores) {
-          console.error("Error al obtener trabajadores disponibles:", errorTrabajadores)
+          
         } else {
           // Convertir al formato que espera el componente
           const trabajadoresFormateados = trabajadores?.map((t: any) => ({
@@ -424,11 +389,11 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             color_perfil: t.color_perfil
           })) || []
           
-          console.log('Trabajadores activos disponibles:', trabajadoresFormateados.length)
+          
           setTrabajadoresDisponibles(trabajadoresFormateados)
         }
       } catch (error) {
-        console.error("Error inesperado al cargar supervisores:", error)
+        
       }
       
       // Obtener comentarios - Consulta simple sin relaciones
@@ -462,7 +427,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           
           usuariosResponse = await query
         } catch (error) {
-          console.error("Error al consultar usuarios:", error)
+          
           usuariosResponse = { data: [] }
         }
         
@@ -488,7 +453,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       await cargarPresupuestos(userData?.rol)
       
     } catch (err) {
-      console.error("Error inesperado:", err)
       setError("Ocurrió un error inesperado al cargar la tarea")
     } finally {
       setLoading(false)
@@ -529,13 +493,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         // Formato YYYY-MM-DD HH:MM:SS (hora local sin ajuste)
         formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
         
-        // Para diagnóstico
-        console.log("Fecha local con hora:", {
-          fecha: date,
-          horaLocal: `${hours}:${minutes}:${seconds}`,
-          formatoUTC: date.toISOString(),
-          formatoEnviado: formattedDate
-        });
+        
       }
       
       // Mostrar indicador de carga
@@ -549,18 +507,14 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         // Convertir el ID a número si es necesario
         const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
         
-        console.log("Enviando a RPC:", {
-          tarea_id: tareaIdNum,
-          nueva_fecha: formattedDate,
-          id_tipo: typeof tarea.id
-        });
+        
         
         const { data: rpcResult, error: rpcError } = await supabase.rpc('actualizar_fecha_tarea', { 
           tarea_id: tareaIdNum, 
           nueva_fecha: formattedDate 
         });
         
-        console.log("Respuesta RPC:", { resultado: rpcResult, error: rpcError });
+        
         
         if (!rpcError) {
           // La RPC funcionó correctamente
@@ -571,10 +525,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           
           // Actualizar interfaz con la fecha devuelta por la RPC
           const fechaRPC = rpcResult?.nueva_fecha || formattedDate;
-          console.log("Fecha actualizada correctamente:", { 
-            fechaOriginal: tarea.fecha_visita, 
-            nuevaFecha: fechaRPC 
-          });
+          
           
           // Primero actualizamos el estado local para UI inmediata
           setTarea((prevTarea: any) => ({
@@ -593,14 +544,12 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             .single();
           
           if (tareaActualizada) {
-            console.log("Tarea recargada desde BD:", { 
-              fechaVisita: tareaActualizada.fecha_visita 
-            });
+            
             setTarea(tareaActualizada);
           }
           return;
         } else {
-          console.log("Error RPC:", rpcError);
+          
           
           // La RPC falló, intentar método estándar
           const { error } = await supabase
@@ -749,7 +698,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   tareaId={tarea.id}
                   prioridadActual={prioridadActual as "baja" | "media" | "alta" | "urgente"}
                   onPrioridadChange={(nuevaPrioridad) => {
-                    console.log('Prioridad actualizada:', nuevaPrioridad);
+                    
                     setPrioridadActual(nuevaPrioridad);
                     // Aquí se implementaría la actualización en el servidor en una versión completa
                   }}
@@ -785,7 +734,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 onEstadoChange={(nuevoEstadoId, finalizada) => {
                   setEstadoActualId(nuevoEstadoId);
                   setEsTareaFinalizada(finalizada);
-                  console.log('Estado actualizado en tiempo real:', { nuevoEstadoId, finalizada });
+                  
                 }}
                 className="mt-2 sm:mt-0"
               />
@@ -819,7 +768,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
     tareaId={tarea.id} 
     edificioId={tarea.id_edificio}
     onDepartamentosChange={(departamentos) => {
-      console.log('Departamentos actualizados:', departamentos);
+      
     }}
   />
 </div>
@@ -845,7 +794,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   userDetailsId={userDetails?.id}
                   onSupervisorChange={async (emailSupervisor) => {
                   // Ahora recibimos el email del supervisor en lugar del ID
-                  console.log('Supervisor cambiado a email:', emailSupervisor);
+                  
                   try {
                     // Crear cliente Supabase
                     const supabase = createClient();
@@ -896,7 +845,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                           throw new Error(`No se encontró supervisor con email ${emailSupervisor}`);
                         }
                         
-                        console.log('Supervisor encontrado por email:', supervisorSeleccionado);
+                        
                         
                         // Asegurar que tenemos un ID válido para la tarea
                         const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
@@ -941,7 +890,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                           description: `Supervisor ${supervisorSeleccionado.email} asignado correctamente a la tarea.`,
                         });
                       } catch (error: any) {
-                        console.error('Error al insertar supervisor:', error);
+                        
                         toast({
                           title: "Error al cambiar supervisor",
                           description: `No se pudo actualizar el supervisor: ${error instanceof Error ? error.message : 'Error desconocido'}`,
@@ -954,7 +903,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                     // inmediatamente después de la inserción exitosa o de la eliminación
                     
                   } catch (error) {
-                    console.error('Error al actualizar supervisor:', error);
+                    
                     toast({
                       title: "Error",
                       description: "No se pudo actualizar el supervisor",
@@ -995,7 +944,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 }
                 trabajadoresDisponibles={trabajadoresDisponibles}
                 onTrabajadorAdd={async (nuevoTrabajadorId) => {
-                  console.log('Trabajador agregado ID:', nuevoTrabajadorId);
                   // Encontrar el trabajador en la lista de disponibles
                   const trabajadorEncontrado = trabajadoresDisponibles.find(t => t.id === nuevoTrabajadorId);
                     
@@ -1035,7 +983,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                         });
                         
                       if (error) {
-                        console.error("Error al guardar asignación:", error);
                         toast({
                           title: "Error al asignar trabajador",
                           description: error.message,
@@ -1060,10 +1007,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                         // Actualizar la lista de trabajadores asignados en el estado local
                         setTrabajadoresAsignados([...trabajadoresAsignados, nuevoTrabajadorAsignado]);
                         
-                        console.log('Asignación guardada correctamente y estado local actualizado');
+                        
                       }
                     } catch (error) {
-                      console.error("Error inesperado al asignar trabajador:", error);
+                      
                       toast({
                         title: "Error inesperado",
                         description: `No se pudo completar la asignación: ${error instanceof Error ? error.message : 'Error desconocido'}`,
@@ -1073,7 +1020,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                       setIsLoading(false);
                     }
                   } else {
-                    console.error("No se encontró el trabajador con ID:", nuevoTrabajadorId);
+                    
                     toast({
                       title: "Error",
                       description: "No se encontró el trabajador seleccionado",
@@ -1082,7 +1029,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   }
                 }}
                 onTrabajadorRemove={async (trabajadorId) => {
-                  console.log('Trabajador removido ID:', trabajadorId);
+                  
                   setIsLoading(true);
                   
                   // Crear una referencia a Supabase para usar en operaciones asíncronas
@@ -1100,7 +1047,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                       .eq("id_trabajador", trabajadorId);
                     
                     if (error) {
-                      console.error("Error al eliminar asignación:", error);
                       toast({
                         title: "Error al eliminar trabajador",
                         description: error.message,
@@ -1120,10 +1066,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                         description: `Se ha eliminado a ${trabajadorAEliminar?.usuarios?.email} de esta tarea`
                       });
                       
-                      console.log('Trabajador eliminado correctamente');
+                      
                     }
                   } catch (error) {
-                    console.error("Error inesperado al eliminar trabajador:", error);
+                    
                     toast({
                       title: "Error inesperado",
                       description: "No se pudo eliminar al trabajador de la tarea",

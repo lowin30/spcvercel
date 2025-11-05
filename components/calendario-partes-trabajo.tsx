@@ -172,37 +172,101 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
     }
 
     if (modalState.parteExistente) {
-      // Actualizar
-      const { error } = await supabase
-        .from('partes_de_trabajo')
-        .update({ tipo_jornada: modalState.jornadaSeleccionada })
-        .eq('id', modalState.parteExistente.id)
-      if (error) {
-        console.error('Error updating parte:', error)
-        toast({
-          title: 'Operación no permitida',
-          description: 'No puedes modificar partes fuera de la semana actual o en semanas cerradas.',
-          variant: 'destructive'
+      try {
+        const resp = await fetch(`/api/partes/${modalState.parteExistente.id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tipo_jornada: modalState.jornadaSeleccionada }),
         })
+        if (!resp.ok) {
+          let msg = 'No se pudo actualizar el parte'
+          try {
+            const j = await resp.json()
+            msg = j?.error || j?.message || msg
+          } catch {}
+          toast({ title: 'Error', description: msg, variant: 'destructive' })
+          return
+        }
+        // Optimistic update: actualizar en memoria
+        setPartes(prev => prev.map(p => p.id === modalState.parteExistente!.id
+          ? { ...p, tipo_jornada: modalState.jornadaSeleccionada as any }
+          : p
+        ))
+      } catch (e: any) {
+        console.error('Error en llamada a API PATCH /api/partes/[id]:', e)
+        toast({ title: 'Error', description: 'Fallo al comunicar con el servidor', variant: 'destructive' })
         return
       }
     } else {
-      // Insertar
-      const { error } = await supabase
-        .from('partes_de_trabajo')
-        .insert([{ id_tarea: parseInt(tareaId), id_trabajador: trabajadorId, fecha: fechaISO, tipo_jornada: modalState.jornadaSeleccionada, id_registrador: (usuarioActual as any).id }])
-      if (error) {
-        console.error('Error inserting parte:', error)
-        toast({
-          title: 'Operación no permitida',
-          description: 'No puedes registrar partes fuera de la semana actual o en semanas cerradas.',
-          variant: 'destructive'
+      const idTareaNum = parseInt(tareaId)
+      if ((usuarioActual as any)?.rol === 'supervisor') {
+        const { data: supOk } = await supabase
+          .from('supervisores_tareas')
+          .select('id')
+          .eq('id_tarea', idTareaNum)
+          .eq('id_supervisor', (usuarioActual as any).id)
+          .maybeSingle()
+        if (!supOk) {
+          toast({
+            title: 'Operación no permitida',
+            description: 'No estás asignado como supervisor de esta tarea.',
+            variant: 'destructive'
+          })
+          return
+        }
+        const { data: trabOk } = await supabase
+          .from('trabajadores_tareas')
+          .select('id')
+          .eq('id_tarea', idTareaNum)
+          .eq('id_trabajador', trabajadorId)
+          .maybeSingle()
+        if (!trabOk) {
+          toast({
+            title: 'Trabajador no asignado',
+            description: 'Asigna primero el trabajador a esta tarea y luego registra la jornada.',
+            variant: 'destructive'
+          })
+          return
+        }
+      }
+      try {
+        const resp = await fetch('/api/partes/registrar', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_tarea: idTareaNum,
+            id_trabajador: trabajadorId,
+            fecha: fechaISO,
+            tipo_jornada: modalState.jornadaSeleccionada,
+          }),
         })
+        if (!resp.ok) {
+          let msg = 'No se pudo registrar el parte'
+          try {
+            const j = await resp.json()
+            msg = j?.error || j?.message || msg
+          } catch {}
+          toast({ title: 'Error', description: msg, variant: 'destructive' })
+          return
+        }
+        // Optimistic create: agregar en memoria
+        try {
+          const j = await resp.json()
+          const parte = (j?.parte as ParteDeTrabajo | undefined)
+          if (parte) {
+            setPartes(prev => [...prev, parte])
+          }
+        } catch {}
+      } catch (e: any) {
+        console.error('Error en llamada a API /api/partes/registrar:', e)
+        toast({ title: 'Error', description: 'Fallo al comunicar con el servidor', variant: 'destructive' })
         return
       }
     }
     
-    await fetchPartes() // Recargar todos los partes
+    // Cerrar diálogo sin refetch (UI ya está actualizada optimistamente)
     setIsDialogOpen(false)
   }
 
@@ -216,23 +280,28 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
       })
       return
     }
-
-    const { error } = await supabase
-      .from('partes_de_trabajo')
-      .delete()
-      .eq('id', modalState.parteExistente.id)
-
-    if (error) {
-      console.error('Error deleting parte:', error)
-      toast({
-        title: 'Operación no permitida',
-        description: 'No puedes eliminar partes fuera de la semana actual o en semanas cerradas.',
-        variant: 'destructive'
+    try {
+      const resp = await fetch(`/api/partes/${modalState.parteExistente.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
       })
+      if (!resp.ok) {
+        let msg = 'No se pudo eliminar el parte'
+        try {
+          const j = await resp.json()
+          msg = j?.error || j?.message || msg
+        } catch {}
+        toast({ title: 'Error', description: msg, variant: 'destructive' })
+        return
+      }
+      // Optimistic delete: quitar en memoria
+      setPartes(prev => prev.filter(p => p.id !== modalState.parteExistente!.id))
+    } catch (e: any) {
+      console.error('Error en llamada a API DELETE /api/partes/[id]:', e)
+      toast({ title: 'Error', description: 'Fallo al comunicar con el servidor', variant: 'destructive' })
       return
     }
     
-    await fetchPartes() // Recargar
     setIsDialogOpen(false)
   }
 
