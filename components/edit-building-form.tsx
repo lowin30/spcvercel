@@ -61,7 +61,7 @@ interface Edificio {
   nombre: string
   direccion: string
   mapa_url: string | null
-  id_administrador: number
+  id_administrador: number | null
   estado: string
   latitud: number | null
   longitud: number | null
@@ -78,7 +78,9 @@ export function EditBuildingForm({ edificio, administradores }: EditBuildingForm
   const [nombre, setNombre] = useState(edificio.nombre)
   const [direccion, setDireccion] = useState(edificio.direccion)
   const [mapaUrl, setMapaUrl] = useState(edificio.mapa_url || "")
-  const [idAdministrador, setIdAdministrador] = useState(edificio.id_administrador.toString())
+  const [idAdministrador, setIdAdministrador] = useState(
+    edificio.id_administrador != null ? edificio.id_administrador.toString() : "0"
+  )
   const [estado, setEstado] = useState(edificio.estado)
   const [latitud, setLatitud] = useState(edificio.latitud?.toString() || "")
   const [longitud, setLongitud] = useState(edificio.longitud?.toString() || "")
@@ -217,7 +219,7 @@ export function EditBuildingForm({ edificio, administradores }: EditBuildingForm
           nombre,
           direccion,
           mapa_url: mapaUrl || null,
-          id_administrador: Number.parseInt(idAdministrador),
+          id_administrador: idAdministrador === "0" ? null : Number.parseInt(idAdministrador),
           estado,
           latitud: latitud ? Number.parseFloat(latitud) : null,
           longitud: longitud ? Number.parseFloat(longitud) : null,
@@ -298,6 +300,7 @@ export function EditBuildingForm({ edificio, administradores }: EditBuildingForm
                 <SelectValue placeholder="Selecciona un administrador" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="0">Sin administrador</SelectItem>
                 {administradores.map((admin) => (
                   <SelectItem key={admin.id} value={admin.id.toString()}>
                     {admin.nombre}
