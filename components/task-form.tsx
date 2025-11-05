@@ -160,6 +160,16 @@ export function TaskForm({
     console.log('task.id_estado_nuevo:', task?.id_estado_nuevo);
   }, [task]);
 
+  useEffect(() => {
+    if (isEditMode) return;
+    const current = form.getValues('id_supervisor');
+    if (current && current.trim() !== '') return;
+    const sup = (supervisores || []).find(s => (s.email || '').toLowerCase() === 'super1@gmail.com');
+    if (sup?.id) {
+      form.setValue('id_supervisor', sup.id);
+    }
+  }, [isEditMode, supervisores, form]);
+
   // Cargar administradores al montar
   useEffect(() => {
     const fetchAdministradores = async () => {
