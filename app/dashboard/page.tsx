@@ -285,6 +285,7 @@ export default function DashboardPage() {
               id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
               estados:estados_tareas(id, nombre, color)
             `)
+            .eq('finalizada', false)
             .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
         } 
         else if (userData?.rol === 'supervisor') {
@@ -310,6 +311,7 @@ export default function DashboardPage() {
                   estados:estados_tareas(id, nombre, color)
                 `)
                 .in('id', idsTareas)
+                .eq('finalizada', false)
                 .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
             } else {
               // Si no tiene tareas asignadas, mostramos una lista vacía
@@ -352,6 +354,7 @@ export default function DashboardPage() {
                   estados:estados_tareas(id, nombre, color)
                 `)
                 .in('id', idsTareas)
+                .eq('finalizada', false)
                 .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
             } else {
               // Si no tiene tareas asignadas, mostramos una lista vacía
