@@ -1,19 +1,28 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import "react-big-calendar/lib/css/react-big-calendar.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { SupabaseProvider } from "@/lib/supabase-provider"
+import SWRegister from "@/components/sw-register"
 
 const inter = Inter({ subsets: ["latin"] })
+
+export const viewport: Viewport = {
+  themeColor: "#111827",
+}
 
 export const metadata: Metadata = {
   title: "SPC - Sistema de Gestión de Consorcios",
   description: "Sistema Integral para Gestión de Consorcios",
-    generator: 'v0.dev',
-    manifest: '/manifest.json'
+  generator: 'v0.dev',
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png'
+  }
 }
 
 export default function RootLayout({
@@ -28,6 +37,7 @@ export default function RootLayout({
           <SupabaseProvider>
             {children}
             <Toaster />
+            <SWRegister />
           </SupabaseProvider>
         </ThemeProvider>
       </body>
