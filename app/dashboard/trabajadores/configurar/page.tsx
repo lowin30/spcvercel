@@ -1,6 +1,7 @@
 import { getSession, getUserDetails } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 
+export const dynamic = 'force-dynamic'
 // Esta página ahora redirige a la sección de configuración de trabajadores
 export default async function ConfigurarTrabajadorRedirectPage() {
   const session = await getSession()

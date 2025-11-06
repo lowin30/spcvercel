@@ -1,5 +1,5 @@
 // middleware.ts
-export const runtime = 'nodejs'
+export const runtime = 'experimental-edge'
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/ssr-middleware' // Asegúrate que la ruta a ssr-middleware.ts sea correcta
 

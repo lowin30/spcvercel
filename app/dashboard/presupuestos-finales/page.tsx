@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { formatDate } from "@/lib/date-utils"
 
+export const dynamic = 'force-dynamic'
 export default async function PresupuestosFinalesPage() {
   const session = await getSession()
 
