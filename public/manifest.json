@@ -1,0 +1,17 @@
+{
+  "name": "SPC - Sistema de Gestión de Consorcios",
+  "short_name": "SPC",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/placeholder-logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

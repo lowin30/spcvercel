@@ -11,7 +11,8 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "SPC - Sistema de Gestión de Consorcios",
   description: "Sistema Integral para Gestión de Consorcios",
-    generator: 'v0.dev'
+    generator: 'v0.dev',
+    manifest: '/manifest.json'
 }
 
 export default function RootLayout({
