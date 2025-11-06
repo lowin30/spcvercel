@@ -2,6 +2,7 @@ import { getSession, getUserDetails } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 import { SobrecostoCalculator } from "@/components/sobrecosto-calculator"
 
+export const dynamic = 'force-dynamic'
 export default async function CalculadoraPage() {
   const session = await getSession()
 
