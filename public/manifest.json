@@ -2,7 +2,7 @@
   "name": "SPC - Sistema de Gestión de Consorcios",
   "short_name": "SPC",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -30,5 +30,10 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    { "name": "Dashboard", "short_name": "Dashboard", "url": "/dashboard" },
+    { "name": "Agenda", "short_name": "Agenda", "url": "/dashboard/agenda" },
+    { "name": "Tareas", "short_name": "Tareas", "url": "/dashboard/tareas" }
   ]
 }
