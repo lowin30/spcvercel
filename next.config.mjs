@@ -22,6 +22,8 @@ const nextConfig = {
   output: 'standalone',
   webpack: (config) => {
     config.resolve.alias['@'] = path.resolve('./');
+    config.resolve.alias['clsx/dist/clsx.m.js'] = 'clsx';
+    config.resolve.alias['react-big-calendar/node_modules/clsx'] = 'clsx';
     return config;
   },
 }

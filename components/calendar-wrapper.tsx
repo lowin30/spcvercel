@@ -1,6 +1,5 @@
 "use client"
 import React from "react"
-import "react-big-calendar/lib/css/react-big-calendar.css"
 import "@/styles/calendar-mobile.css"
 
 // La importación dinámica permite aislar las advertencias y problemas de JSX transform

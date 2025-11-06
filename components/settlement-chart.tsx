@@ -3,9 +3,6 @@
 import { useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Chart, registerables } from "chart.js"
-
-Chart.register(...registerables)
 
 interface Settlement {
   gastos_reales: number
@@ -28,11 +25,16 @@ interface SettlementChartProps {
 export function SettlementChart({ settlement }: SettlementChartProps) {
   const pieChartRef = useRef<HTMLCanvasElement>(null)
   const barChartRef = useRef<HTMLCanvasElement>(null)
-  const pieChartInstance = useRef<Chart | null>(null)
-  const barChartInstance = useRef<Chart | null>(null)
+  const pieChartInstance = useRef<any>(null)
+  const barChartInstance = useRef<any>(null)
 
   useEffect(() => {
-    if (pieChartRef.current && barChartRef.current) {
+    let cancelled = false
+    ;(async () => {
+      const { Chart, registerables } = await import("chart.js")
+      Chart.register(...registerables)
+
+      if (!pieChartRef.current || !barChartRef.current || cancelled) return
       // Destruir gráficos existentes si los hay
       if (pieChartInstance.current) {
         pieChartInstance.current.destroy()
@@ -84,7 +86,7 @@ export function SettlementChart({ settlement }: SettlementChartProps) {
       }
 
       // Crear gráfico de pastel
-      pieChartInstance.current = new Chart(pieChartRef.current, {
+      pieChartInstance.current = new Chart(pieChartRef.current as HTMLCanvasElement, {
         type: "pie",
         data: pieData,
         options: {
@@ -109,7 +111,7 @@ export function SettlementChart({ settlement }: SettlementChartProps) {
       })
 
       // Crear gráfico de barras
-      barChartInstance.current = new Chart(barChartRef.current, {
+      barChartInstance.current = new Chart(barChartRef.current as HTMLCanvasElement, {
         type: "bar",
         data: barData,
         options: {
@@ -141,9 +143,10 @@ export function SettlementChart({ settlement }: SettlementChartProps) {
           },
         },
       })
-    }
+    })()
 
     return () => {
+      cancelled = true
       if (pieChartInstance.current) {
         pieChartInstance.current.destroy()
       }
