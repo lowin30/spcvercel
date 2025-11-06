@@ -3,7 +3,6 @@ import path from 'path';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    nodeMiddleware: true,
     externalDir: true,
     serverActions: {
       allowedOrigins: ["localhost:3000"],
