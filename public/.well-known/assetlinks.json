@@ -5,9 +5,9 @@
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.yourcompany.yourapp", 
+      "package_name": "com.spcvercel.app",
       "sha256_cert_fingerprints": [
-        "YOUR_SHA256_CERT_FINGERPRINT"
+        "92:85:51:CE:9A:BD:A4:BB:3A:32:BA:8D:EB:9F:82:88:58:7F:71:C7:A4:68:A9:29:F1:B0:4A:29:7F:58:D7:3F"
       ]
     }
   }
