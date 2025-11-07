@@ -5,8 +5,13 @@
   "start_url": "/login",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#111827",
   "theme_color": "#111827",
+  "description": "SPC: sistema de gestión de consorcios. Agenda, tareas, facturación y liquidaciones.",
+  "lang": "es-AR",
+  "dir": "ltr",
+  "orientation": "portrait",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -32,8 +37,26 @@
     }
   ],
   "shortcuts": [
-    { "name": "Dashboard", "short_name": "Dashboard", "url": "/dashboard" },
-    { "name": "Agenda", "short_name": "Agenda", "url": "/dashboard/agenda" },
-    { "name": "Tareas", "short_name": "Tareas", "url": "/dashboard/tareas" }
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Ir al panel principal",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "url": "/dashboard/agenda",
+      "description": "Ver agenda",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Tareas",
+      "short_name": "Tareas",
+      "url": "/dashboard/tareas",
+      "description": "Ver tareas",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

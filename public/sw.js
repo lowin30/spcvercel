@@ -1,7 +1,8 @@
-const CACHE_NAME = 'spc-cache-v1';
+const CACHE_NAME = 'spc-cache-v2';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [
   '/',
+  '/login',
   OFFLINE_URL,
   '/manifest.json',
   '/logo.png',
