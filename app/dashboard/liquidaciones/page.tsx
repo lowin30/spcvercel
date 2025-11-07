@@ -75,10 +75,12 @@ export default function LiquidacionesSupervisorPage() {
           .order('created_at', { ascending: false });
 
         if (rol === 'supervisor' && userEmail) {
+          // Supervisores: siempre ver solo sus propias liquidaciones
           query = query.eq('email_supervisor', userEmail);
         }
 
-        if (supervisorEmail && supervisorEmail !== '_todos_') {
+        if (rol === 'admin' && supervisorEmail && supervisorEmail !== '_todos_') {
+          // Admin: puede filtrar por supervisor seleccionado
           query = query.eq('email_supervisor', supervisorEmail)
         }
 
@@ -123,6 +125,7 @@ export default function LiquidacionesSupervisorPage() {
 
   useEffect(() => {
     const fetchSupervisores = async () => {
+      if (userRole !== 'admin') return;
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, email')
@@ -131,7 +134,7 @@ export default function LiquidacionesSupervisorPage() {
       if (!error && data) setSupervisores(data)
     }
     fetchSupervisores()
-  }, [supabase])
+  }, [supabase, userRole])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -178,20 +181,22 @@ export default function LiquidacionesSupervisorPage() {
           </p>
         </div>
         <div className="flex w-full sm:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <Select
-            value={supervisorEmail || '_todos_'}
-            onValueChange={(v) => setSupervisorEmail(v)}
-          >
-            <SelectTrigger className="w-full sm:w-[240px]">
-              <SelectValue placeholder="Todos los supervisores" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_todos_">Todos los supervisores</SelectItem>
-              {supervisores.map(s => (
-                <SelectItem key={s.id} value={s.email}>{s.email}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {userRole === 'admin' && (
+            <Select
+              value={supervisorEmail || '_todos_'}
+              onValueChange={(v) => setSupervisorEmail(v)}
+            >
+              <SelectTrigger className="w-full sm:w-[240px]">
+                <SelectValue placeholder="Todos los supervisores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_todos_">Todos los supervisores</SelectItem>
+                {supervisores.map(s => (
+                  <SelectItem key={s.id} value={s.email}>{s.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button asChild className="w-full sm:w-auto">
             <Link href="/dashboard/liquidaciones/nueva">
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -208,7 +213,7 @@ export default function LiquidacionesSupervisorPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Tarea</TableHead>
-                <TableHead>P. Final</TableHead>
+                {userRole === 'admin' && (<TableHead>P. Final</TableHead>)}
                 <TableHead>Ganancia Neta</TableHead>
                 <TableHead>Ganancia Supervisor</TableHead>
                 <TableHead>Fecha</TableHead>
@@ -227,7 +232,9 @@ export default function LiquidacionesSupervisorPage() {
                         liq.titulo_tarea || 'N/A'
                       )}
                     </TableCell>
-                    <TableCell>{liq.code_presupuesto_final || 'N/A'}</TableCell>
+                    {userRole === 'admin' && (
+                      <TableCell>{liq.code_presupuesto_final || 'N/A'}</TableCell>
+                    )}
                     <TableCell>{formatCurrency(liq.ganancia_neta)}</TableCell>
                     <TableCell className="font-semibold text-green-600">{formatCurrency(liq.ganancia_supervisor)}</TableCell>
                     <TableCell>{formatDate(liq.created_at)}</TableCell>
@@ -235,7 +242,7 @@ export default function LiquidacionesSupervisorPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
+                  <TableCell colSpan={userRole === 'admin' ? 5 : 4} className="text-center h-24">
                     No se encontraron liquidaciones.
                   </TableCell>
                 </TableRow>
@@ -257,8 +264,12 @@ export default function LiquidacionesSupervisorPage() {
               </CardHeader>
               <CardContent className="pb-3 pt-0 space-y-2">
                 <div className="grid grid-cols-2 gap-1">
-                  <div className="text-sm text-muted-foreground">P. Final:</div>
-                  <div className="text-sm font-medium">{liq.code_presupuesto_final || 'N/A'}</div>
+                  {userRole === 'admin' && (
+                    <>
+                      <div className="text-sm text-muted-foreground">P. Final:</div>
+                      <div className="text-sm font-medium">{liq.code_presupuesto_final || 'N/A'}</div>
+                    </>
+                  )}
                   
                   <div className="text-sm text-muted-foreground">Ganancia Neta:</div>
                   <div className="text-sm font-medium">{formatCurrency(liq.ganancia_neta)}</div>

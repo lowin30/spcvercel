@@ -69,14 +69,14 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" asChild className="mr-2">
           <Link href="/dashboard/liquidaciones">
             <ArrowLeft className="h-4 w-4 mr-1" /> Volver
           </Link>
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">Liquidación {liquidacion.code}</h1>
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <DescargarLiquidacionPdfButton liquidacionId={Number(resolvedParams.id)} />
         </div>
       </div>
@@ -85,22 +85,22 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
         <div className="md:col-span-3 space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <CardTitle>Detalles de la Liquidación</CardTitle>
                 <Badge variant="outline">{liquidacion.code}</Badge>
               </div>
               <CardDescription>Creada el {formatDateTime(liquidacion.created_at)}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4">
               <div>
                 <h3 className="font-medium mb-1">Tarea asociada</h3>
                 <Link href={`/dashboard/tareas/${liquidacion.id_tarea}`} className="text-primary hover:underline">
                   {liquidacion.titulo_tarea || "Sin título"} ({liquidacion.code || "Sin código"})
                 </Link>
               </div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
                 <div>
-                  <h3 className="font-medium mb-1">Presupuesto Base (Referencia)</h3>
+                  <h3 className="font-medium mb-1">Presupuesto Base</h3>
                   <Link
                     href={`/dashboard/presupuestos/${liquidacion.id_presupuesto_base}`}
                     className="flex items-center text-primary hover:underline"
@@ -139,7 +139,7 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
             <CardContent>
               {jornalesDetalle.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
+                  <table className="w-full border-collapse text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b">
                         <th className="py-1.5 text-left">Fecha</th>
@@ -179,7 +179,7 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
             <CardContent>
               {materialesDetalle.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-sm">
+                  <table className="w-full border-collapse text-xs sm:text-sm">
                     <thead>
                       <tr className="border-b">
                         <th className="py-1.5 text-left">Fecha</th>
