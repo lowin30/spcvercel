@@ -20,11 +20,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     async function checkAuthAndGetDetails() {
       try {
         const supabase = createClient()
+        if (!supabase) {
+          if (typeof navigator !== "undefined" && !navigator.onLine) {
+            setLoading(false)
+            return
+          }
+          router.push("/login")
+          return
+        }
 
         // Verificar si hay una sesión activa
-        const { data: { user }, error: sessionError } = await supabase.auth.getUser()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-        if (sessionError || !user) {
+        if (sessionError || !session) {
           // Redirección silenciosa sin mensajes de error en consola
           router.push("/login")
           return
@@ -34,11 +42,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("id", user.id)
+          .eq("id", session.user.id)
           .single()
 
         if (userError || !userData) {
           console.error("[DashboardLayout] Error al obtener detalles del usuario:", userError)
+          if (typeof navigator !== "undefined" && !navigator.onLine) {
+            setLoading(false)
+            return
+          }
           router.push("/login")
           return
         }

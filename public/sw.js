@@ -1,8 +1,10 @@
-const CACHE_NAME = 'spc-cache-v2';
+const CACHE_NAME = 'spc-cache-v3';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [
   '/',
   '/login',
+  '/dashboard/esperando-rol',
+  '/dashboard/herramientas/calculadora',
   OFFLINE_URL,
   '/manifest.json',
   '/logo.png',
@@ -30,10 +32,28 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+
+  if (url.pathname.startsWith('/_next/static/') || request.destination === 'image' || url.pathname.startsWith('/icons/')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(request);
+      if (cached) return cached;
+      try {
+        const resp = await fetch(request);
+        cache.put(request, resp.clone());
+        return resp;
+      } catch (e) {
+        return cached || Response.error();
+      }
+    })());
+    return;
+  }
+
   event.respondWith((async () => {
     try {
-      const networkResponse = await fetch(request);
-      return networkResponse;
+      const resp = await fetch(request);
+      return resp;
     } catch (err) {
       if (request.mode === 'navigate') {
         const cache = await caches.open(CACHE_NAME);
@@ -41,8 +61,8 @@ self.addEventListener('fetch', (event) => {
         return offlinePage || Response.error();
       }
       const cache = await caches.open(CACHE_NAME);
-      const cachedResponse = await cache.match(request);
-      return cachedResponse || Response.error();
+      const cached = await cache.match(request);
+      return cached || Response.error();
     }
   })());
 });
