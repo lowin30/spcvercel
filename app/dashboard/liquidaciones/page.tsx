@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
+import { generarPagoLiquidacionesPDF } from '@/lib/pdf-liquidaciones-bulk-generator'
 
 // Define la estructura de la liquidación del supervisor
 interface LiquidacionSupervisor {
@@ -227,6 +228,37 @@ export default function LiquidacionesSupervisorPage() {
     const count = result?.cantidad_actualizadas || 0
     const tot = Number(result?.total_pagado || 0)
     toast.success('Pago masivo completado', { description: `Actualizadas: ${count} — Total: ${formatCurrency(tot)}` })
+    try {
+      const { data: filas } = await supabase
+        .from('vista_liquidaciones_supervisores_listado')
+        .select('id, titulo_tarea, total_base, gastos_reales, ganancia_neta, ganancia_supervisor, total_supervisor, email_supervisor')
+        .in('id', selectedIds)
+        .eq('pagada', true)
+      const items = (filas || []).map((f: any) => ({
+        titulo_tarea: f.titulo_tarea || 'N/A',
+        total_base: f.total_base || 0,
+        gastos_reales: f.gastos_reales || 0,
+        ganancia_neta: f.ganancia_neta || 0,
+        ganancia_supervisor: f.ganancia_supervisor || 0,
+        total_supervisor: f.total_supervisor || 0,
+      }))
+      const supEmail = (supervisorEmail && supervisorEmail !== '_todos_') ? supervisorEmail : ((filas && filas[0]?.email_supervisor) || undefined)
+      const blob = await generarPagoLiquidacionesPDF({ liquidaciones: items, totalPagado: tot, supervisorEmail: supEmail })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const fecha = new Date()
+      const yyyy = fecha.getFullYear()
+      const mm = String(fecha.getMonth() + 1).padStart(2, '0')
+      const dd = String(fecha.getDate()).padStart(2, '0')
+      const filename = `Pago_Liquidaciones_${yyyy}-${mm}-${dd}_Total_$${Math.round(tot)}.pdf`
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+    }
     setSelectedIds([])
     setRefresh(x => x + 1)
   }
@@ -296,12 +328,14 @@ export default function LiquidacionesSupervisorPage() {
               </SelectContent>
             </Select>
           )}
-          <Button asChild className="w-full sm:w-auto">
-            <Link href="/dashboard/liquidaciones/nueva">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Nueva Liquidación
-            </Link>
-          </Button>
+          {userRole === 'admin' && (
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/dashboard/liquidaciones/nueva">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nueva Liquidación
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
