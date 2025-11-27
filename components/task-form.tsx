@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/components/ui/use-toast"
-import { Loader2, Plus, X } from "lucide-react";
+import { toast } from "sonner"
+import { Loader2, Plus, X, Phone, Star } from "lucide-react";
 // El componente ContactPicker ya no es necesario con la nueva estructura
 import { MultiSelect, Option } from "@/components/ui/multi-select"
 import { Badge } from "@/components/ui/badge"
@@ -133,8 +133,43 @@ export function TaskForm({
   const [estadoTareasFromDb, setEstadoTareasFromDb] = useState<{ id: number; codigo: string; nombre: string }[]>([])
   const [departamentosDialogOpen, setDepartamentosDialogOpen] = useState(false)
   const [selectedDepartamentoId, setSelectedDepartamentoId] = useState<string | null>(null)
-  const [nuevoDepartamento, setNuevoDepartamento] = useState({ codigo: "", propietario: "", notas: "" })
+  const [nuevoDepartamento, setNuevoDepartamento] = useState({ codigo: "", notas: "" })
   const [creandoDepartamento, setCreandoDepartamento] = useState(false)
+  
+  // Estado para los teléfonos del nuevo departamento
+  const [telefonosNuevos, setTelefonosNuevos] = useState<{
+    nombre_contacto: string;
+    relacion: string;
+    numero: string;
+    es_principal: boolean;
+    notas: string;
+  }[]>([{ nombre_contacto: '', relacion: '', numero: '', es_principal: true, notas: '' }]);
+
+  // Funciones para manejar teléfonos
+  const agregarTelefonoNuevo = () => {
+    setTelefonosNuevos([...telefonosNuevos, { 
+      nombre_contacto: '', 
+      relacion: '', 
+      numero: '', 
+      es_principal: false, 
+      notas: '' 
+    }]);
+  };
+
+  const eliminarTelefonoNuevo = (index: number) => {
+    const nuevosTelefonos = telefonosNuevos.filter((_, i) => i !== index);
+    setTelefonosNuevos(nuevosTelefonos);
+  };
+
+  const actualizarTelefonoNuevo = (index: number, campo: string, valor: any) => {
+    const nuevosTelefonos = telefonosNuevos.map((tel, i) => {
+      if (i === index) {
+        return { ...tel, [campo]: valor };
+      }
+      return tel;
+    });
+    setTelefonosNuevos(nuevosTelefonos);
+  };
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(formSchema),
@@ -655,8 +690,7 @@ export function TaskForm({
           />
         </div>
 
-                {/* Nuevo campo para selección múltiple de departamentos */}
-                <FormField
+        <FormField
           control={form.control}
           name="departamentos_ids"
           render={({ field }) => (
@@ -669,7 +703,7 @@ export function TaskForm({
                       <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Crear Nuevo Departamento</DialogTitle>
                       <DialogDescription>
@@ -684,22 +718,12 @@ export function TaskForm({
                     ) : (
                       <div className="space-y-4 py-2">
                         <div className="space-y-2">
-                          <Label htmlFor="codigo">Código *</Label>
+                          <Label htmlFor="codigo">Código</Label>
                           <Input 
                             id="codigo" 
                             value={nuevoDepartamento.codigo} 
                             onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, codigo: e.target.value})}
                             placeholder="Ej: 1A, 2B, PB"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="propietario">Propietario</Label>
-                          <Input 
-                            id="propietario" 
-                            value={nuevoDepartamento.propietario} 
-                            onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, propietario: e.target.value})}
-                            placeholder="Nombre del propietario"
                           />
                         </div>
                         
@@ -713,10 +737,122 @@ export function TaskForm({
                           />
                         </div>
                         
+                        {/* Sección de teléfonos */}
+                        <div className="space-y-4 border-t pt-4">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-base font-semibold flex items-center">
+                              <Phone className="mr-2 h-4 w-4" />
+                              Teléfonos de contacto
+                            </Label>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="sm"
+                              onClick={agregarTelefonoNuevo}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Añadir teléfono
+                            </Button>
+                          </div>
+                          
+                          {telefonosNuevos.map((telefono, index) => (
+                            <div key={index} className="p-3 border rounded-md bg-muted/20 space-y-3">
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`telefono-nombre-${index}`} className="text-sm">Nombre del contacto</Label>
+                                    <Input 
+                                      id={`telefono-nombre-${index}`}
+                                      value={telefono.nombre_contacto} 
+                                      onChange={(e) => actualizarTelefonoNuevo(index, 'nombre_contacto', e.target.value)}
+                                      placeholder="Ej: Juan Pérez"
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`telefono-relacion-${index}`} className="text-sm">Relación</Label>
+                                    <Input 
+                                      id={`telefono-relacion-${index}`}
+                                      value={telefono.relacion} 
+                                      onChange={(e) => actualizarTelefonoNuevo(index, 'relacion', e.target.value)}
+                                      placeholder="Ej: Propietario, Encargado"
+                                      className="h-8"
+                                    />
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`telefono-numero-${index}`} className="text-sm">Número</Label>
+                                    <Input 
+                                      id={`telefono-numero-${index}`}
+                                      value={telefono.numero} 
+                                      onChange={(e) => actualizarTelefonoNuevo(index, 'numero', e.target.value.replace(/\D/g, ''))}
+                                      placeholder="Solo números (ej: 5491150055262)"
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`telefono-notas-${index}`} className="text-sm">Notas</Label>
+                                    <Input 
+                                      id={`telefono-notas-${index}`}
+                                      value={telefono.notas} 
+                                      onChange={(e) => actualizarTelefonoNuevo(index, 'notas', e.target.value)}
+                                      placeholder="Información adicional"
+                                      className="h-8"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id={`telefono-principal-${index}`}
+                                    checked={telefono.es_principal}
+                                    onChange={(e) => {
+                                      // Si se marca como principal, desmarcar los otros
+                                      if (e.target.checked) {
+                                        const nuevosTelefonos = telefonosNuevos.map((t, i) => ({
+                                          ...t,
+                                          es_principal: i === index
+                                        }));
+                                        setTelefonosNuevos(nuevosTelefonos);
+                                      } else {
+                                        actualizarTelefonoNuevo(index, 'es_principal', false);
+                                      }
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <Label htmlFor={`telefono-principal-${index}`} className="text-sm flex items-center">
+                                    <Star className="h-3 w-3 mr-1 text-amber-500" />
+                                    Teléfono principal
+                                  </Label>
+                                </div>
+                                
+                                {telefonosNuevos.length > 1 && (
+                                  <Button 
+                                    type="button" 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onClick={() => eliminarTelefonoNuevo(index)}
+                                  >
+                                    <X className="h-4 w-4 mr-1" />
+                                    Eliminar
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
                         <DialogFooter>
                           <Button 
                             type="button" 
-                            disabled={!nuevoDepartamento.codigo || creandoDepartamento} 
+                            disabled={!nuevoDepartamento.codigo.trim() || creandoDepartamento} 
                             onClick={async () => {
                               if (!nuevoDepartamento.codigo || !form.getValues('id_edificio')) return;
                               
@@ -724,37 +860,73 @@ export function TaskForm({
                               const supabase = createClient();
                               
                               try {
+                                // Verificar si ya existe un departamento con el mismo código en este edificio (case-insensitive)
+                                const { data: existingDepts, error: checkError } = await supabase
+                                  .from("departamentos")
+                                  .select("id, codigo")
+                                  .eq("edificio_id", parseInt(form.getValues('id_edificio')));
+                                
+                                if (checkError) throw checkError;
+                                
+                                // Comparar códigos en minúsculas para validación case-insensitive
+                                const codigoDuplicado = existingDepts?.find(
+                                  dept => dept.codigo.toLowerCase() === nuevoDepartamento.codigo.toLowerCase()
+                                );
+                                
+                                if (codigoDuplicado) {
+                                  console.log('Código duplicado detectado:', codigoDuplicado);
+                                  toast.error(`Ya existe un departamento con el código "${codigoDuplicado.codigo}" en este edificio. Por favor, use otro código.`);
+                                  setCreandoDepartamento(false);
+                                  return;
+                                }
+                                
                                 const { data, error } = await supabase
                                   .from("departamentos")
                                   .insert({
                                     edificio_id: parseInt(form.getValues('id_edificio')),
                                     codigo: nuevoDepartamento.codigo,
-                                    propietario: nuevoDepartamento.propietario || null,
                                     notas: nuevoDepartamento.notas || null
                                   })
-                                  .select();
+                                  .select()
+                                  .single();
                                   
                                 if (error) throw error;
                                 
-                                toast({
-                                  title: "Departamento creado",
-                                  description: `El departamento ${nuevoDepartamento.codigo} ha sido creado correctamente`,
-                                });
+                                // Crear teléfonos asociados (solo si tienen al menos número o nombre)
+                                const telefonosValidos = telefonosNuevos.filter(tel => 
+                                  tel.numero.trim() || tel.nombre_contacto.trim()
+                                );
+                                
+                                if (telefonosValidos.length > 0 && data) {
+                                  const telefonosParaInsertar = telefonosValidos.map(tel => ({
+                                    departamento_id: data.id,
+                                    nombre_contacto: tel.nombre_contacto.trim() || '',
+                                    relacion: tel.relacion.trim() || '',
+                                    numero: tel.numero.replace(/\D/g, ''),
+                                    es_principal: tel.es_principal,
+                                    notas: tel.notas.trim() || ''
+                                  }));
+                                  
+                                  const { error: telefonosError } = await supabase
+                                    .from("telefonos_departamento")
+                                    .insert(telefonosParaInsertar);
+                                    
+                                  if (telefonosError) throw telefonosError;
+                                }
+                                
+                                toast.success(`Departamento ${nuevoDepartamento.codigo} creado correctamente${telefonosValidos.length > 0 ? ` con ${telefonosValidos.length} teléfono(s)` : ''}`);
                                 
                                 // Actualizar lista de departamentos
                                 await fetchDepartamentos();
                                 
                                 // Resetear formulario y cerrar diálogo
-                                setNuevoDepartamento({ codigo: "", propietario: "", notas: "" });
+                                setNuevoDepartamento({ codigo: "", notas: "" });
+                                setTelefonosNuevos([{ nombre_contacto: '', relacion: '', numero: '', es_principal: true, notas: '' }]);
                                 setDepartamentosDialogOpen(false);
                                 
                               } catch (error: any) {
                                 console.error("Error al crear departamento:", error);
-                                toast({
-                                  title: "Error al crear departamento",
-                                  description: error.message || "Ha ocurrido un error al crear el departamento",
-                                  variant: "destructive",
-                                });
+                                toast.error(error.message || "Ha ocurrido un error al crear el departamento");
                               } finally {
                                 setCreandoDepartamento(false);
                               }
@@ -823,16 +995,16 @@ export function TaskForm({
           <FormField
             control={form.control}
             name="descripcion"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Descripción</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Describe la tarea detalladamente" className="resize-none" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Descripción</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Describe la tarea detalladamente" className="resize-none" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
