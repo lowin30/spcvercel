@@ -71,8 +71,13 @@ export default function TareasPage() {
   // Función para aplicar filtros y búsqueda a las tareas
   const applyFilters = (tareasInput: any[], excludeFinalized = false) => {
     return tareasInput.filter(tarea => {
-      // Excluir tareas finalizadas y en estado 'Enviado' (id=4) si se especifica
-      if (excludeFinalized && (tarea.finalizada === true || tarea.id_estado_nuevo === 4)) {
+      // Excluir tareas finalizadas si se especifica
+      if (excludeFinalized && tarea.finalizada === true) {
+        return false
+      }
+      
+      // Excluir tareas en estado 'Enviado' (id=4) solo si NO hay filtro de estado activo
+      if (excludeFinalized && !activeFilters.estado && tarea.id_estado_nuevo === 4) {
         return false
       }
       
