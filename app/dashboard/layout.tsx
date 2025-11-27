@@ -54,11 +54,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           router.push("/login")
           return
         }
-        console.log("[DashboardLayout] Detalles del usuario obtenidos:", userData);
 
         // Si el usuario tiene rol "sin_rol", redirigir a la página de espera
         if (userData.rol === "sin_rol") {
-          console.log("[DashboardLayout] Usuario con rol 'sin_rol', redirigiendo a /dashboard/esperando-rol");
           router.push("/dashboard/esperando-rol")
           return
         }

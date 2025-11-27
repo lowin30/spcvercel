@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { createClient } from "@/lib/supabase-client"
 import { obtenerEstadosTarea, EstadoTarea } from "@/lib/estados-service"
+import { FinalizarTareaDialog } from "@/components/finalizar-tarea-dialog"
 
 interface Estado {
   id: number
@@ -60,6 +61,7 @@ interface EstadoInteractivoProps {
   estadoActualId: number | null
   esFinalizada?: boolean
   onEstadoChange?: (nuevoEstadoId: number, esFinalizada: boolean) => void
+  onShowFinalizarDialog?: () => void
   className?: string
 }
 
@@ -69,6 +71,7 @@ export function EstadoInteractivo({
   estadoActualId,
   esFinalizada = false,
   onEstadoChange,
+  onShowFinalizarDialog,
   className = ""
 }: EstadoInteractivoProps) {
   const [estados, setEstados] = useState<Estado[]>([])
@@ -82,9 +85,7 @@ export function EstadoInteractivo({
       setIsLoading(true);
       try {
         // Forzar la actualización para asegurarnos de obtener los estados más recientes
-        console.log('EstadoInteractivo: Solicitando estados de tareas');
         const estadosDisponibles = await obtenerEstadosTarea(true); // Forzar actualización
-        console.log('EstadoInteractivo: Estados recibidos:', estadosDisponibles);
         
         if (!estadosDisponibles || estadosDisponibles.length === 0) {
           console.error('EstadoInteractivo: No se recibieron estados');
@@ -100,13 +101,6 @@ export function EstadoInteractivo({
         
         const estadoEncontrado = estadosDisponibles.find(e => e.id === estadoActualId) || null;
         setEstadoActual(estadoEncontrado as Estado | null);
-        console.log('EstadoInteractivo: Estados cargados correctamente:', { 
-          tipoEntidad, 
-          estadoActualId, 
-          estadoEncontrado, 
-          disponibles: estadosDisponibles.length,
-          estadosList: estadosDisponibles.map(e => `${e.id}: ${e.nombre}`)
-        });
       } catch (error) {
         console.error("Error general al cargar estados:", error);
         toast({ title: "Error", description: "Ocurrió un error inesperado al cargar estados.", variant: "destructive" });
@@ -156,16 +150,6 @@ export function EstadoInteractivo({
         console.error(`Error al actualizar estado en Supabase (${tablaAActualizar}):`, error);
         throw new Error(`Error al actualizar estado: ${error.message}`);
       }
-      console.log(`Estado actualizado en Supabase (${tablaAActualizar}):`, data);
-
-      console.log('Actualización de estado:', {
-        tipoEntidad,
-        entidadId,
-        estadoAnteriorId: estadoActualId,
-        nuevoEstadoId: estadoId,
-        nuevoEstadoNombre: nuevoEstado.nombre,
-        esTareaFinalizada
-      });
       
       toast({
         title: "Estado actualizado", 
@@ -193,43 +177,38 @@ export function EstadoInteractivo({
 
   // Manejar el cambio del estado finalizado
   const handleFinalizadaChange = async (checked: boolean) => {
+    // Si se intenta marcar como finalizada, mostrar el diálogo
+    if (checked && onShowFinalizarDialog) {
+      onShowFinalizarDialog();
+      return;
+    }
+    
+    // Si se desmarca (volver a activa), ejecutar directamente
     setIsLoading(true);
     try {
       const supabase = createClient();
-      const tablaAActualizar = tipoEntidad === 'tarea' ? 'tareas' : tipoEntidad; // Corregido: la tabla es 'tareas' (plural)
+      const tablaAActualizar = tipoEntidad === 'tarea' ? 'tareas' : tipoEntidad;
+      const id_estado_nuevo = 2; // organizar
       
-      // Determinar el valor de id_estado_nuevo según si está finalizada o activa
-      // 7 = terminado (cuando finalizada = true)
-      // 2 = organizar (cuando finalizada = false)
-      const id_estado_nuevo = checked ? 7 : 2;
-      
-      console.log(`Actualizando tarea ${entidadId}: finalizada=${checked}, id_estado_nuevo=${id_estado_nuevo}`);
-      
-      // Actualizar tanto finalizada como id_estado_nuevo
       const { data, error } = await supabase
         .from(tablaAActualizar)
         .update({ 
-          finalizada: checked,
+          finalizada: false,
           id_estado_nuevo: id_estado_nuevo 
         })
         .eq("id", entidadId);
 
-      if (error) {
-        console.error(`Error al actualizar estado finalizada en Supabase (${tablaAActualizar}):`, error);
-        throw new Error(`Error al actualizar estado finalizada: ${error.message}`);
-      }
-      console.log(`Estado finalizada actualizado en Supabase (${tablaAActualizar}):`, data);
+      if (error) throw new Error(`Error al actualizar estado finalizada: ${error.message}`);
       
-      setEsTareaFinalizada(checked); // Actualizar estado local después del éxito
+      setEsTareaFinalizada(false);
 
-      // Notificar al componente padre
       if (onEstadoChange && estadoActual) {
-        onEstadoChange(estadoActual.id, checked);
+        onEstadoChange(estadoActual.id, false);
       }
 
       toast({
         title: "Estado de finalización actualizado", 
-        description: `La ${tipoEntidad} ahora está ${checked ? 'finalizada' : 'activa'}`,
+        description: `La ${tipoEntidad} ahora está activa`,
       });
 
     } catch (err) {

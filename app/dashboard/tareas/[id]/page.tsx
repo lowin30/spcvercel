@@ -27,6 +27,7 @@ import ErrorBoundary from '@/components/error-boundary'
 import { ProcesadorImagen } from '@/components/procesador-imagen'
 import { HistorialGastosOCR } from '@/components/historial-gastos-ocr'
 import { SemanasLiquidadasIndicador } from '@/components/semanas-liquidadas-indicador';
+import { FinalizarTareaDialog } from '@/components/finalizar-tarea-dialog'
 
 interface TaskPageProps {
   params: Promise<{ id: string }>
@@ -51,7 +52,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   const [supervisoresDisponibles, setSupervisoresDisponibles] = useState<Array<any>>([])
   const [comentarios, setComentarios] = useState<any[]>([])
   const [esTrabajadorAsignado, setEsTrabajadorAsignado] = useState(false)
-
+  const [showFinalizarDialog, setShowFinalizarDialog] = useState(false)
   
   // Estados para presupuestos
   const [presupuestoBase, setPresupuestoBase] = useState<any>(null)
@@ -89,7 +90,6 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       
 
       if (baseError) {
-        console.error("Error al cargar presupuesto base:", baseError)
         toast({
           title: "Error de Presupuesto",
           description: "No se pudo cargar el presupuesto base.",
@@ -736,6 +736,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   setEsTareaFinalizada(finalizada);
                   
                 }}
+                onShowFinalizarDialog={() => setShowFinalizarDialog(true)}
                 className="mt-2 sm:mt-0"
               />
             )}
@@ -1210,6 +1211,16 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      <FinalizarTareaDialog
+        open={showFinalizarDialog}
+        onOpenChange={setShowFinalizarDialog}
+        tareaId={tareaId}
+        onFinalizada={() => {
+          setEsTareaFinalizada(true)
+          setEstadoActualId(7)
+        }}
+      />
     </div>
   )
 }

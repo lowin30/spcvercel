@@ -40,7 +40,6 @@ export async function obtenerEstadosTarea(forzarActualizacion = false): Promise<
   
   // Si tenemos caché válida y no se fuerza actualización, usar la caché
   if (estadosCache && !forzarActualizacion && (ahora - ultimaActualizacion < TIEMPO_CACHE_MS)) {
-    console.log("Usando caché de estados de tareas", { cantidadEstados: estadosCache.length });
     return estadosCache;
   }
   
@@ -52,7 +51,6 @@ export async function obtenerEstadosTarea(forzarActualizacion = false): Promise<
   try {
     // Iniciar (o reutilizar) una carga en curso
     if (!estadosPromise || forzarActualizacion) {
-      console.log("Cargando estados de tareas desde Supabase");
       estadosPromise = (async () => {
         const supabase = createClient();
         const { data, error } = await supabase
@@ -74,7 +72,6 @@ export async function obtenerEstadosTarea(forzarActualizacion = false): Promise<
         estadosCache = data;
         ultimaActualizacion = ahora;
         
-        console.log("Estados cargados desde Supabase:", { cantidad: data.length, estados: data });
         return estadosCache;
       })();
     }
@@ -169,5 +166,4 @@ export async function obtenerColorEstado(id?: number): Promise<string> {
 export function limpiarCacheEstados(): void {
   estadosCache = null;
   ultimaActualizacion = 0;
-  console.log("Caché de estados de tareas limpiada");
 }

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
 import { X, Phone, PlusCircle, Loader2 } from "lucide-react"
+import { PhoneActions } from "@/components/phone-actions"
 import {
   Dialog,
   DialogContent,
@@ -577,11 +578,13 @@ export function DepartamentosInteractivos({
       {telefonos.length > 0 && (
         <div className="mt-2 space-y-1">
           <h4 className="text-xs font-medium text-muted-foreground">Teléfonos:</h4>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2">
             {telefonos.map(tel => (
-              <div key={tel.id} className="flex items-center text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
-                <Phone className="h-3 w-3 mr-1" />
-                {tel.numero} {tel.nombre_contacto && `(${tel.nombre_contacto})`}
+              <div key={tel.id} className="flex items-center justify-between gap-2 text-xs bg-muted px-2 py-1.5 rounded-md">
+                <span className="font-medium text-foreground">
+                  {tel.nombre_contacto || 'Contacto'}
+                </span>
+                <PhoneActions numero={tel.numero} nombre={tel.nombre_contacto} />
               </div>
             ))}
           </div>

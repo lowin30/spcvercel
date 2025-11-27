@@ -21,32 +21,21 @@ export function DatePickerVisual({
   onDateChange, 
   disabled = false 
 }: DatePickerVisualProps) {
-  // Log de diagnóstico para la fecha recibida como prop
-  console.log("DatePickerVisual recibe fecha:", { 
-    date, 
-    tipo: typeof date,
-    esValido: date ? !isNaN(date.getTime()) : 'es null',
-    esNaN: date ? isNaN(date.getTime()) : 'es null',
-    iso: date ? date.toISOString() : 'es null',
-    string: date ? date.toString() : 'es null'
-  });
-
-  const [selectedDate, setSelectedDate] = React.useState<Date | null>(date)
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date || undefined)
   const [timeValue, setTimeValue] = React.useState<string>(
     date ? format(date, "HH:mm") : ""
   )
 
   // Sincronizar estado cuando cambia la prop date
   React.useEffect(() => {
-    console.log("[DatePickerVisual] useEffect - date cambiada:", date);
-    setSelectedDate(date)
+    setSelectedDate(date || undefined)
     setTimeValue(date ? format(date, "HH:mm") : "")
   }, [date])
 
   // Manejar cambio de fecha en el calendario
   const handleDateSelect = (newDate: Date | undefined) => {
     if (!newDate) {
-      setSelectedDate(null)
+      setSelectedDate(undefined)
       onDateChange(null)
       return
     }
