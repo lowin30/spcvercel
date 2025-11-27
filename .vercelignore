@@ -1,5 +1,5 @@
-# Excluir toda la documentación Markdown de los despliegues
-*.md
+# Excluir documentación (README.md se mantiene para GitHub)
+docs/
  
 # Excluir scripts SQL del despliegue
 *.sql
