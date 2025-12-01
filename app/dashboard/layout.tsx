@@ -12,8 +12,14 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userDetails, setUserDetails] = useState<any>(null)
+
+  // Asegurar que el componente está montado en el cliente
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     // Función para comprobar la autenticación y obtener los detalles del usuario
@@ -73,15 +79,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     checkAuthAndGetDetails()
   }, [router])
 
+  // No renderizar nada hasta que el componente esté montado en el cliente
+  // Esto previene errores de hidratación
+  if (!mounted) {
+    return null
+  }
+
   // Mostrar un indicador de carga mientras se verifica la autenticación
   if (loading) {
-    // Añadimos suppressHydrationWarning para evitar el error de hidratación 
-    // relacionado con las extensiones del navegador
     return (
-      <div 
-        className="flex min-h-screen items-center justify-center" 
-        suppressHydrationWarning
-      >
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="mb-4 text-2xl font-bold">Cargando...</div>
           <div className="text-gray-500">Verificando autenticación</div>
@@ -92,9 +99,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Renderizar el dashboard una vez que tenemos los detalles del usuario
   return (
-    // Usamos suppressHydrationWarning para evitar errores de hidratación
-    // causados por extensiones del navegador
-    <div suppressHydrationWarning>
+    <div>
       <DashboardShell userDetails={userDetails}>
         {children}
         <Toaster />

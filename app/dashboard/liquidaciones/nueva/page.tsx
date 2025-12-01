@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { useRouter } from 'next/navigation'
 import { hasPermission } from '@/lib/permissions'
@@ -29,6 +29,8 @@ interface PresupuestoFinal {
   tareas: {
     titulo: string
     id: number
+    finalizada: boolean
+    id_estado_nuevo: number
   }
   presupuestos_base: {
     id: number
@@ -123,7 +125,7 @@ export default function NuevaLiquidacionSupervisorPage () {
   }, [])
 
   // Función para obtener los presupuestos finales que no tienen liquidación
-  const fetchPresupuestosSinLiquidar = async () => {
+  const fetchPresupuestosSinLiquidar = useCallback(async () => {
     setLoading(true)
 
     try {
@@ -140,10 +142,14 @@ export default function NuevaLiquidacionSupervisorPage () {
           aprobado,
           rechazado,
           observaciones_admin,
-          tareas (id, titulo),
-          presupuestos_base (id, total)
+          tareas!inner (id, titulo, finalizada, id_estado_nuevo),
+          presupuestos_base!inner (id, total)
         `)
         .is('id_liquidacion_supervisor', null)
+        .eq('aprobado', true)
+        .eq('rechazado', false)
+        .eq('tareas.finalizada', true)
+        .eq('tareas.id_estado_nuevo', 7)
 
       // Aplicar filtros
       if (filtroEstado && filtroEstado.length > 0) {
@@ -214,14 +220,14 @@ export default function NuevaLiquidacionSupervisorPage () {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filtroEstado, busquedaTexto, filtroSupervisor, supervisorEmail])
 
   // Cargar presupuestos al inicio si el usuario está autorizado
   useEffect(() => {
     if (isAuthorized) {
       fetchPresupuestosSinLiquidar()
     }
-  }, [isAuthorized, filtroEstado, filtroSupervisor, supervisorEmail])
+  }, [isAuthorized, fetchPresupuestosSinLiquidar])
 
   // Presupuesto seleccionado
   const selectedPresupuesto = useMemo(() => {
