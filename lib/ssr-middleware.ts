@@ -57,7 +57,33 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Refresh session if expired - important to do before accessing user
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 🔒 PROTECCIÓN DE RUTAS SOLO PARA ADMIN
+  const rutasProtegidas = [
+    '/dashboard/pagos',
+    '/dashboard/facturas',
+  ];
+  
+  const rutaActual = request.nextUrl.pathname;
+  const esRutaProtegida = rutasProtegidas.some(ruta => rutaActual.startsWith(ruta));
+  
+  if (esRutaProtegida && user) {
+    // Obtener el rol del usuario
+    const { data: userData } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('id', user.id)
+      .single();
+    
+    // Si no es admin, redirigir al dashboard
+    if (!userData || userData.rol !== 'admin') {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/dashboard';
+      redirectUrl.searchParams.set('error', 'acceso_denegado');
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
 
   return response
 }
