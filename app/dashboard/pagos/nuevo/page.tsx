@@ -64,8 +64,6 @@ export default function NewPaymentPage() {
         return;
       }
 
-      console.log(`Verificando factura con ID: ${factura_id} (tipo: ${typeof factura_id})`);
-      
       // Intentamos encontrar la factura primero con el ID tal como viene
       let facturaExists;
       let existsError;
@@ -83,7 +81,6 @@ export default function NewPaymentPage() {
       // Si no encontramos resultados, intentamos con una conversión de tipo
       if (!facturaExists && !existsError) {
         const idNumerico = Number(factura_id);
-        console.log(`Intentando con ID convertido a número: ${idNumerico}`);
         
         const resultNum = await supabase
           .from('facturas')
@@ -108,13 +105,10 @@ export default function NewPaymentPage() {
         setLoading(false);
         return;
       }
-      
-      console.log('Factura encontrada correctamente:', facturaExists);
 
       // Obtener datos completos de la factura usando el ID que ya verificamos que existe
       // Usamos el ID que nos devolvió la verificación anterior
       const facturaId = facturaExists?.id;
-      console.log(`Obteniendo datos completos para factura ID: ${facturaId}`);
       
       const { data: facturaData, error: facturaError } = await supabase
         .from('facturas')
@@ -129,7 +123,6 @@ export default function NewPaymentPage() {
       }
       
       // Obtener historial de pagos - usamos el mismo ID que verificamos
-      console.log(`Buscando pagos anteriores para factura ID: ${facturaId}`);
       const { data: pagosAnteriores, error: pagosError } = await supabase
         .from('pagos_facturas')
         .select('monto_pagado, fecha_pago, modalidad_pago')
@@ -159,10 +152,8 @@ export default function NewPaymentPage() {
       let saldoPendienteNumerico;
       if (typedFacturaData.saldo_pendiente !== null && typedFacturaData.saldo_pendiente !== undefined) {
         saldoPendienteNumerico = Number(typedFacturaData.saldo_pendiente);
-        console.log('Saldo pendiente desde BD:', saldoPendienteNumerico);
       } else {
         saldoPendienteNumerico = Math.max(0, totalNumerico - totalPagadoNumerico);
-        console.log('Saldo pendiente calculado:', saldoPendienteNumerico);
       }
       
       // Verificación de coherencia: si hay un total pagado mayor que cero pero el saldo pendiente es igual al total,
@@ -179,12 +170,6 @@ export default function NewPaymentPage() {
         total_pagado: totalPagadoNumerico,
         saldo_pendiente: saldoPendienteNumerico,
         pagosAnteriores: pagosAnteriores || []
-      });
-      
-      console.log('Datos de factura procesados:', {
-        total: totalNumerico,
-        total_pagado: totalPagadoNumerico,
-        saldo_pendiente: saldoPendienteNumerico
       });
 
       setLoading(false);

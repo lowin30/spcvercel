@@ -55,7 +55,6 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
     
     // Marcar como enviando para desactivar el botón
     setIsSubmitting(true);
-    console.log('🔵 Enviando formulario de pago para factura:', facturaId);
     
     try {
       const formData = new FormData(formRef.current);
@@ -81,31 +80,19 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
     }
   };
   
-  // Imprimir valores para debugging
-  console.log('PaymentForm recibió:', { 
-    montoTotalFactura, 
-    saldoPendiente,
-    tipoMontoTotal: typeof montoTotalFactura,
-    tipoSaldoPendiente: typeof saldoPendiente
-  });
-
   // Usar saldo pendiente como valor por defecto, sin importar si es 0
   const valorSaldoPendiente = saldoPendiente !== undefined && saldoPendiente !== null
     ? Number(saldoPendiente)
     : Number(montoTotalFactura);
     
-  console.log('Valor calculado para el input:', valorSaldoPendiente);
-    
   const [montoPago, setMontoPago] = useState(valorSaldoPendiente.toString());
 
   // Forzar la actualización del valor cuando cambian las props
   useEffect(() => {
-    console.log('useEffect ejecutándose con:', { saldoPendiente, montoTotalFactura });
     const valorActualizado = saldoPendiente !== undefined && saldoPendiente !== null
       ? Number(saldoPendiente)
       : Number(montoTotalFactura);
     
-    console.log('Actualizando montoPago a:', valorActualizado);
     setMontoPago(valorActualizado.toString());
   }, [saldoPendiente, montoTotalFactura]);
 
@@ -124,14 +111,14 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
   }, [state, router]);
 
   const handleSetMonto50 = () => {
-    const total = Number(montoTotalFactura);
-    if (!isNaN(total)) {
-      setMontoPago((total / 2).toFixed(2));
+    const saldo = valorSaldoPendiente;
+    if (!isNaN(saldo)) {
+      setMontoPago((saldo / 2).toFixed(2));
     }
   };
   
   const handleSetMontoTotal = () => {
-    setMontoPago(montoTotalFactura.toString());
+    setMontoPago(valorSaldoPendiente.toString());
   };
 
   return (
@@ -149,16 +136,33 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
               name="montoTotalFacturaOriginal" 
               value={montoTotalFactura?.toString() || '0'} 
             />
+            <input 
+              type="hidden" 
+              name="saldoPendiente" 
+              value={valorSaldoPendiente?.toString() || '0'} 
+            />
 
             <div className="grid gap-2">
                 <div className="flex justify-between items-center">
                     <Label htmlFor="monto">Monto del Pago</Label>
                     <div className="space-x-2">
-                        <Button type="button" variant="outline" size="sm" onClick={handleSetMonto50}>
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleSetMonto50}
+                            title={`Pagar el 50% del saldo pendiente ($${(valorSaldoPendiente / 2).toLocaleString('es-AR')})`}
+                        >
                             Pagar 50%
                         </Button>
-                        <Button type="button" variant="default" size="sm" onClick={handleSetMontoTotal}>
-                            Pago Total
+                        <Button 
+                            type="button" 
+                            variant="default" 
+                            size="sm" 
+                            onClick={handleSetMontoTotal}
+                            title={`Pagar el saldo completo ($${valorSaldoPendiente.toLocaleString('es-AR')})`}
+                        >
+                            Pagar Saldo
                         </Button>
                     </div>
                 </div>
@@ -171,7 +175,17 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente }: Pa
                     required
                     step="0.01"
                     aria-describedby="monto-error"
+                    className={Number(montoPago) > valorSaldoPendiente ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 />
+                {Number(montoPago) > valorSaldoPendiente && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-start gap-2">
+                        <span className="text-red-600 font-semibold">⚠️</span>
+                        <div className="text-sm text-red-800">
+                            <p className="font-semibold">El monto excede el saldo pendiente</p>
+                            <p>Saldo disponible: <span className="font-bold">${valorSaldoPendiente.toLocaleString('es-AR')}</span></p>
+                        </div>
+                    </div>
+                )}
                  {state.errors?.monto && (
                     <p id="monto-error" className="text-sm text-red-500">
                         {state.errors.monto[0]}

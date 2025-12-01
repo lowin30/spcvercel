@@ -28,6 +28,7 @@ const paymentSchema = z.object({
   monto: z.coerce.number().positive('El monto debe ser mayor a cero.'),
   fecha: z.string().min(1, 'La fecha es requerida.'),
   montoTotalFacturaOriginal: z.coerce.number().positive('El monto total original de la factura es requerido y debe ser positivo.'),
+  saldoPendiente: z.coerce.number().nonnegative('El saldo pendiente debe ser un número no negativo.').optional(),
 });
 
 // Función para crear un pago - implementación mínima
@@ -38,6 +39,7 @@ export async function createPayment(prevState: State, formData: FormData): Promi
     monto: formData.get('monto'),
     fecha: formData.get('fecha'),
     montoTotalFacturaOriginal: formData.get('montoTotalFacturaOriginal'),
+    saldoPendiente: formData.get('saldoPendiente'),
   });
 
   if (!validatedFields.success) {
@@ -48,22 +50,9 @@ export async function createPayment(prevState: State, formData: FormData): Promi
   }
 
   const { facturaId, monto, fecha, montoTotalFacturaOriginal } = validatedFields.data;
-  
-  console.log('Procesando pago para factura:', { facturaId, monto, fecha, montoTotal: montoTotalFacturaOriginal });
 
   // ID de usuario hardcodeado para auditoría
   const hardcodedUserId = '1bcb4141-56ed-491a-9cd9-5b8aea700d56';
-  
-  // Determinar modalidad_pago
-  let modalidad_pago: string;
-  const epsilon = 0.01;
-  if (Math.abs(monto - montoTotalFacturaOriginal) < epsilon || monto > montoTotalFacturaOriginal) {
-    modalidad_pago = 'total';
-  } else if (Math.abs(monto - (montoTotalFacturaOriginal / 2)) < epsilon) {
-    modalidad_pago = '50_porciento';
-  } else {
-    modalidad_pago = 'ajustable';
-  }
 
   // Crear un cliente Supabase para Server Actions que hereda la sesión del usuario
   const supabase = await createSupabaseServerClient();
@@ -88,6 +77,27 @@ export async function createPayment(prevState: State, formData: FormData): Promi
   // Validación: No permitir pagos si la factura ya está saldada.
   if (saldoPendiente !== null && saldoPendiente <= 0) {
     return { message: 'Error: La factura ya ha sido completamente pagada.', errors: { monto: ['Esta factura ya no acepta más pagos.'] } };
+  }
+
+  // Validación: No permitir pagos que excedan el saldo pendiente
+  if (saldoPendiente !== null && monto > saldoPendiente) {
+    return { 
+      message: `Error: El monto ($${monto.toLocaleString('es-AR')}) excede el saldo pendiente ($${saldoPendiente.toLocaleString('es-AR')}).`, 
+      errors: { monto: [`El saldo disponible es de $${saldoPendiente.toLocaleString('es-AR')}`] } 
+    };
+  }
+
+  // Determinar modalidad_pago usando el saldo pendiente real de la BD
+  let modalidad_pago: string;
+  const epsilon = 0.01;
+  const referenciaCalculo = saldoPendiente !== null && saldoPendiente > 0 ? saldoPendiente : montoTotalFacturaOriginal;
+  
+  if (Math.abs(monto - referenciaCalculo) < epsilon || monto >= referenciaCalculo) {
+    modalidad_pago = 'total';
+  } else if (Math.abs(monto - (referenciaCalculo / 2)) < epsilon) {
+    modalidad_pago = '50_porciento';
+  } else {
+    modalidad_pago = 'ajustable';
   }
 
   try {
