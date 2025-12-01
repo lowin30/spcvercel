@@ -48,38 +48,44 @@ const formatDate = (dateString: string) => {
   });
 };
 
-// Función para normalizar texto: quita acentos, convierte a minúsculas y tolera errores comunes
-const normalizarTexto = (texto: string): string => {
-  if (!texto) return '';
+// Función para normalizar texto: quita acentos y convierte a minúsculas
+const normalizarTexto = (texto: string | number | null | undefined): string => {
+  if (!texto && texto !== 0) return '';
   
-  return texto
+  return String(texto)
     .toLowerCase()
     // Normalizar acentos
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    // Reemplazos comunes de errores de tipeo
+    .replace(/[\u0300-\u036f]/g, '');
+};
+
+// Función para verificar si un texto coincide con la búsqueda (súper amigable)
+const coincideBusqueda = (texto: string | number | null | undefined, busqueda: string): boolean => {
+  if ((!texto && texto !== 0) || !busqueda) return false;
+  
+  const textoNormalizado = normalizarTexto(texto);
+  const busquedaNormalizada = normalizarTexto(busqueda);
+  
+  // Búsqueda simple por substring (encuentra "mitre" en "Edificio Mitre 123")
+  if (textoNormalizado.includes(busquedaNormalizada)) {
+    return true;
+  }
+  
+  // Búsqueda tolerante a errores comunes de tipeo
+  const busquedaToleranteStr = busquedaNormalizada
     .replace(/[zs]/g, '[zs]')  // z y s son intercambiables
     .replace(/[mn]/g, '[mn]')  // m y n son intercambiables
     .replace(/[bp]/g, '[bp]')  // b y p son intercambiables
     .replace(/[cq]/g, '[cq]')  // c y q son intercambiables
     .replace(/ll/g, '[lly]')   // ll y y son intercambiables
     .replace(/v/g, '[vb]');    // v y b son intercambiables
-};
-
-// Función para verificar si un texto coincide con la búsqueda (tolerante)
-const coincideBusqueda = (texto: string | null | undefined, busqueda: string): boolean => {
-  if (!texto || !busqueda) return false;
   
-  const textoNormalizado = normalizarTexto(texto);
-  const busquedaNormalizada = normalizarTexto(busqueda);
-  
-  // Si la búsqueda tiene caracteres especiales de regex, crear un patrón
   try {
-    const patron = new RegExp(busquedaNormalizada, 'i');
+    const patron = new RegExp(busquedaToleranteStr, 'i');
     return patron.test(textoNormalizado);
   } catch (e) {
     // Si falla el regex, usar includes simple
-    return textoNormalizado.includes(busquedaNormalizada);
+    return false;
   }
 };
 
@@ -142,12 +148,13 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
       if (searchQuery) {
         const matches = 
           coincideBusqueda(payment.factura_code, searchQuery) ||
+          coincideBusqueda(payment.factura_datos_afip, searchQuery) ||
           coincideBusqueda(payment.tarea_titulo, searchQuery) ||
           coincideBusqueda(payment.edificio_nombre, searchQuery) ||
           coincideBusqueda(payment.administrador_nombre, searchQuery) ||
           coincideBusqueda(payment.created_by_email, searchQuery) ||
           coincideBusqueda(payment.modalidad_pago, searchQuery) ||
-          coincideBusqueda(payment.monto_pagado.toString(), searchQuery);
+          coincideBusqueda(payment.monto_pagado, searchQuery);
         if (!matches) return false;
       }
       
@@ -350,11 +357,11 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Edificio, factura, tarea..."
+                  placeholder="Edificio, AFIP, factura..."
                   className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  title="Búsqueda inteligente: ignora acentos, mayúsculas y tolera errores de tipeo (z/s, m/n, etc.)"
+                  title="Búsqueda inteligente: ignora acentos, mayúsculas y encuentra palabras parciales. Busca en: edificio, AFIP, factura, tarea, administrador, etc."
                 />
               </div>
             </div>
@@ -578,13 +585,20 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                   filteredPayments.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell>
-                        {payment.factura_id ? (
-                          <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline">
-                            {payment.factura_code}
-                          </Link>
-                        ) : (
-                          <span>{payment.factura_code}</span>
-                        )}
+                        <div className="flex flex-col">
+                          {payment.factura_id ? (
+                            <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline">
+                              {payment.factura_code}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{payment.factura_code}</span>
+                          )}
+                          {payment.factura_datos_afip && (
+                            <span className="text-xs text-muted-foreground">
+                              AFIP: {payment.factura_datos_afip}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{payment.edificio_nombre}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{payment.administrador_nombre}</TableCell>
@@ -633,13 +647,18 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                           <CardTitle className="text-lg flex items-center gap-1">
                             <span className="font-mono">{formatCurrency(payment.monto_pagado)}</span>
                           </CardTitle>
-                          <CardDescription className="mt-1">
+                          <CardDescription className="mt-1 space-y-0.5">
                             {payment.factura_id ? (
-                              <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline text-sm">
+                              <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline text-sm block">
                                 Factura: {payment.factura_code}
                               </Link>
                             ) : (
-                              <span className="text-sm">Factura: {payment.factura_code}</span>
+                              <span className="text-sm block">Factura: {payment.factura_code}</span>
+                            )}
+                            {payment.factura_datos_afip && (
+                              <span className="text-xs block">
+                                AFIP: {payment.factura_datos_afip}
+                              </span>
                             )}
                           </CardDescription>
                         </div>

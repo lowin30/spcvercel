@@ -10,6 +10,7 @@ export type EnrichedPayment = {
   modalidad_pago: string;
   factura_code: string | null;
   factura_id: string | null;
+  factura_datos_afip: string | null;
   tarea_titulo: string | null;
   edificio_id: number | null;
   edificio_nombre: string | null;
@@ -34,6 +35,7 @@ async function getPayments(supabase: any): Promise<EnrichedPayment[]> {
       facturas (
         id,
         code,
+        datos_afip,
         presupuestos_finales (
           id,
           id_edificio,
@@ -83,6 +85,7 @@ async function getPayments(supabase: any): Promise<EnrichedPayment[]> {
       modalidad_pago: p.modalidad_pago,
       factura_id: p.facturas?.id ?? null,
       factura_code: p.facturas?.code ?? 'N/A',
+      factura_datos_afip: p.facturas?.datos_afip ?? null,
       tarea_titulo: tarea?.titulo ?? 'N/A',
       edificio_id: edificio?.id ?? null,
       edificio_nombre: edificio?.nombre ?? 'N/A',
