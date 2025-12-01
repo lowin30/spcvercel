@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase-client"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -15,13 +15,20 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Loader2 } from "lucide-react"
+import { Loader2, MessageSquare } from "lucide-react"
 
 interface FinalizarTareaDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   tareaId: number
   onFinalizada: () => void
+}
+
+interface Departamento {
+  id: number
+  codigo: string
+  propietario?: string
+  notaActual?: string
 }
 
 export function FinalizarTareaDialog({
@@ -32,7 +39,49 @@ export function FinalizarTareaDialog({
 }: FinalizarTareaDialogProps) {
   const [resumen, setResumen] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
+  const [notasDepartamentos, setNotasDepartamentos] = useState<Record<number, string>>({})
   const router = useRouter()
+
+  // Cargar departamentos de la tarea cuando se abre el dialog
+  useEffect(() => {
+    const cargarDepartamentos = async () => {
+      if (!open || !tareaId) return
+
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("departamentos_tareas")
+          .select(`
+            departamentos:id_departamento(
+              id,
+              codigo,
+              propietario,
+              notas
+            )
+          `)
+          .eq("id_tarea", tareaId)
+
+        if (error) throw error
+
+        const deps = data
+          ?.map((item: any) => item.departamentos)
+          .filter(Boolean)
+          .map((dep: any) => ({
+            id: dep.id,
+            codigo: dep.codigo,
+            propietario: dep.propietario,
+            notaActual: dep.notas
+          })) || []
+
+        setDepartamentos(deps)
+      } catch (error) {
+        console.error("Error al cargar departamentos:", error)
+      }
+    }
+
+    cargarDepartamentos()
+  }, [open, tareaId])
 
   const handleFinalizar = async () => {
     if (!resumen.trim()) {
@@ -70,10 +119,44 @@ export function FinalizarTareaDialog({
 
       if (taskError) throw taskError
 
+      // 3. Guardar notas de departamentos (si hay alguna)
+      const notasPromises = Object.entries(notasDepartamentos).map(async ([depId, nota]) => {
+        if (!nota.trim()) return
+
+        const fecha = new Date().toLocaleDateString('es-AR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+        const nuevaNota = `[${fecha}] ${nota.trim()}`
+
+        // Obtener nota actual del departamento
+        const { data: currentData } = await supabase
+          .from("departamentos")
+          .select("notas")
+          .eq("id", Number(depId))
+          .single()
+
+        // Concatenar con historial
+        const notasActualizadas = currentData?.notas 
+          ? `${currentData.notas}\n\n${nuevaNota}`
+          : nuevaNota
+
+        // Actualizar
+        return supabase
+          .from("departamentos")
+          .update({ notas: notasActualizadas })
+          .eq("id", Number(depId))
+      })
+
+      await Promise.all(notasPromises)
+
       toast.success("✅ Tarea finalizada con éxito")
       onFinalizada()
       onOpenChange(false)
       setResumen("")
+      setNotasDepartamentos({})
+      setDepartamentos([])
       
       // Redirigir a la página de tareas después de un breve delay
       setTimeout(() => {
@@ -90,12 +173,13 @@ export function FinalizarTareaDialog({
 
   const handleCancel = () => {
     setResumen("")
+    setNotasDepartamentos({})
     onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Finalizar Tarea</DialogTitle>
           <DialogDescription>
@@ -122,6 +206,47 @@ export function FinalizarTareaDialog({
               Este comentario será visible para todos los usuarios de la tarea
             </p>
           </div>
+
+          {/* Sección de notas de departamentos */}
+          {departamentos.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">
+                  Notas de atención de departamentos (opcional)
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                ¿Cómo te atendieron en cada departamento?
+              </p>
+              <div className="space-y-3">
+                {departamentos.map((dep) => (
+                  <div key={dep.id} className="space-y-1.5">
+                    <Label htmlFor={`nota-dep-${dep.id}`} className="text-xs font-medium">
+                      {dep.codigo} {dep.propietario && `(${dep.propietario})`}
+                    </Label>
+                    {dep.notaActual && (
+                      <p className="text-[11px] text-muted-foreground italic line-clamp-1">
+                        Última nota: {dep.notaActual.split('\n\n').pop()}
+                      </p>
+                    )}
+                    <Textarea
+                      id={`nota-dep-${dep.id}`}
+                      placeholder="Ej: Muy amable, nos atendió rápido..."
+                      value={notasDepartamentos[dep.id] || ''}
+                      onChange={(e) => setNotasDepartamentos(prev => ({
+                        ...prev,
+                        [dep.id]: e.target.value
+                      }))}
+                      rows={2}
+                      className="text-sm"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

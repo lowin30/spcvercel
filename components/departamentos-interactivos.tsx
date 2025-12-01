@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { X, Phone, PlusCircle, Loader2 } from "lucide-react"
+import { X, Phone, PlusCircle, Loader2, MessageSquare } from "lucide-react"
 import { PhoneActions } from "@/components/phone-actions"
+import { NotasDepartamentoDialog } from "@/components/notas-departamento-dialog"
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,8 @@ export function DepartamentosInteractivos({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [notasDialogOpen, setNotasDialogOpen] = useState(false)
+  const [departamentoNotasActivo, setDepartamentoNotasActivo] = useState<{ id: number; codigo: string } | null>(null)
   
   // Cargar rol de usuario
   useEffect(() => {
@@ -510,14 +513,27 @@ export function DepartamentosInteractivos({
     <div className={`space-y-3 ${className}`}>
       <div className="flex flex-wrap gap-2">
         {departamentos.map(dep => (
-          <Badge key={dep.id} variant="secondary" className="flex items-center text-sm">
+          <Badge key={dep.id} variant="secondary" className="flex items-center text-sm gap-1">
             {dep.codigo} {dep.propietario && `(${dep.propietario})`}
+            
+            {/* Botón para ver/editar notas */}
+            <button
+              onClick={() => {
+                setDepartamentoNotasActivo({ id: Number(dep.id), codigo: dep.codigo })
+                setNotasDialogOpen(true)
+              }}
+              className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              title={`Ver notas de ${dep.codigo}`}
+            >
+              <MessageSquare className="h-3 w-3" />
+              <span className="sr-only">Notas {dep.codigo}</span>
+            </button>
             
             {/* Botón para eliminar (solo para admin) */}
             {userRole === "admin" && (
               <button
                 onClick={() => eliminarDepartamento(dep.id)}
-                className="ml-1 rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 disabled={isUpdating}
               >
                 <X className="h-3 w-3" />
@@ -589,6 +605,19 @@ export function DepartamentosInteractivos({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Dialog para notas de departamento */}
+      {departamentoNotasActivo && (
+        <NotasDepartamentoDialog
+          open={notasDialogOpen}
+          onOpenChange={setNotasDialogOpen}
+          departamentoId={departamentoNotasActivo.id}
+          departamentoCodigo={departamentoNotasActivo.codigo}
+          onNotaGuardada={() => {
+            // Opcional: recargar departamentos si necesario
+          }}
+        />
       )}
     </div>
   )
