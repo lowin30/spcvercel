@@ -4,7 +4,9 @@
 
 - **tareas**: Punto de inicio, asociada a edificios y usuarios.
 - **presupuestos_base**: Creados por supervisores, referencia a tarea, estado, supervisor.
+  - ⚠️ **CRÍTICO**: NO tienen items detallados, solo campos monetarios agregados
 - **presupuestos_finales**: Creados por admins, referencia a presupuesto base, incluye ajuste admin, estado, relación 1:1 con base.
+- **items**: ÚNICA tabla para items detallados de presupuestos finales (FK → presupuestos_finales.id)
 - **facturas**: Asociadas a presupuestos finales, pueden tener estado y PDF generado.
 - **liquidaciones_nuevas**: Liquidación final, referencia a tarea, presupuesto base, presupuesto final y factura. Calcula ganancia neta, distribución supervisor/admin.
 
@@ -28,14 +30,36 @@
 
 1. **Supervisor crea presupuesto base**
 2. **Admin aprueba y crea presupuesto final**
-3. **Admin genera factura desde presupuesto final**
-4. **Admin registra liquidación final**
-5. **Sistema calcula y distribuye ganancia neta**
+3. **Admin agrega items detallados al presupuesto final** (tabla `items`)
+4. **Admin genera factura desde presupuesto final**
+5. **Admin registra liquidación final**
+6. **Sistema calcula y distribuye ganancia neta**
 
-## Consultas y Vistas Útiles
+## ⚠️ INFORMACIÓN CRÍTICA SOBRE ITEMS
 
-- Vistas: `vista_presupuestos_base_completa`, `vista_presupuestos_finales_completa`, `vista_liquidaciones_completa`, `reporte_financiero_por_edificio`, `reporte_financiero_por_mes`
-- Funciones: `contar_tareas_por_estado`, `contar_presupuestos_por_estado`, `contar_facturas_por_estado`
+### **Estructura de Items:**
+- **Tabla ÚNICA**: `items` (NO existe `presupuestos_base_items` ni `presupuestos_finales_items`)
+- **FK Protegida**: `items.id_presupuesto → presupuestos_finales.id` (CASCADE)
+- **Campo Separador**: `es_material` (true/false) determina factura materiales vs regular
+
+### **Presupuestos Base:**
+- ❌ **NO tienen items detallados**
+- ✅ Solo campos monetarios agregados: `materiales`, `mano_obra`, `total`
+- ✅ Sirven como límite superior para validaciones
+
+### **Presupuestos Finales:**
+- ✅ **SÍ tienen items detallados** en tabla `items`
+- ✅ Items se agregan manualmente al crear presupuesto final
+- ✅ FK previene mezcla de items entre presupuestos diferentes
+- ✅ Campo `es_material` separa items en dos facturas
+
+### **Prevención de Bugs:**
+```sql
+-- Esta FK IMPIDE que items de diferentes presupuestos se mezclen:
+CONSTRAINT items_id_presupuesto_final_fkey
+  FOREIGN KEY (id_presupuesto) REFERENCES presupuestos_finales(id)
+  ON DELETE CASCADE
+```
 
 ## Notas para Desarrolladores Futuros
 

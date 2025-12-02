@@ -214,20 +214,88 @@ graph TD
     K --> L[Distribución 50/50]
 \`\`\`
 
+### **Flujo Financiero Completo**
+
+\`\`\`mermaid
+graph TD
+    A[Tarea Creada] --> B[Supervisor: Presupuesto Base]
+    B --> C[Admin: Revisar/Aprobar]
+    C --> D[Admin: Presupuesto Final con Items]
+    D --> E[Admin: Generar Factura]
+    E --> F[Cliente: Pago de Factura]
+    F --> G{¿Tiene Ajustes?}
+    G -->|Sí| H[Admin: Calcular Ajustes 10%]
+    G -->|No| I[Registrar Gastos Reales]
+    H --> J[Admin: Aprobar Ajustes]
+    J --> I[Registrar Gastos Reales]
+    I --> K[Sistema: Calcular Liquidación]
+    K --> L[Distribución 50/50]
+\`\`\`
+
+#### **⚠️ ESTRUCTURA CRÍTICA: Presupuestos Base vs Finales**
+
+**PRESUPUESTOS BASE (Supervisor):**
+- ✅ NO tienen items detallados
+- ✅ Solo campos monetarios agregados: `materiales`, `mano_obra`, `total`
+- ✅ Sirven como "límite superior" para validaciones
+- ✅ Creados por supervisores
+
+**PRESUPUESTOS FINALES (Admin):**
+- ✅ Tienen items detallados en tabla `items`
+- ✅ Items con `id_presupuesto` → FK a `presupuestos_finales.id`
+- ✅ Items separados en facturas: `es_material` (true/false)
+- ✅ Creados por administradores
+- ✅ Requieren aprobación para generar facturas
+
+**FLUJO DE ITEMS:**
+1. **Creación**: Items se agregan manualmente al crear presupuesto final
+2. **Almacenamiento**: Tabla `items` con FK a `presupuestos_finales.id`
+3. **Separación**: Campo `es_material` determina factura (materiales vs regular)
+4. **Facturación**: Items se copian a `items_factura` al generar facturas
+5. **Validación**: FK asegura integridad, no permite mezcla entre presupuestos
+
+**VALIDACIÓN ANTI-MEZCLA:**
+```sql
+-- Esta FK PREVIENE cualquier mezcla de items entre presupuestos:
+items.id_presupuesto → presupuestos_finales.id (FK CASCADE)
+
+-- Si intentas insertar item en presupuesto inexistente:
+ERROR: foreign key constraint violation
+```
+
 ### **Ejemplo Numérico Completo**
 
 #### **Presupuesto Base (Supervisor)**
 \`\`\`
-Materiales: $150,000
-Mano de obra: $80,000
+Materiales: $150,000  ← Campo monetario agregado
+Mano de obra: $80,000  ← Campo monetario agregado
 Total Presupuesto Base: $230,000
+❌ NO HAY items detallados aquí
 \`\`\`
 
 #### **Presupuesto Final (Admin)**
 \`\`\`
+Items detallados en tabla 'items':
+- Item 1: "Tubería PVC 50mm" (es_material: true) - $50,000
+- Item 2: "Instalación plomería" (es_material: false) - $80,000
+- Item 3: "Materiales varios" (es_material: true) - $100,000
+- Item 4: "Mano de obra especializada" (es_material: false) - $70,000
+
+Total Presupuesto Final: $300,000
 Ajuste admin: $20,000
-Total Presupuesto Final: $250,000
+Total Final: $320,000
 \`\`\`
+
+#### **Facturas Generadas**
+**Factura Regular (mano de obra):**
+- Item 2: "Instalación plomería" - $80,000
+- Item 4: "Mano de obra especializada" - $70,000
+- **Total Factura Regular: $150,000**
+
+**Factura Materiales:**
+- Item 1: "Tubería PVC 50mm" - $50,000
+- Item 3: "Materiales varios" - $100,000
+- **Total Factura Materiales: $150,000**
 
 #### **Gastos Reales**
 \`\`\`
@@ -238,8 +306,8 @@ Total Gastos Reales: $200,000
 
 #### **Ajustes Confidenciales (10%)**
 \`\`\`
-Mano de obra facturada: $80,000
-Ajuste administrador edificio: $8,000
+Mano de obra facturada: $150,000
+Ajuste administrador edificio: $15,000
 \`\`\`
 
 #### **Liquidación Final**
@@ -250,9 +318,9 @@ Ganancia neta: $30,000
 
 Distribución:
 - Supervisor: $15,000 (50%)
-- Admin: $15,000 (50%) + $20,000 (ajuste) = $35,000
+- Admin: $15,000 (50%) + $20,000 (ajuste) + $15,000 (ajustes confidenciales) = $50,000
 
-Ajuste confidencial: $8,000 (adicional para admin edificio)
+Ajustes confidenciales: $15,000 (adicional para admin edificio)
 \`\`\`
 
 ---
@@ -314,7 +382,25 @@ estados_tareas (
 
 #### **Sistema Financiero**
 \`\`\`sql
+-- Items de presupuestos (ÚNICA tabla para items de presupuestos finales)
+-- CRÍTICO: Los presupuestos BASE NO tienen tabla de items separada
+-- Solo tienen campos monetarios agregados: materiales, mano_obra, total
+items (
+    id SERIAL PRIMARY KEY,
+    code TEXT,
+    descripcion TEXT NOT NULL,
+    cantidad INTEGER DEFAULT 1,
+    precio INTEGER NOT NULL,
+    id_presupuesto INTEGER NOT NULL,  -- FK → presupuestos_finales.id
+    producto_id UUID,
+    es_producto BOOLEAN DEFAULT false,
+    es_material BOOLEAN,  -- Determina separación en facturas (materiales vs regular)
+    FOREIGN KEY (id_presupuesto) REFERENCES presupuestos_finales(id) ON DELETE CASCADE,
+    FOREIGN KEY (producto_id) REFERENCES productos(id)
+)
+
 -- Presupuestos base (estructura completa actualizada)
+-- ⚠️ IMPORTANTE: NO TIENE items asociados, solo campos monetarios agregados
 presupuestos_base (
     id SERIAL PRIMARY KEY,
     code TEXT UNIQUE,
@@ -322,9 +408,9 @@ presupuestos_base (
     id_edificio INTEGER,
     id_administrador UUID,
     id_estado INTEGER,
-    materiales NUMERIC(12,2),
-    mano_obra NUMERIC(12,2),
-    total NUMERIC(12,2),
+    materiales NUMERIC(12,2),    -- Campo monetario agregado
+    mano_obra NUMERIC(12,2),     -- Campo monetario agregado
+    total NUMERIC(12,2),         -- Campo monetario agregado (calculado)
     aprobado BOOLEAN,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
