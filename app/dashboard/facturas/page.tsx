@@ -254,6 +254,11 @@ export default function FacturasPage({
     return true;
   })
 
+  // Calcular saldo total pendiente de facturas filtradas
+  const saldoTotalPendiente = filteredFacturas
+    .filter(f => !f.pagada)
+    .reduce((sum, f) => sum + ((f as any).saldo_pendiente || 0), 0)
+
   // Estado de carga
   if (loading) {
     return (
@@ -301,6 +306,24 @@ export default function FacturasPage({
           </Button>
         </div>
       </div>
+
+      {/* Estadísticas de facturas filtradas */}
+      <Card className="bg-muted/50 border-primary/20">
+        <CardContent className="py-3">
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-primary">{filteredFacturas.length}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Facturas totales</p>
+            </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-destructive">
+                ${saldoTotalPendiente.toLocaleString('es-AR')}
+              </p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Saldo pendiente</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabs de navegación rápida */}
       <Tabs value={vistaActual} onValueChange={(value) => setVistaActual(value as any)}>
