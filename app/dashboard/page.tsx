@@ -81,7 +81,6 @@ export default function DashboardPage() {
           return
         }
         
-        console.log("Datos de usuario obtenidos:", userData)
         setUserDetails(userData)
 
         // Obtener estadísticas mediante consultas directas a las tablas
@@ -275,8 +274,6 @@ export default function DashboardPage() {
         }
 
         // Obtener tareas recientes filtradas por rol
-        console.log("Filtrando tareas para rol:", userData?.rol, "con ID:", userData?.id);
-        
         let tasksQuery;
         
         // Filtrar tareas según el rol del usuario
@@ -301,12 +298,8 @@ export default function DashboardPage() {
             
             const idsTareas = asignaciones?.map(a => a.id_tarea) || []
             
-            // Registrar para debugging
-            console.log(`Supervisor ${userData.id}: ${idsTareas.length} tareas encontradas`)
-            
             if (idsTareas.length > 0) {
               // Luego filtramos las tareas por esos IDs usando la vista completa con JOIN a estados_tareas
-              console.log("Consultando tareas específicas para supervisor con IDs:", idsTareas);
               tasksQuery = supabase.from("vista_tareas_completa")
                 .select(`
                   id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
@@ -345,9 +338,6 @@ export default function DashboardPage() {
             
             const idsTareas = asignaciones?.map(a => a.id_tarea) || []
             
-            // Registrar para debugging
-            console.log(`Trabajador ${userData.id}: ${idsTareas.length} tareas encontradas`)
-            
             if (idsTareas.length > 0) {
               // Luego filtramos las tareas por esos IDs usando la vista completa con JOIN a estados_tareas
               tasksQuery = supabase.from("vista_tareas_completa")
@@ -379,7 +369,6 @@ export default function DashboardPage() {
         }
         else {
           // Para otros roles o si no hay rol definido, no mostramos tareas
-          console.log('Rol no reconocido o no definido:', userData?.rol)
           tasksQuery = supabase.from("vista_tareas_completa")
             .select(`
               id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
@@ -389,7 +378,6 @@ export default function DashboardPage() {
         }
         
         // Ejecutamos la consulta con límite
-        console.log("Consultando tareas recientes para todos los usuarios");
         const { data: tasksData, error: tasksError } = await executeQuery<TaskType>(
           tasksQuery,
           5,
@@ -400,7 +388,6 @@ export default function DashboardPage() {
         if (tasksError) {
           console.error("Error al obtener tareas recientes:", tasksError)
         } else {
-          console.log("Datos de tareas con estados:", tasksData);
           setRecentTasks(tasksData)
         }
 

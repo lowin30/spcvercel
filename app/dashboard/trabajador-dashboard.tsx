@@ -85,7 +85,7 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }: Tra
                 </Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/gastos/nuevo" className="w-full">
+                <Link href="/dashboard/trabajadores/gastos" className="w-full">
                   <Receipt className="h-4 w-4 mr-2" /> Registrar Gasto
                 </Link>
               </Button>
