@@ -128,34 +128,12 @@ export default function NuevoPresupuestoFinalPage() {
         return
       }
       
-      // Obtener items del presupuesto base
-      const { data: itemsData, error: itemsError } = await supabase
-        .from("presupuestos_base_items")
-        .select("*")
-        .eq("id_presupuesto_base", id)
-        
-      if (itemsError) {
-        toast({
-          title: "Error", 
-          description: "No se pudieron cargar los items del presupuesto base", 
-          variant: "destructive"
-        })
-        return
-      }
-      
       // Actualizar estado
       setSelectedPresupuesto(presupuestoData)
       
-      // Inicializar items del presupuesto final basados en los items del presupuesto base
-      const initialItems = itemsData ? itemsData.map(item => ({
-        descripcion: item.descripcion as string,
-        cantidad: item.cantidad as number,
-        precio: item.precio as number,
-        es_producto: item.es_producto as boolean | undefined,
-        producto_id: item.producto_id as string | undefined
-      })) : []
-      
-      setItems(initialItems as Item[])
+      // Los presupuestos base NO tienen items, empezar con array vacío
+      // El usuario agregará manualmente los items para el presupuesto final
+      setItems([])
     } catch (error) {
       console.error("Error al seleccionar presupuesto base:", error)
       toast({
@@ -247,19 +225,20 @@ export default function NuevoPresupuestoFinalPage() {
         throw new Error(presupuestoError?.message || "Error al crear el presupuesto final")
       }
       
-      // Insertar items del presupuesto final
-      const presupuestoItemsData = items.map(item => ({
-        id_presupuesto_final: presupuestoFinal.id,
+      // Insertar items del presupuesto final en la tabla 'items'
+      const itemsToInsert = items.map(item => ({
+        id_presupuesto: presupuestoFinal.id,  // FK a presupuestos_finales
         descripcion: item.descripcion,
         cantidad: item.cantidad,
         precio: item.precio,
         es_producto: item.es_producto || false,
-        producto_id: item.producto_id
+        es_material: false,  // Valor por defecto, se puede editar después
+        producto_id: item.producto_id || null
       }))
       
       const { error: itemsError } = await supabase
-        .from("presupuestos_finales_items")
-        .insert(presupuestoItemsData)
+        .from("items")
+        .insert(itemsToInsert)
       
       if (itemsError) {
         throw new Error(itemsError.message || "Error al insertar los ítems del presupuesto")
