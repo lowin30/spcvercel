@@ -168,44 +168,36 @@ export default function ConfiguracionPage() {
           console.error("Error al cargar productos o categorías:", err)
         }
         
-        // Cargar administradores con conteo de edificios
+        // Cargar administradores con conteo de edificios usando RPC
         try {
-          const { data: administradoresData, error: administradoresError } = await supabase
-            .from("administradores")
-            .select(`
-              id,
-              code,
-              nombre,
-              telefono,
-              estado,
-              aplica_ajustes,
-              porcentaje_default,
-              email1,
-              email2,
-              created_at
-            `)
-            .order("nombre", { ascending: true })
+          // Usar SQL directo para hacer LEFT JOIN y obtener el conteo en una sola query
+          const { data: administradoresData, error: administradoresError } = await supabase.rpc('obtener_administradores_con_edificios')
             
           if (administradoresError) {
-            console.error("Error al cargar administradores:", administradoresError)
-            setAdministradores([])
-          } else {
-            // Obtener conteo de edificios para cada administrador
-            const administradoresConConteo = await Promise.all(
-              (administradoresData || []).map(async (admin) => {
-                const { count } = await supabase
-                  .from('edificios')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('id_administrador', admin.id)
-                
-                return {
-                  ...admin,
-                  total_edificios: count || 0
-                }
-              })
-            )
+            console.error("Error al cargar administradores con RPC:", administradoresError)
+            // Fallback: cargar sin conteo
+            const { data: fallbackData } = await supabase
+              .from("administradores")
+              .select(`
+                id,
+                code,
+                nombre,
+                telefono,
+                estado,
+                aplica_ajustes,
+                porcentaje_default,
+                email1,
+                email2,
+                created_at
+              `)
+              .order("nombre", { ascending: true })
             
-            setAdministradores(administradoresConConteo)
+            setAdministradores((fallbackData || []).map(admin => ({
+              ...admin,
+              total_edificios: 0
+            })))
+          } else {
+            setAdministradores(administradoresData || [])
           }
         } catch (err) {
           console.error("Error al cargar administradores:", err)
