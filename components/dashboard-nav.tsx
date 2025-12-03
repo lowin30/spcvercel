@@ -71,7 +71,7 @@ const navItems: NavItem[] = [
     roles: ["admin"],
   },
   {
-    title: "Pagos Personal",
+    title: "Gestión de Liquidaciones",
     href: "/dashboard/liquidaciones",
     icon: DollarSign,
     roles: ["admin", "supervisor"],
@@ -87,8 +87,6 @@ const navItems: NavItem[] = [
     href: "/dashboard/ajustes",
     icon: Shield,
     roles: ["admin"],
-    badge: "CONFIDENCIAL",
-    badgeColor: "bg-red-600",
   },
   {
     title: "Agenda",

@@ -57,6 +57,7 @@ export default function FacturasPage({
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [vistaActual, setVistaActual] = useState<'todas' | 'pendientes' | 'pagadas' | 'vencidas'>('pendientes') // Por defecto: pendientes
+  const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
   const params = useSearchParams()
   
@@ -64,6 +65,35 @@ export default function FacturasPage({
   useEffect(() => {
     setSearchQuery(params.get("q") || "")
   }, [params])
+
+  // Cargar filtros guardados desde localStorage al montar
+  useEffect(() => {
+    setIsMounted(true);
+    const savedFilters = localStorage.getItem('spc_filters_facturas');
+    if (savedFilters) {
+      try {
+        const filters = JSON.parse(savedFilters);
+        setFiltroAdmin(filters.filtroAdmin || null);
+        setFiltroEstado(filters.filtroEstado || null);
+        setSearchQuery(filters.searchQuery || "");
+        setVistaActual(filters.vistaActual || 'pendientes');
+      } catch (e) {
+        // Si hay error al parsear, ignorar
+      }
+    }
+  }, [])
+  
+  // Guardar filtros en localStorage cuando cambien
+  useEffect(() => {
+    if (isMounted) {
+      localStorage.setItem('spc_filters_facturas', JSON.stringify({
+        filtroAdmin,
+        filtroEstado,
+        searchQuery,
+        vistaActual
+      }));
+    }
+  }, [filtroAdmin, filtroEstado, searchQuery, vistaActual, isMounted])
 
   // Calcular estadísticas basadas en facturas
   const totalFacturas = facturas?.length || 0
