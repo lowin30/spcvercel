@@ -110,9 +110,6 @@ export function AdministradoresTab({ administradores = [] }: AdministradoresTabP
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Edificio
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Estado
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -126,11 +123,6 @@ export function AdministradoresTab({ administradores = [] }: AdministradoresTabP
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {admin.edificio?.nombre || "No asignado"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge variant={admin.activo ? "default" : "destructive"}>
-                            {admin.activo ? "Activo" : "Inactivo"}
-                          </Badge>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -141,13 +133,10 @@ export function AdministradoresTab({ administradores = [] }: AdministradoresTabP
               <div className="grid grid-cols-1 gap-4 md:hidden">
                 {administradores.map((admin) => (
                   <div key={admin.id} className="bg-white p-4 rounded-lg border shadow-sm">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="mb-2">
                       <Link href={`/dashboard/administradores/${admin.id}`} className="font-medium text-blue-600 hover:text-blue-900">
                         {admin.nombre || "Sin nombre"}
                       </Link>
-                      <Badge variant={admin.activo ? "default" : "destructive"} className="ml-auto">
-                        {admin.activo ? "Activo" : "Inactivo"}
-                      </Badge>
                     </div>
                     <div className="text-sm text-gray-500">
                       {admin.edificio?.nombre || "No asignado"}

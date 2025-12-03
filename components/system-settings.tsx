@@ -61,12 +61,18 @@ export function SystemSettings() {
   }
 
   return (
-    <Tabs defaultValue="general">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="tasks">Tareas</TabsTrigger>
-        <TabsTrigger value="financial">Financiera</TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p className="text-sm text-yellow-800">
+          <strong>⚠️ Nota:</strong> Esta sección está en desarrollo. Los cambios aquí no se guardan actualmente en la base de datos.
+        </p>
+      </div>
+      <Tabs defaultValue="general">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="tasks">Tareas</TabsTrigger>
+          <TabsTrigger value="financial">Financiera</TabsTrigger>
+        </TabsList>
       <TabsContent value="general">
         <Card>
           <CardHeader>
@@ -192,5 +198,6 @@ export function SystemSettings() {
         </Card>
       </TabsContent>
     </Tabs>
+    </div>
   )
 }

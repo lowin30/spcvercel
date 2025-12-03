@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { TaskStatusBadge } from "./tasks-badge"
 import { formatDate } from "@/lib/date-utils"
+import { MiSemanaWidget } from "@/components/mi-semana-widget"
 import { 
   Clock, 
   Receipt,
@@ -45,10 +46,12 @@ interface TrabajadorDashboardProps {
   stats?: Stats;
   trabajadorStats?: TrabajadorStats;
   recentTasks?: Task[];
+  userId?: string;
+  salarioDiario?: number;
 }
 
 // Componente específico para Trabajador
-export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }: TrabajadorDashboardProps) {
+export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks, userId, salarioDiario = 0 }: TrabajadorDashboardProps) {
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -93,23 +96,13 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }: Tra
           </CardContent>
         </Card>
 
-        {/* Estado de Mis Tareas */}
-        <Card className="border shadow-sm">
-          <CardHeader className="bg-green-50 border-b">
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" /> Estado de Mis Tareas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 gap-3">
-              <Button asChild>
-                <Link href="/dashboard/tareas">
-                  Ver Todas Mis Tareas
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Widget Mi Semana */}
+        {userId && (
+          <MiSemanaWidget 
+            trabajadorId={userId}
+            salarioDiario={salarioDiario}
+          />
+        )}
       </div>
 
       {/* Alertas y Notificaciones */}
@@ -157,7 +150,7 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }: Tra
                       <td className="px-4 py-2">
                         <TaskStatusBadge task={task} />
                       </td>
-                      <td className="px-4 py-2">{formatDate(task.fecha_visita)}</td>
+                      <td className="px-4 py-2">{formatDate(task.fecha_visita || "")}</td>
                     </tr>
                   ))
                 ) : (

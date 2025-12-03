@@ -59,17 +59,17 @@ export function TrabajadoresList({ trabajadores }: TrabajadoresListProps) {
                 <TableCell>
                   <div className="flex items-center space-x-2">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/configuracion?tab=trabajadores&view=${trabajador.id}`}>
+                      <Link href={`/dashboard/configuracion?view=${trabajador.id}`}>
                         <Eye className="h-4 w-4" />
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/configuracion?tab=trabajadores&edit=${trabajador.id}`}>
+                      <Link href={`/dashboard/configuracion?edit=${trabajador.id}`}>
                         <Edit className="h-4 w-4" />
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/configuracion?tab=trabajadores&liquidaciones=${trabajador.id}`}>
+                      <Link href={`/dashboard/configuracion?liquidaciones=${trabajador.id}`}>
                         <DollarSign className="h-4 w-4" />
                       </Link>
                     </Button>
@@ -108,17 +108,17 @@ export function TrabajadoresList({ trabajadores }: TrabajadoresListProps) {
             
             <div className="flex space-x-2 pt-2 border-t">
               <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link href={`/dashboard/configuracion?tab=trabajadores&view=${trabajador.id}`}>
+                <Link href={`/dashboard/configuracion?view=${trabajador.id}`}>
                   <Eye className="h-3 w-3 mr-1" /> Ver
                 </Link>
               </Button>
               <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link href={`/dashboard/configuracion?tab=trabajadores&edit=${trabajador.id}`}>
+                <Link href={`/dashboard/configuracion?edit=${trabajador.id}`}>
                   <Edit className="h-3 w-3 mr-1" /> Editar
                 </Link>
               </Button>
               <Button variant="outline" size="sm" className="flex-1" asChild>
-                <Link href={`/dashboard/configuracion?tab=trabajadores&liquidaciones=${trabajador.id}`}>
+                <Link href={`/dashboard/configuracion?liquidaciones=${trabajador.id}`}>
                   <DollarSign className="h-3 w-3 mr-1" /> Pagos
                 </Link>
               </Button>

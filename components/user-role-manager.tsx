@@ -87,7 +87,7 @@ export function UserRoleManager({ users }: UserRoleManagerProps) {
 
       // Forzar un refresh completo después de un breve retraso
       setTimeout(() => {
-        window.location.href = window.location.pathname + '?tab=administradores&refresh=true'
+        window.location.href = window.location.pathname + '?tab=usuarios&refresh=true'
       }, 1000)
     } catch (error) {
       console.error("Error al actualizar rol:", error)

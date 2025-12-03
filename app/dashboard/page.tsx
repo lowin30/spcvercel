@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [financialStats, setFinancialStats] = useState<any>(null) // Para admin
   const [supervisorStats, setSupervisorStats] = useState<any>(null) // Para supervisor
   const [trabajadorStats, setTrabajadorStats] = useState<any>(null) // Para trabajador
+  const [salarioDiarioTrabajador, setSalarioDiarioTrabajador] = useState<number>(0) // Salario del trabajador
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -253,6 +254,15 @@ export default function DashboardPage() {
                 gastos_pendientes: workerFinance?.cantidad_gastos_pendientes ?? 0,
                 proximo_pago_estimado: workerFinance?.proximo_pago_estimado ?? 0
               })
+              
+              // Cargar salario diario del trabajador
+              const { data: configTrabajador } = await supabase
+                .from('configuracion_trabajadores')
+                .select('salario_diario')
+                .eq('id_trabajador', userData.id)
+                .maybeSingle()
+              
+              setSalarioDiarioTrabajador(configTrabajador?.salario_diario ?? 0)
             } catch (e) {
               setTrabajadorStats({
                 mis_tareas: 0,
@@ -260,6 +270,7 @@ export default function DashboardPage() {
                 gastos_pendientes: 0,
                 proximo_pago_estimado: 0
               })
+              setSalarioDiarioTrabajador(0)
             }
           }
         } catch (statsError) {
@@ -468,7 +479,9 @@ export default function DashboardPage() {
         <TrabajadorDashboard 
           stats={stats ?? undefined} 
           trabajadorStats={trabajadorStats} 
-          recentTasks={recentTasks} 
+          recentTasks={recentTasks}
+          userId={userDetails.id}
+          salarioDiario={salarioDiarioTrabajador}
         />
       )}
       

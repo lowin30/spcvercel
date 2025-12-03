@@ -10,8 +10,11 @@ import {
   ClipboardList, 
   Wallet,
   TrendingUp, 
-  AlertCircle 
+  AlertCircle,
+  HelpCircle,
+  AlertTriangle
 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Definición de tipos
 interface SupervisorStats {
@@ -124,11 +127,33 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
                 <p className="text-2xl font-bold">${supervisorStats?.monto_jornales_pendientes_semana?.toLocaleString() || 0}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">PB (Cantidad)</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-sm text-muted-foreground cursor-help flex items-center gap-1">
+                        PB (Cantidad) <HelpCircle className="h-3 w-3" />
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Presupuestos Base creados</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <p className="text-2xl font-bold">{supervisorStats?.presupuestos_base_total || 0}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">PB (Monto)</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-sm text-muted-foreground cursor-help flex items-center gap-1">
+                        PB (Monto) <HelpCircle className="h-3 w-3" />
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Monto total de Presupuestos Base</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <p className="text-2xl font-bold">${supervisorStats?.presupuestos_base_monto_total?.toLocaleString() || 0}</p>
               </div>
             </div>
@@ -180,11 +205,19 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
       <div className="space-y-3">
         <h2 className="text-xl font-semibold">Alertas y Notificaciones</h2>
         {supervisorStats?.jornales_pendientes_mayor_7d ? supervisorStats.jornales_pendientes_mayor_7d > 0 && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Jornales pendientes (7d+)</AlertTitle>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>⚠️ Jornales pendientes (7d+)</AlertTitle>
             <AlertDescription>
               Tienes {supervisorStats.jornales_pendientes_mayor_7d} jornales sin liquidar con más de 7 días.
+              {supervisorStats.monto_jornales_pendientes_mayor_7d && (
+                <span className="block mt-1 font-semibold">
+                  Monto total: ${supervisorStats.monto_jornales_pendientes_mayor_7d.toLocaleString()}
+                </span>
+              )}
+              <Link href="/dashboard/liquidaciones/nueva" className="ml-2 underline font-semibold inline-block mt-2">
+                Liquidar ahora →
+              </Link>
             </AlertDescription>
           </Alert>
         ) : null}

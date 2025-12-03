@@ -15,6 +15,7 @@ import { ProductosTab } from "@/components/productos-tab"
 import { CategoriasTab } from "@/components/categorias-tab"
 import { AdministradoresTab } from "@/components/administradores-tab"
 import { EstadosTab } from "@/components/estados-tab"
+import { AparienciaTab } from "@/components/apariencia-tab"
 
 interface ConfiguracionTabsProps {
   trabajadores: any[]
@@ -47,30 +48,34 @@ export default function ConfiguracionTabs({
     const refresh = searchParams.get('refresh')
     if (refresh === 'true') {
       // Eliminar el parámetro refresh y recargar para obtener datos frescos
-      window.location.href = "/dashboard/configuracion?tab=trabajadores"
+      const tabParam = searchParams.get('tab') || 'trabajadores'
+      window.location.href = `/dashboard/configuracion?tab=${tabParam}`
       return
     }
     
+    // Leer el tab de los parámetros de búsqueda
     const tabParam = searchParams.get('tab')
     if (tabParam) {
-      // Intentar encontrar el elemento del tab con el valor correspondiente
-      const tabElement = document.querySelector(`[data-value="${tabParam}"]`) as HTMLButtonElement
-      if (tabElement) {
-        // Simular click para cambiar la pestaña
-        tabElement.click()
-      }
+      setActiveTab(tabParam)
     }
     
-    // Verificar si estamos en modo edición
+    // Verificar si estamos en modo edición o vista
     const editId = searchParams.get('edit')
+    const viewId = searchParams.get('view')
+    const liquidacionesId = searchParams.get('liquidaciones')
+    
     if (editId) {
       setEditMode(true)
       setEditTrabajadorId(editId)
+      setActiveTab('trabajadores')
+    } else if (viewId || liquidacionesId) {
+      setEditMode(false)
+      setEditTrabajadorId(null)
+      setActiveTab('trabajadores')
     } else {
       setEditMode(false)
       setEditTrabajadorId(null)
     }
-    
   }, [searchParams])
 
   // Sincronizar el estado del tab con el valor del tab activo
@@ -134,36 +139,40 @@ export default function ConfiguracionTabs({
       <div className="hidden md:block">
         <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="usuarios" className="flex items-center">
-            <Shield className="mr-2 h-4 w-4" />
-            Gestión de Usuarios
+            <Shield className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="hidden xl:inline">Gestión de Usuarios</span>
+            <span className="xl:hidden">Usuarios</span>
           </TabsTrigger>
           <TabsTrigger value="trabajadores" className="flex items-center">
-            <UserCheck className="mr-2 h-4 w-4" />
-            Configuración Trabajadores
+            <UserCheck className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="hidden xl:inline">Configuración Trabajadores</span>
+            <span className="xl:hidden">Trabajadores</span>
           </TabsTrigger>
           <TabsTrigger value="sistema" className="flex items-center">
-            <Database className="mr-2 h-4 w-4" />
-            Configuración del Sistema
+            <Database className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="hidden xl:inline">Configuración del Sistema</span>
+            <span className="xl:hidden">Sistema</span>
           </TabsTrigger>
           <TabsTrigger value="apariencia" className="flex items-center">
-            <Palette className="mr-2 h-4 w-4" />
-            Apariencia
+            <Palette className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span>Apariencia</span>
           </TabsTrigger>
           <TabsTrigger value="productos" className="flex items-center">
-            <Package className="mr-2 h-4 w-4" />
-            Productos
+            <Package className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span>Productos</span>
           </TabsTrigger>
           <TabsTrigger value="categorias" className="flex items-center">
-            <Tag className="mr-2 h-4 w-4" />
-            Categorías
+            <Tag className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span>Categorías</span>
           </TabsTrigger>
           <TabsTrigger value="administradores" className="flex items-center">
-            <Users2 className="mr-2 h-4 w-4" />
-            Administradores
+            <Users2 className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span className="hidden xl:inline">Administradores</span>
+            <span className="xl:hidden">Admins</span>
           </TabsTrigger>
           <TabsTrigger value="estados" className="flex items-center">
-            <ActivitySquare className="mr-2 h-4 w-4" />
-            Estados
+            <ActivitySquare className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span>Estados</span>
           </TabsTrigger>
         </TabsList>
       </div>
@@ -237,18 +246,7 @@ export default function ConfiguracionTabs({
         <SystemSettings />
       </TabsContent>
       <TabsContent value="apariencia" className="space-y-4 mt-4 mb-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tema</CardTitle>
-            <CardDescription>Personaliza el aspecto de la aplicación</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Esta sección está en desarrollo. Próximamente podrás personalizar colores, logos y otros elementos
-              visuales del sistema.
-            </p>
-          </CardContent>
-        </Card>
+        <AparienciaTab />
       </TabsContent>
       
       <TabsContent value="productos" className="space-y-4 mt-4 mb-4">

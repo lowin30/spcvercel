@@ -148,12 +148,12 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
           <CardContent className="p-6">
             <div className="grid gap-3">
               <Button asChild>
-                <Link href="/dashboard/presupuestos-finales/nuevo">
-                  Aprobar Presupuesto
+                <Link href="/dashboard/presupuestos-finales?estado=pendientes">
+                  Ver Presupuestos Pendientes
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/dashboard/facturas/nueva">
+                <Link href="/dashboard/facturas/nuevo">
                   Generar Factura
                 </Link>
               </Button>
