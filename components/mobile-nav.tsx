@@ -5,6 +5,7 @@ import { Menu, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { MobileMenuExpanded } from "@/components/mobile-menu-expanded"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { createClient } from "@/lib/supabase-client"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -23,7 +24,9 @@ export function MobileNav({ userDetails }: MobileNavProps) {
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    if (supabase) {
+      await supabase.auth.signOut()
+    }
     router.push("/login")
   }
   
@@ -55,17 +58,20 @@ export function MobileNav({ userDetails }: MobileNavProps) {
           <span className="font-bold">SPC Sistema de Gestión</span>
         </div>
         
-        {/* Botón de cerrar sesión con mejor accesibilidad */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleSignOut} 
-          className="text-muted-foreground hover:text-primary"
-          aria-label="Cerrar sesión"
-        >
-          <LogOut className="h-5 w-5" aria-hidden="true" />
-          <span className="sr-only">Cerrar sesión</span>
-        </Button>
+        {/* Controles de la derecha */}
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleSignOut} 
+            className="text-muted-foreground hover:text-primary"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut className="h-5 w-5" aria-hidden="true" />
+            <span className="sr-only">Cerrar sesión</span>
+          </Button>
+        </div>
       </nav>
       
       {/* Panel lateral - Siempre presente en el DOM pero visualmente oculto cuando está cerrado */}

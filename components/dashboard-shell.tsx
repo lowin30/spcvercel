@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { DashboardNav } from "@/components/dashboard-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { AlertasNotificaciones } from "@/components/alertas-notificaciones"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { createClient } from "@/lib/supabase-client"
 
 interface DashboardShellProps {
@@ -63,12 +64,17 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
         {/* Navegación de escritorio - visible solo en pantallas md y superiores */}
         <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-background border-r">
           <div className="flex flex-col h-full">
-            <div className="p-4 border-b flex justify-between items-center">
-              <div>
-                <h1 className="font-bold text-xl">SPC Sistema</h1>
-                <p className="text-sm text-muted-foreground">{userDetails?.email}</p>
+            <div className="p-4 border-b">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex-1">
+                  <h1 className="font-bold text-xl">SPC Sistema</h1>
+                  <p className="text-sm text-muted-foreground">{userDetails?.email}</p>
+                </div>
               </div>
-              <div>{userId && <AlertasNotificaciones userId={userId} />}</div>
+              <div className="flex items-center gap-2 mt-2">
+                <ThemeToggle />
+                {userId && <AlertasNotificaciones userId={userId} />}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               <DashboardNav userRole={userDetails?.rol} />

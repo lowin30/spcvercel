@@ -168,23 +168,48 @@ export default function ConfiguracionPage() {
           console.error("Error al cargar productos o categorías:", err)
         }
         
-        // Cargar administradores
+        // Cargar administradores con conteo de edificios
         try {
           const { data: administradoresData, error: administradoresError } = await supabase
             .from("administradores")
             .select(`
-              *,
-              edificio:edificios (id, nombre)
+              id,
+              code,
+              nombre,
+              telefono,
+              estado,
+              aplica_ajustes,
+              porcentaje_default,
+              email1,
+              email2,
+              created_at
             `)
-            .order("nombre")
+            .order("nombre", { ascending: true })
             
           if (administradoresError) {
             console.error("Error al cargar administradores:", administradoresError)
+            setAdministradores([])
           } else {
-            setAdministradores(administradoresData || [])
+            // Obtener conteo de edificios para cada administrador
+            const administradoresConConteo = await Promise.all(
+              (administradoresData || []).map(async (admin) => {
+                const { count } = await supabase
+                  .from('edificios')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('id_administrador', admin.id)
+                
+                return {
+                  ...admin,
+                  total_edificios: count || 0
+                }
+              })
+            )
+            
+            setAdministradores(administradoresConConteo)
           }
         } catch (err) {
           console.error("Error al cargar administradores:", err)
+          setAdministradores([])
         }
         
         // Cargar estados
