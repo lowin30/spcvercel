@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Toaster } from "sonner"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
+import { AIAssistantGroq } from "@/components/ai-assistant-groq"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -103,6 +104,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <DashboardShell userDetails={userDetails}>
         {children}
         <Toaster />
+        {/* Chatbot IA - Solo visible si usuario tiene rol válido */}
+        {userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
       </DashboardShell>
     </div>
   )
