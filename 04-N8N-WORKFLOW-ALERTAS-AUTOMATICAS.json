@@ -1,0 +1,316 @@
+{
+  "name": "SPC Alertas Inteligentes Automáticas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Cada 2 Horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "tareas",
+        "returnAll": false,
+        "limit": 100,
+        "fieldsUi": {
+          "fieldValues": [
+            {"fieldName": "id"},
+            {"fieldName": "titulo"},
+            {"fieldName": "descripcion"},
+            {"fieldName": "fecha_visita"},
+            {"fieldName": "finalizada"},
+            {"fieldName": "edificios(nombre,direccion)"},
+            {"fieldName": "supervisores_tareas(usuarios(nombre))"}
+          ]
+        },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "finalizada",
+              "condition": "equals",
+              "keyValue": "false"
+            },
+            {
+              "keyName": "fecha_visita",
+              "condition": "smallerEqual",
+              "keyValue": "={{ $now.plus({days: 3}).toISO() }}"
+            }
+          ]
+        },
+        "sortUI": {
+          "sortProperties": [
+            {
+              "keyName": "fecha_visita",
+              "order": "ascending"
+            }
+          ]
+        }
+      },
+      "id": "buscar-tareas-urgentes",
+      "name": "Buscar Tareas Urgentes",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "if-tiene-tareas",
+      "name": "¿Hay Tareas Urgentes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "total",
+              "name": "total_tareas",
+              "value": "={{ $json.length }}",
+              "type": "number"
+            },
+            {
+              "id": "criticas",
+              "name": "tareas_criticas",
+              "value": "={{ $json.filter(t => new Date(t.fecha_visita) < $now.plus({days: 1})).length }}",
+              "type": "number"
+            },
+            {
+              "id": "lista",
+              "name": "lista_tareas",
+              "value": "={{ $json.slice(0, 10).map(t => `- ${t.titulo} (${t.edificios?.nombre}) - Vence: ${new Date(t.fecha_visita).toLocaleDateString('es-AR')}`).join('\\n') }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "preparar-datos",
+      "name": "Preparar Datos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"temperature\": 0.3,\n  \"max_tokens\": 500,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un analista experto en facility management. Analiza las tareas urgentes y genera un resumen ejecutivo CONCISO de máximo 5 líneas con: 1) Total y criticidad, 2) Top 3 tareas más urgentes, 3) Recomendación de acción inmediata. Usa bullets (-) y formato claro.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"TAREAS URGENTES (vencen en 3 días):\\n\\nTotal: {{ $('Preparar Datos').item.json.total_tareas }}\\nCríticas (vencen mañana): {{ $('Preparar Datos').item.json.tareas_criticas }}\\n\\n{{ $('Preparar Datos').item.json.lista_tareas }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "groq-analisis",
+      "name": "Groq - Análisis IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3",
+          "name": "Groq API Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "alertas_sistema",
+        "dataMode": "defineInNode",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "tipo",
+              "fieldValue": "tareas_urgentes"
+            },
+            {
+              "fieldId": "mensaje",
+              "fieldValue": "={{ $json.choices[0].message.content }}"
+            },
+            {
+              "fieldId": "cantidad",
+              "fieldValue": "={{ $('Preparar Datos').item.json.total_tareas }}"
+            },
+            {
+              "fieldId": "nivel",
+              "fieldValue": "={{ $('Preparar Datos').item.json.tareas_criticas > 5 ? 'critico' : ($('Preparar Datos').item.json.tareas_criticas > 2 ? 'alto' : 'medio') }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ { total: $('Preparar Datos').item.json.total_tareas, criticas: $('Preparar Datos').item.json.tareas_criticas, fecha: $now.toISO() } }}"
+            }
+          ]
+        }
+      },
+      "id": "guardar-alerta",
+      "name": "Guardar en BD",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_SUPABASE_URL }}/functions/v1/notificar-alerta",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"tipo\": \"tareas_urgentes\",\n  \"mensaje\": {{ $('Groq - Análisis IA').item.json.choices[0].message.content }},\n  \"cantidad\": {{ $('Preparar Datos').item.json.total_tareas }},\n  \"nivel\": \"{{ $('Preparar Datos').item.json.tareas_criticas > 5 ? 'critico' : 'medio' }}\"\n}",
+        "options": {}
+      },
+      "id": "notificar-webhook",
+      "name": "Notificar Frontend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4",
+          "name": "Supabase Anon Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mensaje",
+              "name": "mensaje",
+              "value": "No hay tareas urgentes en este momento ✅",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "no-alertas",
+      "name": "Sin Alertas",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Cada 2 Horas": {
+      "main": [
+        [
+          {
+            "node": "Buscar Tareas Urgentes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Tareas Urgentes": {
+      "main": [
+        [
+          {
+            "node": "¿Hay Tareas Urgentes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay Tareas Urgentes?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin Alertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Datos": {
+      "main": [
+        [
+          {
+            "node": "Groq - Análisis IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Análisis IA": {
+      "main": [
+        [
+          {
+            "node": "Guardar en BD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en BD": {
+      "main": [
+        [
+          {
+            "node": "Notificar Frontend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-04T06:30:00.000Z",
+  "versionId": "1"
+}

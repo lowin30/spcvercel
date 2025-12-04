@@ -1,0 +1,358 @@
+{
+  "name": "SPC Chatbot IA con Memoria Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 360],
+      "webhookId": "spc-chatbot-webhook"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 1000
+        }
+      },
+      "id": "groq-model-node",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [680, 160],
+      "credentials": {
+        "groqApi": {
+          "id": "1",
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "id": "memory-node",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [680, 360]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres un asistente IA experto del sistema SPC de facility management.\n\nCONTEXTO DEL USUARIO:\n- Usuario: {{ $json.userName || 'Usuario' }}\n- Rol: {{ $json.userRole || 'supervisor' }}\n- Página: {{ $json.context || 'dashboard' }}\n\nPERSONALIDAD:\n- Profesional pero amigable y conversacional\n- Conciso: máximo 3-4 líneas\n- Proactivo: ofreces sugerencias de acción\n- Haces seguimiento del contexto de la conversación\n\nFORMATO DE RESPUESTAS:\n- Si hay >5 resultados: muestra 3-5 + \"...y X más\"\n- Usa bullets (-) para listas\n- Termina con pregunta o sugerencia\n- Números en formato claro (24 tareas, no veinticuatro)\n\nEJEMPLOS:\nUsuario: \"tareas sin finalizar\"\nTú: \"Hay 24 tareas pendientes. Las más urgentes:\n- Mitre 4483 piso 4 (vence 15/12)\n- Aguero 1659 (vence 16/12) \n- Rivadavia 1954 (vence 17/12)\n...y 21 más. ¿Filtrar por edificio?\"\n\nUsuario: \"del edificio mitre\"\nTú: \"Mitre 4483 tiene 3 tareas pendientes:\n- Piso 4: cañería agua\n- Piso 2: cañería agua\n- 7a-6a: filtración\n¿Revisamos la primera?\"\n\nREGLAS IMPORTANTES:\n- SIEMPRE usa las tools disponibles para consultar datos reales\n- NO inventes información\n- Si no tienes acceso a algo, dilo claramente\n- Respeta los permisos RLS del usuario"
+      },
+      "id": "agent-node",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [920, 360]
+    },
+    {
+      "parameters": {
+        "name": "buscar_tareas_pendientes",
+        "description": "Searches for unfinished/pending tasks in the system. Use this when user asks about pending tasks, active tasks, or tasks without completion. Returns task details with building information.",
+        "operation": "select",
+        "table": "tareas",
+        "returnAll": false,
+        "limit": 20,
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "id"
+            },
+            {
+              "fieldName": "titulo"
+            },
+            {
+              "fieldName": "descripcion"
+            },
+            {
+              "fieldName": "finalizada"
+            },
+            {
+              "fieldName": "fecha_visita"
+            },
+            {
+              "fieldName": "edificios(nombre,direccion)"
+            }
+          ]
+        },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "finalizada",
+              "condition": "equals",
+              "keyValue": "false"
+            }
+          ]
+        },
+        "sortUI": {
+          "sortProperties": [
+            {
+              "keyName": "fecha_visita",
+              "order": "descending"
+            }
+          ]
+        }
+      },
+      "id": "tool-tareas-node",
+      "name": "Tool: Buscar Tareas",
+      "type": "@n8n/n8n-nodes-langchain.toolSupabase",
+      "typeVersion": 1,
+      "position": [680, 560],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "buscar_liquidaciones",
+        "description": "Searches for recent liquidations/settlements. Use when user asks about liquidations, payments, earnings, settlements or budgets. Returns liquidation details with financial information.",
+        "operation": "select",
+        "table": "liquidaciones_nuevas",
+        "returnAll": false,
+        "limit": 20,
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "id"
+            },
+            {
+              "fieldName": "created_at"
+            },
+            {
+              "fieldName": "ganancia_supervisor"
+            },
+            {
+              "fieldName": "total_presupuesto"
+            },
+            {
+              "fieldName": "aprobada"
+            },
+            {
+              "fieldName": "tareas(titulo,edificios(nombre))"
+            }
+          ]
+        },
+        "sortUI": {
+          "sortProperties": [
+            {
+              "keyName": "created_at",
+              "order": "descending"
+            }
+          ]
+        }
+      },
+      "id": "tool-liquidaciones-node",
+      "name": "Tool: Buscar Liquidaciones",
+      "type": "@n8n/n8n-nodes-langchain.toolSupabase",
+      "typeVersion": 1,
+      "position": [680, 720],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "obtener_gastos_pendientes",
+        "description": "Gets pending expenses/costs that haven't been settled yet. Use when user asks about pending expenses, costs without settlement, or unpaid bills.",
+        "operation": "select",
+        "table": "gastos_tarea",
+        "returnAll": false,
+        "limit": 30,
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "id"
+            },
+            {
+              "fieldName": "monto"
+            },
+            {
+              "fieldName": "descripcion"
+            },
+            {
+              "fieldName": "liquidado"
+            },
+            {
+              "fieldName": "comprobante_url"
+            },
+            {
+              "fieldName": "tareas(titulo,edificios(nombre))"
+            }
+          ]
+        },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filtersUI": {
+          "filterValues": [
+            {
+              "keyName": "liquidado",
+              "condition": "equals",
+              "keyValue": "false"
+            }
+          ]
+        }
+      },
+      "id": "tool-gastos-node",
+      "name": "Tool: Gastos Pendientes",
+      "type": "@n8n/n8n-nodes-langchain.toolSupabase",
+      "typeVersion": 1,
+      "position": [680, 880],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=-- Guardar mensaje del usuario\nINSERT INTO public.chat_mensajes (conversacion_id, role, content)\nSELECT c.id, 'user', '{{ $json.chatInput }}'\nFROM public.chat_conversaciones c\nWHERE c.session_id = '{{ $json.sessionId }}'\n  AND c.user_id = auth.uid();\n\n-- Obtener últimos 10 mensajes\nSELECT m.role, m.content, m.created_at\nFROM public.chat_mensajes m\nJOIN public.chat_conversaciones c ON c.id = m.conversacion_id\nWHERE c.session_id = '{{ $json.sessionId }}'\n  AND c.user_id = auth.uid()\nORDER BY m.created_at DESC\nLIMIT 10;"
+      },
+      "id": "save-user-msg-node",
+      "name": "Guardar Mensaje Usuario",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [460, 240],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=-- Guardar respuesta del asistente\nINSERT INTO public.chat_mensajes (conversacion_id, role, content, tokens_used)\nSELECT c.id, 'assistant', '{{ $json.output }}', {{ $json.tokensUsed || 0 }}\nFROM public.chat_conversaciones c\nWHERE c.session_id = '{{ $json.sessionId }}'\n  AND c.user_id = auth.uid();"
+      },
+      "id": "save-assistant-msg-node",
+      "name": "Guardar Respuesta IA",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1140, 360],
+      "credentials": {
+        "supabaseApi": {
+          "id": "2",
+          "name": "Supabase SPC"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Guardar Mensaje Usuario",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Mensaje Usuario": {
+      "main": [
+        []
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: Buscar Tareas": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: Buscar Liquidaciones": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: Gastos Pendientes": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-04T06:00:00.000Z",
+  "versionId": "1"
+}
