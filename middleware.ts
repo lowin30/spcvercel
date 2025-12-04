@@ -6,7 +6,12 @@ import { updateSession } from '@/lib/ssr-middleware' // Asegúrate que la ruta a
 export async function middleware(request: NextRequest) {
   // updateSession actualiza la sesión del usuario basada en las cookies de la petición
   // y devuelve una respuesta actualizada.
-  return await updateSession(request)
+  const response = await updateSession(request)
+  
+  // Asegurar UTF-8 en todas las respuestas para correcto display de acentos
+  response.headers.set('Content-Type', 'text/html; charset=utf-8')
+  
+  return response
 }
 
 export const config = {
