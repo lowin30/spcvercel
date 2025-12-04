@@ -53,8 +53,14 @@ export function AIAssistantGroq() {
       const contexto = window.location.pathname
 
       // Llamar a Edge Function segura con manejo de errores mejorado
+      // Incluir historial de conversación (últimos 10 mensajes)
+      const historial = messages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/ai-chat-secure`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat-secure`,
         {
           method: 'POST',
           headers: {
@@ -63,7 +69,8 @@ export function AIAssistantGroq() {
           },
           body: JSON.stringify({
             pregunta: input,
-            contexto
+            contexto,
+            historial  // MEMORIA CONVERSACIONAL
           })
         }
       )
