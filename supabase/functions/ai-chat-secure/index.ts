@@ -145,13 +145,30 @@ const FUNCTIONS_BY_ROLE = {
 }
 
 Deno.serve(async (req) => {
+  // CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+
+  // Handle CORS preflight request
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     // 1. Validar autenticación
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { 
+          status: 401, 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          } 
+        }
       )
     }
 
@@ -171,7 +188,7 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Usuario no válido' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -185,7 +202,7 @@ Deno.serve(async (req) => {
     if (userDataError || !userData) {
       return new Response(
         JSON.stringify({ error: 'Usuario no encontrado en la base de datos' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -195,7 +212,7 @@ Deno.serve(async (req) => {
     if (!pregunta || typeof pregunta !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Pregunta inválida' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -205,7 +222,7 @@ Deno.serve(async (req) => {
     if (!systemPrompt) {
       return new Response(
         JSON.stringify({ error: 'Rol no soportado' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -246,7 +263,7 @@ Pregunta: ${pregunta}`
       console.error('Groq API error:', errorText)
       return new Response(
         JSON.stringify({ error: 'Error al procesar la pregunta con IA' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -301,7 +318,7 @@ Pregunta: ${pregunta}`
           function_called: functionName,
           function_args: functionArgs
         }),
-        { headers: { 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -310,14 +327,14 @@ Pregunta: ${pregunta}`
       JSON.stringify({
         respuesta: message.content
       }),
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
     console.error('Error en ai-chat-secure:', error)
     return new Response(
       JSON.stringify({ error: 'Error interno del servidor' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
