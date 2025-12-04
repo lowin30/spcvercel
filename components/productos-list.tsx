@@ -2,11 +2,11 @@
 
 import { useState } from "react"
 import { createClient } from "@/lib/supabase-client"
-import { useProductosFilter } from "@/hooks/use-productos-filter"
+import { SuperIntelligentSearch } from "@/components/super-intelligent-search"
+import { SearchHighlight } from "@/components/search-highlight"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Eye, Edit, Search, Package, MoreHorizontal } from "lucide-react"
+import { Eye, Edit, Package, MoreHorizontal } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -25,14 +25,16 @@ interface ProductosListProps {
 
 export function ProductosList({ initialProductos, categorias }: ProductosListProps) {
   const [productos, setProductos] = useState<Producto[]>(initialProductos)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [categoriaFilter, setCategoriaFilter] = useState("all")
-  const [estadoFilter, setEstadoFilter] = useState("all")
+  const [searchResults, setSearchResults] = useState<Producto[]>(initialProductos)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [categoriaFilter, setCategoriaFilter] = useState<string | null>(null)
+  const [estadoFilter, setEstadoFilter] = useState<boolean | null>(null)
+  const [searching, setSearching] = useState(false)
 
   const supabase = createClient()
 
-  // 🎉 Usar hook personalizado para filtrar
-  const filteredProductos = useProductosFilter(productos, searchTerm, categoriaFilter, estadoFilter)
+  // Usar resultados de búsqueda inteligente o productos iniciales
+  const filteredProductos = searchQuery ? searchResults : initialProductos
 
   // Función para cambiar el estado de un producto
   const toggleProductoEstado = async (id: string, activo: boolean) => {
@@ -160,7 +162,9 @@ export function ProductosList({ initialProductos, categorias }: ProductosListPro
             filteredProductos.map((producto) => (
               <TableRow key={producto.id}>
                 <TableCell className="font-medium">{producto.code}</TableCell>
-                <TableCell>{producto.nombre}</TableCell>
+                <TableCell>
+                  <SearchHighlight text={producto.nombre} query={searchQuery} />
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline">{producto.categorias_productos?.nombre || "Sin categoría"}</Badge>
                 </TableCell>
@@ -201,18 +205,31 @@ export function ProductosList({ initialProductos, categorias }: ProductosListPro
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre, código, descripción o categoría..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            title="Busca en: nombre, código, descripción y categoría del producto"
+        <div className="w-full md:w-96">
+          <SuperIntelligentSearch
+            rpcFunction="buscar_productos_super_inteligente"
+            placeholder="Buscar productos por nombre, código, descripción o categoría..."
+            additionalParams={{
+              p_categoria_id: categoriaFilter || undefined,
+              p_activo: estadoFilter ?? undefined,
+              p_limit: 100
+            }}
+            onResults={(results) => {
+              setSearchResults(results)
+              setSearchQuery(results.length > 0 ? "searching" : "")
+            }}
+            onLoading={setSearching}
+            minChars={2}
+            debounceMs={300}
+            showRelevanceInfo={true}
+            showStats={true}
           />
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row">
-          <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
+          <Select 
+            value={categoriaFilter || "all"} 
+            onValueChange={(value) => setCategoriaFilter(value === "all" ? null : value)}
+          >
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
@@ -225,7 +242,10 @@ export function ProductosList({ initialProductos, categorias }: ProductosListPro
               ))}
             </SelectContent>
           </Select>
-          <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+          <Select 
+            value={estadoFilter === null ? "all" : estadoFilter ? "activo" : "inactivo"} 
+            onValueChange={(value) => setEstadoFilter(value === "all" ? null : value === "activo")}
+          >
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
