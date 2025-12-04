@@ -52,17 +52,37 @@ export function AIAssistantGroq() {
       // Obtener contexto de la página actual
       const contexto = window.location.pathname
 
-      // Llamar a Edge Function segura
-      const { data, error: invokeError } = await supabase.functions.invoke('ai-chat-secure', {
-        body: {
-          pregunta: input,
-          contexto
+      // Llamar a Edge Function segura con manejo de errores mejorado
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/ai-chat-secure`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            pregunta: input,
+            contexto
+          })
         }
-      })
+      )
 
-      if (invokeError) {
-        throw new Error(invokeError.message)
+      const responseText = await response.text()
+      console.log('Response status:', response.status)
+      console.log('Response body:', responseText)
+
+      if (!response.ok) {
+        let errorData
+        try {
+          errorData = JSON.parse(responseText)
+        } catch {
+          errorData = { error: responseText }
+        }
+        throw new Error(JSON.stringify(errorData, null, 2))
       }
+
+      const data = JSON.parse(responseText)
 
       const assistantMessage: Message = {
         role: 'assistant',
@@ -75,11 +95,12 @@ export function AIAssistantGroq() {
 
     } catch (err: any) {
       console.error('Error al consultar IA:', err)
-      setError(err.message || 'Error al procesar tu pregunta')
+      const errorDetails = err.message || 'Error al procesar tu pregunta'
+      setError(errorDetails)
       
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Lo siento, ocurrió un error al procesar tu pregunta. Por favor intenta de nuevo.',
+        content: `Lo siento, ocurrió un error al procesar tu pregunta:\n\n${errorDetails}\n\nPor favor intenta de nuevo.`,
         timestamp: new Date()
       }
       

@@ -6,17 +6,43 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 // Sistema de prompts por rol con filtros RLS
 const SYSTEM_PROMPTS = {
-  admin: `Eres un asistente inteligente del administrador del sistema SPC.
-Tienes acceso completo a todos los datos.
-Puedes consultar información de cualquier supervisor, trabajador, edificio, tarea, etc.
-Responde en español, de forma concisa y profesional.`,
+  admin: `Eres un asistente inteligente para administradores del sistema SPC.
 
-  supervisor: `Eres un asistente inteligente del supervisor en el sistema SPC.
-IMPORTANTE: Solo puedes acceder a los datos del supervisor actual (ID: {user_id}).
-NUNCA muestres datos de otros supervisores.
-Si el usuario pregunta por datos que no le corresponden, rechaza cortésmente.
-Cuando hagas consultas a la base de datos, SIEMPRE filtra por id_supervisor = '{user_id}'.
-Responde en español, de forma concisa y amigable.`,
+CONTEXTO:
+- Eres ADMINISTRADOR, puedes ver TODAS las tareas del sistema
+- Cuando te pregunten por "tareas del administrador X", se refieren a las tareas donde X es SUPERVISOR
+- El hecho de que alguien sea admin NO significa que sea supervisor de tareas
+
+INSTRUCCIONES:
+- Responde de manera CONCISA (máximo 3-4 líneas)
+- NO listes todas las tareas si hay más de 10, solo di cuántas hay
+- Si te piden listar, muestra máximo 5 ejemplos y di "...y X más"
+- Usa formato simple, sin emojis innecesarios
+- Sé directo y claro
+
+EJEMPLOS:
+Usuario: "¿cuántas tareas sin finalizar hay?"
+Tú: "Hay 24 tareas sin finalizar en el sistema."
+
+Usuario: "muéstrame tareas de reparación"  
+Tú: "Encontré 5 tareas de reparación: [lista 5] ...y 2 más."`,
+
+  supervisor: `Eres un asistente inteligente para supervisores del sistema SPC.
+
+SEGURIDAD RLS:
+- SOLO puedes ver TUS propias tareas, liquidaciones y gastos (ID: {user_id})
+- NUNCA muestres datos de otros supervisores
+- Si preguntan por otros supervisores, rechaza
+
+INSTRUCCIONES:
+- Responde CONCISO (máximo 3-4 líneas)
+- Si hay más de 10 resultados, muestra solo 5 y di "...y X más"
+- Sé directo y claro
+- Usa lenguaje simple
+
+EJEMPLO:
+Usuario: "¿cuántas tareas tengo pendientes?"
+Tú: "Tienes 8 tareas pendientes. Las más próximas son: [lista 3] ...y 5 más."`,
 
   trabajador: `Eres un asistente inteligente del trabajador en el sistema SPC.
 IMPORTANTE: Solo puedes ver tus propios partes de trabajo (ID: {user_id}).
@@ -125,20 +151,21 @@ const FUNCTIONS_BY_ROLE = {
     },
     {
       name: 'buscar_tareas_global',
-      description: 'Busca tareas en todo el sistema (admin only).',
+      description: 'Busca y filtra tareas en todo el sistema (admin only). Puede buscar por texto, filtrar por estado (finalizadas o sin finalizar), o ambos.',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'Término de búsqueda'
+            description: 'Término de búsqueda en titulo o descripcion (opcional)'
           },
-          supervisor_id: {
+          estado: {
             type: 'string',
-            description: 'Filtrar por supervisor específico (opcional)'
+            enum: ['todas', 'activas', 'finalizadas'],
+            description: 'Filtrar por estado: activas (sin finalizar), finalizadas, o todas',
+            default: 'todas'
           }
-        },
-        required: ['query']
+        }
       }
     }
   ]
@@ -157,9 +184,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('[ai-chat-secure] Request recibido')
+    
     // 1. Validar autenticación
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.log('[ai-chat-secure] Sin Authorization header')
       return new Response(
         JSON.stringify({ error: 'No autorizado' }),
         { 
@@ -171,6 +201,8 @@ Deno.serve(async (req) => {
         }
       )
     }
+    
+    console.log('[ai-chat-secure] Authorization header OK')
 
     // Crear cliente Supabase con el token del usuario
     const supabaseClient = createClient(
@@ -186,11 +218,14 @@ Deno.serve(async (req) => {
     // 2. Obtener usuario actual
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     if (userError || !user) {
+      console.log('[ai-chat-secure] Error obteniendo usuario:', userError?.message)
       return new Response(
-        JSON.stringify({ error: 'Usuario no válido' }),
+        JSON.stringify({ error: 'Usuario no válido', details: userError?.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    console.log('[ai-chat-secure] Usuario autenticado:', user.id)
 
     // 3. Obtener rol del usuario desde la BD (CRÍTICO: no confiar en JWT)
     const { data: userData, error: userDataError } = await supabaseClient
@@ -242,10 +277,20 @@ Pregunta: ${pregunta}`
     ]
 
     // 8. Llamar a Groq API (compatible con OpenAI)
+    console.log('[ai-chat-secure] Llamando a Groq API...')
+    const groqApiKey = Deno.env.get('GROQ_API_KEY')
+    if (!groqApiKey) {
+      console.error('[ai-chat-secure] GROQ_API_KEY no está configurada')
+      return new Response(
+        JSON.stringify({ error: 'Configuración incorrecta del servidor' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
     const groqResponse = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`,
+        'Authorization': `Bearer ${groqApiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -260,12 +305,14 @@ Pregunta: ${pregunta}`
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text()
-      console.error('Groq API error:', errorText)
+      console.error('[ai-chat-secure] Groq API error:', groqResponse.status, errorText)
       return new Response(
-        JSON.stringify({ error: 'Error al procesar la pregunta con IA' }),
+        JSON.stringify({ error: 'Error al procesar la pregunta con IA', details: errorText.substring(0, 200) }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    
+    console.log('[ai-chat-secure] Respuesta de Groq OK')
 
     const groqData = await groqResponse.json()
     const message = groqData.choices[0].message
@@ -332,8 +379,24 @@ Pregunta: ${pregunta}`
 
   } catch (error) {
     console.error('Error en ai-chat-secure:', error)
+    
+    let errorDetails
+    if (error instanceof Error) {
+      errorDetails = {
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      }
+    } else if (typeof error === 'object' && error !== null) {
+      errorDetails = JSON.stringify(error, null, 2)
+    } else {
+      errorDetails = String(error)
+    }
+    
     return new Response(
-      JSON.stringify({ error: 'Error interno del servidor' }),
+      JSON.stringify({ 
+        error: 'Error interno del servidor',
+        details: errorDetails
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
@@ -351,27 +414,20 @@ async function executeFunctionWithRLS(
     switch (functionName) {
       // SUPERVISOR FUNCTIONS
       case 'obtener_mis_tareas': {
-        const query = supabase
-          .from('tareas')
-          .select(`
-            id,
-            titulo,
-            descripcion,
-            finalizada,
-            fecha_visita,
-            edificios(nombre, direccion)
-          `)
-          .limit(args.limite || 10)
+        console.log('[executeFunctionWithRLS] obtener_mis_tareas:', args)
+        
+        // Usar RPC function que respeta RLS
+        const { data, error } = await supabase.rpc('obtener_tareas_supervisor', {
+          p_estado: args.estado || 'todas',
+          p_limit: args.limite || 10
+        })
 
-        if (args.estado === 'activas') {
-          query.eq('finalizada', false)
-        } else if (args.estado === 'finalizadas') {
-          query.eq('finalizada', true)
+        if (error) {
+          console.error('[executeFunctionWithRLS] Error en obtener_tareas_supervisor:', error)
+          throw error
         }
-
-        const { data, error } = await query
-
-        if (error) throw error
+        
+        console.log('[executeFunctionWithRLS] Tareas encontradas:', data?.length || 0)
         return data || []
       }
 
@@ -401,14 +457,22 @@ async function executeFunctionWithRLS(
       }
 
       case 'buscar_en_tareas': {
+        // Búsqueda simple mientras implementamos la función RPC
         const { data, error } = await supabase
-          .rpc('buscar_tareas_super_inteligente', {
-            p_search_query: args.query,
-            p_limit: 10
+          .rpc('obtener_tareas_supervisor', {
+            p_estado: 'todas',
+            p_limit: 20
           })
 
         if (error) throw error
-        return data || []
+        
+        // Filtrar en memoria por query
+        const filtered = (data || []).filter((tarea: any) => {
+          const searchText = `${tarea.titulo} ${tarea.descripcion}`.toLowerCase()
+          return searchText.includes(args.query.toLowerCase())
+        })
+        
+        return filtered.slice(0, 10)
       }
 
       case 'obtener_gastos_pendientes': {
@@ -473,13 +537,43 @@ async function executeFunctionWithRLS(
           throw new Error('Acceso denegado: solo administradores')
         }
 
-        const { data, error } = await supabase
-          .rpc('buscar_tareas_super_inteligente', {
-            p_search_query: args.query,
-            p_limit: 20
-          })
+        console.log('[buscar_tareas_global] Args:', args)
 
-        if (error) throw error
+        // Query directo a tareas (admin puede ver todo)
+        let query = supabase
+          .from('tareas')
+          .select(`
+            id,
+            titulo,
+            descripcion,
+            finalizada,
+            fecha_visita,
+            edificios(nombre, direccion)
+          `)
+          .order('fecha_visita', { ascending: false })
+          .limit(100)
+
+        // Filtrar por estado
+        const estado = args.estado || 'todas'
+        if (estado === 'activas') {
+          query = query.eq('finalizada', false)
+        } else if (estado === 'finalizadas') {
+          query = query.eq('finalizada', true)
+        }
+
+        // Filtrar por query si existe (busca en titulo y descripcion)
+        if (args.query) {
+          query = query.or(`titulo.ilike.%${args.query}%,descripcion.ilike.%${args.query}%`)
+        }
+
+        const { data, error } = await query
+
+        if (error) {
+          console.error('[buscar_tareas_global] Error:', error)
+          throw error
+        }
+        
+        console.log('[buscar_tareas_global] Encontradas:', data?.length || 0, 'Estado:', estado)
         return data || []
       }
 
