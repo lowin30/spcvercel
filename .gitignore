@@ -39,3 +39,12 @@ GUIA-DIAGNOSTICO-AGENDA.md
 
 # Carpeta de archivos archivados
 archive/
+
+# Archivos de prueba n8n/MCP (solo local)
+WORKFLOW-PRUEBA-*.json
+INSTRUCCIONES-PRUEBA.md
+RESUMEN-PRUEBA-*.md
+PRUEBA-SIMPLE-*.md
+CONFIGURACION-N8N-RENDER.md
+RENDER-N8N-CREDENCIALES.txt
+verificar-n8n.md
