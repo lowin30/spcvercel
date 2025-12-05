@@ -1,0 +1,34 @@
+# ========================================
+# CREDENCIALES PARA CONFIGURAR N8N RENDER
+# ========================================
+
+## N8N EN RENDER:
+URL: https://n8n1-ma6y.onrender.com
+Usuario: lowin30@gmail.com
+Contraseña: [PRIVADO - ya la tengo]
+
+## GROQ API:
+API Key: [LA QUE TE PASÉ ANTES - necesitas copiarla en n8n]
+
+## SUPABASE:
+Host: https://fodyzgjwoccpsjmfinvm.supabase.co
+Service Role Key: [NECESITAS COPIARLA DE DASHBOARD]
+
+Obtener Service Role:
+1. https://supabase.com/dashboard/project/fodyzgjwoccpsjmfinvm/settings/api
+2. Buscar "service_role" (dice secret)
+3. Click "Reveal"
+4. Copiar
+
+## N8N API KEY (opcional - para automatización):
+[NECESITAS CREARLA]
+
+Crear API Key:
+1. n8n → Settings → API
+2. Create API Key
+3. Nombre: "Configuracion"
+4. Copiar
+
+========================================
+TODO LISTO PARA CONFIGURAR
+========================================
