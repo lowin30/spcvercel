@@ -223,6 +223,11 @@ export function TaskForm({
         if (userDetails.rol === 'supervisor') {
           console.log('Autoasignando supervisor:', userDetails.id);
           form.setValue('id_supervisor', userDetails.id);
+        } else if (userDetails.rol === 'admin') {
+          const defaultSuper = supervisores?.find((s) => s.code === 'super1');
+          if (defaultSuper?.id) {
+            form.setValue('id_supervisor', defaultSuper.id);
+          }
         }
       } catch (error) {
         console.error('Error al autoasignar supervisor:', error);
@@ -230,7 +235,7 @@ export function TaskForm({
     };
     
     autoAssignSupervisor();
-  }, [isEditMode, supabase, form]);
+  }, [isEditMode, supabase, form, supervisores]);
 
   // Cargar administradores al montar
   useEffect(() => {
