@@ -1,0 +1,90 @@
+═══════════════════════════════════════════════════
+  VALORES EXACTOS PARA COPIAR Y PEGAR EN N8N
+═══════════════════════════════════════════════════
+
+📋 PARA TODOS LOS NODOS DE POSTGRES:
+───────────────────────────────────────────────────
+Credential: mcp supabase
+───────────────────────────────────────────────────
+
+
+═══════════════════════════════════════════════════
+  NODO 1: "Crear Conversación"
+═══════════════════════════════════════════════════
+
+Operation: insert
+
+Schema (copia exactamente):
+ai_system
+
+Table (copia exactamente):
+chat_conversations
+
+Mapping Column Mode: Map Manually
+
+Options → Skip On Conflict: true
+
+
+═══════════════════════════════════════════════════
+  NODO 2: "Guardar Mensaje Usuario"
+═══════════════════════════════════════════════════
+
+Operation: insert
+
+Schema (copia exactamente):
+ai_system
+
+Table (copia exactamente):
+chat_messages
+
+Mapping Column Mode: Map Manually
+
+
+═══════════════════════════════════════════════════
+  NODO 3: "Guardar Respuesta IA"
+═══════════════════════════════════════════════════
+
+Operation: insert
+
+Schema (copia exactamente):
+ai_system
+
+Table (copia exactamente):
+chat_messages
+
+Mapping Column Mode: Map Manually
+
+
+═══════════════════════════════════════════════════
+  NODO 4: "Consultar Tareas"
+═══════════════════════════════════════════════════
+
+Operation: executeQuery
+
+(NO tiene Schema ni Table, usa Query directa)
+
+
+═══════════════════════════════════════════════════
+  RESUMEN RÁPIDO
+═══════════════════════════════════════════════════
+
+Schema en TODOS: ai_system
+Table en Nodo 1: chat_conversations
+Table en Nodo 2 y 3: chat_messages
+
+Mapping Column Mode en TODOS: Map Manually
+
+
+═══════════════════════════════════════════════════
+  PASOS:
+═══════════════════════════════════════════════════
+
+1. Abre este archivo .txt
+2. Copia "ai_system" → pega en Schema
+3. Copia el nombre de Table correspondiente → pega en Table
+4. Click fuera
+5. Espera 2 segundos
+6. Debería cargar columnas
+7. Cambia a "Map Manually"
+
+¡LISTO! ✅

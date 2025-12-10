@@ -1,0 +1,501 @@
+{
+  "data": [
+    {
+      "updatedAt": "2025-12-05T00:21:57Z",
+      "createdAt": "2025-12-05T00:06:24.08Z",
+      "id": "F4ZEFGRYB2ZtiE4e",
+      "name": "My workflow",
+      "active": false,
+      "isArchived": false,
+      "nodes": [
+        {
+          "parameters": {},
+          "type": "n8n-nodes-base.mcpServerTrigger",
+          "typeVersion": 1,
+          "position": [
+            -224,
+            112
+          ],
+          "id": "3b29bf77-ca8d-4c6a-a7f6-829d9f0ce8ac",
+          "name": "MCP Server Trigger"
+        },
+        {
+          "parameters": {
+            "operation": "executeQuery",
+            "query": "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public';",
+            "options": {}
+          },
+          "type": "n8n-nodes-base.postgres",
+          "typeVersion": 2.4,
+          "position": [
+            0,
+            0
+          ],
+          "id": "f85f761b-9604-43c9-9833-5ab4af992a8a",
+          "name": "Get Schema (Database Tool)",
+          "description": "Usa esta herramienta para entender qué tablas existen antes de consultar datos.",
+          "credentials": {
+            "postgres": {
+              "id": "uoAqRrcdRK0wWSyb",
+              "name": "mcp supabase"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "operation": "executeQuery",
+            "query": "={{ $fromAI('sql_query', 'La consulta SQL a ejecutar based on the user request') }}",
+            "options": {}
+          },
+          "type": "n8n-nodes-base.postgres",
+          "typeVersion": 2.4,
+          "position": [
+            0,
+            208
+          ],
+          "id": "baf368db-77b3-4286-a5d6-0096529ba5e8",
+          "name": "Run Query (Database Tool)",
+          "description": "Ejecuta consultas SQL seguras a la base de datos.",
+          "credentials": {
+            "postgres": {
+              "id": "uoAqRrcdRK0wWSyb",
+              "name": "mcp supabase"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "options": {}
+          },
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "typeVersion": 3,
+          "position": [
+            160,
+            16
+          ],
+          "id": "3635c22a-1952-4015-ae54-ac75d65723d7",
+          "name": "AI Agent"
+        }
+      ],
+      "connections": {
+        "Get Schema (Database Tool)": {
+          "main": [
+            [
+              {
+                "node": "AI Agent",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      },
+      "settings": {
+        "executionOrder": "v1"
+      },
+      "staticData": null,
+      "meta": {
+        "templateCredsSetupCompleted": true
+      },
+      "pinData": {},
+      "versionId": "78fce118-3e55-4815-811b-9d1d9fe8fda1",
+      "activeVersionId": null,
+      "triggerCount": 0,
+      "shared": [
+        {
+          "updatedAt": "2025-12-05T00:06:24.086Z",
+          "createdAt": "2025-12-05T00:06:24.086Z",
+          "role": "workflow:owner",
+          "workflowId": "F4ZEFGRYB2ZtiE4e",
+          "projectId": "eRJD2X41Wqka5cxD"
+        }
+      ],
+      "activeVersion": null,
+      "tags": []
+    },
+    {
+      "updatedAt": "2025-12-05T00:36:47.923Z",
+      "createdAt": "2025-12-05T00:36:47.923Z",
+      "id": "RKYlf1fMkMZKcuNB",
+      "name": "My workflow 2",
+      "active": false,
+      "isArchived": false,
+      "nodes": [
+        {
+          "parameters": {},
+          "type": "n8n-nodes-base.chatTrigger",
+          "typeVersion": 1,
+          "position": [
+            0,
+            0
+          ],
+          "id": "d20a8b42-8578-4980-ac50-6915cd4885f3",
+          "name": "Chat Trigger (Usuario)"
+        },
+        {
+          "parameters": {},
+          "type": "n8n-nodes-base.aiAgent",
+          "typeVersion": 1,
+          "position": [
+            224,
+            0
+          ],
+          "id": "8202b3e2-8019-4138-9c87-0a806fb26c78",
+          "name": "AI Agent (El Cerebro)"
+        },
+        {
+          "parameters": {},
+          "type": "n8n-nodes-base.mcpTool",
+          "typeVersion": 1,
+          "position": [
+            224,
+            208
+          ],
+          "id": "c33c6263-2f35-4c00-9244-25d13d702298",
+          "name": "MCP Tool (Herramienta DB)"
+        },
+        {
+          "parameters": {},
+          "type": "n8n-nodes-base.chatOutput",
+          "typeVersion": 1,
+          "position": [
+            448,
+            0
+          ],
+          "id": "9fb2196f-b4fa-4b9b-940c-f3e654db4714",
+          "name": "Chat Output (Respuesta)"
+        }
+      ],
+      "connections": {},
+      "settings": {
+        "executionOrder": "v1"
+      },
+      "staticData": null,
+      "meta": null,
+      "pinData": {},
+      "versionId": "500ed89a-abf8-4f53-8f5f-101951eb0276",
+      "activeVersionId": null,
+      "triggerCount": 0,
+      "shared": [
+        {
+          "updatedAt": "2025-12-05T00:36:47.926Z",
+          "createdAt": "2025-12-05T00:36:47.926Z",
+          "role": "workflow:owner",
+          "workflowId": "RKYlf1fMkMZKcuNB",
+          "projectId": "eRJD2X41Wqka5cxD"
+        }
+      ],
+      "activeVersion": null,
+      "tags": []
+    },
+    {
+      "updatedAt": "2025-12-05T01:51:20Z",
+      "createdAt": "2025-12-05T01:33:42.078Z",
+      "id": "dyTSjxskZazsbks0",
+      "name": "TEST Simple - MCP Supabase",
+      "active": true,
+      "isArchived": false,
+      "nodes": [
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "test-mcp-simple",
+            "responseMode": "responseNode",
+            "options": {}
+          },
+          "id": "9f191800-e51d-4305-9d2c-c46d1b8ed9f3",
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 2,
+          "position": [
+            0,
+            0
+          ],
+          "webhookId": "test-mcp-simple"
+        },
+        {
+          "parameters": {
+            "method": "POST",
+            "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/execute_sql",
+            "authentication": "predefinedCredentialType",
+            "nodeCredentialType": "supabaseApi",
+            "sendBody": true,
+            "specifyBody": "json",
+            "jsonBody": "={\n  \"query\": \"SELECT COUNT(*) as total FROM tareas WHERE finalizada = false\"\n}",
+            "options": {}
+          },
+          "id": "cad8d308-a876-4006-a77a-0018032264e4",
+          "name": "Consultar Tareas Pendientes",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 4.2,
+          "position": [
+            224,
+            0
+          ],
+          "credentials": {
+            "supabaseApi": {
+              "id": "PrSZbKSOLNmEkzNI",
+              "name": "Supabase account"
+            }
+          }
+        },
+        {
+          "parameters": {
+            "assignments": {
+              "assignments": [
+                {
+                  "id": "resultado",
+                  "name": "tareas_pendientes",
+                  "value": "={{ $json.total || $json[0]?.total || 0 }}",
+                  "type": "number"
+                },
+                {
+                  "id": "mensaje",
+                  "name": "mensaje",
+                  "value": "={{ 'Hay ' + ($json.total || $json[0]?.total || 0) + ' tareas pendientes en el sistema' }}",
+                  "type": "string"
+                },
+                {
+                  "id": "timestamp",
+                  "name": "timestamp",
+                  "value": "={{ $now.toISO() }}",
+                  "type": "string"
+                },
+                {
+                  "id": "success",
+                  "name": "success",
+                  "value": "=true",
+                  "type": "boolean"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "af0d0dd9-1580-42bd-b21f-0dfd3277868f",
+          "name": "Preparar Respuesta",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 3.3,
+          "position": [
+            448,
+            0
+          ]
+        },
+        {
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{ $json }}",
+            "options": {}
+          },
+          "id": "1934da9e-48ed-404c-93a7-88f364fa8d6c",
+          "name": "Responder",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1.1,
+          "position": [
+            672,
+            0
+          ]
+        }
+      ],
+      "connections": {
+        "Webhook": {
+          "main": [
+            [
+              {
+                "node": "Consultar Tareas Pendientes",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Consultar Tareas Pendientes": {
+          "main": [
+            [
+              {
+                "node": "Preparar Respuesta",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Preparar Respuesta": {
+          "main": [
+            [
+              {
+                "node": "Responder",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      },
+      "settings": {
+        "executionOrder": "v1"
+      },
+      "staticData": null,
+      "meta": null,
+      "pinData": {},
+      "versionId": "72376abb-53a2-4450-bc41-0acd0ad9186d",
+      "activeVersionId": "72376abb-53a2-4450-bc41-0acd0ad9186d",
+      "triggerCount": 1,
+      "shared": [
+        {
+          "updatedAt": "2025-12-05T01:33:42.083Z",
+          "createdAt": "2025-12-05T01:33:42.083Z",
+          "role": "workflow:owner",
+          "workflowId": "dyTSjxskZazsbks0",
+          "projectId": "eRJD2X41Wqka5cxD"
+        }
+      ],
+      "activeVersion": {
+        "updatedAt": "2025-12-05T01:33:42.085Z",
+        "createdAt": "2025-12-05T01:33:42.085Z",
+        "versionId": "72376abb-53a2-4450-bc41-0acd0ad9186d",
+        "workflowId": "dyTSjxskZazsbks0",
+        "nodes": [
+          {
+            "parameters": {
+              "httpMethod": "POST",
+              "path": "test-mcp-simple",
+              "responseMode": "responseNode",
+              "options": {}
+            },
+            "id": "9f191800-e51d-4305-9d2c-c46d1b8ed9f3",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+              0,
+              0
+            ],
+            "webhookId": "test-mcp-simple"
+          },
+          {
+            "parameters": {
+              "method": "POST",
+              "url": "={{ $env.SUPABASE_URL }}/rest/v1/rpc/execute_sql",
+              "authentication": "predefinedCredentialType",
+              "nodeCredentialType": "supabaseApi",
+              "sendBody": true,
+              "specifyBody": "json",
+              "jsonBody": "={\n  \"query\": \"SELECT COUNT(*) as total FROM tareas WHERE finalizada = false\"\n}",
+              "options": {}
+            },
+            "id": "cad8d308-a876-4006-a77a-0018032264e4",
+            "name": "Consultar Tareas Pendientes",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+              224,
+              0
+            ],
+            "credentials": {
+              "supabaseApi": {
+                "id": "PrSZbKSOLNmEkzNI",
+                "name": "Supabase account"
+              }
+            }
+          },
+          {
+            "parameters": {
+              "assignments": {
+                "assignments": [
+                  {
+                    "id": "resultado",
+                    "name": "tareas_pendientes",
+                    "value": "={{ $json.total || $json[0]?.total || 0 }}",
+                    "type": "number"
+                  },
+                  {
+                    "id": "mensaje",
+                    "name": "mensaje",
+                    "value": "={{ 'Hay ' + ($json.total || $json[0]?.total || 0) + ' tareas pendientes en el sistema' }}",
+                    "type": "string"
+                  },
+                  {
+                    "id": "timestamp",
+                    "name": "timestamp",
+                    "value": "={{ $now.toISO() }}",
+                    "type": "string"
+                  },
+                  {
+                    "id": "success",
+                    "name": "success",
+                    "value": "=true",
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "options": {}
+            },
+            "id": "af0d0dd9-1580-42bd-b21f-0dfd3277868f",
+            "name": "Preparar Respuesta",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.3,
+            "position": [
+              448,
+              0
+            ]
+          },
+          {
+            "parameters": {
+              "respondWith": "json",
+              "responseBody": "={{ $json }}",
+              "options": {}
+            },
+            "id": "1934da9e-48ed-404c-93a7-88f364fa8d6c",
+            "name": "Responder",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+              672,
+              0
+            ]
+          }
+        ],
+        "connections": {
+          "Webhook": {
+            "main": [
+              [
+                {
+                  "node": "Consultar Tareas Pendientes",
+                  "type": "main",
+                  "index": 0
+                }
+              ]
+            ]
+          },
+          "Consultar Tareas Pendientes": {
+            "main": [
+              [
+                {
+                  "node": "Preparar Respuesta",
+                  "type": "main",
+                  "index": 0
+                }
+              ]
+            ]
+          },
+          "Preparar Respuesta": {
+            "main": [
+              [
+                {
+                  "node": "Responder",
+                  "type": "main",
+                  "index": 0
+                }
+              ]
+            ]
+          }
+        },
+        "authors": "jesus sanchez",
+        "name": null,
+        "description": null
+      },
+      "tags": []
+    }
+  ],
+  "nextCursor": null
+}

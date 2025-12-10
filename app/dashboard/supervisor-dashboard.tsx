@@ -71,8 +71,8 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Panel de Gestión */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-green-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-green-50 dark:bg-green-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <ClipboardList className="h-5 w-5" /> Gestión de Tareas
             </CardTitle>
           </CardHeader>
@@ -174,8 +174,8 @@ export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: Sup
 
         {/* Acciones Rápidas */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-blue-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-blue-50 dark:bg-blue-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <TrendingUp className="h-5 w-5" /> Acciones Rápidas
             </CardTitle>
           </CardHeader>

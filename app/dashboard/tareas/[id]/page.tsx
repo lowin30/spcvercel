@@ -16,6 +16,7 @@ import { toast } from "@/components/ui/use-toast"
 import Link from "next/link"
 import { ArrowLeft, Calendar, MapPin, Calculator, FileText, UserPlus, UserCog, AlertTriangle, Loader2, X, UserRound, CalendarDays, CheckCircle, Circle, Map, Phone, InfoIcon, Users, Building, BuildingIcon, LinkIcon, ExternalLink, Trash2Icon, TrashIcon, EditIcon, FileTextIcon } from "lucide-react";
 import { DatePickerVisual } from "@/components/date-picker-visual"
+import { DatePickerDiaSimple } from "@/components/date-picker-dia-simple"
 import { RegistroParteTrabajoForm } from "@/components/registro-parte-trabajo-form";
 import { EstadoInteractivo } from "@/components/estado-interactivo"
 import { PrioridadInteractiva } from "@/components/prioridad-interactiva"
@@ -776,7 +777,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             <div>
               <h3 className="font-medium mb-1">Fecha de visita</h3>
               <div className="flex items-center mb-2">
-                <DatePickerVisual
+                <DatePickerDiaSimple
                   date={tarea.fecha_visita ? new Date(tarea.fecha_visita) : null}
                   onDateChange={onDateChange}
                   disabled={false} // Permitir que todos los roles puedan modificar la fecha de visita

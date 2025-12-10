@@ -93,7 +93,7 @@ export function AdministradoresTab({ administradores = [] }: AdministradoresTabP
       <Card>
         <CardHeader className="flex flex-row items-center justify-between md:block hidden">
           <div>
-            <CardTitle>Lista de Administradores</CardTitle>
+            <CardTitle className="text-foreground">Lista de Administradores</CardTitle>
             <CardDescription>Administradores registrados en el sistema</CardDescription>
           </div>
           <div className="flex items-center space-x-2">

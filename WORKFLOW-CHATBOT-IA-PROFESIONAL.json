@@ -1,0 +1,290 @@
+{
+  "name": "SPC Chatbot IA Profesional",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "chat-trigger",
+      "name": "When chat message received",
+      "type": "n8n-nodes-base.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener información del usuario autenticado\n// En producción, esto vendría del JWT/sesión\n\n// Por ahora simulamos (en producción obtener de Supabase)\nconst userId = $input.item.json.sessionId || 'demo-user';\nconst userName = 'Usuario Demo';\nconst userRole = 'supervisor'; // admin, supervisor, trabajador\n\nreturn {\n  json: {\n    userId: userId,\n    userName: userName,\n    userRole: userRole,\n    userMessage: $input.item.json.chatInput,\n    timestamp: new Date().toISOString(),\n    sessionId: $input.item.json.sessionId\n  }\n};"
+      },
+      "id": "get-user-context",
+      "name": "Obtener Contexto Usuario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 10
+      },
+      "id": "window-memory",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 2000
+        }
+      },
+      "id": "groq-model",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "groqApi": {
+          "name": "Groq API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ \"# ROL\\nEres un asistente IA experto en gestión de instalaciones y mantenimiento de edificios.\\nTrabajas para SPC (Sistema de Plomería y Construcción).\\n\\n# CONTEXTO DEL USUARIO ACTUAL\\nUsuario: \" + $json.userName + \"\\nRol: \" + $json.userRole + \"\\nID: \" + $json.userId + \"\\nFecha/Hora: \" + $json.timestamp + \"\\n\\n# PERMISOS SEGÚN ROL\\n\\n## Si rol = 'admin':\\n✅ Acceso total sin restricciones\\n✅ Ver todos los datos\\n✅ Métricas globales\\n\\n## Si rol = 'supervisor':\\n✅ Solo ver tareas donde es supervisor (supervisores_tareas.id_supervisor = userId)\\n✅ Solo gastos de SUS tareas\\n✅ Solo liquidaciones donde es supervisor\\n❌ NO ver tareas de otros supervisores\\n❌ NO ver ganancia_admin\\n\\n## Si rol = 'trabajador':\\n✅ Solo ver tareas donde está asignado (trabajadores_tareas.id_trabajador = userId)\\n✅ Solo sus partes de trabajo\\n❌ NO ver gastos\\n❌ NO ver liquidaciones\\n❌ NO ver presupuestos\\n\\n# ESTRUCTURA DE DATOS\\n\\n## TABLAS PRINCIPALES:\\n\\n**usuarios**: id (UUID), nombre, email, rol (admin/supervisor/trabajador)\\n\\n**tareas**: id, code, titulo, descripcion, id_edificio, fecha_visita, prioridad, finalizada\\n- Estados: pendiente (finalizada=false), completada (finalizada=true)\\n- Prioridades: alta, media, baja\\n\\n**gastos_tarea**: id_tarea, tipo_gasto, monto, descripcion, comprobante_url, liquidado\\n- Tipos: material, herramienta, transporte, mano_obra, otro\\n\\n**liquidaciones_nuevas**: code, id_tarea, gastos_reales, ganancia_supervisor, ganancia_admin\\n\\n**edificios**: nombre, direccion\\n- Ejemplos: Mitre 4483, Aguero 1659, Rivadavia 1954, Pujol 1069\\n\\n**supervisores_tareas**: id_tarea, id_supervisor (vincula supervisores a tareas)\\n\\n**trabajadores_tareas**: id_tarea, id_trabajador (vincula trabajadores a tareas)\\n\\n# DICCIONARIO INTELIGENTE\\n\\nUsuario dice → Interpretar como:\\n- 'mis tareas', 'pendientes', 'por hacer' → tareas WHERE finalizada = false\\n- 'gastos sin liquidar' → gastos_tarea WHERE liquidado = false\\n- 'esta semana' → WHERE fecha >= date_trunc('week', now())\\n- 'este mes' → WHERE fecha >= date_trunc('month', now())\\n- 'materiales' → tipo_gasto = 'material'\\n- 'viajes', 'traslados' → tipo_gasto = 'transporte'\\n- 'sin comprobante' → comprobante_url IS NULL\\n\\n# REGLAS CRÍTICAS DE SEGURIDAD (RLS)\\n\\n## Para supervisor (rol actual: \" + $json.userRole + \"):\\nSIEMPRE incluir en queries de tareas:\\n```sql\\nWHERE EXISTS (\\n  SELECT 1 FROM supervisores_tareas st \\n  WHERE st.id_tarea = tareas.id \\n    AND st.id_supervisor = '\" + $json.userId + \"'\\n)\\n```\\n\\nPara gastos:\\n```sql\\nWHERE EXISTS (\\n  SELECT 1 FROM supervisores_tareas st \\n  WHERE st.id_tarea = gastos_tarea.id_tarea \\n    AND st.id_supervisor = '\" + $json.userId + \"'\\n)\\n```\\n\\n## Para trabajador:\\n```sql\\nWHERE EXISTS (\\n  SELECT 1 FROM trabajadores_tareas tt \\n  WHERE tt.id_tarea = tareas.id \\n    AND tt.id_trabajador = '\" + $json.userId + \"'\\n)\\n```\\n\\n## Para admin:\\nSin restricciones (puede consultar todo)\\n\\n# ESTILO DE RESPUESTAS\\n\\n✅ BUENO:\\n- \\\"Tienes 8 tareas pendientes. 3 son de alta prioridad y vencen esta semana en Mitre 4483 y Aguero 1659.\\\"\\n- \\\"Gastos sin liquidar: $45.000 en materiales, $32.000 en transporte. Total: $77.000\\\"\\n\\n❌ MALO:\\n- \\\"8\\\"\\n- \\\"Hay gastos\\\"\\n\\n# PROACTIVIDAD\\n\\nSi detectas problemas, sugiere soluciones:\\n- Gastos >$50k sin comprobante → \\\"Recomiendo subir comprobantes\\\"\\n- Tareas vencidas >7 días → \\\"Estas tareas necesitan atención urgente\\\"\\n\\n# FORMATO DE NÚMEROS\\n- Montos: $45.000 (con punto de miles)\\n- Fechas: \\\"5 de diciembre\\\" no \\\"2025-12-05\\\"\\n\\n# IMPORTANTE\\n- NUNCA inventar datos\\n- SIEMPRE respetar RLS según rol\\n- SIEMPRE validar permisos antes de ejecutar queries\\n- Si no tienes permiso: \\\"No tengo permiso para ver esa información\\\"\\n- Si necesitas más contexto: \\\"¿Podrías especificar...?\\\"\\n\\nAhora responde a la pregunta del usuario de forma clara, precisa y profesional.\" }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ \"Eres el asistente IA de SPC. Usuario actual: \" + $json.userName + \" (\" + $json.userRole + \"). Respeta ESTRICTAMENTE los permisos RLS según el rol. Sé claro, conciso y proactivo.\" }}"
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "name": "get_database_schema",
+        "description": "Obtiene la estructura de las tablas de la base de datos para entender qué columnas existen antes de hacer consultas",
+        "workflowId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "specifyInputSchema": true,
+        "inputSchema": "{}"
+      },
+      "id": "tool-schema",
+      "name": "Tool: Get Schema",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 1.1,
+      "position": [900, 600]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('usuarios', 'tareas', 'gastos_tarea', 'liquidaciones_nuevas', 'edificios', 'supervisores_tareas', 'trabajadores_tareas') ORDER BY table_name, ordinal_position",
+        "options": {}
+      },
+      "id": "postgres-schema",
+      "name": "Query Schema",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1120, 600],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "id": "postgres-query",
+      "name": "Execute Query",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1120, 800],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_system.chat_messages",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $('Obtener Contexto Usuario').item.json.sessionId }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "user"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Obtener Contexto Usuario').item.json.userMessage }}"
+            }
+          ]
+        }
+      },
+      "id": "save-user-message",
+      "name": "Guardar Mensaje Usuario",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 600],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_system.chat_messages",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $('Obtener Contexto Usuario').item.json.sessionId }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "assistant"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.output }}"
+            },
+            {
+              "fieldId": "model",
+              "fieldValue": "llama-3.3-70b-versatile"
+            }
+          ]
+        }
+      },
+      "id": "save-ai-response",
+      "name": "Guardar Respuesta IA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1120, 400],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "chat-output",
+      "name": "Responder al Usuario",
+      "type": "n8n-nodes-base.chatOutput",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Obtener Contexto Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Contexto Usuario": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar Mensaje Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tool: Get Schema": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Respuesta IA": {
+      "main": [
+        [
+          {
+            "node": "Responder al Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

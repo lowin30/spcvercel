@@ -133,7 +133,7 @@ export function ProductosTab({ productos: initialProductos, categorias: initialC
       <Card>
         <CardHeader className="flex flex-row items-center justify-between md:block hidden">
           <div>
-            <CardTitle className="text-2xl">Gestión de Productos</CardTitle>
+            <CardTitle className="text-2xl text-foreground">Gestión de Productos</CardTitle>
             <CardDescription>Administra los productos disponibles en el sistema</CardDescription>
           </div>
           <Button className="flex items-center" asChild>
@@ -258,7 +258,7 @@ export function ProductosTab({ productos: initialProductos, categorias: initialC
               </div>
             ) : (
               filteredProductos.map((producto) => (
-                <div key={producto.id} className="bg-white p-4 rounded-lg border shadow-sm">
+                <div key={producto.id} className="bg-card p-4 rounded-lg border shadow-sm">
                   <div className="flex justify-between items-center mb-3">
                     <div>
                       <div className="font-semibold truncate mb-1">{producto.nombre}</div>

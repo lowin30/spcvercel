@@ -41,16 +41,16 @@ export function CalendarDayTasksModal({
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col"
+        className="bg-card rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 capitalize">
+            <h3 className="text-lg font-bold text-foreground capitalize">
               {fechaFormateada}
             </h3>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {tareas.length} {tareas.length === 1 ? 'tarea' : 'tareas'}
             </p>
           </div>
@@ -58,7 +58,7 @@ export function CalendarDayTasksModal({
             variant="ghost"
             size="icon"
             onClick={onClose}
-            className="h-8 w-8 rounded-full hover:bg-gray-100"
+            className="h-8 w-8 rounded-full hover:bg-accent"
           >
             <X className="h-5 w-5" />
           </Button>
@@ -68,8 +68,8 @@ export function CalendarDayTasksModal({
         <div className="flex-1 overflow-y-auto p-4">
           {tareas.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-gray-400 text-5xl mb-3">📅</div>
-              <p className="text-gray-500 font-medium">No hay tareas para este día</p>
+              <div className="text-muted-foreground text-5xl mb-3">📅</div>
+              <p className="text-muted-foreground font-medium">No hay tareas para este día</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -96,24 +96,24 @@ export function CalendarDayTasksModal({
                           className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
                           style={{
                             backgroundColor: colorFondo,
-                            color: '#111827'
+                            color: 'var(--foreground)'
                           }}
                         >
                           {tarea.estado_tarea}
                         </span>
-                        <span className="text-xs text-gray-500 font-medium">
+                        <span className="text-xs text-muted-foreground font-medium">
                           #{tarea.id}
                         </span>
                       </div>
 
                       {/* Título */}
-                      <h4 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-2">
+                      <h4 className="text-sm font-semibold text-foreground mb-1 line-clamp-2">
                         {tarea.titulo}
                       </h4>
 
                       {/* Prioridad */}
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-500">Prioridad:</span>
+                        <span className="text-xs text-muted-foreground">Prioridad:</span>
                         <span 
                           className={`text-xs font-medium ${
                             tarea.prioridad === 'Alta' || tarea.prioridad === 'Urgente'
@@ -141,7 +141,7 @@ export function CalendarDayTasksModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 border-t border-border bg-muted/50">
           <Button
             variant="outline"
             onClick={onClose}

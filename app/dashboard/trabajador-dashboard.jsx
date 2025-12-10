@@ -20,8 +20,8 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Panel Personal */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-purple-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-purple-50 dark:bg-purple-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <Clock className="h-5 w-5" /> Panel Personal
             </CardTitle>
           </CardHeader>
@@ -61,8 +61,8 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks }) {
 
         {/* Estado de Mis Tareas */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-green-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-green-50 dark:bg-green-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <CheckCircle className="h-5 w-5" /> Estado de Mis Tareas
             </CardTitle>
           </CardHeader>

@@ -57,8 +57,8 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks, userI
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Panel Personal */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-purple-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-purple-50 dark:bg-purple-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <Clock className="h-5 w-5" /> Panel Personal
             </CardTitle>
           </CardHeader>

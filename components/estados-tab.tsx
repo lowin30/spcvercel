@@ -99,8 +99,8 @@ export function EstadosTab({
             <TabsContent value="tareas" className="space-y-4 mt-4">
               {/* Vista de tabla para pantallas medianas y grandes */}
               <div className="border rounded-md overflow-hidden hidden md:block">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nombre
@@ -116,13 +116,13 @@ export function EstadosTab({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                     {estadosTareas.map((estado) => (
-                      <tr key={estado.id} className="hover:bg-gray-50">
+                      <tr key={estado.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           {estado.nombre || "Sin nombre"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                           {estado.orden}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -130,7 +130,7 @@ export function EstadosTab({
                             {estado.color}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                           {estado.descripcion || "Sin descripción"}
                         </td>
                       </tr>
@@ -143,21 +143,21 @@ export function EstadosTab({
               <div className="grid grid-cols-1 gap-4 md:hidden">
                 {estadosTareas.length > 0 ? (
                   estadosTareas.map((estado) => (
-                    <div key={estado.id} className="bg-white p-4 rounded-lg border shadow-sm">
+                    <div key={estado.id} className="bg-card p-4 rounded-lg border shadow-sm">
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="text-sm font-medium">{estado.nombre || "Sin nombre"}</h3>
                         <Badge className={getColorClase(estado.color)}>
                           {estado.color}
                         </Badge>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-muted-foreground mt-1">
                         <div className="flex justify-between py-1">
                           <span>Orden:</span>
                           <span className="font-medium">{estado.orden}</span>
                         </div>
                         {estado.descripcion && (
                           <div className="mt-2 border-t pt-2">
-                            <span className="block text-xs text-gray-700">Descripción:</span>
+                            <span className="block text-xs text-foreground">Descripción:</span>
                             <span className="text-xs">{estado.descripcion}</span>
                           </div>
                         )}
@@ -176,8 +176,8 @@ export function EstadosTab({
             <TabsContent value="presupuestos" className="space-y-4 mt-4">
               {/* Vista de tabla para pantallas medianas y grandes */}
               <div className="border rounded-md overflow-hidden hidden md:block">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nombre
@@ -193,13 +193,13 @@ export function EstadosTab({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                     {estadosPresupuestos.map((estado) => (
-                      <tr key={estado.id} className="hover:bg-gray-50">
+                      <tr key={estado.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           {estado.nombre || "Sin nombre"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                           {estado.orden}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -207,7 +207,7 @@ export function EstadosTab({
                             {estado.color}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
                           {estado.descripcion || "Sin descripción"}
                         </td>
                       </tr>
@@ -220,21 +220,21 @@ export function EstadosTab({
               <div className="grid grid-cols-1 gap-4 md:hidden">
                 {estadosPresupuestos.length > 0 ? (
                   estadosPresupuestos.map((estado) => (
-                    <div key={estado.id} className="bg-white p-4 rounded-lg border shadow-sm">
+                    <div key={estado.id} className="bg-card p-4 rounded-lg border shadow-sm">
                       <div className="flex justify-between items-center mb-2">
                         <h3 className="text-sm font-medium">{estado.nombre || "Sin nombre"}</h3>
                         <Badge className={getColorClase(estado.color)}>
                           {estado.color}
                         </Badge>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-muted-foreground mt-1">
                         <div className="flex justify-between py-1">
                           <span>Orden:</span>
                           <span className="font-medium">{estado.orden}</span>
                         </div>
                         {estado.descripcion && (
                           <div className="mt-2 border-t pt-2">
-                            <span className="block text-xs text-gray-700">Descripción:</span>
+                            <span className="block text-xs text-foreground">Descripción:</span>
                             <span className="text-xs">{estado.descripcion}</span>
                           </div>
                         )}

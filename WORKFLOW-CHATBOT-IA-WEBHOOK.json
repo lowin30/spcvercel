@@ -1,0 +1,242 @@
+{
+  "name": "SPC Chatbot IA - Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "spc-chatbot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Chatbot",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "spc-chatbot"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener datos del request\nconst body = $input.item.json.body || $input.item.json;\n\n// Extraer mensaje y sesión\nconst userMessage = body.message || body.chatInput || '';\nconst sessionId = body.sessionId || body.session || 'default';\n\n// Por ahora simulamos usuario (en producción viene del JWT)\nconst userId = body.userId || 'demo-user';\nconst userName = body.userName || 'Usuario Demo';\nconst userRole = body.userRole || 'supervisor'; // admin, supervisor, trabajador\n\nreturn {\n  json: {\n    userId: userId,\n    userName: userName,\n    userRole: userRole,\n    userMessage: userMessage,\n    timestamp: new Date().toISOString(),\n    sessionId: sessionId\n  }\n};"
+      },
+      "id": "get-user-context",
+      "name": "Obtener Contexto Usuario",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_system.chat_conversations",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "session_id",
+              "fieldValue": "={{ $json.sessionId }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "Conversación"
+            }
+          ]
+        },
+        "options": {
+          "skipOnConflict": true
+        }
+      },
+      "id": "create-conversation",
+      "name": "Crear Conversación",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 200],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ \"SELECT COUNT(*) as total FROM tareas WHERE finalizada = false\" + (($json.userRole === 'supervisor') ? \" AND EXISTS (SELECT 1 FROM supervisores_tareas WHERE id_tarea = tareas.id AND id_supervisor = '\" + $json.userId + \"')\" : \"\") + (($json.userRole === 'trabajador') ? \" AND EXISTS (SELECT 1 FROM trabajadores_tareas WHERE id_tarea = tareas.id AND id_trabajador = '\" + $json.userId + \"')\" : \"\") }}",
+        "options": {}
+      },
+      "id": "query-tareas",
+      "name": "Consultar Tareas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [900, 400],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construir respuesta inteligente basada en el mensaje del usuario\nconst userMessage = $('Obtener Contexto Usuario').item.json.userMessage.toLowerCase();\nconst userRole = $('Obtener Contexto Usuario').item.json.userRole;\nconst userName = $('Obtener Contexto Usuario').item.json.userName;\n\nconst tareasTotal = $json.total || 0;\n\nlet response = '';\n\n// Detectar intención del usuario\nif (userMessage.includes('hola') || userMessage.includes('hey')) {\n  response = `¡Hola ${userName}! Soy el asistente IA de SPC. ¿En qué puedo ayudarte hoy?\\n\\n`;\n  response += `Puedes preguntarme sobre:\\n`;\n  response += `• Tareas pendientes\\n`;\n  \n  if (userRole === 'supervisor' || userRole === 'admin') {\n    response += `• Gastos y liquidaciones\\n`;\n  }\n  \n  response += `• Estado de edificios\\n`;\n  response += `• Resumen de actividades`;\n  \n} else if (userMessage.includes('tarea') || userMessage.includes('pendiente')) {\n  if (tareasTotal === 0) {\n    response = `✅ ¡Excelente! No tienes tareas pendientes en este momento.`;\n  } else if (tareasTotal === 1) {\n    response = `📋 Tienes 1 tarea pendiente.`;\n  } else {\n    response = `📋 Tienes ${tareasTotal} tareas pendientes.`;\n  }\n  \n  if (userRole === 'supervisor') {\n    response += `\\n\\nEstas son las tareas que supervisas.`;\n  } else if (userRole === 'trabajador') {\n    response += `\\n\\nEstas son las tareas donde estás asignado.`;\n  }\n  \n} else if (userMessage.includes('resumen')) {\n  response = `📊 **Resumen SPC**\\n\\n`;\n  response += `👤 Usuario: ${userName}\\n`;\n  response += `🎭 Rol: ${userRole}\\n`;\n  response += `📋 Tareas pendientes: ${tareasTotal}\\n\\n`;\n  \n  if (tareasTotal > 0) {\n    response += `Tienes trabajo por hacer. ¿Quieres ver los detalles?`;\n  }\n  \n} else {\n  // Respuesta por defecto\n  response = `Entiendo que preguntas sobre: \"${$('Obtener Contexto Usuario').item.json.userMessage}\"\\n\\n`;\n  response += `📊 Información actual:\\n`;\n  response += `• Tareas pendientes: ${tareasTotal}\\n\\n`;\n  response += `¿Puedes ser más específico? Puedo ayudarte con:\\n`;\n  response += `• Estado de tareas\\n`;\n  \n  if (userRole !== 'trabajador') {\n    response += `• Gastos y liquidaciones\\n`;\n  }\n  \n  response += `• Información de edificios`;\n}\n\nreturn {\n  json: {\n    response: response,\n    tareas_pendientes: tareasTotal,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "generate-response",
+      "name": "Generar Respuesta IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_system.chat_messages",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $('Obtener Contexto Usuario').item.json.sessionId }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "user"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Obtener Contexto Usuario').item.json.userMessage }}"
+            }
+          ]
+        }
+      },
+      "id": "save-user-message",
+      "name": "Guardar Mensaje Usuario",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [680, 600],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "ai_system.chat_messages",
+        "dataMode": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $('Obtener Contexto Usuario').item.json.sessionId }}"
+            },
+            {
+              "fieldId": "role",
+              "fieldValue": "assistant"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.response }}"
+            },
+            {
+              "fieldId": "model",
+              "fieldValue": "rule-based-v1"
+            }
+          ]
+        }
+      },
+      "id": "save-ai-response",
+      "name": "Guardar Respuesta IA",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1340, 400],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"response\": $json.response, \"tareas_pendientes\": $('Generar Respuesta IA').item.json.tareas_pendientes, \"timestamp\": $json.timestamp } }}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Chatbot": {
+      "main": [
+        [
+          {
+            "node": "Obtener Contexto Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Contexto Usuario": {
+      "main": [
+        [
+          {
+            "node": "Crear Conversación",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Consultar Tareas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar Mensaje Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Tareas": {
+      "main": [
+        [
+          {
+            "node": "Generar Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Respuesta IA": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Respuesta IA": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

@@ -52,14 +52,14 @@ function CustomDateHeader({ date, isMobile }: { date: Date; isMobile: boolean })
   
   return (
     <div className={`text-center ${isMobile ? 'py-0.5 px-0' : 'py-1 px-1'} ${esHoy ? 'relative' : ''}`}>
-      <div className={`uppercase text-gray-500 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+      <div className={`uppercase text-muted-foreground ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
         {diaSemanaLetra}
       </div>
       <div className={`
         font-medium 
         ${isMobile ? 'text-[10px]' : 'text-sm'}
         ${esHoy ? `rounded-full bg-primary/10 text-primary font-bold ${isMobile ? 'w-5 h-5' : 'w-7 h-7'} flex items-center justify-center mx-auto` : ''}
-        ${esFindeSemana && !esHoy ? 'text-gray-400' : 'text-gray-900'}
+        ${esFindeSemana && !esHoy ? 'text-muted-foreground' : 'text-foreground'}
       `}>
         {numeroDia}
       </div>
@@ -105,7 +105,7 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
           style: {
             backgroundColor: colorFondo,
             borderLeft: `4px solid ${colorBorde}`,
-            color: '#111827'
+            color: 'hsl(var(--foreground))'
           }
         }
       })
@@ -158,9 +158,9 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
   }
 
   return (
-    <div className="calendario-container bg-white rounded-lg p-4 shadow-sm">
+    <div className="calendario-container bg-card rounded-lg p-4 shadow-sm">
       {/* Navegación simple */}
-      <div className="bg-white rounded-lg shadow-sm p-3 mb-4 border border-gray-200">
+      <div className="bg-card rounded-lg shadow-sm p-3 mb-4 border border-border">
         <div className="flex items-center justify-between">
           <Button 
             variant="outline" 
@@ -172,10 +172,10 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
           </Button>
           
           <div className="flex flex-col items-center">
-            <span className="text-xs text-gray-500 font-medium uppercase">
+            <span className="text-xs text-muted-foreground font-medium uppercase">
               {format(currentDate, 'MMMM', { locale: es })}
             </span>
-            <span className="text-xl font-bold text-gray-900">
+            <span className="text-xl font-bold text-foreground">
               {format(currentDate, 'yyyy', { locale: es })}
             </span>
           </div>
@@ -185,7 +185,7 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
               variant="outline" 
               size="sm"
               onClick={() => setCurrentDate(new Date())}
-              className="h-9 px-3 font-semibold text-blue-600 border-blue-200"
+              className="h-9 px-3 font-semibold text-primary border border-primary/20"
             >
               Hoy
             </Button>
@@ -224,7 +224,7 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
               style: {
                 backgroundColor: colorFondo,
                 borderLeft: `4px solid ${colorBorde}`,
-                color: '#111827',
+                color: 'hsl(var(--foreground))',
                 padding: isMobile ? '2px 4px' : '3px 6px',
                 borderRadius: isMobile ? '4px' : '6px',
                 fontSize: isMobile ? '9px' : '12px',
@@ -269,6 +269,28 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
         getColorFondo={getColorPorEstadoTarea}
         getColorBorde={getBordePorEstadoTarea}
       />
+      <style jsx global>{`
+        .dark .rbc-calendar { color: hsl(var(--foreground)) !important; }
+        .dark .rbc-month-view,
+        .dark .rbc-row-content,
+        .dark .rbc-row { background: hsl(var(--card)) !important; }
+        .dark .rbc-header { background: hsl(var(--card)) !important; border-bottom: 2px solid hsl(var(--border)) !important; color: hsl(var(--muted-foreground)) !important; }
+        .dark .rbc-month-row { border-bottom: 1px solid hsl(var(--border)) !important; }
+        .dark .rbc-month-row + .rbc-month-row { border-top: 1px solid hsl(var(--border)) !important; }
+        .dark .rbc-day-bg { border-right: 1px solid hsl(var(--border)) !important; }
+        .dark .rbc-day-bg:hover { background-color: hsl(var(--muted)) !important; }
+        .dark .rbc-date-cell button { color: hsl(var(--foreground)) !important; }
+        .dark .rbc-date-cell button:hover { background-color: hsl(var(--muted)) !important; }
+        .dark .rbc-today { background: transparent !important; border: 2px solid hsl(var(--primary)) !important; box-shadow: inset 0 0 0 1px transparent !important; }
+        .dark .rbc-off-range { background-color: transparent !important; }
+        .dark .rbc-off-range .rbc-date-cell button { color: hsl(var(--muted-foreground)) !important; font-weight: 400 !important; }
+        .dark .rbc-off-range-bg { background-color: transparent !important; }
+        .dark .rbc-event { color: hsl(var(--foreground)) !important; }
+        .dark .rbc-show-more { color: hsl(var(--primary)) !important; background: transparent !important; border: 1px solid hsl(var(--border)) !important; }
+        .dark .rbc-overlay { background-color: hsl(var(--card)) !important; border: 1px solid hsl(var(--border)) !important; }
+        .dark .rbc-overlay-header { color: hsl(var(--foreground)) !important; border-bottom: 2px solid hsl(var(--border)) !important; }
+        .dark .rbc-day-bg:nth-child(7), .dark .rbc-day-bg:nth-child(1) { background-color: transparent !important; }
+      `}</style>
     </div>
   )
 }

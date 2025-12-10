@@ -22,8 +22,8 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Panel Financiero */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-amber-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-amber-50 dark:bg-amber-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <CreditCard className="h-5 w-5" /> Panel Financiero
             </CardTitle>
           </CardHeader>
@@ -63,8 +63,8 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
 
         {/* Acciones Rápidas */}
         <Card className="border shadow-sm">
-          <CardHeader className="bg-blue-50 border-b">
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="bg-blue-50 dark:bg-blue-400/10 border-b">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <TrendingUp className="h-5 w-5" /> Acciones Rápidas
             </CardTitle>
           </CardHeader>

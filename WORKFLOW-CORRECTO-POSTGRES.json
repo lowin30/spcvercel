@@ -1,0 +1,113 @@
+{
+  "name": "TEST Webhook Postgres Directo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-postgres",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "test-postgres"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) as total FROM tareas WHERE finalizada = false",
+        "options": {}
+      },
+      "id": "postgres-node",
+      "name": "Query Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "name": "mcp supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "total",
+              "name": "tareas_pendientes",
+              "value": "={{ $json.total }}",
+              "type": "number"
+            },
+            {
+              "id": "mensaje",
+              "name": "mensaje",
+              "value": "={{ 'Hay ' + $json.total + ' tareas pendientes' }}",
+              "type": "string"
+            },
+            {
+              "id": "success",
+              "name": "success",
+              "value": "=true",
+              "type": "boolean"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "prepare-node",
+      "name": "Preparar Respuesta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{
+        "node": "Query Postgres",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "Query Postgres": {
+      "main": [[{
+        "node": "Preparar Respuesta",
+        "type": "main",
+        "index": 0
+      }]]
+    },
+    "Preparar Respuesta": {
+      "main": [[{
+        "node": "Responder",
+        "type": "main",
+        "index": 0
+      }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

@@ -1,0 +1,236 @@
+{
+  "name": "SPC Chatbot Pro - HTTP API",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "spc-chatbot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 400],
+      "webhookId": "spc-chatbot-pro"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer y validar datos del request\nconst body = $input.item.json.body || $input.item.json;\n\n// Datos del usuario\nconst userMessage = body.message || body.chatInput || '';\nconst sessionId = body.sessionId || body.session || `session-${Date.now()}`;\nconst userId = body.userId || 'f1d219b3-c118-476d-a0f4-fec17da668b5';\nconst userName = body.userName || 'Usuario Demo';\nconst userRole = body.userRole || 'supervisor';\n\n// Validación\nif (!userMessage || userMessage.trim() === '') {\n  throw new Error('Mensaje vacío');\n}\n\nreturn {\n  json: {\n    userId: userId,\n    userName: userName,\n    userRole: userRole,\n    userMessage: userMessage.trim(),\n    timestamp: new Date().toISOString(),\n    sessionId: sessionId,\n    // Para Supabase REST API\n    supabase_url: 'https://fodyzgjwoccpsjmfinvm.supabase.co',\n    service_role_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvZHl6Z2p3b2NjcHNqbWZpbnZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcxNjE4NTE0OCwiZXhwIjoyMDMxNzYxMTQ4fQ.1OIkRlqo_BJ4emSa1n_GCOe7jK5FQlsn1OsO73xFxZw'\n  }\n};"
+      },
+      "id": "context",
+      "name": "Preparar Contexto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.supabase_url }}/rest/v1/rpc/count_tareas_pendientes",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "p_user_id",
+              "value": "={{ $json.userId }}"
+            },
+            {
+              "name": "p_user_role",
+              "value": "={{ $json.userRole }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "count-tareas",
+      "name": "Contar Tareas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construir respuesta inteligente\nconst userMessage = $('Preparar Contexto').item.json.userMessage.toLowerCase();\nconst userRole = $('Preparar Contexto').item.json.userRole;\nconst userName = $('Preparar Contexto').item.json.userName;\nconst sessionId = $('Preparar Contexto').item.json.sessionId;\n\nconst tareasTotal = $json.count || 0;\n\nlet response = '';\n\n// Detección de intención\nif (userMessage.includes('hola') || userMessage.includes('hey') || userMessage.includes('buenas')) {\n  response = `¡Hola ${userName}! 👋 Soy tu asistente inteligente de SPC.\\n\\n`;\n  response += `Puedo ayudarte con:\\n`;\n  response += `📋 Consultar tareas pendientes\\n`;\n  \n  if (userRole === 'supervisor' || userRole === 'admin') {\n    response += `💰 Revisar gastos y liquidaciones\\n`;\n  }\n  \n  response += `🏢 Estado de edificios\\n`;\n  response += `📊 Generar resúmenes\\n\\n`;\n  response += `¿En qué te puedo ayudar hoy?`;\n  \n} else if (userMessage.includes('tarea') || userMessage.includes('pendiente') || userMessage.includes('trabajo')) {\n  \n  if (tareasTotal === 0) {\n    response = `✅ ¡Excelente trabajo! No tienes tareas pendientes en este momento.`;\n  } else if (tareasTotal === 1) {\n    response = `📋 Tienes **1 tarea pendiente** que requiere tu atención.`;\n  } else {\n    response = `📋 Tienes **${tareasTotal} tareas pendientes**.`;\n  }\n  \n  if (userRole === 'supervisor') {\n    response += `\\n\\n💼 Como supervisor, estas son las tareas bajo tu supervisión.`;\n  } else if (userRole === 'trabajador') {\n    response += `\\n\\n👷 Estas son las tareas donde estás asignado.`;\n  } else if (userRole === 'admin') {\n    response += `\\n\\n👑 Como administrador, tienes visibilidad total del sistema.`;\n  }\n  \n  if (tareasTotal > 0) {\n    response += `\\n\\n¿Quieres que te muestre más detalles?`;\n  }\n  \n} else if (userMessage.includes('resumen') || userMessage.includes('estado') || userMessage.includes('overview')) {\n  \n  response = `📊 **Resumen SPC**\\n\\n`;\n  response += `👤 Usuario: ${userName}\\n`;\n  response += `🎭 Rol: ${userRole}\\n`;\n  response += `📋 Tareas pendientes: **${tareasTotal}**\\n`;\n  response += `🕐 Última actualización: ${new Date().toLocaleTimeString('es-AR')}\\n\\n`;\n  \n  if (tareasTotal > 5) {\n    response += `⚠️ Tienes varias tareas acumuladas. ¿Necesitas priorizarlas?`;\n  } else if (tareasTotal > 0) {\n    response += `✅ Volumen de trabajo manejable.`;\n  } else {\n    response += `🎉 ¡Todo al día!`;\n  }\n  \n} else if (userMessage.includes('ayuda') || userMessage.includes('help') || userMessage.includes('qué puedes')) {\n  \n  response = `💡 **Guía Rápida**\\n\\n`;\n  response += `Puedo ayudarte con:\\n\\n`;\n  response += `📋 **Tareas**\\n`;\n  response += `   • \"¿Cuántas tareas tengo?\"\\n`;\n  response += `   • \"Muéstrame mis pendientes\"\\n\\n`;\n  \n  if (userRole !== 'trabajador') {\n    response += `💰 **Finanzas**\\n`;\n    response += `   • \"Gastos sin liquidar\"\\n`;\n    response += `   • \"Resumen de liquidaciones\"\\n\\n`;\n  }\n  \n  response += `📊 **Reportes**\\n`;\n  response += `   • \"Dame un resumen\"\\n`;\n  response += `   • \"Estado general\"\\n\\n`;\n  response += `¿Qué necesitas consultar?`;\n  \n} else {\n  // Respuesta por defecto con contexto\n  response = `Entiendo que preguntas sobre: \"${$('Preparar Contexto').item.json.userMessage}\"\\n\\n`;\n  response += `📊 **Información disponible:**\\n`;\n  response += `• Tareas pendientes: **${tareasTotal}**\\n\\n`;\n  \n  response += `💡 Puedes preguntarme cosas como:\\n`;\n  response += `• \"¿Cuántas tareas tengo?\"\\n`;\n  response += `• \"Dame un resumen\"\\n`;\n  \n  if (userRole !== 'trabajador') {\n    response += `• \"Gastos sin liquidar\"\\n`;\n  }\n}\n\nreturn {\n  json: {\n    response: response,\n    tareas_pendientes: tareasTotal,\n    timestamp: new Date().toISOString(),\n    session_id: sessionId,\n    user_role: userRole\n  }\n};"
+      },
+      "id": "generate-response",
+      "name": "Generar Respuesta IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Preparar Contexto').item.json.supabase_url }}/rest/v1/chat_messages",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Preparar Contexto').item.json.service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Preparar Contexto').item.json.service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"conversation_id\": $('Preparar Contexto').item.json.sessionId,\n  \"role\": \"user\",\n  \"content\": $('Preparar Contexto').item.json.userMessage\n} }}",
+        "options": {}
+      },
+      "id": "save-user-msg",
+      "name": "Guardar Mensaje Usuario",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Preparar Contexto').item.json.supabase_url }}/rest/v1/chat_messages",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Preparar Contexto').item.json.service_role_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Preparar Contexto').item.json.service_role_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"conversation_id\": $json.session_id,\n  \"role\": \"assistant\",\n  \"content\": $json.response,\n  \"model\": \"rule-based-v2\"\n} }}",
+        "options": {}
+      },
+      "id": "save-ai-msg",
+      "name": "Guardar Respuesta IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"response\": $json.response,\n  \"tareas_pendientes\": $('Generar Respuesta IA').item.json.tareas_pendientes,\n  \"timestamp\": $json.timestamp,\n  \"session_id\": $json.session_id\n} }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto": {
+      "main": [
+        [
+          {
+            "node": "Contar Tareas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar Mensaje Usuario",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Tareas": {
+      "main": [
+        [
+          {
+            "node": "Generar Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar Respuesta IA": {
+      "main": [
+        [
+          {
+            "node": "Guardar Respuesta IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Respuesta IA": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

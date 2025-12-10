@@ -179,7 +179,7 @@ export default function ConfiguracionTabs({
       <TabsContent value="usuarios" className="space-y-4 mt-4 mb-4">
         <Card>
           <CardHeader className="md:block hidden">
-            <CardTitle>Usuarios y Roles</CardTitle>
+            <CardTitle className="text-foreground">Usuarios y Roles</CardTitle>
             <CardDescription>Gestión de roles de usuario</CardDescription>
           </CardHeader>
           <CardContent>
@@ -221,7 +221,7 @@ export default function ConfiguracionTabs({
             {/* Formulario de configuración */}
             <Card>
               <CardHeader>
-                <CardTitle>Configuración de Trabajadores</CardTitle>
+                <CardTitle className="text-foreground">Configuración de Trabajadores</CardTitle>
                 <CardDescription>Configura salarios y estado de actividad de los trabajadores</CardDescription>
               </CardHeader>
               <CardContent>
@@ -232,7 +232,7 @@ export default function ConfiguracionTabs({
             {/* Lista de trabajadores */}
             <Card>
               <CardHeader>
-                <CardTitle>Lista de Trabajadores</CardTitle>
+                <CardTitle className="text-foreground">Lista de Trabajadores</CardTitle>
                 <CardDescription>Todos los trabajadores registrados en el sistema</CardDescription>
               </CardHeader>
               <CardContent>

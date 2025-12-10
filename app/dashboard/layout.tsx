@@ -53,7 +53,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           .single()
 
         if (userError || !userData) {
-          console.error("[DashboardLayout] Error al obtener detalles del usuario:", userError)
           if (typeof navigator !== "undefined" && !navigator.onLine) {
             setLoading(false)
             return
@@ -100,13 +99,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Renderizar el dashboard una vez que tenemos los detalles del usuario
   return (
-    <div>
+    <>
       <DashboardShell userDetails={userDetails}>
         {children}
-        <Toaster />
         {/* Chatbot IA - Solo visible si usuario tiene rol válido */}
         {userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
       </DashboardShell>
-    </div>
+      <Toaster />
+    </>
   )
 }

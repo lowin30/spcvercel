@@ -376,7 +376,7 @@ export default function AgendaPage() {
         <TabsContent value="lista" className="mt-2">
           <Card className="shadow-sm">
             <CardHeader className="px-3 py-2 sm:p-4">
-              <CardTitle className="text-base sm:text-lg">
+              <CardTitle className="text-base sm:text-lg text-foreground">
                 Tareas Programadas {tareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({tareas.length})</span>}
               </CardTitle>
             </CardHeader>
@@ -389,7 +389,7 @@ export default function AgendaPage() {
           <Card className="shadow-sm overflow-hidden">
             <CardHeader className="px-3 py-2 sm:p-4">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base sm:text-lg">
+                <CardTitle className="text-base sm:text-lg text-foreground">
                   Calendario de Tareas {tareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({tareas.length})</span>}
                 </CardTitle>
                 <div className="flex items-center gap-1">
