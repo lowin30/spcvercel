@@ -20,6 +20,7 @@ export default function NuevaTareaPage() {
 
   const [supervisores, setSupervisores] = useState<any[]>([])
   const [trabajadores, setTrabajadores] = useState<any[]>([])
+  const [defaultSupervisorId, setDefaultSupervisorId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,7 +83,18 @@ export default function NuevaTareaPage() {
             });
             // Continue execution, TaskForm might still be usable with empty supervisors
           } else {
-            supervisoresData = supervisoresFetched || [];
+            supervisoresData = (supervisoresFetched || []).slice();
+            const isSuper1 = (s: any) => {
+              const email = (s?.email || '').toLowerCase();
+              const code = (s?.code || '').toLowerCase().replace(/\s+/g, '');
+              return email.includes('super1') || code.includes('super1');
+            };
+            // ordenar: super1 primero, el resto preserva orden
+            supervisoresData.sort((a: any, b: any) => {
+              const a1 = isSuper1(a) ? 1 : 0;
+              const b1 = isSuper1(b) ? 1 : 0;
+              return b1 - a1;
+            });
           }
         } catch (error: any) {
           console.error('Error catastrófico fetching supervisores:', error);
@@ -131,6 +143,21 @@ export default function NuevaTareaPage() {
 
         setSupervisores(supervisoresData);
         setTrabajadores(trabajadoresDataMapped);
+
+        // Definir supervisor por defecto según rol
+        let dsId: string | null = null;
+        if (userData?.rol === 'admin') {
+          const findSuper1 = (s: any) => {
+            const email = (s?.email || '').toLowerCase();
+            const code = (s?.code || '').toLowerCase().replace(/\s+/g, '');
+            return email.includes('super1') || code.includes('super1');
+          };
+          const super1 = supervisoresData.find(findSuper1);
+          dsId = super1?.id || (supervisoresData.length > 0 ? supervisoresData[0].id : null);
+        } else if (userData?.rol === 'supervisor') {
+          dsId = userData.id;
+        }
+        setDefaultSupervisorId(dsId);
 
       } catch (err: any) {
         console.error('Error general al cargar datos para nueva tarea:', err);
@@ -184,6 +211,8 @@ export default function NuevaTareaPage() {
       <TaskForm
         supervisores={supervisores}
         trabajadores={trabajadores}
+        defaultSupervisorId={defaultSupervisorId}
+        key={defaultSupervisorId || 'no-super'}
       />
     </div>
   )

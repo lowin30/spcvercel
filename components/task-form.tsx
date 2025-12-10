@@ -81,6 +81,7 @@ type Props = {
   trabajadores: { id: string; email: string; color_perfil: string; rol: string }[]
   contactoId?: number | null
   isEditMode?: boolean // Indica si el formulario está en modo edición
+  defaultSupervisorId?: string | null
 }
 
 const taskStatuses = [
@@ -113,6 +114,7 @@ export function TaskForm({
   trabajadores,
   contactoId = null,
   isEditMode = false,
+  defaultSupervisorId = null,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -179,7 +181,7 @@ export function TaskForm({
       descripcion: task?.descripcion || "",
       id_edificio: task?.id_edificio?.toString() || "",
       departamentos_ids: task?.departamentos_ids || [],
-      id_supervisor: task?.id_supervisor || "", // Valor por defecto vacío
+      id_supervisor: task?.id_supervisor || (defaultSupervisorId ?? ""),
       id_asignado: task?.id_asignado || "", // Valor por defecto vacío
       id_contacto: task?.id_contacto || contactoId || null,
       fecha_visita: task?.fecha_visita ? new Date(task.fecha_visita) : null,
@@ -187,6 +189,15 @@ export function TaskForm({
       id_estado_nuevo: task?.id_estado_nuevo?.toString() || "1",
     },
   })
+
+  // Si llega defaultSupervisorId de forma asíncrona, preseleccionarlo si aún no hay valor
+  useEffect(() => {
+    if (isEditMode) return;
+    const current = form.getValues('id_supervisor');
+    if ((!current || current.trim() === '') && defaultSupervisorId) {
+      form.setValue('id_supervisor', defaultSupervisorId);
+    }
+  }, [defaultSupervisorId, isEditMode, form]);
 
   // Log de props y valores iniciales
   useEffect(() => {
@@ -201,9 +212,8 @@ export function TaskForm({
       // Solo ejecutar si NO estamos en modo edición
       if (isEditMode) return;
       
-      // Si ya hay un supervisor seleccionado, no hacer nada
+      // Tomar el valor actual (puede venir vacío o con el primer elemento por UI)
       const current = form.getValues('id_supervisor');
-      if (current && current.trim() !== '') return;
       
       try {
         // Obtener usuario autenticado actual
@@ -221,12 +231,19 @@ export function TaskForm({
         
         // Si el usuario es supervisor, autoasignarlo
         if (userDetails.rol === 'supervisor') {
-          console.log('Autoasignando supervisor:', userDetails.id);
-          form.setValue('id_supervisor', userDetails.id);
+          if (!current || current.trim() === '') {
+            form.setValue('id_supervisor', userDetails.id);
+          }
         } else if (userDetails.rol === 'admin') {
-          const defaultSuper = supervisores?.find((s) => s.code === 'super1');
-          if (defaultSuper?.id) {
-            form.setValue('id_supervisor', defaultSuper.id);
+          const findSuper1 = (s: any) => {
+            const email = (s?.email || '').toLowerCase();
+            const code = (s?.code || '').toLowerCase().replace(/\s+/g, '');
+            return email.includes('super1') || code.includes('super1');
+          };
+          const defaultSuper = supervisores?.find(findSuper1);
+          const targetId = defaultSuper?.id || (Array.isArray(supervisores) && supervisores.length > 0 ? supervisores[0].id : '');
+          if (targetId && current !== targetId) {
+            form.setValue('id_supervisor', targetId);
           }
         }
       } catch (error) {
