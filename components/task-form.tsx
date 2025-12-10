@@ -195,15 +195,42 @@ export function TaskForm({
     console.log('task.id_estado_nuevo:', task?.id_estado_nuevo);
   }, [task]);
 
+  // Autoasignar supervisor si el usuario actual es supervisor
   useEffect(() => {
-    if (isEditMode) return;
-    const current = form.getValues('id_supervisor');
-    if (current && current.trim() !== '') return;
-    const sup = (supervisores || []).find(s => (s.email || '').toLowerCase() === 'super1@gmail.com');
-    if (sup?.id) {
-      form.setValue('id_supervisor', sup.id);
-    }
-  }, [isEditMode, supervisores, form]);
+    const autoAssignSupervisor = async () => {
+      // Solo ejecutar si NO estamos en modo edición
+      if (isEditMode) return;
+      
+      // Si ya hay un supervisor seleccionado, no hacer nada
+      const current = form.getValues('id_supervisor');
+      if (current && current.trim() !== '') return;
+      
+      try {
+        // Obtener usuario autenticado actual
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        // Obtener detalles del usuario desde la tabla usuarios
+        const { data: userDetails, error } = await supabase
+          .from('usuarios')
+          .select('id, rol')
+          .eq('id', user.id)
+          .single();
+        
+        if (error || !userDetails) return;
+        
+        // Si el usuario es supervisor, autoasignarlo
+        if (userDetails.rol === 'supervisor') {
+          console.log('Autoasignando supervisor:', userDetails.id);
+          form.setValue('id_supervisor', userDetails.id);
+        }
+      } catch (error) {
+        console.error('Error al autoasignar supervisor:', error);
+      }
+    };
+    
+    autoAssignSupervisor();
+  }, [isEditMode, supabase, form]);
 
   // Cargar administradores al montar
   useEffect(() => {
@@ -211,7 +238,7 @@ export function TaskForm({
       const { data, error } = await supabase.from("administradores").select("id, nombre").order("nombre");
       if (error) {
         console.error("Error cargando administradores:", error);
-        toast({ title: "Error", description: "No se pudieron cargar los administradores.", variant: "destructive" });
+        toast.error("No se pudieron cargar los administradores.");
       } else {
         setAdministradoresList(data?.map(admin => ({ ...admin, id: admin.id.toString() })) || []);
         // Preseleccionar si estamos editando
@@ -233,7 +260,7 @@ export function TaskForm({
       const { data, error } = await supabase.from("estados_tareas").select("id, codigo, nombre");
       if (error) {
         console.error("Error cargando estados de tarea:", error);
-        toast({ title: "Error", description: "No se pudieron cargar los estados de tarea.", variant: "destructive" });
+        toast.error("No se pudieron cargar los estados de tarea.");
       } else {
         setEstadoTareasFromDb(data || []);
       }
@@ -262,7 +289,7 @@ export function TaskForm({
         
         if (error) {
           console.error("Error cargando edificios:", error);
-          toast({ title: "Error", description: "No se pudieron cargar los edificios para el administrador.", variant: "destructive" });
+          toast.error("No se pudieron cargar los edificios para el administrador.");
           setEdificiosList([]);
         } else {
           setEdificiosList(data || []);
@@ -346,7 +373,7 @@ export function TaskForm({
       
       if (error) {
         console.error("Error cargando departamentos:", error);
-        toast({ title: "Error", description: "No se pudieron cargar los departamentos para el edificio.", variant: "destructive" });
+        toast.error("No se pudieron cargar los departamentos para el edificio.");
         setDepartamentosList([]);
       } else {
         // Aplicar ordenamiento personalizado a los departamentos
@@ -388,7 +415,7 @@ export function TaskForm({
         
         if (error) {
           console.error("Error cargando teléfonos:", error);
-          toast({ title: "Error", description: "No se pudieron cargar los teléfonos para los departamentos.", variant: "destructive" });
+          toast.error("No se pudieron cargar los teléfonos para los departamentos.");
           setTelefonosList([]);
         } else {
           setTelefonosList(data?.map(tel => ({ ...tel, id: tel.id.toString() })) || []);
@@ -512,31 +539,21 @@ export function TaskForm({
           }
         }
       } else {
-        // Create new task
-        const { data: newTask, error: insertError } = await supabase
-          .from("tareas")
-          .insert(taskDataPayload)
-          .select("id")
-          .single();
-
-        if (insertError) throw insertError;
-        taskId = newTask.id;
-
-        // Create supervisor link
-        if (id_supervisor && id_supervisor.trim() !== "") {
-          const { error: supervisorError } = await supabase
-            .from("supervisores_tareas")
-            .insert({ id_tarea: taskId, id_supervisor: id_supervisor });
-          if (supervisorError) throw supervisorError;
-        }
-        
-        // Create trabajador link (tabla relacional)
-        if (id_asignado && id_asignado.trim() !== "") {
-          const { error: trabajadorError } = await supabase
-            .from("trabajadores_tareas")
-            .insert({ id_tarea: taskId, id_trabajador: id_asignado });
-          if (trabajadorError) throw trabajadorError;
-        }
+        // Crear nueva tarea mediante RPC transaccional para evitar SELECT de representación (RLS)
+        const { data: newTaskId, error: createError } = await supabase.rpc('crear_tarea_con_asignaciones', {
+          p_titulo: taskDataPayload.titulo,
+          p_descripcion: taskDataPayload.descripcion,
+          p_id_administrador: taskDataPayload.id_administrador,
+          p_id_edificio: taskDataPayload.id_edificio,
+          p_prioridad: taskDataPayload.prioridad,
+          p_id_estado_nuevo: taskDataPayload.id_estado_nuevo,
+          p_fecha_visita: taskDataPayload.fecha_visita ?? null,
+          p_id_supervisor: (id_supervisor && id_supervisor.trim() !== '') ? id_supervisor : null,
+          p_id_trabajador: (id_asignado && id_asignado.trim() !== '') ? id_asignado : null,
+          p_departamentos_ids: (departamentos_ids || []).map((d) => Number.parseInt(d))
+        });
+        if (createError) throw createError;
+        taskId = newTaskId as number;
       }
       
       // Actualizar departamentos usando upsert para evitar conflictos
@@ -556,8 +573,9 @@ export function TaskForm({
         }
       }
       
-      // Insertar múltiples departamentos usando upsert
-      if (departamentos_ids.length > 0) {
+      // Insertar múltiples departamentos usando upsert SOLO en edición;
+      // en creación la RPC ya crea las relaciones de departamentos
+      if (task && departamentos_ids.length > 0) {
         // Eliminar duplicados
         const uniqueDepartamentos = [...new Set(departamentos_ids)];
         const departamentosInserts = uniqueDepartamentos.map(depId => ({
@@ -582,20 +600,17 @@ export function TaskForm({
         console.log('Departamentos actualizados correctamente');
       }
 
-      toast({
-        title: task ? "Tarea actualizada" : "Tarea creada",
-        description: task ? "La tarea ha sido actualizada correctamente." : "La tarea ha sido creada correctamente.",
-      });
+      toast.success(
+        task ? "La tarea ha sido actualizada correctamente." : "La tarea ha sido creada correctamente."
+      );
 
       router.push("/dashboard/tareas");
       router.refresh();
     } catch (error: any) {
       console.error("Error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Ocurrió un error al guardar la tarea.",
-        variant: "destructive",
-      });
+      toast.error(
+        error.message || "Ocurrió un error al guardar la tarea."
+      );
     } finally {
       setIsSubmitting(false);
     }
