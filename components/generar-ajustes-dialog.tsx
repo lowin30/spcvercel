@@ -25,7 +25,7 @@ interface Item {
   cantidad: number
   precio_unitario: number
   subtotal_item: number
-  es_producto: boolean
+  es_producto?: boolean
   es_material: boolean
   producto_id?: string
 }

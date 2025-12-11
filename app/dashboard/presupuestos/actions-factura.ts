@@ -194,7 +194,6 @@ export async function convertirPresupuestoAFactura(presupuestoId: number) {
               subtotal_item: (item.cantidad || 1) * (item.precio || 0),
               descripcion: item.descripcion || 'Sin descripción',
               producto_id: item.producto_id || null,
-              es_producto: item.es_producto || false,
               // Por defecto, es_material siempre será false inicialmente, como solicitó el usuario
               es_material: false,
               created_at: new Date().toISOString(),

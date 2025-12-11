@@ -195,7 +195,6 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
             subtotal_item: (item.cantidad || 1) * (item.precio || 0),
             descripcion: item.descripcion || 'Sin descripción',
             producto_id: item.producto_id || null,
-            es_producto: item.es_producto || false,
             es_material: false, // Confirmamos que no es material
             created_at: new Date().toISOString(),
             code: item.code || null
@@ -242,7 +241,6 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
             subtotal_item: (item.cantidad || 1) * (item.precio || 0),
             descripcion: item.descripcion || 'Sin descripción',
             producto_id: item.producto_id || null,
-            es_producto: item.es_producto || false,
             es_material: true, // Confirmamos que es material
             created_at: new Date().toISOString(),
             code: item.code || null

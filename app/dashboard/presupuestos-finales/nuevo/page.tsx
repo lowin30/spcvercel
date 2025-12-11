@@ -231,7 +231,6 @@ export default function NuevoPresupuestoFinalPage() {
         descripcion: item.descripcion,
         cantidad: item.cantidad,
         precio: item.precio,
-        es_producto: item.es_producto || false,
         es_material: false,  // Valor por defecto, se puede editar después
         producto_id: item.producto_id || null
       }))

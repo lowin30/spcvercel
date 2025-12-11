@@ -54,7 +54,7 @@ export function BudgetItemList({ items }: BudgetItemListProps) {
                 <TableRow key={item.id}>
                   <TableCell>
                     {item.descripcion}
-                    {item.es_producto && (
+                    {item.producto_id && (
                       <div className="mt-1 flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">
                           Producto

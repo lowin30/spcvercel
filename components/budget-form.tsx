@@ -382,15 +382,15 @@ export function BudgetForm({
         // Decisión final basada en prioridades:
         // 1. Si explícitamente menciona mano de obra, es mano de obra
         // 2. Si explícitamente menciona material, es material
-        // 3. Si es un producto y no menciona mano de obra, es material
+        // 3. Si tiene producto_id y no menciona mano de obra, es material
         // 4. En cualquier otro caso, es mano de obra
         if (esManoDeObra) {
           acc.mano_obra += itemTotal
-        } else if (esMaterial || item.es_producto) {
+        } else if (esMaterial || !!item.producto_id) {
           acc.materiales += itemTotal
         } else {
           // Por defecto, si no tiene ninguna palabra clave, sigue la lógica antigua
-          if (item.es_producto) {
+          if (!!item.producto_id) {
             acc.materiales += itemTotal
           } else {
             acc.mano_obra += itemTotal
@@ -458,7 +458,6 @@ export function BudgetForm({
                 descripcion: itemData.descripcion,
                 cantidad: itemData.cantidad,
                 precio: itemData.precio,
-                es_producto: typeof itemData.es_producto === 'boolean' ? itemData.es_producto : !!itemData.producto_id,
                 producto_id: itemData.producto_id || null,
                 // NO incluimos es_material aquí porque se maneja separadamente con EsMaterialCheckbox
                 // Esto evita sobrescribir el valor cuando se guarda el presupuesto
@@ -486,7 +485,6 @@ export function BudgetForm({
               precio: itemData.precio,
               id_presupuesto: presupuestoAEditar.id,
               producto_id: itemData.producto_id || null,
-              es_producto: typeof itemData.es_producto === 'boolean' ? itemData.es_producto : !!itemData.producto_id,
               es_material: itemData.es_material || false
             };
           });
@@ -696,7 +694,6 @@ export function BudgetForm({
         cantidad: item.cantidad,
         precio: item.precio,
         id_presupuesto: presupuesto.id,
-        es_producto: typeof item.es_producto === 'boolean' ? item.es_producto : !!item.producto_id,
         producto_id: item.producto_id || null,
         es_material: item.es_material || false
       }))
@@ -952,7 +949,7 @@ export function BudgetForm({
                       <TableRow key={index}>
                         <TableCell>
                           {item.descripcion}
-                          {item.es_producto && (
+                          {item.producto_id && (
                             <Badge variant="outline" className="ml-2">
                               Producto
                             </Badge>

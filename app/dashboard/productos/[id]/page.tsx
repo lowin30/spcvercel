@@ -89,7 +89,6 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
           .from("items")
           .select("id", { count: "exact", head: true })
           .eq("producto_id", params.id)
-          .eq("es_producto", true)
           
         setPresupuestosCount(presupuestosResponse.count || 0)
 
