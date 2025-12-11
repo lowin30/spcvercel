@@ -12,6 +12,7 @@ interface FacturaConAjuste {
   code: string
   nombre: string | null
   datos_afip: string | null
+  afip_numero?: string | null
   total: number
   saldo_pendiente: number | string
   total_ajustes: number | string
@@ -123,7 +124,7 @@ export function AjustesList({ facturas }: AjustesListProps) {
 
                     {/* AFIP */}
                     <TableCell className="text-center text-sm">
-                      {factura.datos_afip || "Sin datos"}
+                      {factura.afip_numero || factura.datos_afip || "Sin datos"}
                     </TableCell>
 
                     {/* Total */}
@@ -242,7 +243,7 @@ export function AjustesList({ facturas }: AjustesListProps) {
                 {/* Datos AFIP */}
                 <div className="text-sm mb-2">
                   <span className="text-muted-foreground">AFIP: </span>
-                  <span className="font-medium">{factura.datos_afip || "Sin datos"}</span>
+                  <span className="font-medium">{factura.afip_numero || factura.datos_afip || "Sin datos"}</span>
                 </div>
 
                 <div className="border-t pt-2 mt-2 space-y-1.5 text-sm">

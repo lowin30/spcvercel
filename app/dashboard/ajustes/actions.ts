@@ -42,15 +42,16 @@ export async function pagarAjustesAdministrador(idAdministrador: number) {
       }
     }
 
-    // Obtener todos los ajustes pendientes del administrador
+    // Obtener todos los ajustes pendientes del administrador SOLO de facturas totalmente pagadas
     const { data: ajustesPendientes, error: errorConsulta } = await supabase
       .from("ajustes_facturas")
       .select(`
         id,
         monto_ajuste,
-        facturas!inner(id, id_administrador)
+        facturas!inner(id, id_administrador, pagada)
       `)
       .eq("facturas.id_administrador", idAdministrador)
+      .eq("facturas.pagada", true)
       .eq("aprobado", true)
       .eq("pagado", false)
 

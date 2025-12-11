@@ -21,6 +21,7 @@ interface FacturaConAjuste {
   code: string
   nombre: string | null
   datos_afip: string | null
+  afip_numero?: string | null
   total: number
   saldo_pendiente: number | string
   total_ajustes: number | string
@@ -31,6 +32,7 @@ interface FacturaConAjuste {
   tiene_ajustes_pendientes?: boolean
   tiene_ajustes_pagados?: boolean
   id_administrador: number | null
+  pagada?: boolean
   // Campos para búsqueda (de vista_facturas_completa)
   nombre_edificio?: string | null
   direccion_edificio?: string | null
@@ -235,15 +237,16 @@ export default function AjustesPage() {
     
     const termino = searchQuery.toLowerCase();
     return facturasBase.filter((f) => {
-      // Convertir datos_afip a string (puede ser JSON object)
+      // Preferir afip_numero si existe; fallback a datos_afip (string o JSON stringificado)
       const datosAfipStr = f.datos_afip 
         ? (typeof f.datos_afip === 'string' ? f.datos_afip : JSON.stringify(f.datos_afip))
         : '';
+      const afipStr = f.afip_numero ? String(f.afip_numero) : datosAfipStr;
       
       return (
         (f.code && f.code.toLowerCase().includes(termino)) ||
         (f.nombre && f.nombre.toLowerCase().includes(termino)) ||
-        (datosAfipStr && datosAfipStr.toLowerCase().includes(termino)) ||
+        (afipStr && afipStr.toLowerCase().includes(termino)) ||
         (f.nombre_edificio && f.nombre_edificio.toLowerCase().includes(termino)) ||
         (f.direccion_edificio && f.direccion_edificio.toLowerCase().includes(termino)) ||
         (f.cuit_edificio && f.cuit_edificio.toLowerCase().includes(termino)) ||
@@ -262,7 +265,8 @@ export default function AjustesPage() {
         const pendientes = typeof f.total_ajustes_pendientes === 'string' 
           ? parseFloat(f.total_ajustes_pendientes) 
           : f.total_ajustes_pendientes
-        return pendientes > 0
+        // Solo considerar facturas totalmente pagadas para habilitar liquidación de ajustes
+        return pendientes > 0 && f.pagada === true
       })
     : []
 
