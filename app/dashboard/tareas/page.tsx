@@ -209,6 +209,7 @@ export default function TareasPage() {
       const { data: adminsData, error: adminsError } = await supabase
         .from('administradores')
         .select('id, nombre')
+        .eq('estado', 'activo')
         .order('nombre')
       
       if (adminsError) {
@@ -219,7 +220,7 @@ export default function TareasPage() {
       
       // Cargar nombres de edificios con su relación de administrador
       const { data: edificiosData, error: edificiosError } = await supabase
-        .from('edificios')
+        .from('vista_edificios_completa')
         .select('id, nombre, id_administrador')
         .order('nombre')
       

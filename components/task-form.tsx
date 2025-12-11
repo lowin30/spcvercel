@@ -257,7 +257,7 @@ export function TaskForm({
   // Cargar administradores al montar
   useEffect(() => {
     const fetchAdministradores = async () => {
-      const { data, error } = await supabase.from("administradores").select("id, nombre").order("nombre");
+      const { data, error } = await supabase.from("administradores").select("id, nombre").eq("estado", "activo").order("nombre");
       if (error) {
         console.error("Error cargando administradores:", error);
         toast.error("No se pudieron cargar los administradores.");
@@ -304,7 +304,7 @@ export function TaskForm({
         }
         
         const { data, error } = await supabase
-          .from("edificios")
+          .from("vista_edificios_completa")
           .select("id, nombre, direccion")
           .eq("id_administrador", Number.parseInt(selectedAdministradorId))
           .order("nombre");

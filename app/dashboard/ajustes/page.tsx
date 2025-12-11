@@ -79,10 +79,11 @@ export default function AjustesPage() {
         return
       }
 
-      // Cargar administradores
+      // Cargar administradores (solo activos)
       const { data: adminsData, error: adminsError } = await supabase
         .from('administradores')
         .select('id, nombre')
+        .eq('estado', 'activo')
         .order('nombre')
       
       if (adminsError) {

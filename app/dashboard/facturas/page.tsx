@@ -138,7 +138,8 @@ export default function FacturasPage({
         // Cargar administradores de la tabla administradores (no confundir con usuarios con rol admin)
         const { data: administradoresData, error: administradoresError } = await supabase
           .from("administradores")
-          .select("id, nombre");
+          .select("id, nombre")
+          .eq('estado', 'activo');
         
         if (administradoresError) {
           console.error("Error al cargar administradores:", administradoresError);

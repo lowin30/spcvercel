@@ -237,7 +237,7 @@ export function AdministradoresTab({ administradores = [] }: AdministradoresTabP
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button variant="ghost" size="sm" asChild>
-                                    <Link href={`/dashboard/administradores/${admin.id}/editar`}>
+                                    <Link href={`/dashboard/administradores/${admin.id}`}>
                                       <Edit className="h-4 w-4" />
                                     </Link>
                                   </Button>
@@ -308,7 +308,7 @@ export function AdministradoresTab({ administradores = [] }: AdministradoresTabP
                         </Link>
                       </Button>
                       <Button variant="outline" size="sm" asChild className="flex-1">
-                        <Link href={`/dashboard/administradores/${admin.id}/editar`}>
+                        <Link href={`/dashboard/administradores/${admin.id}`}>
                           <Edit className="h-4 w-4 mr-1" />
                           Editar
                         </Link>
