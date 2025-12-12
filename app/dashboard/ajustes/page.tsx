@@ -101,6 +101,7 @@ export default function AjustesPage() {
         .select('*')
         // .gt('total_ajustes', 0) // ← Comentado para debug
         .order('created_at', { ascending: false })
+        .range(0, 99)
 
       // Aplicar filtro de administrador
       if (filtroAdmin && filtroAdmin !== 0) {

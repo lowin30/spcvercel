@@ -5,10 +5,10 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 // Declarar una variable global para almacenar la instancia del cliente Singleton
 declare global {
-  var __supabase_client: SupabaseClient | undefined;
+  var __supabase_client: any
 }
 
-let supabase_client: SupabaseClient | undefined;
+let supabase_client: any
 
 function getSupabaseClient() {
   if (typeof window === 'undefined') {
@@ -30,7 +30,7 @@ function getSupabaseClient() {
     supabase_client = globalThis.__supabase_client;
   }
 
-  return supabase_client;
+  return supabase_client as SupabaseClient
 }
 
 // Exporta una función que devuelve la instancia Singleton.
