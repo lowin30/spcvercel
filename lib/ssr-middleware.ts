@@ -69,15 +69,21 @@ export async function updateSession(request: NextRequest) {
   const esRutaProtegida = rutasProtegidas.some(ruta => rutaActual.startsWith(ruta));
   
   if (esRutaProtegida && user) {
-    // Obtener el rol del usuario
-    const { data: userData } = await supabase
-      .from('usuarios')
-      .select('rol')
-      .eq('id', user.id)
-      .single();
+    // Usar rol desde app_metadata cuando esté disponible para evitar llamada a BD
+    let rol: string | undefined = (user as any)?.app_metadata?.rol
     
+    if (!rol) {
+      // Fallback a consulta en BD solo si el rol no está en el token
+      const { data: userData } = await supabase
+        .from('usuarios')
+        .select('rol')
+        .eq('id', user.id)
+        .single();
+      rol = userData?.rol as string | undefined
+    }
+
     // Si no es admin, redirigir al dashboard
-    if (!userData || userData.rol !== 'admin') {
+    if (rol !== 'admin') {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/dashboard';
       redirectUrl.searchParams.set('error', 'acceso_denegado');

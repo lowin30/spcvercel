@@ -84,18 +84,19 @@ export default function LoginPage() {
         return
       }
 
-      // Asegurar sincronización con tabla usuarios
+      // Asegurar sincronización con tabla usuarios (en segundo plano)
       if (data.user) {
-        await sincronizarUsuario(data.user.id, {
+        void sincronizarUsuario(data.user.id, {
           email: data.user.email || email,
           nombre: data.user.user_metadata?.nombre || ''
-        })
+        }).catch(console.error)
       }
 
       toast({
         title: "Inicio de sesión exitoso",
         description: "Redirigiendo al dashboard...",
       })
+      router.replace('/dashboard')
     } catch (error: any) {
       console.error("Error al iniciar sesión:", error)
       toast({
