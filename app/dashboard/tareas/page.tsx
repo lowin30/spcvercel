@@ -36,6 +36,7 @@ export default function TareasPage() {
   const [edificios, setEdificios] = useState<{id: string, nombre: string}[]>([]) 
   const [todosLosEdificios, setTodosLosEdificios] = useState<{id: string, nombre: string, id_administrador: string}[]>([]) 
   const [supervisores, setSupervisores] = useState<{id: string, email: string}[]>([])
+  const [supervisoresMap, setSupervisoresMap] = useState<Record<string, { nombre?: string; color_perfil?: string }>>({})
   
   // Edificios filtrados según el administrador seleccionado
   const edificiosFiltrados = activeFilters.administrador
@@ -233,13 +234,20 @@ export default function TareasPage() {
 
       const { data: supData, error: supError } = await supabase
         .from('usuarios')
-        .select('id, email')
+        .select('id, email, nombre, color_perfil')
         .eq('rol', 'supervisor')
         .order('email')
       if (supError) {
         console.error("Error al cargar supervisores:", supError)
       } else if (supData) {
         setSupervisores(supData)
+        // Construir mapa email -> { nombre, color }
+        const map = supData.reduce((acc: Record<string, { nombre?: string; color_perfil?: string }>, u: any) => {
+          const email = (u?.email || '').toLowerCase()
+          if (email) acc[email] = { nombre: u?.nombre, color_perfil: u?.color_perfil }
+          return acc
+        }, {})
+        setSupervisoresMap(map)
       }
     } catch (err) {
       console.error("Error al cargar datos de referencia:", err)
@@ -822,7 +830,7 @@ export default function TareasPage() {
               Todas las tareas del sistema
             </Badge>
           </div>
-          <TaskList tasks={tareasFiltradas} userRole={userDetails?.rol || ""} />
+          <TaskList tasks={tareasFiltradas} userRole={userDetails?.rol || ""} supervisoresMap={supervisoresMap} />
         </TabsContent>
         
         {/* Contenido para estado "Organizar" */}
@@ -832,7 +840,7 @@ export default function TareasPage() {
               Tareas en estado "Organizar" - Fase inicial de organización
             </Badge>
           </div>
-          <TaskList tasks={tareasPorEstadoFiltradas[1] || []} userRole={userDetails?.rol || ""} />
+          <TaskList tasks={tareasPorEstadoFiltradas[1] || []} userRole={userDetails?.rol || ""} supervisoresMap={supervisoresMap} />
         </TabsContent>
         
         {/* Contenido para estado "Aprobado" */}
@@ -842,7 +850,7 @@ export default function TareasPage() {
               Tareas en estado "Aprobado" - Presupuesto aprobado por el cliente
             </Badge>
           </div>
-          <TaskList tasks={tareasPorEstadoFiltradas[5] || []} userRole={userDetails?.rol || ""} />
+          <TaskList tasks={tareasPorEstadoFiltradas[5] || []} userRole={userDetails?.rol || ""} supervisoresMap={supervisoresMap} />
         </TabsContent>
         
         {/* Contenido para estado Posible */}
@@ -855,6 +863,7 @@ export default function TareasPage() {
           <TaskList 
             tasks={tareasPorEstadoFiltradas[10] || []} 
             userRole={userDetails?.rol || ""}
+            supervisoresMap={supervisoresMap}
           />
         </TabsContent>
         
@@ -868,6 +877,7 @@ export default function TareasPage() {
           <TaskList 
             tasks={tareasFinalizadas} 
             userRole={userDetails?.rol || ""}
+            supervisoresMap={supervisoresMap}
           />
         </TabsContent>
       </Tabs>

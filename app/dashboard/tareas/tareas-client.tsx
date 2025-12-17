@@ -147,13 +147,13 @@ export default function TareasClient() {
       // Cargar supervisores para mapear email → { nombre, color }
       const { data: supervisores } = await supabase
         .from('usuarios')
-        .select('email, code, color_perfil')
+        .select('email, nombre, color_perfil')
         .eq('rol', 'supervisor')
       if (supervisores && supervisores.length > 0) {
         const map = supervisores.reduce((acc: Record<string, { nombre?: string; color_perfil?: string }>, u: any) => {
           const email = (u?.email || '').toLowerCase()
           const local = email.split('@')[0]
-          const display = u?.code || local || email
+          const display = u?.nombre || local || email
           if (email) acc[email] = { nombre: display, color_perfil: u?.color_perfil }
           return acc
         }, {})
