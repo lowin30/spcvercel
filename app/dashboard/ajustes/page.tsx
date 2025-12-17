@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
-import { pagarAjustesAdministrador } from "./actions"
+import { pagarAjustesAdministrador, pagarAjustesPorFacturas } from "./actions"
 import { generarAjustesPDF } from "@/lib/pdf-ajustes-generator"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
 
 // Tipos
 interface FacturaConAjuste {
@@ -56,6 +58,8 @@ export default function AjustesPage() {
   const [error, setError] = useState<string | null>(null)
   const [pagandoAjustes, setPagandoAjustes] = useState(false)
   const [exportandoPDF, setExportandoPDF] = useState(false)
+  const [seleccionOpen, setSeleccionOpen] = useState(false)
+  const [seleccionIds, setSeleccionIds] = useState<number[]>([])
   const router = useRouter()
   
   // Filtros
@@ -80,6 +84,90 @@ export default function AjustesPage() {
         router.push('/login')
         return
       }
+
+  // Abrir selección (preseleccionar todas las elegibles)
+  const handleAbrirSeleccion = () => {
+    setSeleccionIds(facturasAdminPendientes.map((f: any) => f.id))
+    setSeleccionOpen(true)
+  }
+
+  const handleToggleSeleccion = (id: number, checked: boolean) => {
+    setSeleccionIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id))
+  }
+
+  // Pagar solo las seleccionadas
+  const handlePagarSeleccionadas = async () => {
+    if (!filtroAdmin || filtroAdmin === 0) {
+      toast.error("Selecciona un administrador")
+      return
+    }
+    if (!seleccionIds || seleccionIds.length === 0) {
+      toast.error("Selecciona al menos una factura")
+      return
+    }
+
+    // Tomar snapshot de las facturas seleccionadas con sus montos pendientes antes del pago
+    const seleccionFacturas = (facturasAdminPendientes || []).filter((f: any) => seleccionIds.includes(f.id))
+    const totalSeleccion = seleccionFacturas.reduce((sum: number, f: any) => {
+      const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes as any) : (f.total_ajustes_pendientes || 0)
+      return sum + (val || 0)
+    }, 0)
+
+    const confirmacion = confirm(
+      `¿Confirmar pago de $${totalSeleccion.toLocaleString("es-AR")} en ajustes de ${administradorSeleccionado?.nombre}?\n\n` +
+      `Facturas seleccionadas: ${seleccionFacturas.length}`
+    )
+    if (!confirmacion) return
+
+    setPagandoAjustes(true)
+    try {
+      const result = await pagarAjustesPorFacturas(seleccionIds)
+      if (result.success) {
+        toast.success(
+          `✅ Se pagaron $${result.data?.totalPagado.toLocaleString("es-AR")} en ${result.data?.cantidadAjustes} ajustes`
+        )
+
+        // Generar PDF solo con las seleccionadas
+        try {
+          const facturasParaPDF = (seleccionFacturas || []).map((f: any) => ({
+            id: f.id,
+            nombre: f.nombre,
+            datos_afip: f.datos_afip,
+            total: f.total,
+            total_ajustes: typeof f.total_ajustes_pendientes === 'string'
+              ? parseFloat(f.total_ajustes_pendientes as any)
+              : (f.total_ajustes_pendientes || 0),
+          }))
+
+          const totalAjustesExport = facturasParaPDF.reduce((sum: number, ff: any) => sum + (Number(ff.total_ajustes) || 0), 0)
+
+          const pdfBlob = await generarAjustesPDF({
+            facturas: facturasParaPDF,
+            nombreAdministrador: administradorSeleccionado?.nombre,
+            totalAjustes: totalAjustesExport,
+          })
+
+          const url = URL.createObjectURL(pdfBlob)
+          const link = document.createElement("a")
+          link.href = url
+          link.download = `Ajustes_${administradorSeleccionado?.nombre || 'Admin'}_${format(new Date(), "dd-MM-yyyy")}.pdf`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } finally {
+          setSeleccionOpen(false)
+          cargarDatos()
+        }
+      } else {
+        toast.error(result.error || "Error al pagar ajustes seleccionados")
+      }
+    } catch (error) {
+      console.error("Error al pagar ajustes seleccionados:", error)
+      toast.error("Error inesperado al procesar el pago")
+    } finally {
+      setPagandoAjustes(false)
+    }
+  }
 
       // Cargar administradores (solo activos)
       const { data: adminsData, error: adminsError } = await supabase
@@ -450,6 +538,37 @@ export default function AjustesPage() {
             <p className="text-xs text-muted-foreground">{cantidadCalculados} facturas</p>
           </CardContent>
         </Card>
+      
+      {/* Modal de selección de facturas a liquidar */}
+      <Dialog open={seleccionOpen} onOpenChange={setSeleccionOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Seleccionar facturas a liquidar</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-72 overflow-y-auto space-y-2">
+            {facturasAdminPendientes.map((f: any) => {
+              const monto = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes as any) : (f.total_ajustes_pendientes || 0)
+              const checked = seleccionIds.includes(f.id)
+              return (
+                <label key={f.id} className="flex items-center gap-2 py-1">
+                  <Checkbox checked={checked} onCheckedChange={(val) => handleToggleSeleccion(f.id, Boolean(val))} />
+                  <span className="flex-1 truncate">
+                    {f.nombre || 'Sin nombre'}
+                    <span className="text-xs text-muted-foreground ml-1">({f.code})</span>
+                  </span>
+                  <span className="text-orange-600 font-semibold">${monto.toLocaleString('es-AR')}</span>
+                </label>
+              )
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSeleccionOpen(false)}>Cancelar</Button>
+            <Button onClick={handlePagarSeleccionadas} disabled={pagandoAjustes || seleccionIds.length === 0} className="bg-orange-600 hover:bg-orange-700">
+              {pagandoAjustes ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>) : 'Pagar seleccionadas'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
         <Card className="border-orange-500 border-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -547,14 +666,14 @@ export default function AjustesPage() {
           </CardHeader>
           <CardContent>
             <Button
-              onClick={handlePagarAjustes}
+              onClick={handleAbrirSeleccion}
               disabled={pagandoAjustes}
               className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
             >
               {pagandoAjustes ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
               ) : (
-                <><CreditCard className="mr-2 h-4 w-4" /> Pagar Todos los Ajustes</>
+                <><CreditCard className="mr-2 h-4 w-4" /> Pagar Ajustes</>
               )}
             </Button>
           </CardContent>
