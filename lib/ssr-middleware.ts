@@ -63,24 +63,15 @@ export async function updateSession(request: NextRequest) {
   const rutasProtegidas = [
     '/dashboard/pagos',
     '/dashboard/facturas',
+    '/dashboard/admin-tools',
   ];
   
   const rutaActual = request.nextUrl.pathname;
   const esRutaProtegida = rutasProtegidas.some(ruta => rutaActual.startsWith(ruta));
   
   if (esRutaProtegida && user) {
-    // Usar rol desde app_metadata cuando esté disponible para evitar llamada a BD
+    // Usar rol desde app_metadata para evitar llamada a BD
     let rol: string | undefined = (user as any)?.app_metadata?.rol
-    
-    if (!rol) {
-      // Fallback a consulta en BD solo si el rol no está en el token
-      const { data: userData } = await supabase
-        .from('usuarios')
-        .select('rol')
-        .eq('id', user.id)
-        .single();
-      rol = userData?.rol as string | undefined
-    }
 
     // Si no es admin, redirigir al dashboard
     if (rol !== 'admin') {

@@ -209,6 +209,9 @@ export default function TareasClient() {
 
   const applyFilters = (tareasInput: any[]) => {
     return tareasInput.filter(tarea => {
+      if (!activeFilters.estado && tarea.id_estado_nuevo === 4) {
+        return false
+      }
       const searchTermLower = searchTerm.toLowerCase()
       const matchesSearch = searchTermLower === '' ||
         tarea.id.toString().includes(searchTermLower) ||
