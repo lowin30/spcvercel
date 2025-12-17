@@ -598,7 +598,10 @@ export function DepartamentosInteractivos({
             {telefonos.map(tel => (
               <div key={tel.id} className="flex items-center justify-between gap-2 text-xs bg-muted px-2 py-1.5 rounded-md">
                 <span className="font-medium text-foreground">
-                  {tel.nombre_contacto || 'Contacto'}
+                  {(() => {
+                    const depCodigo = departamentos.find(d => Number(d.id) === tel.departamento_id)?.codigo
+                    return `${depCodigo ? `[${depCodigo}] ` : ''}${tel.nombre_contacto || 'Contacto'}`
+                  })()}
                 </span>
                 <PhoneActions numero={tel.numero} nombre={tel.nombre_contacto} />
               </div>
