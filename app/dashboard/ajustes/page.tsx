@@ -85,89 +85,6 @@ export default function AjustesPage() {
         return
       }
 
-  // Abrir selección (preseleccionar todas las elegibles)
-  const handleAbrirSeleccion = () => {
-    setSeleccionIds(facturasAdminPendientes.map((f: any) => f.id))
-    setSeleccionOpen(true)
-  }
-
-  const handleToggleSeleccion = (id: number, checked: boolean) => {
-    setSeleccionIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id))
-  }
-
-  // Pagar solo las seleccionadas
-  const handlePagarSeleccionadas = async () => {
-    if (!filtroAdmin || filtroAdmin === 0) {
-      toast.error("Selecciona un administrador")
-      return
-    }
-    if (!seleccionIds || seleccionIds.length === 0) {
-      toast.error("Selecciona al menos una factura")
-      return
-    }
-
-    // Tomar snapshot de las facturas seleccionadas con sus montos pendientes antes del pago
-    const seleccionFacturas = (facturasAdminPendientes || []).filter((f: any) => seleccionIds.includes(f.id))
-    const totalSeleccion = seleccionFacturas.reduce((sum: number, f: any) => {
-      const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes as any) : (f.total_ajustes_pendientes || 0)
-      return sum + (val || 0)
-    }, 0)
-
-    const confirmacion = confirm(
-      `¿Confirmar pago de $${totalSeleccion.toLocaleString("es-AR")} en ajustes de ${administradorSeleccionado?.nombre}?\n\n` +
-      `Facturas seleccionadas: ${seleccionFacturas.length}`
-    )
-    if (!confirmacion) return
-
-    setPagandoAjustes(true)
-    try {
-      const result = await pagarAjustesPorFacturas(seleccionIds)
-      if (result.success) {
-        toast.success(
-          `✅ Se pagaron $${result.data?.totalPagado.toLocaleString("es-AR")} en ${result.data?.cantidadAjustes} ajustes`
-        )
-
-        // Generar PDF solo con las seleccionadas
-        try {
-          const facturasParaPDF = (seleccionFacturas || []).map((f: any) => ({
-            id: f.id,
-            nombre: f.nombre,
-            datos_afip: f.datos_afip,
-            total: f.total,
-            total_ajustes: typeof f.total_ajustes_pendientes === 'string'
-              ? parseFloat(f.total_ajustes_pendientes as any)
-              : (f.total_ajustes_pendientes || 0),
-          }))
-
-          const totalAjustesExport = facturasParaPDF.reduce((sum: number, ff: any) => sum + (Number(ff.total_ajustes) || 0), 0)
-
-          const pdfBlob = await generarAjustesPDF({
-            facturas: facturasParaPDF,
-            nombreAdministrador: administradorSeleccionado?.nombre,
-            totalAjustes: totalAjustesExport,
-          })
-
-          const url = URL.createObjectURL(pdfBlob)
-          const link = document.createElement("a")
-          link.href = url
-          link.download = `Ajustes_${administradorSeleccionado?.nombre || 'Admin'}_${format(new Date(), "dd-MM-yyyy")}.pdf`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-        } finally {
-          setSeleccionOpen(false)
-          cargarDatos()
-        }
-      } else {
-        toast.error(result.error || "Error al pagar ajustes seleccionados")
-      }
-    } catch (error) {
-      console.error("Error al pagar ajustes seleccionados:", error)
-      toast.error("Error inesperado al procesar el pago")
-    } finally {
-      setPagandoAjustes(false)
-    }
-  }
 
       // Cargar administradores (solo activos)
       const { data: adminsData, error: adminsError } = await supabase
@@ -349,15 +266,19 @@ export default function AjustesPage() {
   // Calcular resumen del administrador seleccionado (SOLO PENDIENTES)
   const administradorSeleccionado = administradores.find(a => a.id === filtroAdmin)
   const facturasAdminPendientes = filtroAdmin && filtroAdmin !== 0
-    ? (todasLasFacturas || []).filter((f: any) => {
-        if (Number(f.id_administrador) !== Number(filtroAdmin)) return false
+    ? (facturasBase || []).filter((f: any) => {
         const pendientes = typeof f.total_ajustes_pendientes === 'string' 
           ? parseFloat(f.total_ajustes_pendientes as any) 
           : (f.total_ajustes_pendientes || 0)
         // Normalizar pagada (boolean/num/string)
         const pagadaBool = f.pagada === true || f.pagada === 'true' || f.pagada === 1 || f.pagada === '1' || f.pagada === 't'
+        // Aceptar también saldo en cero como totalmente pagada
+        const saldoVal = typeof f.saldo_pendiente === 'string' 
+          ? parseFloat(f.saldo_pendiente as any) 
+          : (f.saldo_pendiente ?? 0)
+        const saldoCero = Number.isFinite(saldoVal) ? saldoVal <= 0 : false
         // Solo considerar facturas totalmente pagadas para habilitar liquidación de ajustes
-        return (pendientes || 0) > 0 && pagadaBool
+        return (pendientes || 0) > 0 && (pagadaBool || saldoCero)
       })
     : []
 
@@ -365,6 +286,90 @@ export default function AjustesPage() {
     const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
     return sum + (val || 0)
   }, 0)
+
+  // Selección de facturas a liquidar
+  const handleAbrirSeleccion = () => {
+    setSeleccionIds(facturasAdminPendientes.map((f: any) => f.id))
+    setSeleccionOpen(true)
+  }
+
+  const handleToggleSeleccion = (id: number, checked: boolean) => {
+    setSeleccionIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id))
+  }
+
+  // Pagar solo las seleccionadas
+  const handlePagarSeleccionadas = async () => {
+    if (!filtroAdmin || filtroAdmin === 0) {
+      toast.error("Selecciona un administrador")
+      return
+    }
+    if (!seleccionIds || seleccionIds.length === 0) {
+      toast.error("Selecciona al menos una factura")
+      return
+    }
+
+    // Tomar snapshot de las facturas seleccionadas con sus montos pendientes antes del pago
+    const seleccionFacturas = (facturasAdminPendientes || []).filter((f: any) => seleccionIds.includes(f.id))
+    const totalSeleccion = seleccionFacturas.reduce((sum: number, f: any) => {
+      const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes as any) : (f.total_ajustes_pendientes || 0)
+      return sum + (val || 0)
+    }, 0)
+
+    const confirmacion = confirm(
+      `¿Confirmar pago de $${totalSeleccion.toLocaleString("es-AR")} en ajustes de ${administradorSeleccionado?.nombre}?\n\n` +
+      `Facturas seleccionadas: ${seleccionFacturas.length}`
+    )
+    if (!confirmacion) return
+
+    setPagandoAjustes(true)
+    try {
+      const result = await pagarAjustesPorFacturas(seleccionIds)
+      if (result.success) {
+        toast.success(
+          `✅ Se pagaron $${result.data?.totalPagado.toLocaleString("es-AR")} en ${result.data?.cantidadAjustes} ajustes`
+        )
+
+        // Generar PDF solo con las seleccionadas
+        try {
+          const facturasParaPDF = (seleccionFacturas || []).map((f: any) => ({
+            id: f.id,
+            nombre: f.nombre,
+            datos_afip: f.datos_afip,
+            total: f.total,
+            total_ajustes: typeof f.total_ajustes_pendientes === 'string'
+              ? parseFloat(f.total_ajustes_pendientes as any)
+              : (f.total_ajustes_pendientes || 0),
+          }))
+
+          const totalAjustesExport = facturasParaPDF.reduce((sum: number, ff: any) => sum + (Number(ff.total_ajustes) || 0), 0)
+
+          const pdfBlob = await generarAjustesPDF({
+            facturas: facturasParaPDF,
+            nombreAdministrador: administradorSeleccionado?.nombre,
+            totalAjustes: totalAjustesExport,
+          })
+
+          const url = URL.createObjectURL(pdfBlob)
+          const link = document.createElement("a")
+          link.href = url
+          link.download = `Ajustes_${administradorSeleccionado?.nombre || 'Admin'}_${format(new Date(), "dd-MM-yyyy")}.pdf`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } finally {
+          setSeleccionOpen(false)
+          cargarDatos()
+        }
+      } else {
+        toast.error(result.error || "Error al pagar ajustes seleccionados")
+      }
+    } catch (error) {
+      console.error("Error al pagar ajustes seleccionados:", error)
+      toast.error("Error inesperado al procesar el pago")
+    } finally {
+      setPagandoAjustes(false)
+    }
+  }
 
   // Función para pagar ajustes
   const handlePagarAjustes = async () => {

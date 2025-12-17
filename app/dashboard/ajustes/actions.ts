@@ -71,12 +71,12 @@ async function pagarAjustesPorFacturas_ignored(idsFactura: number[]) {
         id,
         id_factura,
         monto_ajuste,
-        facturas!inner(id, pagada)
+        facturas!inner(id, pagada, saldo_pendiente)
       `)
       .in("id_factura", idsFactura)
       .eq("aprobado", true)
       .eq("pagado", false)
-      .eq("facturas.pagada", true)
+      .or("pagada.eq.true,saldo_pendiente.lte.0", { foreignTable: "facturas" })
 
     if (errorConsulta) {
       console.error("Error al consultar ajustes por facturas:", errorConsulta)
@@ -160,12 +160,12 @@ async function pagarAjustesPorFacturas_ignored(idsFactura: number[]) {
       .select(`
         id,
         monto_ajuste,
-        facturas!inner(id, id_administrador, pagada)
+        facturas!inner(id, id_administrador, pagada, saldo_pendiente)
       `)
       .eq("facturas.id_administrador", idAdministrador)
-      .eq("facturas.pagada", true)
       .eq("aprobado", true)
       .eq("pagado", false)
+      .or("pagada.eq.true,saldo_pendiente.lte.0", { foreignTable: "facturas" })
 
     if (errorConsulta) {
       console.error("Error al consultar ajustes:", errorConsulta)
@@ -275,12 +275,12 @@ export async function pagarAjustesPorFacturas(idsFactura: number[]) {
         id,
         id_factura,
         monto_ajuste,
-        facturas!inner(id, pagada)
+        facturas!inner(id, pagada, saldo_pendiente)
       `)
       .in("id_factura", idsFactura)
       .eq("aprobado", true)
       .eq("pagado", false)
-      .eq("facturas.pagada", true)
+      .or("pagada.eq.true,saldo_pendiente.lte.0", { foreignTable: "facturas" })
 
     if (errorConsulta) {
       return {
