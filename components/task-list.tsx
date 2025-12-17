@@ -466,6 +466,15 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
+                                  window.location.href = `/dashboard/tareas/editar/${task.id}`;
+                                }}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar tarea
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
                                   handleDeleteTask(task.id);
                                 }}>
                                 <Trash2 className="mr-2 h-4 w-4" />
