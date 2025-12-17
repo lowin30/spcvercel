@@ -51,9 +51,10 @@ interface Task {
 interface TaskListProps {
   tasks: Task[]
   userRole: string
+  supervisoresMap?: Record<string, { nombre?: string; color_perfil?: string }>
 }
 
-export function TaskList({ tasks, userRole }: TaskListProps) {
+export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [taskInAction, setTaskInAction] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -85,6 +86,16 @@ export function TaskList({ tasks, userRole }: TaskListProps) {
   const getEstadoById = (id: number) => {
     const estado = estadosTarea.find(e => e.id === id)
     return estado || { nombre: "Desconocido", color: "gray" }
+  }
+
+  const getSupervisorInfo = (task: Task) => {
+    const emailsRaw = (task.supervisores_emails || '').toString()
+    const email = emailsRaw.split(/[ ,;]+/).find(Boolean)?.trim().toLowerCase()
+    const info = email && supervisoresMap ? supervisoresMap[email] : undefined
+    return {
+      nombre: info?.nombre || (email || ''),
+      color: info?.color_perfil || '#9ca3af',
+    }
   }
 
   // Función para obtener la clase CSS del color según el estado
@@ -223,6 +234,7 @@ export function TaskList({ tasks, userRole }: TaskListProps) {
             filteredTasks.map((task) => {
               // Obtener información del estado normalizado
               const estadoInfo = getEstadoById(task.id_estado_nuevo);
+              const supervisorInfo = getSupervisorInfo(task);
               
               return (
               <div key={task.id} className="block relative">
@@ -240,6 +252,10 @@ export function TaskList({ tasks, userRole }: TaskListProps) {
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           {task.descripcion || "Sin descripción"}
                         </p>
+                        <div className="mt-2 text-sm flex items-center">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: supervisorInfo.color }} />
+                          <span className="text-foreground truncate max-w-[180px]">{supervisorInfo.nombre || 'Sin supervisor'}</span>
+                        </div>
                       </div>
                       
                       {/* Botones de acción para admin */}
@@ -341,7 +357,7 @@ export function TaskList({ tasks, userRole }: TaskListProps) {
                 <TableHead>Edificio</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Fecha de visita</TableHead>
-                <TableHead>Creación</TableHead>
+                <TableHead>Supervisor</TableHead>
                 {userRole === "admin" && <TableHead className="w-[80px]">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
@@ -401,10 +417,35 @@ export function TaskList({ tasks, userRole }: TaskListProps) {
                         <span className="text-muted-foreground">No programada</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDateTime(task.created_at)}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const sup = getSupervisorInfo(task)
+                        return (
+                          <div className="flex items-center">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: sup.color }} />
+                            <span className="truncate max-w-[180px]">{sup.nombre || 'Sin supervisor'}</span>
+                          </div>
+                        )
+                      })()}
+                    </TableCell>
                     {userRole === "admin" && (
                       <TableCell>
                         <div className="flex items-center space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Clonar tarea"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
+                                handleCloneTask(task.id);
+                              }
+                            }}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-7 w-7">

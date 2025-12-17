@@ -29,6 +29,7 @@ export default function TareasClient() {
   const [activeFilters, setActiveFilters] = useState<{ [key: string]: any }>({})
   const [administradores, setAdministradores] = useState<{ id: string; nombre: string }[]>([])
   const [todosLosEdificios, setTodosLosEdificios] = useState<{ id: string; nombre: string; id_administrador: string }[]>([])
+  const [supervisoresMap, setSupervisoresMap] = useState<Record<string, { nombre?: string; color_perfil?: string }>>({})
 
   // Estados para las pestañas (se cargarán desde el servicio)
   const [estadosTarea, setEstadosTarea] = useState<EstadoTarea[]>([])
@@ -142,6 +143,22 @@ export default function TareasClient() {
       
       const { data: edificiosData } = await supabase.from('edificios').select('id, nombre, id_administrador')
       setTodosLosEdificios(edificiosData || [])
+
+      // Cargar supervisores para mapear email → { nombre, color }
+      const { data: supervisores } = await supabase
+        .from('usuarios')
+        .select('email, code, color_perfil')
+        .eq('rol', 'supervisor')
+      if (supervisores && supervisores.length > 0) {
+        const map = supervisores.reduce((acc: Record<string, { nombre?: string; color_perfil?: string }>, u: any) => {
+          const email = (u?.email || '').toLowerCase()
+          const local = email.split('@')[0]
+          const display = u?.code || local || email
+          if (email) acc[email] = { nombre: display, color_perfil: u?.color_perfil }
+          return acc
+        }, {})
+        setSupervisoresMap(map)
+      }
 
       // Construir la consulta de tareas - usamos vista_tareas_completa para tener todos los detalles incluyendo estados
       let query = supabase.from('vista_tareas_completa').select('*')
@@ -339,17 +356,17 @@ export default function TareasClient() {
         
         {/* Contenido para todas las tareas */}
         <TabsContent value="todas" className="mt-4">
-          <TaskList tasks={tareasFiltradas} userRole={userDetails?.rol || ''} />
+          <TaskList tasks={tareasFiltradas} userRole={userDetails?.rol || ''} supervisoresMap={supervisoresMap} />
         </TabsContent>
         
         {/* Contenido para tareas en Organizar */}
         <TabsContent value="1" className="mt-4">
-          <TaskList tasks={tareasFiltradas.filter(t => t.id_estado_nuevo === 1)} userRole={userDetails?.rol || ''} />
+          <TaskList tasks={tareasFiltradas.filter(t => t.id_estado_nuevo === 1)} userRole={userDetails?.rol || ''} supervisoresMap={supervisoresMap} />
         </TabsContent>
         
         {/* Contenido para tareas Aprobadas */}
         <TabsContent value="5" className="mt-4">
-          <TaskList tasks={tareasFiltradas.filter(t => t.id_estado_nuevo === 5)} userRole={userDetails?.rol || ''} />
+          <TaskList tasks={tareasFiltradas.filter(t => t.id_estado_nuevo === 5)} userRole={userDetails?.rol || ''} supervisoresMap={supervisoresMap} />
         </TabsContent>
         
         {/* Contenido para otros estados (incluye el nuevo estado) */}
@@ -359,7 +376,7 @@ export default function TareasClient() {
             const estadosEspecificos = [1, 5];
             // Incluir en "Otros" cualquier estado que no tenga pestaña específica
             return t.id_estado_nuevo && !estadosEspecificos.includes(t.id_estado_nuevo);
-          })} userRole={userDetails?.rol || ''} />
+          })} userRole={userDetails?.rol || ''} supervisoresMap={supervisoresMap} />
         </TabsContent>
       </Tabs>
     </div>
