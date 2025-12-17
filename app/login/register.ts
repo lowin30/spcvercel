@@ -41,7 +41,7 @@ export async function registrarUsuario(email: string, password: string, nombre: 
       password,
       email_confirm: true, // Confirma automáticamente el email
       user_metadata: { nombre },
-      app_metadata: {} // Agregamos explícitamente un objeto vacío
+      app_metadata: { rol: 'trabajador' } // Seteamos rol en el token para evitar consulta a BD
     })
     
     if (adminError) {
