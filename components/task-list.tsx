@@ -254,7 +254,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                         </p>
                         <div className="mt-2 text-sm flex items-center">
                           <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: supervisorInfo.color }} />
-                          <span className="text-foreground truncate max-w-[180px]">{supervisorInfo.nombre || 'Sin supervisor'}</span>
+                          <span className="truncate max-w-[180px]" style={{ color: supervisorInfo.color }}>{supervisorInfo.nombre || 'S/N'}</span>
                         </div>
                       </div>
                       
@@ -349,16 +349,25 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
 
         {/* Vista para escritorio */}
         <div className="hidden md:block rounded-md border">
-          <Table>
+          <Table className="table-fixed w-full text-sm leading-tight">
+            <colgroup>
+              <col className="w-20" />
+              <col className="w-[24%]" />
+              <col className="w-[18%]" />
+              <col className="w-24" />
+              <col className="w-28" />
+              <col className="w-[20%]" />
+              {userRole === "admin" && <col className="w-20" />}
+            </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Edificio</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Fecha de visita</TableHead>
-                <TableHead>Supervisor</TableHead>
-                {userRole === "admin" && <TableHead className="w-[80px]">Acciones</TableHead>}
+                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Código</TableHead>
+                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Título</TableHead>
+                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Edificio</TableHead>
+                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Estado</TableHead>
+                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Fecha de visita</TableHead>
+                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Supervisor</TableHead>
+                {userRole === "admin" && <TableHead className="px-2 py-2 text-xs whitespace-nowrap w-[80px]">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -375,13 +384,13 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                   
                   return (
                   <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.code}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium px-2 py-2 whitespace-nowrap">{task.code}</TableCell>
+                    <TableCell className="px-2 py-2">
                       <Link href={`/dashboard/tareas/${task.id}`} className="text-primary hover:underline">
-                        {task.titulo}
+                        <span className="block truncate max-w-[200px]">{task.titulo}</span>
                       </Link>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-1 py-1">
                       <div className="flex items-center">
                         {task.mapa_edificio ? (
                           <a 
@@ -391,50 +400,50 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                             className="flex items-center hover:text-primary"
                             title="Ver ubicación en mapa"
                           >
-                            <MapPin className="mr-1 h-3 w-3 text-muted-foreground" />
-                            <span className="truncate max-w-[200px]">{task.nombre_edificio}</span>
+                            <MapPin className="mr-0.5 h-3 w-3 text-muted-foreground" />
+                            <span className="truncate max-w-[120px]">{task.nombre_edificio}</span>
                           </a>
                         ) : (
                           <>
-                            <MapPin className="mr-1 h-3 w-3 text-muted-foreground" />
-                            <span className="truncate max-w-[200px]">{task.nombre_edificio}</span>
+                            <MapPin className="mr-0.5 h-3 w-3 text-muted-foreground" />
+                            <span className="truncate max-w-[120px]">{task.nombre_edificio}</span>
                           </>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge className={getEstadoColor(task.id_estado_nuevo)}>
+                    <TableCell className="px-1 py-1 whitespace-nowrap">
+                      <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-[11px] px-1.5 py-0` }>
                         {estadoInfo.nombre}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-1 py-1 whitespace-nowrap">
                       {task.fecha_visita ? (
-                        <div className="flex items-center">
-                          <Calendar className="mr-1 h-3 w-3 text-muted-foreground" />
-                          {formatDateTime(task.fecha_visita)}
+                        <div className="flex items-center whitespace-nowrap">
+                          <Calendar className="mr-0.5 h-3 w-3 text-muted-foreground" />
+                          <span className="truncate max-w-[100px]">{formatDateTime(task.fecha_visita)}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">No programada</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2 py-2">
                       {(() => {
                         const sup = getSupervisorInfo(task)
                         return (
                           <div className="flex items-center">
                             <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: sup.color }} />
-                            <span className="truncate max-w-[180px]">{sup.nombre || 'Sin supervisor'}</span>
+                            <span className="truncate max-w-[140px]" style={{ color: sup.color }}>{sup.nombre || 'S/N'}</span>
                           </div>
                         )
                       })()}
                     </TableCell>
                     {userRole === "admin" && (
-                      <TableCell>
+                      <TableCell className="px-1 py-1 whitespace-nowrap">
                         <div className="flex items-center space-x-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-6 w-6"
                             title="Clonar tarea"
                             onClick={(e) => {
                               e.preventDefault();
@@ -444,12 +453,12 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                               }
                             }}
                           >
-                            <Copy className="h-3.5 w-3.5" />
+                            <Copy className="h-3 w-3" />
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7">
-                                <MoreVertical className="h-3.5 w-3.5" />
+                              <Button variant="ghost" size="icon" className="h-6 w-6">
+                                <MoreVertical className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
