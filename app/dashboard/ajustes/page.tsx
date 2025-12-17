@@ -307,11 +307,38 @@ export default function AjustesPage() {
           `✅ Se pagaron $${result.data?.totalPagado.toLocaleString("es-AR")} en ${result.data?.cantidadAjustes} ajustes`
         )
         
-        // Generar PDF automáticamente
-        await handleExportarPDF()
-        
-        // Recargar datos
-        cargarDatos()
+        // Generar PDF automáticamente SOLO con las facturas liquidadas en esta acción
+        try {
+          const facturasParaPDF = (facturasAdminPendientes || []).map((f: any) => ({
+            id: f.id,
+            nombre: f.nombre,
+            datos_afip: f.datos_afip,
+            total: f.total,
+            // Monto liquidado es lo pendiente antes del pago
+            total_ajustes: typeof f.total_ajustes_pendientes === 'string'
+              ? parseFloat(f.total_ajustes_pendientes as any)
+              : (f.total_ajustes_pendientes || 0),
+          }))
+
+          const totalAjustesExport = facturasParaPDF.reduce((sum: number, ff: any) => sum + (Number(ff.total_ajustes) || 0), 0)
+
+          const pdfBlob = await generarAjustesPDF({
+            facturas: facturasParaPDF,
+            nombreAdministrador: administradorSeleccionado?.nombre,
+            totalAjustes: totalAjustesExport,
+          })
+
+          const url = URL.createObjectURL(pdfBlob)
+          const link = document.createElement("a")
+          link.href = url
+          link.download = `Ajustes_${administradorSeleccionado?.nombre || 'Admin'}_${format(new Date(), "dd-MM-yyyy")}.pdf`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        } finally {
+          // Recargar datos
+          cargarDatos()
+        }
       } else {
         toast.error(result.error || "Error al pagar ajustes")
       }
