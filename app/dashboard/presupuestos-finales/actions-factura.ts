@@ -252,11 +252,17 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       }
     }
 
-    // 8. Actualizar el estado del presupuesto a "facturado"
+    // 8. Actualizar el estado del presupuesto a "facturado" (buscar por código, sin IDs mágicos)
+    const { data: estadoFacturado } = await supabase
+      .from('estados_presupuestos')
+      .select('id')
+      .eq('codigo', 'facturado')
+      .maybeSingle();
+
     const { data: estadoUpdate, error: estadoError } = await supabase
       .from('presupuestos_finales')
       .update({ 
-        id_estado: 4, // ID 4 corresponde al estado "facturado"
+        id_estado: estadoFacturado?.id,
         aprobado: true
       })
       .eq('id', presupuestoId)

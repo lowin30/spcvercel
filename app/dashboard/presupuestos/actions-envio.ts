@@ -63,12 +63,26 @@ export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
       // Continuar de todos modos
     }
     
-    // Determinar el estado correcto:
-    // - Si ya existe factura → Estado "facturado" (id: 4)
-    // - Si NO existe factura → Estado "enviado" (id: 2)
-    const tieneFactura = facturas && facturas.length > 0
-    const nuevoEstadoId = tieneFactura ? 4 : 2  // 4=facturado, 2=enviado
-    const nombreEstado = tieneFactura ? "facturado" : "enviado"
+    // Determinar el estado correcto por código (sin IDs mágicos):
+    // - Si ya existe factura → Estado "facturado"
+    // - Si NO existe factura → Estado "enviado"
+    const tieneFactura = !!(facturas && facturas.length > 0)
+
+    // Obtener IDs desde estados_presupuestos por codigo
+    const { data: estadoFacturado } = await supabase
+      .from('estados_presupuestos')
+      .select('id')
+      .eq('codigo', 'facturado')
+      .maybeSingle()
+
+    const { data: estadoEnviado } = await supabase
+      .from('estados_presupuestos')
+      .select('id')
+      .eq('codigo', 'enviado')
+      .maybeSingle()
+
+    const nuevoEstadoId = tieneFactura ? estadoFacturado?.id : estadoEnviado?.id
+    const nombreEstado = tieneFactura ? 'facturado' : 'enviado'
     
     console.log(`[DEBUG] ¿Tiene factura?: ${tieneFactura}`)
     console.log(`[DEBUG] Nuevo estado ID: ${nuevoEstadoId} (${nombreEstado})`)
