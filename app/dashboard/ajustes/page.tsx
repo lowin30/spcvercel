@@ -261,13 +261,15 @@ export default function AjustesPage() {
   // Calcular resumen del administrador seleccionado (SOLO PENDIENTES)
   const administradorSeleccionado = administradores.find(a => a.id === filtroAdmin)
   const facturasAdminPendientes = filtroAdmin && filtroAdmin !== 0
-    ? facturas.filter(f => {
-        if (f.id_administrador !== filtroAdmin) return false
+    ? (todasLasFacturas || []).filter((f: any) => {
+        if (Number(f.id_administrador) !== Number(filtroAdmin)) return false
         const pendientes = typeof f.total_ajustes_pendientes === 'string' 
-          ? parseFloat(f.total_ajustes_pendientes) 
-          : f.total_ajustes_pendientes
+          ? parseFloat(f.total_ajustes_pendientes as any) 
+          : (f.total_ajustes_pendientes || 0)
+        // Normalizar pagada (boolean/num/string)
+        const pagadaBool = f.pagada === true || f.pagada === 'true' || f.pagada === 1 || f.pagada === '1' || f.pagada === 't'
         // Solo considerar facturas totalmente pagadas para habilitar liquidación de ajustes
-        return pendientes > 0 && f.pagada === true
+        return (pendientes || 0) > 0 && pagadaBool
       })
     : []
 
