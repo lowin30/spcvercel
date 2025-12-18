@@ -192,8 +192,133 @@ export default function FacturasPage({
         setAdministradores(administradoresData || []);
         setEstados(estadosData || []);
 
-        // Usar directamente las facturas de la vista (ya tienen todos los campos necesarios)
-        setFacturas(facturas as Invoice[])
+        // Enriquecer con gastos adicionales (gastos_extra_pdf_factura)
+        let facturasConExtras = facturas as any[]
+        try {
+          const ids = facturas.map((f: any) => f.id)
+          if (ids.length > 0) {
+            const { data: extrasRows, error: extrasError } = await supabase
+              .from('gastos_extra_pdf_factura')
+              .select('id_factura, monto, imagen_procesada_url, comprobante_url')
+              .in('id_factura', ids)
+            if (!extrasError && Array.isArray(extrasRows)) {
+              const sumMap = new Map<number, number>() // todos los extras
+              const sumMapConComprobante = new Map<number, number>() // extras con imagen/comprobante (como PDF)
+              for (const row of extrasRows as any[]) {
+                const fid = Number(row.id_factura)
+                const m = Number(row.monto || 0)
+                sumMap.set(fid, (sumMap.get(fid) || 0) + m)
+                const hasImg = !!row.imagen_procesada_url || !!row.comprobante_url
+                if (hasImg) {
+                  sumMapConComprobante.set(fid, (sumMapConComprobante.get(fid) || 0) + m)
+                }
+              }
+              facturasConExtras = facturas.map((f: any) => {
+                const extrasTotal = sumMap.get(f.id) || 0
+                const extrasTotalPdf = sumMapConComprobante.get(f.id) || 0
+                return {
+                  ...f,
+                  extras_total: extrasTotal,
+                  extras_total_pdf: extrasTotalPdf,
+                  total_incl_extras: Number(f.total || 0) + extrasTotal,
+                  tiene_extras: extrasTotal > 0,
+                }
+              })
+            }
+          }
+        } catch {}
+
+        // Enriquecer con gastos reales de la tarea, igual que el PDF:
+        // sumar montos de gastos_tarea con imagen (imagen_procesada_url o comprobante_url)
+        try {
+          // IDs de facturas en memoria
+          const factIds = (facturasConExtras as any[]).map((f: any) => Number(f.id))
+
+          // 1) Obtener id_presupuesto_final directo desde tabla facturas (robusto)
+          const { data: factPfRows } = await supabase
+            .from('facturas')
+            .select('id, id_presupuesto_final')
+            .in('id', factIds)
+
+          const factToPf = new Map<number, number>()
+          if (Array.isArray(factPfRows)) {
+            for (const r of factPfRows as any[]) {
+              const fid = Number(r.id)
+              const pfid = Number(r.id_presupuesto_final || 0)
+              if (fid > 0 && pfid > 0) factToPf.set(fid, pfid)
+            }
+          }
+
+          // 2) Reunir todos los pfIds de vista y de tabla facturas
+          const pfIdSet = new Set<number>()
+          for (const f of facturasConExtras as any[]) {
+            const pfVista = Number((f as any).id_presupuesto_final || 0)
+            if (pfVista > 0) pfIdSet.add(pfVista)
+          }
+          for (const [_fid, pfid] of factToPf) pfIdSet.add(pfid)
+          const pfIds = Array.from(pfIdSet)
+
+          // 3) Mapear pf -> tarea
+          const pfToTarea = new Map<number, number>()
+          if (pfIds.length > 0) {
+            const { data: pfRows } = await supabase
+              .from('presupuestos_finales')
+              .select('id, id_tarea')
+              .in('id', pfIds)
+            if (Array.isArray(pfRows)) {
+              for (const r of pfRows as any[]) {
+                if (r?.id && r?.id_tarea) pfToTarea.set(Number(r.id), Number(r.id_tarea))
+              }
+            }
+          }
+
+          // 4) Mapear factura -> tarea usando prioridad: vista.tarea_id > pfVista > facturas.id_presupuesto_final
+          const facturaToTarea = new Map<number, number>()
+          for (const f of facturasConExtras as any[]) {
+            const fid = Number(f.id)
+            const tidVista = Number((f as any).tarea_id || 0)
+            const pfVista = Number((f as any).id_presupuesto_final || 0)
+            const pfFromTable = factToPf.get(fid) || 0
+            const tid = tidVista > 0
+              ? tidVista
+              : (pfVista > 0 && pfToTarea.get(pfVista)) || (pfFromTable > 0 && pfToTarea.get(pfFromTable)) || 0
+            if (tid > 0) facturaToTarea.set(fid, Number(tid))
+          }
+
+          const tareaIds = Array.from(new Set(facturaToTarea.values()))
+          const realesMap = new Map<number, number>()
+
+          if (tareaIds.length > 0) {
+            const { data: gastosRows } = await supabase
+              .from('gastos_tarea')
+              .select('id_tarea, monto, imagen_procesada_url, comprobante_url')
+              .in('id_tarea', tareaIds)
+              .or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null')
+
+            if (Array.isArray(gastosRows)) {
+              for (const row of gastosRows as any[]) {
+                const tid = Number(row.id_tarea)
+                const hasImg = !!row.imagen_procesada_url || !!row.comprobante_url
+                if (!hasImg) continue
+                const m = Number(row.monto || 0)
+                realesMap.set(tid, (realesMap.get(tid) || 0) + m)
+              }
+            }
+          }
+
+          facturasConExtras = (facturasConExtras as any[]).map((f: any) => {
+            const tid = facturaToTarea.get(Number(f.id)) || 0
+            const reales = tid > 0 ? (realesMap.get(tid) || 0) : 0
+            // Para coincidir con el PDF, usamos solo extras con comprobante si existen; si no hay, caemos a 0
+            const extras = Number(f.extras_total_pdf || 0)
+            return {
+              ...f,
+              gastos_reales_total: reales,
+              gastos_sum_incl_extras: reales + extras,
+            }
+          })
+        } catch {}
+        setFacturas(facturasConExtras as Invoice[])
       } catch (err: any) {
         setError(err.message || "Ocurrió un error inesperado")
       } finally {
@@ -290,6 +415,18 @@ export default function FacturasPage({
     .filter(f => !f.pagada)
     .reduce((sum, f) => sum + ((f as any).saldo_pendiente || 0), 0)
 
+  // Adaptar datos para ExportFacturasButton (tipado estricto)
+  const facturasExport = filteredFacturas.map((f: any) => ({
+    id: f.id,
+    code: f.code,
+    nombre: f.nombre ?? null,
+    datos_afip: f.datos_afip ?? null,
+    estado_nombre: f.estado_nombre ?? (f.id_estado_nuevo ? (estados.find(e => e.id === f.id_estado_nuevo)?.nombre || '') : ''),
+    total: Number(f.total || 0),
+    saldo_pendiente: f.saldo_pendiente ?? 0,
+    total_ajustes_todos: f.total_ajustes_todos ?? 0,
+  }))
+
   // Estado de carga
   if (loading) {
     return (
@@ -325,7 +462,7 @@ export default function FacturasPage({
         <div className="flex gap-2">
           {/* Botón Exportar PDF */}
           <ExportFacturasButton 
-            facturas={filteredFacturas}
+            facturas={facturasExport}
             nombreAdministrador={administradores.find(a => a.id === filtroAdmin)?.nombre}
           />
           

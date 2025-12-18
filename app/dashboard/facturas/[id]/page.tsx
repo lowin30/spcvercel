@@ -1,11 +1,12 @@
 import { redirect, notFound } from 'next/navigation'
 import { createSsrServerClient } from '@/lib/ssr-server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, Download, FileText, Send, Building2, Briefcase, Calendar, CheckCircle2, XCircle, Clock, Receipt } from 'lucide-react'
+import { ArrowLeft, Download, FileText, Send, Building2, Briefcase, Calendar, CheckCircle2, XCircle, Clock, Receipt, AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { EsMaterialCheckbox } from './es-material-checkbox'
@@ -104,6 +105,10 @@ export default async function InvoicePage({ params }: { params: { id: string } }
     .eq('id_factura', factura.id)
     .order('fecha', { ascending: false })
 
+  const extrasTotal = Array.isArray(extras)
+    ? (extras as any[]).reduce((sum, g: any) => sum + (Number(g?.monto) || 0), 0)
+    : 0
+
   // Función auxiliar para formatear fechas
   const formatDate = (date: string | null) => {
     if (!date) return 'N/A'
@@ -191,6 +196,19 @@ export default async function InvoicePage({ params }: { params: { id: string } }
           )}
         </div>
       </div>
+
+      {Array.isArray(extras) && extras.length > 0 && (
+        <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-2 border-red-500 text-red-900 dark:text-red-200 shadow-sm">
+          <AlertTriangle className="h-5 w-5" />
+          <div>
+            <AlertTitle className="font-bold tracking-wide">¡IMPORTANTE! Gastos adicionales detectados</AlertTitle>
+            <AlertDescription className="mt-1 text-sm">
+              Total adicionales: {'$'}
+              {Number(extrasTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </AlertDescription>
+          </div>
+        </Alert>
+      )}
 
       <div className="grid gap-6">
         {/* CARD RESUMEN */}

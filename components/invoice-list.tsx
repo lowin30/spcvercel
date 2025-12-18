@@ -34,6 +34,10 @@ interface Invoice {
   saldo_pendiente?: number | string; // Saldo pendiente de pago
   total_pagado?: number | string; // Total pagado hasta el momento
   total_ajustes?: number | string; // Total de ajustes aprobados
+  // Extras
+  extras_total?: number | string;
+  total_incl_extras?: number | string;
+  tiene_extras?: boolean;
   
   // Datos del edificio/cliente
   nombre_edificio?: string | null;
@@ -146,9 +150,8 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
 
   // Función auxiliar para formatear moneda
   const formatCurrency = (amount: number | string | null) => {
-    if (!amount) return '$0'
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount
-    return `$${numAmount.toLocaleString('es-AR')}`
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount ?? 0)
+    return `$${Number(numAmount || 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
   }
 
   return (
@@ -200,8 +203,23 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                         <div className="font-semibold">
                           {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
                         </div>
-                        <div className="text-xs font-mono text-muted-foreground mt-1">
-                          {invoice.code}
+                        <div className="text-xs font-mono mt-1">
+                          {(() => {
+                            const suma = Number((invoice as any).gastos_sum_incl_extras || 0)
+                            if (invoice.tiene_extras) {
+                              return (
+                                <span className="text-red-600 font-semibold">
+                                  adicional {suma > 0 && <span className="ml-1">{formatCurrency(suma)}</span>}
+                                </span>
+                              )
+                            }
+                            // Sin extras: opción 2 => mostrar solo $<suma> si > 0; si no, fallback al code
+                            return suma > 0 ? (
+                              <span className="font-semibold">{formatCurrency(suma)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">{invoice.code}</span>
+                            )
+                          })()}
                         </div>
                       </div>
                     </TableCell>
@@ -225,10 +243,10 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                       })()}
                     </TableCell>
 
-                    {/* 4. TOTAL */}
+                    {/* 4. TOTAL (valor de la factura) */}
                     <TableCell className="text-right">
                       <div className="font-semibold tabular-nums">
-                        {formatCurrency(invoice.total)}
+                        {formatCurrency(invoice.total as any)}
                       </div>
                     </TableCell>
 
@@ -397,7 +415,21 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                           {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
                         </CardTitle>
                         <CardDescription className="text-xs mt-1 font-mono">
-                          {invoice.code}
+                          {(() => {
+                            const suma = Number((invoice as any).gastos_sum_incl_extras || 0)
+                            if (invoice.tiene_extras) {
+                              return (
+                                <span className="text-red-600 font-semibold">
+                                  adicional {suma > 0 && <span className="ml-1">{formatCurrency(suma)}</span>}
+                                </span>
+                              )
+                            }
+                            return suma > 0 ? (
+                              <span className="font-semibold">{formatCurrency(suma)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">{invoice.code}</span>
+                            )
+                          })()}
                         </CardDescription>
                       </div>
                       {estadoActual && (
@@ -414,7 +446,7 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                       </div>
                       <div className="text-right">
                         <div className="text-muted-foreground text-xs">Total</div>
-                        <div className="font-semibold">{formatCurrency(invoice.total)}</div>
+                        <div className="font-semibold">{formatCurrency(invoice.total as any)}</div>
                       </div>
                     </div>
 
