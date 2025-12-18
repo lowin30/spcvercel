@@ -108,6 +108,22 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
           if (updPfErr) {
             console.error('Error al actualizar presupuesto_final a facturado:', updPfErr)
           }
+          if (tareaIdFromPf) {
+            const { data: estadoTareaFacturado } = await supabase
+              .from('estados_tareas')
+              .select('id')
+              .eq('codigo', 'facturado')
+              .maybeSingle()
+            if (estadoTareaFacturado?.id) {
+              const { error: updTareaErr } = await supabase
+                .from('tareas')
+                .update({ id_estado_nuevo: estadoTareaFacturado.id, updated_at: new Date().toISOString() })
+                .eq('id', tareaIdFromPf)
+              if (updTareaErr) {
+                console.error('Error al actualizar tarea a facturado:', updTareaErr)
+              }
+            }
+          }
         }
       }
     } catch (e) {
