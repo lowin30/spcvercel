@@ -74,9 +74,43 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
       }
     }
     
+    // Intentar actualizar el Presupuesto Final relacionado a estado 'facturado'
+    try {
+      const pfIdDirect = (data?.[0] as any)?.id_presupuesto_final
+      let pfId = pfIdDirect
+      if (!pfId) {
+        const { data: row } = await supabase
+          .from('facturas')
+          .select('id_presupuesto_final')
+          .eq('id', facturaId)
+          .single()
+        pfId = (row as any)?.id_presupuesto_final
+      }
+      if (pfId) {
+        const { data: estadoFacturado } = await supabase
+          .from('estados_presupuestos')
+          .select('id')
+          .eq('codigo', 'facturado')
+          .maybeSingle()
+        if (estadoFacturado?.id) {
+          const { error: updPfErr } = await supabase
+            .from('presupuestos_finales')
+            .update({ id_estado: estadoFacturado.id, updated_at: new Date().toISOString() })
+            .eq('id', pfId)
+          if (updPfErr) {
+            console.error('Error al actualizar presupuesto_final a facturado:', updPfErr)
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error al sincronizar estado de presupuesto/tarea tras enviar factura:', e)
+    }
+    
     // Revalidar las páginas relevantes
     revalidatePath("/dashboard/facturas")
     revalidatePath(`/dashboard/facturas/${facturaId}`)
+    revalidatePath("/dashboard/presupuestos")
+    revalidatePath("/dashboard/tareas")
     
     return {
       success: true,
