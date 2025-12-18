@@ -74,6 +74,8 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
       }
     }
     
+    let tareaIdFromPf: number | null = null
+    
     // Intentar actualizar el Presupuesto Final relacionado a estado 'facturado'
     try {
       const pfIdDirect = (data?.[0] as any)?.id_presupuesto_final
@@ -87,6 +89,12 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
         pfId = (row as any)?.id_presupuesto_final
       }
       if (pfId) {
+        const { data: pfRow } = await supabase
+          .from('presupuestos_finales')
+          .select('id_tarea')
+          .eq('id', pfId)
+          .maybeSingle()
+        tareaIdFromPf = (pfRow as any)?.id_tarea ?? null
         const { data: estadoFacturado } = await supabase
           .from('estados_presupuestos')
           .select('id')
@@ -111,6 +119,9 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
     revalidatePath(`/dashboard/facturas/${facturaId}`)
     revalidatePath("/dashboard/presupuestos")
     revalidatePath("/dashboard/tareas")
+    if (tareaIdFromPf) {
+      revalidatePath(`/dashboard/tareas/${tareaIdFromPf}`)
+    }
     
     return {
       success: true,
