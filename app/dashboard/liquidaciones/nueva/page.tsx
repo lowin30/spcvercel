@@ -149,7 +149,6 @@ export default function NuevaLiquidacionSupervisorPage () {
         .eq('aprobado', true)
         .eq('rechazado', false)
         .eq('tareas.finalizada', true)
-        .eq('tareas.id_estado_nuevo', 7)
 
       // Aplicar filtros
       if (filtroEstado && filtroEstado.length > 0) {
