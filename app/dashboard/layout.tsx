@@ -11,6 +11,8 @@ interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
+const ENABLE_AI_ASSISTANT = false
+
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -103,7 +105,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <DashboardShell userDetails={userDetails}>
         {children}
         {/* Chatbot IA - Solo visible si usuario tiene rol válido */}
-        {userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
+        {ENABLE_AI_ASSISTANT && userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
       </DashboardShell>
       <Toaster />
     </>
