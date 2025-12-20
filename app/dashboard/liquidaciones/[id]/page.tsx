@@ -102,7 +102,7 @@ export default async function SettlementPage({ params }: SettlementPageProps) {
                 <div>
                   <h3 className="font-medium mb-1">Presupuesto Base</h3>
                   <Link
-                    href={`/dashboard/presupuestos/${liquidacion.id_presupuesto_base}`}
+                    href={`/dashboard/presupuestos-base/${liquidacion.id_presupuesto_base}`}
                     className="flex items-center text-primary hover:underline"
                   >
                     <Calculator className="h-4 w-4 mr-1" />

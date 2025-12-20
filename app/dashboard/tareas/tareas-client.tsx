@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { SupabaseClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Plus, Loader2, Search, X, RefreshCw } from 'lucide-react'
@@ -109,13 +108,7 @@ export default function TareasClient() {
       setCargandoEstados(false);
     }
   }
-
-  useEffect(() => {
-    const supabaseClient = createClient()
-    setSupabase(supabaseClient)
-  }, [])
-
-  const fetchData = useCallback(async () => {
+const fetchData = useCallback(async () => {
     if (!supabase) return
 
     setLoading(true)
@@ -382,3 +375,4 @@ export default function TareasClient() {
     </div>
   )
 }
+

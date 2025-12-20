@@ -14,16 +14,12 @@ import { Label } from '@/components/ui/label'
 import { DesgloseGastosReales } from '@/components/desglose-gastos-reales'
 
 // Tipos
-interface PresupuestoFinal {
+interface PresupuestoItem {
   id: number
   code: string
   id_tarea: number
   total: number
-  total_base: number
-  id_estado: number
   aprobado: boolean
-  rechazado: boolean
-  observaciones_admin: string | null
   id_supervisor: string | null
   email_supervisor: string | null
   tareas: {
@@ -31,16 +27,6 @@ interface PresupuestoFinal {
     id: number
     finalizada: boolean
     id_estado_nuevo: number
-  }
-  presupuestos_base: {
-    id: number
-    total: number
-  }
-  supervisores_tareas: {
-    id_supervisor: string
-    usuarios: {
-      email: string
-    }
   }
 }
 
@@ -76,7 +62,7 @@ export default function NuevaLiquidacionSupervisorPage () {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Estados de datos
-  const [presupuestos, setPresupuestos] = useState<PresupuestoFinal[]>([])
+  const [presupuestos, setPresupuestos] = useState<PresupuestoItem[]>([])
   const [selectedPresupuestoId, setSelectedPresupuestoId] = useState<string>('')
   const [gastosReales, setGastosReales] = useState<number | null>(null)
   const [ajusteAdmin, setAjusteAdmin] = useState<number>(0)
@@ -124,43 +110,34 @@ export default function NuevaLiquidacionSupervisorPage () {
     loadSupervisores()
   }, [])
 
-  // Función para obtener los presupuestos finales que no tienen liquidación
+  // Función para obtener Presupuestos Base (aprobados, tarea finalizada) que no tengan liquidación previa
   const fetchPresupuestosSinLiquidar = useCallback(async () => {
     setLoading(true)
 
     try {
-      // 1. Obtenemos los presupuestos finales sin liquidación
+      // 1) Presupuestos Base aprobados con tarea finalizada
       let query = supabase
-        .from('presupuestos_finales')
+        .from('presupuestos_base')
         .select(`
           id,
           code,
           id_tarea,
           total,
-          total_base,
-          id_estado,
           aprobado,
-          rechazado,
-          observaciones_admin,
-          tareas!inner (id, titulo, finalizada, id_estado_nuevo),
-          presupuestos_base!inner (id, total)
+          tareas!inner (id, titulo, finalizada, id_estado_nuevo)
         `)
-        .is('id_liquidacion_supervisor', null)
         .eq('aprobado', true)
-        .eq('rechazado', false)
         .eq('tareas.finalizada', true)
 
       // Aplicar filtros
-      if (filtroEstado && filtroEstado.length > 0) {
-        query = query.in('id_estado', filtroEstado)
-      }
+      // Nota: filtroEstado (propio de PF) no aplica a PB
 
       // Aplicar búsqueda si hay texto
       if (busquedaTexto) {
         query = query.ilike('tareas.titulo', `%${busquedaTexto}%`)
       }
 
-      const { data: presupuestosData, error: presupuestosError } = await query.order('total_base', { ascending: false })
+      const { data: presupuestosData, error: presupuestosError } = await query.order('total', { ascending: false })
 
       if (presupuestosError) {
         throw presupuestosError
@@ -172,8 +149,25 @@ export default function NuevaLiquidacionSupervisorPage () {
         return
       }
 
-      // 2. Para cada presupuesto, obtenemos el supervisor de la tarea asociada
-      const presupuestosConSupervisores = await Promise.all(presupuestosData.map(async (presupuesto: any) => {
+      // 2) Excluir tareas ya liquidadas (según liquidaciones_nuevas por id_tarea)
+      const taskIds = (presupuestosData as any[]).map(p => p.id_tarea).filter(Boolean)
+      let liquidadas = new Set<number>()
+      if (taskIds.length > 0) {
+        const { data: liqs, error: liqsErr } = await supabase
+          .from('liquidaciones_nuevas')
+          .select('id, id_tarea')
+          .in('id_tarea', taskIds)
+        if (!liqsErr && Array.isArray(liqs)) {
+          for (const r of liqs) {
+            if ((r as any)?.id_tarea) liquidadas.add((r as any).id_tarea)
+          }
+        }
+      }
+
+      const pbSinLiquidar = (presupuestosData as any[]).filter(p => !liquidadas.has(p.id_tarea))
+
+      // 3) Para cada PB, obtener el último supervisor de la tarea
+      const presupuestosConSupervisores = await Promise.all(pbSinLiquidar.map(async (presupuesto: any) => {
         const idTarea = presupuesto.id_tarea
 
         if (!idTarea) {
@@ -189,6 +183,7 @@ export default function NuevaLiquidacionSupervisorPage () {
           .from('supervisores_tareas')
           .select('id_supervisor, usuarios (email)')
           .eq('id_tarea', idTarea)
+          .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
 
@@ -212,7 +207,7 @@ export default function NuevaLiquidacionSupervisorPage () {
         presupuestosFiltrados = presupuestosFiltrados.filter(p => (p as any).email_supervisor === supervisorEmail)
       }
 
-      setPresupuestos(presupuestosFiltrados as PresupuestoFinal[])
+      setPresupuestos(presupuestosFiltrados as PresupuestoItem[])
     } catch (error) {
       toast.error('Error al cargar los presupuestos.')
       console.error(error)
@@ -227,6 +222,13 @@ export default function NuevaLiquidacionSupervisorPage () {
       fetchPresupuestosSinLiquidar()
     }
   }, [isAuthorized, fetchPresupuestosSinLiquidar])
+
+  // Auto-aplicar filtros al cambiar selección/búsqueda
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchPresupuestosSinLiquidar()
+    }
+  }, [isAuthorized, supervisorEmail, filtroSupervisor, busquedaTexto, fetchPresupuestosSinLiquidar])
 
   // Presupuesto seleccionado
   const selectedPresupuesto = useMemo(() => {
@@ -281,10 +283,7 @@ export default function NuevaLiquidacionSupervisorPage () {
   // Memo para calcular las ganancias
   const calculos = useMemo((): Calculos | null => {
     if (!selectedPresupuesto || gastosReales === null) return null
-    const basePF = Math.round(selectedPresupuesto.total_base ?? 0)
-    const basePB = Math.round(selectedPresupuesto.presupuestos_base?.total ?? 0)
-    const baseFactura = Math.round(facturaTotal ?? 0)
-    const totalBaseInt = basePF > 0 ? basePF : (basePB > 0 ? basePB : (baseFactura > 0 ? baseFactura : 0))
+    const totalBaseInt = Math.round(selectedPresupuesto.total ?? 0)
     const gastosRealesInt = Math.round(gastosReales)
     const propietario = !!(currentUserId && selectedPresupuesto.id_supervisor && currentUserId === selectedPresupuesto.id_supervisor)
     if (totalBaseInt <= 0) {
@@ -329,7 +328,7 @@ export default function NuevaLiquidacionSupervisorPage () {
       sobrecostoSupervisor: sobrecostoSupervisorInt,
       sobrecostoAdmin: sobrecostoAdminInt
     }
-  }, [selectedPresupuesto, gastosReales, facturaTotal, currentUserId])
+  }, [selectedPresupuesto, gastosReales, currentUserId])
 
   // Manejador para crear la liquidación
   const handleCreateLiquidacion = async () => {
@@ -369,11 +368,7 @@ export default function NuevaLiquidacionSupervisorPage () {
       const code = `LIQ-${timestamp}-${randomSuffix}`
       
       const gastosRealesIntForInsert = Math.round(gastosReales ?? 0)
-      const basePFInsert = Math.round(selectedPresupuesto.total_base ?? 0)
-      const basePBInsert = Math.round(selectedPresupuesto.presupuestos_base?.total ?? 0)
-      const facturasArr = Array.isArray(facturaData) ? (facturaData as any[]) : []
-      const baseFacturaInsert = Math.round(facturasArr.reduce((acc, f) => acc + (f.total ?? 0), 0))
-      const totalBaseIntForInsert = basePFInsert > 0 ? basePFInsert : (basePBInsert > 0 ? basePBInsert : (baseFacturaInsert > 0 ? baseFacturaInsert : 0))
+      const totalBaseIntForInsert = Math.round(selectedPresupuesto.total ?? 0)
       const ajusteAdminIntForInsert = Math.round(ajusteAdmin ?? 0)
       const propietario = (user.id && selectedPresupuesto.id_supervisor && user.id === selectedPresupuesto.id_supervisor)
       const gananciaNetaInt = totalBaseIntForInsert > 0 ? (totalBaseIntForInsert - gastosRealesIntForInsert) : 0
@@ -409,8 +404,7 @@ export default function NuevaLiquidacionSupervisorPage () {
       const { data: liquidacionData, error: liquidacionError } = await supabase
         .from('liquidaciones_nuevas')
         .insert({
-          id_presupuesto_final: selectedPresupuesto.id,
-          id_presupuesto_base: selectedPresupuesto.presupuestos_base?.id ?? null,
+          id_presupuesto_base: selectedPresupuesto.id,
           id_tarea: selectedPresupuesto.id_tarea, // ID de la tarea
           id_usuario_admin: adminId,
           id_usuario_supervisor: supervisorId,
@@ -422,7 +416,7 @@ export default function NuevaLiquidacionSupervisorPage () {
           code: code, // Código único generado
           total_base: totalBaseIntForInsert,
           ajuste_admin: ajusteAdminIntForInsert, // Ajuste administrativo
-          id_factura: latestFacturaId, // Relación con la última factura si existe
+          id_factura: null, // No dependemos de facturas para el cálculo del total base
           sobrecosto: haySobrecostoInsert,
           monto_sobrecosto: montoSobrecostoInsert,
           sobrecosto_supervisor: sobrecostoSupervisorInsert,
@@ -435,19 +429,7 @@ export default function NuevaLiquidacionSupervisorPage () {
         throw liquidacionError
       }
 
-      // Actualizar el presupuesto final para marcarlo como liquidado
-      const { error: updateError } = await supabase
-        .from('presupuestos_finales')
-        .update({ id_liquidacion_supervisor: liquidacionData.id })
-        .eq('id', selectedPresupuesto.id)
-
-      if (updateError) {
-        // Opcional: manejar el caso donde la liquidación se creó pero la actualización falló
-        toast.error('La liquidación se creó, pero falló al actualizar el presupuesto.')
-        console.error('Error al actualizar presupuesto_final:', updateError)
-      } else {
-        toast.success('Liquidación creada con éxito!')
-      }
+      toast.success('Liquidación creada con éxito!')
 
       // Marcar como pagados los gastos de admin/supervisor para esta tarea
       try {
@@ -566,7 +548,7 @@ export default function NuevaLiquidacionSupervisorPage () {
               <CardTitle>1. Seleccionar Tarea a Liquidar</CardTitle>
             </CardHeader>
             <CardContent>
-              <Label htmlFor="presupuesto-select">Tarea (Presupuesto Final)</Label>
+              <Label htmlFor="presupuesto-select">Tarea (Presupuesto Base)</Label>
               <Select
                 value={selectedPresupuestoId}
                 onValueChange={setSelectedPresupuestoId}
@@ -582,11 +564,11 @@ export default function NuevaLiquidacionSupervisorPage () {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium">{p.tareas?.titulo || 'Tarea sin título'}</span>
                           <Badge className="bg-green-100 text-green-800 text-xs">
-                            {p.id_estado === 3 ? 'Aceptado' : p.id_estado === 4 ? 'Facturado' : 'Otro'}
+                            {p.aprobado ? 'Aprobado' : 'Pendiente'}
                           </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground flex flex-col sm:flex-row sm:gap-3">
-                          <span>Base: ${p.presupuestos_base?.total?.toLocaleString() || 'N/A'}</span>
+                          <span>Base: ${p.total?.toLocaleString() || 'N/A'}</span>
                           <span className="hidden sm:inline">•</span>
                           <span>Supervisor: {p.email_supervisor || 'Sin asignar'}</span>
                         </div>
@@ -618,7 +600,7 @@ export default function NuevaLiquidacionSupervisorPage () {
                 <h3 className="font-semibold text-lg">{selectedPresupuesto.tareas?.titulo || 'Tarea sin título'}</h3>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Monto Presupuesto Base:</span>
-                  <span className="font-mono">${selectedPresupuesto.presupuestos_base?.total.toLocaleString('es-AR') ?? 'N/A'}</span>
+                  <span className="font-mono">${selectedPresupuesto.total.toLocaleString('es-AR') ?? 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">(-) Gastos Reales de Tarea:</span>
