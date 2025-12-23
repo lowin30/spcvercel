@@ -13,7 +13,7 @@ interface DatosLiquidacion {
   code: string
   created_at: string
   titulo_tarea: string
-  code_presupuesto_final: string
+  code_presupuesto_base: string
   email_supervisor: string
   total_base: number
   gastos_reales: number
@@ -64,7 +64,7 @@ export async function descargarLiquidacionPDF(liquidacionId: number): Promise<vo
       fecha: new Date(liquidacion.created_at),
       tarea: {
         titulo: liquidacion.titulo_tarea || 'Tarea sin título',
-        codigo: liquidacion.code_presupuesto_final,
+        codigo: liquidacion.code_presupuesto_base,
       },
       supervisor: {
         email: liquidacion.email_supervisor || 'Sin supervisor',
@@ -82,7 +82,7 @@ export async function descargarLiquidacionPDF(liquidacionId: number): Promise<vo
 
     // 4. Descargar PDF (centralizado)
     const filename = getPdfFilename('liquidacion_supervisor', {
-      tarea: liquidacion.titulo_tarea || liquidacion.code_presupuesto_final || 'Tarea',
+      tarea: liquidacion.titulo_tarea || liquidacion.code_presupuesto_base || 'Tarea',
       fecha: dateToISO(liquidacion.created_at),
       total: liquidacion.total_supervisor || 0,
     })

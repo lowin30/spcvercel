@@ -22,7 +22,6 @@ interface LiquidacionSupervisor {
   ganancia_supervisor: number;
   ganancia_admin: number;
   titulo_tarea: string;
-  code_presupuesto_final: string;
   total_base?: number;
   code_factura?: string;
   email_supervisor?: string;
@@ -89,7 +88,6 @@ export default function LiquidacionesSupervisorPage() {
             ganancia_supervisor,
             ganancia_admin,
             titulo_tarea,
-            code_presupuesto_final,
             total_base,
             code_factura,
             email_supervisor,
@@ -373,7 +371,6 @@ export default function LiquidacionesSupervisorPage() {
                   </TableHead>
                 )}
                 <TableHead>Tarea</TableHead>
-                {userRole === 'admin' && (<TableHead>P. Final</TableHead>)}
                 <TableHead>Ganancia Neta</TableHead>
                 <TableHead>Ganancia Supervisor</TableHead>
                 {userRole === 'admin' && (<TableHead>Total Supervisor</TableHead>)}
@@ -403,9 +400,6 @@ export default function LiquidacionesSupervisorPage() {
                         liq.titulo_tarea || 'N/A'
                       )}
                     </TableCell>
-                    {userRole === 'admin' && (
-                      <TableCell>{liq.code_presupuesto_final || 'N/A'}</TableCell>
-                    )}
                     <TableCell>{formatCurrency(liq.ganancia_neta)}</TableCell>
                     <TableCell className="font-semibold text-green-600">{formatCurrency(liq.ganancia_supervisor)}</TableCell>
                     {userRole === 'admin' && (
@@ -425,7 +419,7 @@ export default function LiquidacionesSupervisorPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={userRole === 'admin' ? 8 : 4} className="text-center h-24">
+                  <TableCell colSpan={userRole === 'admin' ? 7 : 4} className="text-center h-24">
                     No se encontraron liquidaciones.
                   </TableCell>
                 </TableRow>
@@ -447,12 +441,6 @@ export default function LiquidacionesSupervisorPage() {
               </CardHeader>
               <CardContent className="pb-3 pt-0 space-y-2">
                 <div className="grid grid-cols-2 gap-1">
-                  {userRole === 'admin' && (
-                    <>
-                      <div className="text-sm text-muted-foreground">P. Final:</div>
-                      <div className="text-sm font-medium">{liq.code_presupuesto_final || 'N/A'}</div>
-                    </>
-                  )}
                   
                   <div className="text-sm text-muted-foreground">Ganancia Neta:</div>
                   <div className="text-sm font-medium">{formatCurrency(liq.ganancia_neta)}</div>
