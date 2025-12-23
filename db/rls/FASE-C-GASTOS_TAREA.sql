@@ -48,6 +48,15 @@ ON public.gastos_tarea
 AS RESTRICTIVE
 FOR DELETE
 TO public
-USING (check_user_role('admin'::text));
+USING (
+  check_user_role('admin'::text)
+  OR auth.uid() = (
+    SELECT st.id_supervisor
+    FROM public.supervisores_tareas st
+    WHERE st.id_tarea = gastos_tarea.id_tarea
+    ORDER BY st.created_at DESC, st.id DESC
+    LIMIT 1
+  )
+);
 
 COMMIT;
