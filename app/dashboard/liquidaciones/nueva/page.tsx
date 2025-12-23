@@ -388,9 +388,9 @@ export default function NuevaLiquidacionSupervisorPage () {
       const sobrecostoAdminInsert = haySobrecostoInsert ? Math.abs(gananciaAdminInt) : 0
 
       let latestFacturaId: number | null = null
-      if (facturasArr.length > 0) {
+      if (Array.isArray(facturaData) && facturaData.length > 0) {
         let latest: any = null
-        for (const f of facturasArr) {
+        for (const f of facturaData) {
           const ts = new Date(f.fecha_pago || f.created_at || 0).getTime()
           if (!latest) {
             latest = { ...f, _ts: ts }
