@@ -123,6 +123,12 @@ SELECT
   (SELECT COALESCE(SUM(f.total), 0) FROM public.facturas f WHERE f.pagada = true AND f.fecha_pago >= date_trunc('month', NOW())) AS ingresos_mes_actual,
   (SELECT COALESCE(SUM(f.total), 0) FROM public.facturas f WHERE f.pagada = true AND f.fecha_pago >= date_trunc('month', NOW() - interval '1 month') AND f.fecha_pago <  date_trunc('month', NOW())) AS ingresos_mes_anterior
 
+  ,
+  -- KPIs de recordatorios admin
+  (SELECT COUNT(*) FROM public.vista_admin_liquidaciones_sin_pf) AS liquidaciones_sin_pf_count,
+  (SELECT COUNT(*) FROM public.vista_admin_pf_aprobado_sin_factura) AS pf_aprobado_sin_factura_count,
+  (SELECT COUNT(*) FROM public.vista_admin_pb_finalizada_sin_pf) AS pb_finalizada_sin_pf_count
+
 WHERE check_user_role('admin');
 
 COMMENT ON VIEW public.vista_finanzas_admin IS 'Métricas financieras globales. Devuelve 1 fila para admin; 0 filas para otros roles. security_invoker aplica RLS de tablas base.';

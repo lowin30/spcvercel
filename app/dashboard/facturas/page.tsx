@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { InvoiceList } from "@/components/invoice-list"
 import { ExportFacturasButton } from "@/components/export-facturas-button"
 import Link from "next/link"
-import { Plus, Search, Loader2, Filter } from "lucide-react"
+import { Plus, Search, Loader2, Filter, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -60,6 +60,11 @@ export default function FacturasPage({
   const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
   const params = useSearchParams()
+  // KPIs admin y vistas detalle
+  const [kpisAdmin, setKpisAdmin] = useState<any | null>(null)
+  const [detalleLiqSinPF, setDetalleLiqSinPF] = useState<any[]>([])
+  const [detallePfAprobSinFactura, setDetallePfAprobSinFactura] = useState<any[]>([])
+  const [detallePbFinalizadaSinPF, setDetallePbFinalizadaSinPF] = useState<any[]>([])
   
   // Inicializar el valor de búsqueda desde la URL al cargar la página
   useEffect(() => {
@@ -150,6 +155,41 @@ export default function FacturasPage({
           .from("estados_facturas")
           .select("*")
           .order("id");
+
+        // KPIs ADMIN y vistas detalle (solo admin)
+        try {
+          const { data: kpiData } = await supabase
+            .from('vista_finanzas_admin')
+            .select('*')
+            .single()
+          setKpisAdmin(kpiData || null)
+        } catch {}
+
+        try {
+          const { data: liqSinPf } = await supabase
+            .from('vista_admin_liquidaciones_sin_pf')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5)
+          setDetalleLiqSinPF(liqSinPf || [])
+        } catch {}
+
+        try {
+          const { data: pfSinFac } = await supabase
+            .from('vista_admin_pf_aprobado_sin_factura')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5)
+          setDetallePfAprobSinFactura(pfSinFac || [])
+        } catch {}
+
+        try {
+          const { data: pbSinPf } = await supabase
+            .from('vista_admin_pb_finalizada_sin_pf')
+            .select('*')
+            .limit(5)
+          setDetallePbFinalizadaSinPF(pbSinPf || [])
+        } catch {}
 
         // Consulta usando la vista completa de facturas
         const { data: facturasData, error: facturasError } = await supabase
@@ -474,6 +514,54 @@ export default function FacturasPage({
           </Button>
         </div>
       </div>
+
+      {/* Panel de recordatorios (solo admin) */}
+      {kpisAdmin && (
+        <Card className="bg-amber-50 border-amber-200">
+          <CardHeader>
+            <CardTitle className="flex items-center text-amber-800">
+              <AlertTriangle className="h-4 w-4 mr-2 text-amber-600" /> Recordatorios de administración
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Liquidaciones sin PF</div>
+                <div className="text-2xl font-bold">{kpisAdmin.liquidaciones_sin_pf_count ?? 0}</div>
+                <div className="mt-2 space-y-1">
+                  {detalleLiqSinPF.slice(0,3).map((it: any) => (
+                    <Link key={it.id_liquidacion} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">PF aprobados sin factura</div>
+                <div className="text-2xl font-bold">{kpisAdmin.pf_aprobado_sin_factura_count ?? 0}</div>
+                <div className="mt-2 space-y-1">
+                  {detallePfAprobSinFactura.slice(0,3).map((it: any) => (
+                    <Link key={it.id_presupuesto_final} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_pf || `PF #${it.id_presupuesto_final}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">PB finalizada sin PF</div>
+                <div className="text-2xl font-bold">{kpisAdmin.pb_finalizada_sin_pf_count ?? 0}</div>
+                <div className="mt-2 space-y-1">
+                  {detallePbFinalizadaSinPF.slice(0,3).map((it: any) => (
+                    <Link key={it.id_presupuesto_base} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_pb || `PB #${it.id_presupuesto_base}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Estadísticas de facturas filtradas */}
       <Card className="bg-muted/50 border-primary/20">

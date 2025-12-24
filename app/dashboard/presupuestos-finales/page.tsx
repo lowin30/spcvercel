@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { formatDate } from "@/lib/date-utils"
+import { AlertTriangle } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 export default async function PresupuestosFinalesPage() {
@@ -20,12 +21,35 @@ export default async function PresupuestosFinalesPage() {
     redirect("/dashboard")
   }
 
-  const supabase = createServerClient()
+  const supabase = await createServerClient()
   
   if (!supabase) {
     console.error("No se pudo crear el cliente de Supabase")
     return <div>Error al conectar con la base de datos</div>
   }
+
+  // KPIs admin y vistas de detalle (solo admin)
+  const { data: kpis } = await supabase
+    .from('vista_finanzas_admin')
+    .select('*')
+    .single()
+
+  const { data: liqSinPf } = await supabase
+    .from('vista_admin_liquidaciones_sin_pf')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const { data: pfSinFac } = await supabase
+    .from('vista_admin_pf_aprobado_sin_factura')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const { data: pbSinPf } = await supabase
+    .from('vista_admin_pb_finalizada_sin_pf')
+    .select('*')
+    .limit(5)
 
   // Obtener listado de presupuestos finales usando la vista completa
   const { data: presupuestosFinales, error } = await supabase
@@ -43,6 +67,54 @@ export default async function PresupuestosFinalesPage() {
         <h1 className="text-2xl font-bold tracking-tight">Presupuestos Finales</h1>
       </div>
 
+      {/* Panel de recordatorios (solo admin) */}
+      {kpis && (
+        <Card className="bg-amber-50 border-amber-200">
+          <CardHeader>
+            <CardTitle className="flex items-center text-amber-800">
+              <AlertTriangle className="h-4 w-4 mr-2 text-amber-600" /> Recordatorios de administración
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Liquidaciones sin PF</div>
+                <div className="text-2xl font-bold">{(kpis as any).liquidaciones_sin_pf_count ?? 0}</div>
+                <div className="mt-2 space-y-1">
+                  {(liqSinPf || []).slice(0,3).map((it: any) => (
+                    <Link key={it.id_liquidacion} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">PF aprobados sin factura</div>
+                <div className="text-2xl font-bold">{(kpis as any).pf_aprobado_sin_factura_count ?? 0}</div>
+                <div className="mt-2 space-y-1">
+                  {(pfSinFac || []).slice(0,3).map((it: any) => (
+                    <Link key={it.id_presupuesto_final} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_pf || `PF #${it.id_presupuesto_final}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">PB finalizada sin PF</div>
+                <div className="text-2xl font-bold">{(kpis as any).pb_finalizada_sin_pf_count ?? 0}</div>
+                <div className="mt-2 space-y-1">
+                  {(pbSinPf || []).slice(0,3).map((it: any) => (
+                    <Link key={it.id_presupuesto_base} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_pb || `PB #${it.id_presupuesto_base}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4">
         {presupuestosFinales?.length === 0 ? (
           <Card>
@@ -53,7 +125,7 @@ export default async function PresupuestosFinalesPage() {
             </CardContent>
           </Card>
         ) : (
-          presupuestosFinales?.map((presupuesto) => (
+          (presupuestosFinales as any[])?.map((presupuesto: any) => (
             <Link 
               href={`/dashboard/presupuestos-finales/${presupuesto.id}`}
               key={presupuesto.id}
