@@ -45,16 +45,43 @@ SELECT
   t.id         AS id_tarea,
   t.code       AS code_tarea,
   t.titulo     AS titulo_tarea,
-  pb.total     AS total_pb
+  pb.total     AS total_pb,
+  COALESCE(u.nombre, u.email, u.code) AS supervisor_label,
+  pb.created_at AS created_at
 FROM public.presupuestos_base pb
 JOIN public.tareas t ON t.id = pb.id_tarea
+LEFT JOIN public.supervisores_tareas st ON st.id_tarea = t.id
+LEFT JOIN public.usuarios u ON u.id = st.id_supervisor
 WHERE COALESCE(pb.aprobado, false) = true
-  AND COALESCE(t.finalizada, false) = true
   AND NOT EXISTS (
     SELECT 1 FROM public.presupuestos_finales pf WHERE pf.id_tarea = t.id
   )
 AND check_user_role('admin');
 
-COMMENT ON VIEW public.vista_admin_pb_finalizada_sin_pf IS 'Detalle de PBs aprobados con tarea finalizada que aún no tienen presupuesto final creado. Restringido a admin por check_user_role.';
+COMMENT ON VIEW public.vista_admin_pb_finalizada_sin_pf IS 'Detalle de PBs aprobados que aún no tienen presupuesto final creado (sin requerir tarea finalizada). Restringido a admin por check_user_role.';
+
+-- NUEVO: PB SIN APROBAR (SOLO ADMIN)
+DROP VIEW IF EXISTS public.vista_admin_pb_sin_aprobar;
+CREATE VIEW public.vista_admin_pb_sin_aprobar AS
+SELECT
+  pb.id    AS id_presupuesto_base,
+  pb.code  AS code_pb,
+  t.id     AS id_tarea,
+  t.code   AS code_tarea,
+  t.titulo AS titulo_tarea,
+  pb.total AS total_pb,
+  COALESCE(u.nombre, u.email, u.code) AS supervisor_label,
+  pb.created_at AS created_at
+FROM public.presupuestos_base pb
+JOIN public.tareas t ON t.id = pb.id_tarea
+LEFT JOIN public.supervisores_tareas st ON st.id_tarea = t.id
+LEFT JOIN public.usuarios u ON u.id = st.id_supervisor
+WHERE COALESCE(pb.aprobado, false) = false
+  AND NOT EXISTS (
+    SELECT 1 FROM public.presupuestos_finales pf WHERE pf.id_tarea = t.id
+  )
+AND check_user_role('admin');
+
+COMMENT ON VIEW public.vista_admin_pb_sin_aprobar IS 'Detalle de PBs NO aprobados. Restringido a admin por check_user_role.';
 
 COMMIT;

@@ -6,10 +6,11 @@ import { createClient } from "@/lib/supabase-client"
 import { Button } from "@/components/ui/button"
 import { BudgetList } from "@/components/budget-list"
 import Link from "next/link"
-import { Plus, Search, Loader2 } from "lucide-react"
+import { Plus, Search, Loader2, AlertTriangle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function PresupuestosPage() {
   const [todosLosPresupuestos, setTodosLosPresupuestos] = useState<any[]>([]) // 🆕 Todos sin filtrar
@@ -20,6 +21,10 @@ export default function PresupuestosPage() {
   const [searchInput, setSearchInput] = useState<string>('') // 🆕 Búsqueda client-side
   const [administradores, setAdministradores] = useState<any[]>([])
   const [filtroAdmin, setFiltroAdmin] = useState<string>('todos')
+  // Recordatorios admin
+  const [kpisAdmin, setKpisAdmin] = useState<any | null>(null)
+  const [detallePbFinalizadaSinPF, setDetallePbFinalizadaSinPF] = useState<any[]>([])
+  const [detallePbSinAprobar, setDetallePbSinAprobar] = useState<any[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -97,6 +102,33 @@ export default function PresupuestosPage() {
           .order("nombre", { ascending: true })
 
         setAdministradores((adminsData || []).filter((a: any) => a.estado === 'activo'))
+
+        // KPIs ADMIN y detalle de PB finalizada sin PF (solo admin)
+        try {
+          const { data: kpiData } = await supabase
+            .from('vista_finanzas_admin')
+            .select('*')
+            .single()
+          setKpisAdmin(kpiData || null)
+        } catch {}
+
+        try {
+          const { data: pbSinPf } = await supabase
+            .from('vista_admin_pb_finalizada_sin_pf')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50)
+          setDetallePbFinalizadaSinPF(pbSinPf || [])
+        } catch {}
+
+        try {
+          const { data: pbNoAprob } = await supabase
+            .from('vista_admin_pb_sin_aprobar')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50)
+          setDetallePbSinAprobar(pbNoAprob || [])
+        } catch {}
 
         const { data: presupuestosFinalesData, error: errorFinal } = await queryFinal
 
@@ -248,6 +280,47 @@ export default function PresupuestosPage() {
           </div>
         )}
       </div>
+
+      {/* Panel de recordatorios (solo admin) */}
+      {userDetails?.rol === 'admin' && kpisAdmin && (
+        <Card className="bg-amber-50 border-amber-200">
+          <CardHeader>
+            <CardTitle className="flex items-center text-amber-800">
+              <AlertTriangle className="h-4 w-4 mr-2 text-amber-600" /> Recordatorios de administración
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Falta crear PF</div>
+                <div className="text-2xl font-bold">{(kpisAdmin.pb_finalizada_sin_pf_count ?? 0) + (kpisAdmin.pb_sin_aprobar_count ?? 0)}</div>
+                <div className="mt-2 space-y-1">
+                  {[
+                    ...detallePbFinalizadaSinPF.map((it: any) => ({ ...it, __ap: 'aprobado' })),
+                    ...detallePbSinAprobar.map((it: any) => ({ ...it, __ap: 'sin_aprobar' })),
+                  ].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+                   .slice(0,10)
+                   .map((it: any) => (
+                    <div key={`${it.id_presupuesto_base}-${it.__ap}`} className="block">
+                      <Link href={`/dashboard/tareas/${it.id_tarea}`} className="text-xs text-primary hover:underline truncate">
+                        {it.titulo_tarea || (it.code_tarea || `Tarea #${it.id_tarea}`)}
+                      </Link>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {(it.__ap === 'aprobado') ? 'Aprobado' : 'Sin aprobar'}{it.supervisor_label ? ` · Supervisor: ${it.supervisor_label}` : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Button asChild size="sm">
+                <Link href="/dashboard/presupuestos/nuevo?tipo=final">Crear PF</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       
 

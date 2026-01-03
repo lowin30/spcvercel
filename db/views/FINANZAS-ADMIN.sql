@@ -127,7 +127,8 @@ SELECT
   -- KPIs de recordatorios admin
   (SELECT COUNT(*) FROM public.vista_admin_liquidaciones_sin_pf) AS liquidaciones_sin_pf_count,
   (SELECT COUNT(*) FROM public.vista_admin_pf_aprobado_sin_factura) AS pf_aprobado_sin_factura_count,
-  (SELECT COUNT(*) FROM public.vista_admin_pb_finalizada_sin_pf) AS pb_finalizada_sin_pf_count
+  (SELECT COUNT(*) FROM public.vista_admin_pb_finalizada_sin_pf) AS pb_finalizada_sin_pf_count,
+  (SELECT COUNT(*) FROM public.vista_admin_pb_sin_aprobar) AS pb_sin_aprobar_count
 
 WHERE check_user_role('admin');
 
