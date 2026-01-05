@@ -652,6 +652,21 @@ export default function TareasPage() {
                     : 'Sin PB'
                   const pri = it.prioridad || 4
                   const priLabel = pri === 1 ? 'Urgente' : pri === 2 ? 'Alta' : pri === 3 ? 'Media' : 'Baja'
+                  // Chip de fecha de visita (si existe): HOY / 72h / dd/mm
+                  let fechaChip: string | null = null
+                  if (fvis) {
+                    const diffMs = fvis.getTime() - hoy.setHours(0,0,0,0)
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+                    if (diffDays === 0) {
+                      fechaChip = 'HOY'
+                    } else if (diffDays > 0 && diffDays <= 3) {
+                      fechaChip = '72h'
+                    } else {
+                      const dd = fvis.getDate().toString().padStart(2, '0')
+                      const mm = (fvis.getMonth() + 1).toString().padStart(2, '0')
+                      fechaChip = `${dd}/${mm}`
+                    }
+                  }
                   return (
                     <div key={it.id_tarea} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded-md p-3">
                       <div className="min-w-0">
@@ -664,6 +679,9 @@ export default function TareasPage() {
                       </div>
                       <div className="mt-2 sm:mt-0 flex items-center gap-2 flex-wrap shrink-0">
                         <Badge variant="secondary" className="px-1.5 py-0.5 text-[10px]">{chip}</Badge>
+                        {fechaChip && (
+                          <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">{fechaChip}</Badge>
+                        )}
                         <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">{priLabel}</Badge>
                         {userDetails?.rol === 'supervisor' ? (
                           <Button asChild size="sm" variant="outline" className="h-8 px-2 text-xs">
