@@ -25,6 +25,7 @@ export default function PresupuestosPage() {
   const [kpisAdmin, setKpisAdmin] = useState<any | null>(null)
   const [detallePbFinalizadaSinPF, setDetallePbFinalizadaSinPF] = useState<any[]>([])
   const [detallePbSinAprobar, setDetallePbSinAprobar] = useState<any[]>([])
+  const [detallePfEnviadoSinActividad, setDetallePfEnviadoSinActividad] = useState<any[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -130,6 +131,15 @@ export default function PresupuestosPage() {
           setDetallePbSinAprobar(pbNoAprob || [])
         } catch {}
 
+        try {
+          const { data: pfAging } = await supabase
+            .from('vista_admin_pf_enviado_sin_actividad')
+            .select('*')
+            .order('dias_desde_envio', { ascending: false })
+            .limit(50)
+          setDetallePfEnviadoSinActividad(pfAging || [])
+        } catch {}
+
         const { data: presupuestosFinalesData, error: errorFinal } = await queryFinal
 
         if (errorFinal) {
@@ -189,6 +199,18 @@ export default function PresupuestosPage() {
     
     return result;
   }, [todosLosPresupuestos, searchInput, filtroAdmin])
+
+  const aging20Count = useMemo(() => {
+    const fromKpi = kpisAdmin?.pf_enviado_sin_actividad_20d_count
+    if (typeof fromKpi === 'number') return fromKpi
+    return detallePfEnviadoSinActividad.filter((it: any) => it.umbral === 'alerta_20d').length
+  }, [kpisAdmin, detallePfEnviadoSinActividad])
+
+  const aging30Count = useMemo(() => {
+    const fromKpi = kpisAdmin?.pf_enviado_sin_actividad_30d_count
+    if (typeof fromKpi === 'number') return fromKpi
+    return detallePfEnviadoSinActividad.filter((it: any) => it.umbral === 'auto_cierre_30d').length
+  }, [kpisAdmin, detallePfEnviadoSinActividad])
 
   // Filtrar presupuestos
   const filterByEstado = (codigo: string) => presupuestos?.filter(p => p.estados_presupuestos?.codigo === codigo) || [];
@@ -310,6 +332,30 @@ export default function PresupuestosPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">PF enviados sin actividad</div>
+                <div className="mt-1 flex items-center gap-2 text-sm">
+                  <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-yellow-800">20d: {aging20Count}</span>
+                  <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-red-800">30d: {aging30Count}</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {detallePfEnviadoSinActividad
+                    .slice(0,10)
+                    .map((it: any) => (
+                      <div key={it.id_presupuesto_final} className="block">
+                        <div className="flex items-center justify-between gap-2">
+                          <Link href={`/dashboard/tareas/${it.id_tarea}`} className="text-xs text-primary hover:underline truncate">
+                            {it.titulo_tarea || (it.code_tarea || `Tarea #${it.id_tarea}`)}
+                          </Link>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${it.umbral === 'auto_cierre_30d' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>{it.dias_desde_envio}d</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          <Link href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="hover:underline">Ver PF</Link>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             </div>
