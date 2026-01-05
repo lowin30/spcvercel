@@ -53,7 +53,8 @@ BEGIN
       UPDATE public.tareas t
       SET finalizada = true,
           id_estado_nuevo = COALESCE(
-            (SELECT id FROM public.estados_tareas WHERE codigo = 'terminado' LIMIT 1),
+            (SELECT id FROM public.estados_tareas WHERE codigo = 'vencido' LIMIT 1),
+            (SELECT id FROM public.estados_tareas WHERE codigo = 'enviado' LIMIT 1),
             t.id_estado_nuevo
           )
       FROM para_cerrar pc
@@ -76,7 +77,7 @@ BEGIN
       SELECT
         'tarea',
         u.id_tarea,
-        'terminado',
+        'vencido',
         NULL,
         NULL::uuid,
         'Auto-finalizada por 30 días sin actividad desde envío de PF',
@@ -119,7 +120,8 @@ BEGIN
       UPDATE public.tareas t
       SET finalizada = true,
           id_estado_nuevo = COALESCE(
-            (SELECT id FROM public.estados_tareas WHERE codigo = 'terminado' LIMIT 1),
+            (SELECT id FROM public.estados_tareas WHERE codigo = 'vencido' LIMIT 1),
+            (SELECT id FROM public.estados_tareas WHERE codigo = 'enviado' LIMIT 1),
             t.id_estado_nuevo
           )
       FROM para_cerrar pc
