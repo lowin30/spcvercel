@@ -65,7 +65,7 @@ FROM pf_sin_actividad p
 JOIN public.tareas t ON t.id = p.id_tarea
 WHERE COALESCE(t.finalizada, false) = false
   AND p.dias_desde_creacion >= 20
-  AND check_user_role('admin');
+  AND (check_user_role('admin') OR current_user = 'postgres');
 
 COMMENT ON VIEW public.vista_admin_pf_enviado_sin_actividad IS 'PF con más de 20/30 días desde creación y sin actividad (partes/gastos) desde esa fecha. Excluye facturados. Solo admin.';
 
