@@ -37,6 +37,7 @@ interface DatosGasto {
 type PasoType = 'seleccion' | 'captura' | 'procesando' | 'confirmacion' | 'guardando' | 'completado' | 'error'
 type ModoRegistroType = 'camara' | 'archivo' | 'manual'
 type CategoriaGastoType = 'materiales' | 'mano_de_obra'
+type ModoImagenType = 'original' | 'suave' | 'fuerte'
 
 export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', ...restProps }: ProcesadorImagenProps) {
   // Estado para controlar la pestaña activa
@@ -68,6 +69,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
   const mode: 'normal' | 'extra_pdf' = (restProps as any)?.mode ?? 'normal'
   const facturaId: number | undefined = (restProps as any)?.facturaId
   const [user, setUser] = useState<any>(null)
+  const [modoImagen, setModoImagen] = useState<ModoImagenType>('suave')
 
   // Obtener usuario actual
   async function getUser() {
@@ -80,6 +82,21 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
   useEffect(() => {
     getUser()
   }, [])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('spc_modo_imagen')
+      if (saved === 'original' || saved === 'suave' || saved === 'fuerte') {
+        setModoImagen(saved as ModoImagenType)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('spc_modo_imagen', modoImagen)
+    } catch {}
+  }, [modoImagen])
 
   // Efecto para limpiar URLs al desmontar
   useEffect(() => {
@@ -132,6 +149,20 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
         data[i] = data[i+1] = data[i+2] = 255
       }
       // El canal alpha (i+3) se mantiene igual
+    }
+  }
+
+  const aplicarUmbralizacionSuave = (data: Uint8ClampedArray, umbral: number): void => {
+    const u = Math.max(140, Math.min(185, umbral - 5))
+    for (let i = 0; i < data.length; i += 4) {
+      const v = data[i]
+      if (v < u) {
+        const nv = Math.max(0, Math.floor(v * 0.8 + 10))
+        data[i] = data[i+1] = data[i+2] = nv
+      } else {
+        const nv = Math.min(242, Math.floor(v + 15))
+        data[i] = data[i+1] = data[i+2] = nv
+      }
     }
   }
 
@@ -219,46 +250,35 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const data = imageData.data
       
-      // 1. Convertir a escala de grises / blanco y negro
-      // ✅ AJUSTADO: Contraste muy suave + brillo mínimo para máxima preservación
-      for (let i = 0; i < data.length; i += 4) {
-        const grayValue = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-        
-        // ✅ AJUSTADO: Contraste y brillo MUY suaves para preservar TODOS los detalles
-        const contrastFactor = 1.3  // Contraste muy suave (era 1.2 original)
-        const brightness = 10        // Brillo mínimo para blancos
-        const contrastedValue = Math.min(255, Math.max(0, (grayValue - 128) * contrastFactor + 128 + brightness))
-        
-        // Asignar el valor a los canales R, G, B (escala de grises)
-        data[i] = contrastedValue     // R
-        data[i + 1] = contrastedValue // G
-        data[i + 2] = contrastedValue // B
-        // El canal alpha (i+3) se mantiene igual
+      if (modoImagen !== 'original') {
+        for (let i = 0; i < data.length; i += 4) {
+          const grayValue = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+          const contrastFactor = modoImagen === 'fuerte' ? 1.3 : 1.1
+          const brightness = modoImagen === 'fuerte' ? 10 : 2
+          const contrastedValue = Math.min(255, Math.max(0, (grayValue - 128) * contrastFactor + 128 + brightness))
+          data[i] = contrastedValue
+          data[i + 1] = contrastedValue
+          data[i + 2] = contrastedValue
+        }
+        ctx.putImageData(imageData, 0, 0)
       }
       
-      // Aplicar los cambios a la imagen
-      ctx.putImageData(imageData, 0, 0)
-      
-      // 2. Detectar bordes - Algoritmo con umbral adaptativo
-      // Calcula automáticamente el umbral óptimo para cada imagen
-      
-      // Calcular histograma de la imagen en escala de grises
-      const histograma = calcularHistograma(data)
-      
-      // Calcular umbral óptimo usando el método de Otsu
-      const pixelesTotales = canvas.width * canvas.height
-      const umbralOscuro = calcularUmbralOtsu(histograma, pixelesTotales)
-      
-      console.log('Umbral adaptativo calculado:', umbralOscuro)
-      
-      // 2.1 Aplicar umbralización adaptativa para mejorar el contraste
-      // Esto crea una imagen en blanco y negro puro para mejor legibilidad
-      aplicarUmbralizacionAdaptativa(data, umbralOscuro)
-      
-      // Actualizar la imagen con alto contraste en el canvas
-      ctx.putImageData(imageData, 0, 0)
-      
-      console.log('Umbralización adaptativa aplicada para mejorar contraste')
+      let umbralOscuro = 128
+      if (modoImagen !== 'original') {
+        const histograma = calcularHistograma(data)
+        const pixelesTotales = canvas.width * canvas.height
+        umbralOscuro = calcularUmbralOtsu(histograma, pixelesTotales)
+        console.log('Umbral adaptativo calculado:', umbralOscuro)
+        if (modoImagen === 'suave') {
+          aplicarUmbralizacionSuave(data, umbralOscuro)
+        } else {
+          aplicarUmbralizacionAdaptativa(data, umbralOscuro)
+        }
+        ctx.putImageData(imageData, 0, 0)
+        console.log('Umbralización aplicada')
+      } else {
+        console.log('Modo imagen original: sin umbralización')
+      }
       
       // 2.2 Buscar bordes (coordenadas donde comienza el contenido)
       let bordeSuperior = canvas.height
@@ -773,6 +793,27 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
             <p className="text-sm text-gray-500 text-center">
               Toma una foto del comprobante con tu cámara
             </p>
+            <div className="space-y-2">
+              <Label className="text-xs">Modo de imagen</Label>
+              <RadioGroup 
+                value={modoImagen}
+                onValueChange={(v) => setModoImagen(v as ModoImagenType)}
+                className="grid grid-cols-3 gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="original" id="modo_original" />
+                  <Label htmlFor="modo_original" className="cursor-pointer text-xs">Original</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="suave" id="modo_suave" />
+                  <Label htmlFor="modo_suave" className="cursor-pointer text-xs">Suave</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="fuerte" id="modo_fuerte" />
+                  <Label htmlFor="modo_fuerte" className="cursor-pointer text-xs">Fuerte</Label>
+                </div>
+              </RadioGroup>
+            </div>
             <div className="flex justify-center">
               <Button 
                 onClick={iniciarCaptura}
@@ -792,6 +833,27 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
             <p className="text-sm text-gray-500 text-center">
               Selecciona una imagen de comprobante desde tu dispositivo
             </p>
+            <div className="space-y-2">
+              <Label className="text-xs">Modo de imagen</Label>
+              <RadioGroup 
+                value={modoImagen}
+                onValueChange={(v) => setModoImagen(v as ModoImagenType)}
+                className="grid grid-cols-3 gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="original" id="modo_original_archivo" />
+                  <Label htmlFor="modo_original_archivo" className="cursor-pointer text-xs">Original</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="suave" id="modo_suave_archivo" />
+                  <Label htmlFor="modo_suave_archivo" className="cursor-pointer text-xs">Suave</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="fuerte" id="modo_fuerte_archivo" />
+                  <Label htmlFor="modo_fuerte_archivo" className="cursor-pointer text-xs">Fuerte</Label>
+                </div>
+              </RadioGroup>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -890,6 +952,27 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
             <p className="text-sm text-gray-500">
               Toma una foto clara del comprobante en una superficie bien iluminada
             </p>
+            <div className="space-y-2">
+              <Label className="text-xs">Modo de imagen</Label>
+              <RadioGroup 
+                value={modoImagen}
+                onValueChange={(v) => setModoImagen(v as ModoImagenType)}
+                className="grid grid-cols-3 gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="original" id="modo_original_captura" />
+                  <Label htmlFor="modo_original_captura" className="cursor-pointer text-xs">Original</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="suave" id="modo_suave_captura" />
+                  <Label htmlFor="modo_suave_captura" className="cursor-pointer text-xs">Suave</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="fuerte" id="modo_fuerte_captura" />
+                  <Label htmlFor="modo_fuerte_captura" className="cursor-pointer text-xs">Fuerte</Label>
+                </div>
+              </RadioGroup>
+            </div>
             <input
               ref={capturaRef}
               type="file"
