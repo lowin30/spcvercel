@@ -22,6 +22,8 @@ export default function TareasPage() {
   const [error, setError] = useState<string | null>(null)
   const [presupuestosBase, setPresupuestosBase] = useState<Record<string, any>>({})
   const [tareasConPresupuestoFinal, setTareasConPresupuestoFinal] = useState<string[]>([])
+  const [recordatorios, setRecordatorios] = useState<any[]>([])
+  const [loadingRecordatorios, setLoadingRecordatorios] = useState<boolean>(false)
   const [selectedTareaId, setSelectedTareaId] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -291,6 +293,48 @@ export default function TareasPage() {
         }
         
         setUserDetails(userData)
+
+        // Cargar recordatorios unificados según rol (admin/supervisor)
+        try {
+          setLoadingRecordatorios(true)
+          if (userData?.rol === 'admin') {
+            const { data: recAdmin, error: recErrA } = await supabase
+              .from('vista_admin_recordatorios_tareas_unificada')
+              .select('*')
+              .limit(50)
+            if (!recErrA && recAdmin) {
+              const sorted = [...recAdmin].sort((a: any, b: any) => {
+                if ((a.prioridad || 99) !== (b.prioridad || 99)) return (a.prioridad || 99) - (b.prioridad || 99)
+                const fa = a.fecha_visita ? new Date(a.fecha_visita).getTime() : Number.MAX_SAFE_INTEGER
+                const fb = b.fecha_visita ? new Date(b.fecha_visita).getTime() : Number.MAX_SAFE_INTEGER
+                if (fa !== fb) return fa - fb
+                const ca = a.created_at ? new Date(a.created_at).getTime() : 0
+                const cb = b.created_at ? new Date(b.created_at).getTime() : 0
+                return ca - cb
+              })
+              setRecordatorios(sorted)
+            }
+          } else if (userData?.rol === 'supervisor') {
+            const { data: recSup, error: recErrS } = await supabase
+              .from('vista_sup_recordatorios_tareas_unificada')
+              .select('*')
+              .limit(50)
+            if (!recErrS && recSup) {
+              const sorted = [...recSup].sort((a: any, b: any) => {
+                if ((a.prioridad || 99) !== (b.prioridad || 99)) return (a.prioridad || 99) - (b.prioridad || 99)
+                const fa = a.fecha_visita ? new Date(a.fecha_visita).getTime() : Number.MAX_SAFE_INTEGER
+                const fb = b.fecha_visita ? new Date(b.fecha_visita).getTime() : Number.MAX_SAFE_INTEGER
+                if (fa !== fb) return fa - fb
+                const ca = a.created_at ? new Date(a.created_at).getTime() : 0
+                const cb = b.created_at ? new Date(b.created_at).getTime() : 0
+                return ca - cb
+              })
+              setRecordatorios(sorted)
+            }
+          }
+        } finally {
+          setLoadingRecordatorios(false)
+        }
         
         // Si estamos en modo de creación de presupuesto y el usuario es admin
         // cargar también los presupuestos base y finales asociados a las tareas
@@ -581,6 +625,64 @@ export default function TareasPage() {
           </Button>
         )}
       </div>
+
+      {(userDetails?.rol === 'admin' || userDetails?.rol === 'supervisor') && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Recordatorios de Tareas</CardTitle>
+            <CardDescription>Lista priorizada de tareas sin Presupuesto Base</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {loadingRecordatorios ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando recordatorios...</div>
+            ) : (recordatorios?.length ?? 0) === 0 ? (
+              <div className="text-sm text-muted-foreground">No hay recordatorios pendientes.</div>
+            ) : (
+              <div className="space-y-2">
+                {recordatorios.slice(0, 10).map((it: any) => {
+                  const hoy = new Date()
+                  const fvis = it.fecha_visita ? new Date(it.fecha_visita) : null
+                  const esHoy = !!fvis && fvis.toDateString() === hoy.toDateString()
+                  const chip = it.tipo_recordatorio === 'proxima_visita_sin_pb'
+                    ? (esHoy ? 'HOY' : '72h')
+                    : it.tipo_recordatorio === 'con_actividad_sin_pb'
+                    ? 'Act. 7d'
+                    : it.tipo_recordatorio === 'inactiva_sin_pb'
+                    ? '14d sin act.'
+                    : 'Sin PB'
+                  const pri = it.prioridad || 4
+                  const priLabel = pri === 1 ? 'Urgente' : pri === 2 ? 'Alta' : pri === 3 ? 'Media' : 'Baja'
+                  return (
+                    <div key={it.id_tarea} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded-md p-3">
+                      <div className="min-w-0">
+                        <Link href={`/dashboard/tareas/${it.id_tarea}`} className="font-medium text-sm hover:underline truncate block">
+                          {it.nombre_tarea || `Tarea #${it.id_tarea}`}
+                        </Link>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {(userDetails?.rol === 'admin' && it.supervisor_label) ? `Supervisor: ${it.supervisor_label}` : ''}
+                        </div>
+                      </div>
+                      <div className="mt-2 sm:mt-0 flex items-center gap-2 flex-wrap shrink-0">
+                        <Badge variant="secondary" className="px-1.5 py-0.5 text-[10px]">{chip}</Badge>
+                        <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">{priLabel}</Badge>
+                        {userDetails?.rol === 'supervisor' ? (
+                          <Button asChild size="sm" variant="outline" className="h-8 px-2 text-xs">
+                            <Link href="/dashboard/presupuestos-base/nuevo">Crear PB</Link>
+                          </Button>
+                        ) : (
+                          <Button asChild size="sm" variant="outline" className="h-8 px-2 text-xs">
+                            <Link href={`/dashboard/tareas/${it.id_tarea}`}>Ver tarea</Link>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Barra de búsqueda y filtros */}
       <Card className="my-8 md:mb-6">
