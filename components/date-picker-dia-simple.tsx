@@ -71,7 +71,7 @@ export function DatePickerDiaSimple({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 w-full",
+        "flex items-center gap-2 w-full rounded-md px-2 py-1 hover:bg-muted/20 transition-colors",
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
       )}
       onClick={openPicker}

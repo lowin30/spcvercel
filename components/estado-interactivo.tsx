@@ -247,7 +247,7 @@ export function EstadoInteractivo({
             id="toggle-finalizada"
             checked={esTareaFinalizada}
             onCheckedChange={handleFinalizadaChange}
-            className="mr-2 data-[state=checked]:bg-emerald-600 dark:data-[state=checked]:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+            className="mr-2 data-[state=checked]:!bg-emerald-600 dark:data-[state=checked]:!bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
           />
           <Label htmlFor="toggle-finalizada" className={esTareaFinalizada ? "text-emerald-600 dark:text-emerald-400" : ""}>
             {esTareaFinalizada ? "Finalizada" : "Activa"}
