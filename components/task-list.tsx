@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatDateTime } from "@/lib/utils"
 import Link from "next/link"
-import { Search, Calendar, MapPin, Trash2, Copy, MoreVertical, Loader2, Pencil } from "lucide-react"
+import { Search, Calendar, Trash2, Copy, MoreVertical, Loader2, Pencil } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -243,7 +243,6 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline">{task.code}</Badge>
                           <div className={`w-3 h-3 rounded-full ${getPrioridadColor(task.prioridad || "")}`} />
                         </div>
                         <h3 className="font-medium mt-2">
@@ -310,25 +309,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                           {estadoInfo.nombre}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        {task.mapa_edificio ? (
-                          <a 
-                            href={task.mapa_edificio} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center hover:text-primary"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MapPin className="h-3 w-3" />
-                            <span className="truncate max-w-[120px]">{task.nombre_edificio}</span>
-                          </a>
-                        ) : (
-                          <>
-                            <MapPin className="h-3 w-3" />
-                            <span className="truncate max-w-[120px]">{task.nombre_edificio}</span>
-                          </>
-                        )}
-                      </div>
+                      
                     </div>
                     
                     {/* Indicador de acción en proceso */}
@@ -351,9 +332,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
         <div className="hidden md:block rounded-md border">
           <Table className="table-fixed w-full text-sm leading-tight">
             <colgroup>
-              <col className="w-20" />
-              <col className="w-[24%]" />
-              <col className="w-[18%]" />
+              <col className="w-[40%]" />
               <col className="w-24" />
               <col className="w-28" />
               <col className="w-[20%]" />
@@ -361,9 +340,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
             </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Código</TableHead>
                 <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Título</TableHead>
-                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Edificio</TableHead>
                 <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Estado</TableHead>
                 <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Fecha de visita</TableHead>
                 <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Supervisor</TableHead>
@@ -373,7 +350,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
             <TableBody>
               {filteredTasks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={userRole === "admin" ? 7 : 6} className="h-24 text-center">
+                  <TableCell colSpan={userRole === "admin" ? 5 : 4} className="h-24 text-center">
                     No se encontraron tareas
                   </TableCell>
                 </TableRow>
@@ -384,32 +361,10 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                   
                   return (
                   <TableRow key={task.id}>
-                    <TableCell className="font-medium px-2 py-2 whitespace-nowrap">{task.code}</TableCell>
                     <TableCell className="px-2 py-2">
                       <Link href={`/dashboard/tareas/${task.id}`} className="text-primary hover:underline">
                         <span className="block truncate max-w-[200px]">{task.titulo}</span>
                       </Link>
-                    </TableCell>
-                    <TableCell className="px-1 py-1">
-                      <div className="flex items-center">
-                        {task.mapa_edificio ? (
-                          <a 
-                            href={task.mapa_edificio} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center hover:text-primary"
-                            title="Ver ubicación en mapa"
-                          >
-                            <MapPin className="mr-0.5 h-3 w-3 text-muted-foreground" />
-                            <span className="truncate max-w-[120px]">{task.nombre_edificio}</span>
-                          </a>
-                        ) : (
-                          <>
-                            <MapPin className="mr-0.5 h-3 w-3 text-muted-foreground" />
-                            <span className="truncate max-w-[120px]">{task.nombre_edificio}</span>
-                          </>
-                        )}
-                      </div>
                     </TableCell>
                     <TableCell className="px-1 py-1 whitespace-nowrap">
                       <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-[11px] px-1.5 py-0` }>
