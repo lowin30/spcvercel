@@ -59,7 +59,64 @@ export default function TareasPage() {
     { id: 9, nombre: "Liquidada", color: "purple", codigo: "liquidada", descripcion: "Tarea completada y liquidada financieramente", orden: 9 },
     { id: 10, nombre: "Posible", color: "yellow", codigo: "posible", descripcion: "Son posibles trabajos a futuro", orden: 10 }
   ]
-  
+
+  // Enriquecer recordatorios con la última actividad (partes o gastos) sin crear nuevas vistas
+  const enrichRecordatoriosWithActivity = async (items: any[], supabaseClient: any) => {
+    if (!items || items.length === 0) return items
+
+    const ids = Array.from(
+      new Set(
+        items
+          .filter((it: any) =>
+            it?.tipo_recordatorio === "con_actividad_sin_pb" ||
+            it?.tipo_recordatorio === "inactiva_sin_pb"
+          )
+          .map((it: any) => it.id_tarea)
+          .filter((id: any) => id !== null && id !== undefined)
+      )
+    )
+
+    if (ids.length === 0) return items
+
+    try {
+      const { data: partesData } = await supabaseClient
+        .from("partes_de_trabajo")
+        .select("id_tarea, created_at")
+        .in("id_tarea", ids)
+
+      const { data: gastosData } = await supabaseClient
+        .from("gastos_tarea")
+        .select("id_tarea, created_at")
+        .in("id_tarea", ids)
+
+      const lastActivityMap: Record<string, string> = {}
+
+      const updateMap = (rows: any[] | null | undefined) => {
+        if (!rows) return
+        for (const row of rows) {
+          const idKey = String(row.id_tarea)
+          const created = row.created_at
+          if (!created) continue
+          const prev = lastActivityMap[idKey]
+          if (!prev || new Date(created).getTime() > new Date(prev).getTime()) {
+            lastActivityMap[idKey] = created
+          }
+        }
+      }
+
+      updateMap(partesData || [])
+      updateMap(gastosData || [])
+
+      return items.map((it: any) => ({
+        ...it,
+        ultima_actividad_at: lastActivityMap[String(it.id_tarea)] || null,
+      }))
+    } catch (err) {
+      console.error("Error al cargar últimas actividades para recordatorios:", err)
+      return items
+    }
+  }
+
   // Obtener el número de tareas por cada estado normalizado
   const contadorTareasPorEstado: Record<number, number> = {}
   estadosTarea.forEach(estado => {
@@ -429,7 +486,8 @@ export default function TareasPage() {
                 const cb = b.created_at ? new Date(b.created_at).getTime() : 0
                 return ca - cb
               })
-              setRecordatorios(sorted)
+              const enriched = await enrichRecordatoriosWithActivity(sorted, supabase)
+              setRecordatorios(enriched)
             }
           } else if (userData?.rol === 'supervisor') {
             const { data: recSup, error: recErrS } = await supabase
@@ -443,10 +501,11 @@ export default function TareasPage() {
                 const fb = b.fecha_visita ? new Date(b.fecha_visita).getTime() : Number.MAX_SAFE_INTEGER
                 if (fa !== fb) return fa - fb
                 const ca = a.created_at ? new Date(a.created_at).getTime() : 0
-                const cb = b.created_at ? new Date(b.created_at).getTime() : 0
+                const cb = b.created_at ? new Date(b.fecha_visita).getTime() : 0
                 return ca - cb
               })
-              setRecordatorios(sorted)
+              const enriched = await enrichRecordatoriosWithActivity(sorted, supabase)
+              setRecordatorios(enriched)
             }
           }
         } finally {
@@ -758,57 +817,111 @@ export default function TareasPage() {
               <div className="space-y-2">
                 {recordatorios.slice(0, 10).map((it: any) => {
                   const hoy = new Date()
+                  const inicioHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
                   const fvis = it.fecha_visita ? new Date(it.fecha_visita) : null
-                  const esHoy = !!fvis && fvis.toDateString() === hoy.toDateString()
-                  const chip = it.tipo_recordatorio === 'proxima_visita_sin_pb'
-                    ? (esHoy ? 'HOY' : '72h')
-                    : it.tipo_recordatorio === 'con_actividad_sin_pb'
-                    ? 'Act. 7d'
-                    : it.tipo_recordatorio === 'inactiva_sin_pb'
-                    ? '14d sin act.'
-                    : 'Sin PB'
-                  const pri = it.prioridad || 4
-                  const priLabel = pri === 1 ? 'Urgente' : pri === 2 ? 'Alta' : pri === 3 ? 'Media' : 'Baja'
-                  // Chip de fecha de visita (si existe): HOY / 72h / dd/mm
-                  let fechaChip: string | null = null
-                  if (fvis) {
-                    const diffMs = fvis.getTime() - hoy.setHours(0,0,0,0)
-                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-                    if (diffDays === 0) {
-                      fechaChip = 'HOY'
-                    } else if (diffDays > 0 && diffDays <= 3) {
-                      fechaChip = '72h'
+                  const fcre = it.created_at ? new Date(it.created_at) : null
+                  const fact = it.ultima_actividad_at ? new Date(it.ultima_actividad_at) : null
+
+                  const formatFechaCorta = (d: Date) => {
+                    const dd = d.getDate().toString().padStart(2, '0')
+                    const mm = (d.getMonth() + 1).toString().padStart(2, '0')
+                    return `${dd}/${mm}`
+                  }
+
+                  const diffDiasDesde = (desde: Date | null) => {
+                    if (!desde) return null
+                    const inicioDesde = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate())
+                    const ms = inicioHoy.getTime() - inicioDesde.getTime()
+                    return Math.floor(ms / (1000 * 60 * 60 * 24))
+                  }
+
+                  const diasDesdeCreacion = diffDiasDesde(fcre)
+                  const diasDesdeActividad = diffDiasDesde(fact)
+                  const diasHastaVisita = fvis
+                    ? Math.floor(
+                        (new Date(fvis.getFullYear(), fvis.getMonth(), fvis.getDate()).getTime() - inicioHoy.getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )
+                    : null
+
+                  let tipoLabel = 'Sin PB'
+                  if (it.tipo_recordatorio === 'proxima_visita_sin_pb') tipoLabel = 'Próxima visita'
+                  else if (it.tipo_recordatorio === 'con_actividad_sin_pb') tipoLabel = 'Actividad reciente'
+                  else if (it.tipo_recordatorio === 'inactiva_sin_pb') tipoLabel = 'Inactiva'
+
+                  let detalleTiempo: string | null = null
+
+                  if (it.tipo_recordatorio === 'proxima_visita_sin_pb' && fvis) {
+                    const fechaTxt = formatFechaCorta(fvis)
+                    if (diasHastaVisita === 0) {
+                      detalleTiempo = `Visita ${fechaTxt} · hoy`
+                    } else if (diasHastaVisita !== null && diasHastaVisita > 0) {
+                      detalleTiempo = `Visita ${fechaTxt} · en ${diasHastaVisita} d`
+                    } else if (diasHastaVisita !== null) {
+                      detalleTiempo = `Visita ${fechaTxt} · hace ${Math.abs(diasHastaVisita)} d`
+                    }
+                  } else if (it.tipo_recordatorio === 'con_actividad_sin_pb') {
+                    if (fact && diasDesdeActividad !== null) {
+                      const fechaTxt = formatFechaCorta(fact)
+                      detalleTiempo = `Última act. ${fechaTxt} · hace ${diasDesdeActividad} d`
                     } else {
-                      const dd = fvis.getDate().toString().padStart(2, '0')
-                      const mm = (fvis.getMonth() + 1).toString().padStart(2, '0')
-                      fechaChip = `${dd}/${mm}`
+                      detalleTiempo = 'Actividad en los últimos 7 d'
+                    }
+                  } else if (it.tipo_recordatorio === 'sin_pb') {
+                    if (fcre && diasDesdeCreacion !== null) {
+                      const fechaTxt = formatFechaCorta(fcre)
+                      detalleTiempo = `Creada ${fechaTxt} · hace ${diasDesdeCreacion} d`
+                    }
+                  } else if (it.tipo_recordatorio === 'inactiva_sin_pb') {
+                    if (fact && diasDesdeActividad !== null) {
+                      const fechaTxt = formatFechaCorta(fact)
+                      detalleTiempo = `Sin act. ${diasDesdeActividad} d (desde ${fechaTxt})`
+                    } else if (fcre && diasDesdeCreacion !== null) {
+                      const fechaTxt = formatFechaCorta(fcre)
+                      detalleTiempo = `Sin act. desde ${fechaTxt}`
+                    } else {
+                      detalleTiempo = 'Sin actividad > 14 d'
                     }
                   }
+
+                  const pri = it.prioridad || 4
+                  const priLabel = pri === 1 ? 'Urgente' : pri === 2 ? 'Alta' : pri === 3 ? 'Media' : 'Baja'
+
                   return (
-                    <div key={it.id_tarea} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded-md p-3">
+                    <div
+                      key={it.id_tarea}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded-md p-3 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-700"
+                    >
                       <div className="min-w-0">
-                        <Link href={`/dashboard/tareas/${it.id_tarea}`} className="font-medium text-sm hover:underline truncate block">
+                        <Link
+                          href={`/dashboard/tareas/${it.id_tarea}`}
+                          className="font-medium text-sm hover:underline truncate block"
+                        >
                           {it.nombre_tarea || `Tarea #${it.id_tarea}`}
                         </Link>
                         <div className="text-xs text-muted-foreground truncate">
-                          {(userDetails?.rol === 'admin' && it.supervisor_label) ? `Supervisor: ${it.supervisor_label}` : ''}
+                          {(userDetails?.rol === 'admin' && it.supervisor_label)
+                            ? `Supervisor: ${it.supervisor_label}`
+                            : ''}
                         </div>
                       </div>
                       <div className="mt-2 sm:mt-0 flex items-center gap-2 flex-wrap shrink-0">
-                        <Badge variant="secondary" className="px-1.5 py-0.5 text-[10px]">{chip}</Badge>
-                        {fechaChip && (
-                          <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">{fechaChip}</Badge>
+                        <Badge variant="secondary" className="px-1.5 py-0.5 text-[10px]">
+                          {tipoLabel}
+                        </Badge>
+                        {detalleTiempo && (
+                          <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">
+                            {detalleTiempo}
+                          </Badge>
                         )}
-                        <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">{priLabel}</Badge>
-                        {userDetails?.rol === 'supervisor' ? (
-                          <Button asChild size="sm" variant="outline" className="h-8 px-2 text-xs">
-                            <Link href="/dashboard/presupuestos-base/nuevo">Crear PB</Link>
-                          </Button>
-                        ) : (
-                          <Button asChild size="sm" variant="outline" className="h-8 px-2 text-xs">
-                            <Link href={`/dashboard/tareas/${it.id_tarea}`}>Ver tarea</Link>
-                          </Button>
-                        )}
+                        <Badge variant="outline" className="px-1.5 py-0.5 text-[10px]">
+                          {priLabel}
+                        </Badge>
+                        <Button asChild size="sm" variant="outline" className="h-8 px-2 text-xs">
+                          <Link href={`/dashboard/tareas/${it.id_tarea}`}>
+                            Ver tarea
+                          </Link>
+                        </Button>
                       </div>
                     </div>
                   )
