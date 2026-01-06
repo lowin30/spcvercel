@@ -254,12 +254,14 @@ export function FinalizarTareaDialog({
             variant="outline"
             onClick={handleCancel}
             disabled={isSubmitting}
+            className="border-muted-foreground/30 text-muted-foreground dark:border-gray-700 dark:text-gray-300 hover:bg-muted/20"
           >
             Cancelar
           </Button>
           <Button
             onClick={handleFinalizar}
             disabled={isSubmitting || !resumen.trim()}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-400/60"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isSubmitting ? "Finalizando..." : "Finalizar Tarea"}

@@ -4,6 +4,20 @@
 
 Sistema completo para la gestión de presupuestos, liquidaciones y administración financiera de proyectos de construcción. Desarrollado con Next.js y Supabase, proporciona una plataforma robusta para administradores y supervisores en el manejo de tareas, presupuestos y liquidaciones.
 
+## Gestor de paquetes y CI/CD (estandarizado)
+
+- **Gestor estándar:** pnpm (fijado vía `packageManager: pnpm@10.11.0` en `package.json`).
+- **Lockfile único:** `pnpm-lock.yaml`. Evitar `package-lock.json` para prevenir ambigüedades.
+- **Comandos recomendados:**
+  - Instalar dependencias: `pnpm install`
+  - Desarrollo: `pnpm dev`
+  - Build: `pnpm build`
+  - Producción local: `pnpm start`
+  - Lint: `pnpm lint`
+  - Typecheck: `pnpm typecheck`
+- **CI/Vercel:** Vercel detecta `pnpm-lock.yaml` y la versión fijada en `package.json`. No se requiere configuración adicional.
+- **Notas:** Si tu entorno no tiene pnpm, instálalo con Corepack (`corepack enable && corepack prepare pnpm@10.11.0 --activate`) o via `npm i -g pnpm`.
+
 ## Estructura de la Documentación
 
 Toda la documentación del sistema se encuentra consolidada en los siguientes archivos:

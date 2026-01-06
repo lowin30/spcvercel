@@ -20,6 +20,7 @@ export function DatePickerDiaSimple({
   disabled = false 
 }: DatePickerDiaSimpleProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date || undefined)
+  const inputRef = React.useRef<HTMLInputElement>(null)
 
   // Sincronizar estado cuando cambia la prop date
   React.useEffect(() => {
@@ -51,10 +52,35 @@ export function DatePickerDiaSimple({
     return `${year}-${month}-${day}`
   }
 
+  const openPicker = () => {
+    if (disabled) return
+    const el = inputRef.current
+    if (!el) return
+    // showPicker es soportado por navegadores modernos (Chrome/Edge)
+    // fallback a focus si no existe
+    // @ts-ignore
+    if (typeof el.showPicker === 'function') {
+      // @ts-ignore
+      el.showPicker()
+    } else {
+      el.focus()
+      el.click()
+    }
+  }
+
   return (
-    <div className="flex items-center gap-2 w-full">
-      <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+    <div
+      className={cn(
+        "flex items-center gap-2 w-full",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+      )}
+      onClick={openPicker}
+      role="button"
+      aria-disabled={disabled}
+    >
+      <CalendarIcon className="h-4 w-4 text-muted-foreground dark:text-foreground/80 flex-shrink-0" />
       <input
+        ref={inputRef}
         type="date"
         value={getInputValue()}
         onChange={handleDateChange}
@@ -67,6 +93,10 @@ export function DatePickerDiaSimple({
           "disabled:cursor-not-allowed disabled:opacity-50",
           !selectedDate && "text-muted-foreground"
         )}
+        onClick={(e) => {
+          // Evitar doble toggling del wrapper, pero asegurar apertura si se hace click en el input
+          e.stopPropagation()
+        }}
       />
     </div>
   )
