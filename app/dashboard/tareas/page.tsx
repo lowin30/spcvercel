@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { TaskList } from "@/components/task-list"
 import Link from "next/link"
 import { Plus, Loader2, Search, Filter, Calendar, X, ArrowLeft, Check, RefreshCw } from "lucide-react"
+import Fuse from "fuse.js"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
@@ -73,41 +74,112 @@ export default function TareasPage() {
   
   // Función para aplicar filtros y búsqueda a las tareas
   const applyFilters = (tareasInput: any[], excludeFinalized = false) => {
-    return tareasInput.filter(tarea => {
-      // Excluir tareas finalizadas si se especifica
-      if (excludeFinalized && tarea.finalizada === true) {
-        return false
+    const normalize = (s: any) => {
+      const str = typeof s === 'string' ? s : (s === null || s === undefined) ? '' : String(s)
+      return str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+    }
+    const tokenize = (s: string) => normalize(s).split(/\s+/).filter(Boolean)
+
+    const terms = tokenize(searchTerm || '')
+
+    const fieldGetter = (t: any) => {
+      const supervisor = (() => {
+        const raw = (t?.supervisores_emails || '').toString()
+        return raw
+      })()
+      return {
+        id: String(t?.id || ''),
+        code: t?.code || '',
+        titulo: t?.titulo || '',
+        descripcion: t?.descripcion || '',
+        nombre_edificio: (t?.nombre_edificio || t?.edificios?.nombre || ''),
+        direccion_edificio: (t?.direccion_edificio || ''),
+        nombre_administrador: (t?.nombre_administrador || ''),
+        supervisores: supervisor,
+        estado_tarea: (t?.estado_tarea || ''),
+        prioridad: (t?.prioridad || ''),
       }
-      
-      // Excluir tareas en estado 'Enviado' (id=4) solo si NO hay filtro de estado activo
-      if (excludeFinalized && !activeFilters.estado && tarea.id_estado_nuevo === 4) {
-        return false
+    }
+
+    const termMatchesTask = (t: any, term: string) => {
+      const f = fieldGetter(t)
+      const values = [
+        f.id,
+        f.code,
+        f.titulo,
+        f.descripcion,
+        f.nombre_edificio,
+        f.direccion_edificio,
+        f.nombre_administrador,
+        f.supervisores,
+        f.estado_tarea,
+        f.prioridad,
+      ].map(normalize)
+
+      const hasInclude = values.some(v => v.includes(term))
+      if (hasInclude) return true
+
+      if (term.length >= 4) {
+        const maxDist = Math.max(1, Math.floor(term.length * 0.3))
+        const dist = (a: string, b: string) => {
+          const m = a.length, n = b.length
+          const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+          for (let i = 0; i <= m; i++) dp[i][0] = i
+          for (let j = 0; j <= n; j++) dp[0][j] = j
+          for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+              const cost = a[i - 1] === b[j - 1] ? 0 : 1
+              dp[i][j] = Math.min(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + cost
+              )
+            }
+          }
+          return dp[m][n]
+        }
+        for (const v of values) {
+          if (v.length && dist(term, v.slice(0, Math.min(v.length, term.length + 3))) <= maxDist) return true
+        }
       }
-      
-      // Filtro de búsqueda por texto
-      if (searchTerm && !(
-        tarea.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tarea.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tarea.code?.toLowerCase().includes(searchTerm.toLowerCase())
-      )) {
-        return false
+      return false
+    }
+
+    const scoreTask = (t: any, tokens: string[]) => {
+      const f = fieldGetter(t)
+      const n = (x: any) => normalize(x)
+      let score = 0
+      for (const term of tokens) {
+        if (n(f.id) === term || n(f.code).includes(term)) score += 6
+        if (n(f.titulo).includes(term)) score += 5
+        if (n(f.descripcion).includes(term)) score += 3
+        if (n(f.nombre_edificio).includes(term)) score += 2
+        if (n(f.direccion_edificio).includes(term)) score += 2
+        if (n(f.nombre_administrador).includes(term)) score += 2
+        if (n(f.supervisores).includes(term)) score += 2
+        if (n(f.estado_tarea).includes(term)) score += 1
+        if (n(f.prioridad).includes(term)) score += 1
       }
-      
-      // Filtro por administrador
-      if (activeFilters.administrador && tarea.id_administrador?.toString() !== activeFilters.administrador?.toString()) {
-        return false
+      return score
+    }
+
+    const filtered = tareasInput.filter(tarea => {
+      if (excludeFinalized && tarea.finalizada === true) return false
+      if (excludeFinalized && !activeFilters.estado && !searchTerm && tarea.id_estado_nuevo === 4) return false
+
+      if (terms.length > 0) {
+        for (const term of terms) {
+          if (!termMatchesTask(tarea, term)) return false
+        }
       }
-      
-      // Filtro por edificio
-      if (activeFilters.edificio && tarea.id_edificio?.toString() !== activeFilters.edificio?.toString()) {
-        return false
-      }
-      
-      // Filtro por estado normalizado
-      if (activeFilters.estado && tarea.id_estado_nuevo !== parseInt(activeFilters.estado)) {
-        return false
-      }
-      
+
+      if (activeFilters.administrador && tarea.id_administrador?.toString() !== activeFilters.administrador?.toString()) return false
+      if (activeFilters.edificio && tarea.id_edificio?.toString() !== activeFilters.edificio?.toString()) return false
+      if (activeFilters.estado && tarea.id_estado_nuevo !== parseInt(activeFilters.estado)) return false
+
       if (activeFilters.supervisorEmail) {
         const emailsField = (tarea as any).supervisores_emails
         let emails: string[] = []
@@ -116,13 +188,58 @@ export default function TareasPage() {
         } else if (typeof emailsField === 'string') {
           emails = emailsField.split(/[,;\s]+/).map((s: string) => s.trim()).filter(Boolean)
         }
-        if (!emails.includes(activeFilters.supervisorEmail)) {
-          return false
-        }
+        if (!emails.includes(activeFilters.supervisorEmail)) return false
       }
-      
       return true
     })
+
+    if (terms.length === 0) return filtered
+
+    // Etapa 3: usar Fuse.js para ranking avanzado y coincidencias difusas
+    try {
+      const fuseList = filtered.map((t) => {
+        const f = fieldGetter(t)
+        return {
+          code: normalize(f.code),
+          titulo: normalize(f.titulo),
+          descripcion: normalize(f.descripcion),
+          nombre_edificio: normalize(f.nombre_edificio),
+          direccion_edificio: normalize(f.direccion_edificio),
+          nombre_administrador: normalize(f.nombre_administrador),
+          supervisores: normalize(f.supervisores),
+          estado_tarea: normalize(f.estado_tarea),
+          prioridad: normalize(f.prioridad),
+          __ref: t,
+        }
+      })
+
+      const fuse = new Fuse(fuseList, {
+        includeScore: true,
+        threshold: 0.33,
+        ignoreLocation: true,
+        minMatchCharLength: 2,
+        keys: [
+          { name: 'code', weight: 0.7 },
+          { name: 'titulo', weight: 0.7 },
+          { name: 'descripcion', weight: 0.4 },
+          { name: 'nombre_edificio', weight: 0.3 },
+          { name: 'direccion_edificio', weight: 0.25 },
+          { name: 'nombre_administrador', weight: 0.25 },
+          { name: 'supervisores', weight: 0.25 },
+          { name: 'estado_tarea', weight: 0.15 },
+          { name: 'prioridad', weight: 0.1 },
+        ],
+      })
+
+      const q = terms.join(' ')
+      const fuseResults = fuse.search(q).map(r => (r.item as any).__ref)
+      if (fuseResults.length > 0) return fuseResults
+    } catch (e) {
+      console.warn('Fuse.js search fallback to manual ranking:', e)
+    }
+
+    // Fallback: ranking manual si Fuse no devuelve resultados
+    return [...filtered].sort((a, b) => scoreTask(b, terms) - scoreTask(a, terms))
   }
   
   // Efecto para limpiar el filtro de edificio cuando cambia el administrador
