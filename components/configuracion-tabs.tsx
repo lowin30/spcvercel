@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Database, Shield, Palette, UserCheck, Users, Package, Tag, Users2, ActivitySquare } from "lucide-react"
+import { Settings, Database, Shield, Palette, UserCheck, Users, Package, Tag, Users2, ActivitySquare, Cloud } from "lucide-react"
 import { UserRoleManager } from "@/components/user-role-manager"
 import { ConfigurarTrabajadorForm } from "@/components/configurar-trabajador-form"
 import { EditarTrabajadorForm } from "@/components/editar-trabajador-form"
@@ -16,6 +16,7 @@ import { CategoriasTab } from "@/components/categorias-tab"
 import { AdministradoresTab } from "@/components/administradores-tab"
 import { EstadosTab } from "@/components/estados-tab"
 import { AparienciaTab } from "@/components/apariencia-tab"
+import { CloudinaryDashboard } from "@/components/cloudinary-dashboard"
 
 interface ConfiguracionTabsProps {
   trabajadores: any[]
@@ -131,13 +132,18 @@ export default function ConfiguracionTabs({
               <ActivitySquare className="h-4 w-4" />
               <span>Estados</span>
             </SelectItem>
+          
+            <SelectItem value="cloudinary" className="flex items-center gap-2">
+              <Cloud className="h-4 w-4" />
+              <span>Cloudinary</span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {/* Tabs para escritorio - grid */}
       <div className="hidden md:block">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9">
           <TabsTrigger value="usuarios" className="flex items-center">
             <Shield className="mr-2 h-4 w-4 flex-shrink-0" />
             <span className="hidden xl:inline">Gestión de Usuarios</span>
@@ -173,6 +179,10 @@ export default function ConfiguracionTabs({
           <TabsTrigger value="estados" className="flex items-center">
             <ActivitySquare className="mr-2 h-4 w-4 flex-shrink-0" />
             <span>Estados</span>
+          </TabsTrigger>
+          <TabsTrigger value="cloudinary" className="flex items-center">
+            <Cloud className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span>Cloudinary</span>
           </TabsTrigger>
         </TabsList>
       </div>
@@ -267,6 +277,10 @@ export default function ConfiguracionTabs({
           estadosPresupuestos={estadosPresupuestos || []} 
           estadosFacturas={estadosFacturas || []} 
         />
+      </TabsContent>
+      
+      <TabsContent value="cloudinary" className="space-y-4 mt-4 mb-4">
+        <CloudinaryDashboard />
       </TabsContent>
     </Tabs>
   )

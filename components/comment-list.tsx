@@ -30,6 +30,12 @@ export function CommentList({ comments }: CommentListProps) {
     return url.replace("/upload/", "/upload/f_auto,q_auto,w_480,c_limit/")
   }
 
+  const buildBlurUrl = (url: string) => {
+    // Generar thumbnail de 20px con blur para placeholder instantáneo
+    if (!isImage(url)) return url
+    return url.replace("/upload/", "/upload/q_1,w_20,h_20,c_fill,e_blur:1000,f_auto/")
+  }
+
   // Manejar caso donde comments puede ser undefined o null
   if (!comments || comments.length === 0) {
     return (
@@ -81,10 +87,15 @@ export function CommentList({ comments }: CommentListProps) {
 
                       {isImg && (
                         <img
-                          src={buildPreviewUrl(url)}
+                          src={buildBlurUrl(url)}
+                          data-src={buildPreviewUrl(url)}
                           alt={label}
                           loading="lazy"
-                          className="max-h-56 w-auto rounded-md border object-contain bg-muted/40"
+                          className="max-h-56 w-auto rounded-md border object-contain bg-muted/40 transition-all duration-300"
+                          onLoad={(e) => {
+                            const img = e.target as HTMLImageElement
+                            img.src = img.dataset.src || img.src
+                          }}
                         />
                       )}
 

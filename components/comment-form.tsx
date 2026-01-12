@@ -23,6 +23,18 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
   const { toast } = useToast()
   const router = useRouter()
 
+  const getAssetType = (file: File): "image" | "video" => {
+    if (file.type.startsWith("video")) return "video"
+    if (file.type.startsWith("image")) return "image"
+
+    const extension = file.name.split(".").pop()?.toLowerCase()
+    if (extension && ["mp4", "mov", "webm", "ogg", "mkv"].includes(extension)) {
+      return "video"
+    }
+
+    return "image"
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -65,23 +77,48 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
         const yearMonth = now.toISOString().slice(0, 7)
         const folder = `spc-comentarios/${yearMonth}/${idTarea}`
 
-        const signatureRes = await fetch("/api/cloudinary/comment-upload-signature", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ folder }),
-        })
-
-        if (!signatureRes.ok) {
-          const data = await signatureRes.json().catch(() => null)
-          const message = data?.error || `Error ${signatureRes.status} al firmar subida`
-          throw new Error(`Cloudinary firma: ${message}`)
+        type SignaturePayload = {
+          timestamp: number
+          signature: string
+          cloudName: string
+          apiKey: string
+          uploadPreset: string
+          transformation: string
+          thumbnailTransformation: string
+          resourceType: "image" | "video"
         }
 
-        const { timestamp, signature, cloudName, apiKey, uploadPreset } = await signatureRes.json()
+        const signatureCache: Partial<Record<"image" | "video", SignaturePayload>> = {}
+
+        const getSignature = async (assetType: "image" | "video") => {
+          if (signatureCache[assetType]) {
+            return signatureCache[assetType]!
+          }
+
+          const signatureRes = await fetch("/api/cloudinary/comment-upload-signature", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ folder, assetType }),
+          })
+
+          if (!signatureRes.ok) {
+            const data = await signatureRes.json().catch(() => null)
+            const message = data?.error || `Error ${signatureRes.status} al firmar subida`
+            throw new Error(`Cloudinary firma ${assetType}: ${message}`)
+          }
+
+          const payload = (await signatureRes.json()) as SignaturePayload
+          signatureCache[assetType] = payload
+          return payload
+        }
 
         for (const file of files) {
+          const assetType = getAssetType(file)
+          const { timestamp, signature, cloudName, apiKey, uploadPreset, transformation, thumbnailTransformation, resourceType } =
+            await getSignature(assetType)
+
           const formData = new FormData()
           formData.append("file", file)
           formData.append("api_key", apiKey)
@@ -89,8 +126,9 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
           formData.append("signature", signature)
           formData.append("folder", folder)
           formData.append("upload_preset", uploadPreset)
+          formData.append("transformation", transformation)
 
-          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, {
             method: "POST",
             body: formData,
           })
