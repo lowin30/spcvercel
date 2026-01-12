@@ -182,7 +182,7 @@ export type Database = {
           code: string | null
           contenido: string
           created_at: string | null
-          foto_url: string | null
+          foto_url: Json
           id: number
           id_tarea: number
           id_usuario: string | null
@@ -191,7 +191,7 @@ export type Database = {
           code?: string | null
           contenido: string
           created_at?: string | null
-          foto_url?: string | null
+          foto_url?: Json
           id?: number
           id_tarea: number
           id_usuario?: string | null
@@ -200,7 +200,7 @@ export type Database = {
           code?: string | null
           contenido?: string
           created_at?: string | null
-          foto_url?: string | null
+          foto_url?: Json
           id?: number
           id_tarea?: number
           id_usuario?: string | null

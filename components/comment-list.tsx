@@ -8,7 +8,7 @@ interface Comment {
   id: number
   code: string
   contenido: string
-  foto_url: string | null
+  foto_url: string[] | string | null
   created_at: string
   usuarios: {
     email: string
@@ -21,6 +21,15 @@ interface CommentListProps {
 }
 
 export function CommentList({ comments }: CommentListProps) {
+  const isImage = (url: string) => /\.(png|jpe?g|gif|webp|bmp|heic|heif|svg)$/i.test(url.split("?")[0])
+  const isVideo = (url: string) => /\.(mp4|mov|webm|ogg|mkv)$/i.test(url.split("?")[0])
+
+  const buildPreviewUrl = (url: string) => {
+    // Optimizar imágenes en Cloudinary sin cargar original: f_auto, q_auto, ancho máx 480
+    if (!isImage(url)) return url
+    return url.replace("/upload/", "/upload/f_auto,q_auto,w_480,c_limit/")
+  }
+
   // Manejar caso donde comments puede ser undefined o null
   if (!comments || comments.length === 0) {
     return (
@@ -49,16 +58,47 @@ export function CommentList({ comments }: CommentListProps) {
             </div>
             <p className="text-sm">{comment.contenido}</p>
             {comment.foto_url && (
-              <div className="mt-2">
-                <a
-                  href={comment.foto_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center text-primary hover:underline text-sm"
-                >
-                  <ImageIcon className="h-4 w-4 mr-1" />
-                  Ver imagen adjunta
-                </a>
+              <div className="mt-2 space-y-3">
+                {(Array.isArray(comment.foto_url) ? comment.foto_url : [comment.foto_url]).map((url, index) => {
+                  const isImg = isImage(url)
+                  const isVid = isVideo(url)
+                  const label =
+                    Array.isArray(comment.foto_url) && comment.foto_url.length > 1
+                      ? `Archivo ${index + 1}`
+                      : "Archivo adjunto"
+
+                  return (
+                    <div key={index} className="space-y-1">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center text-primary hover:underline text-sm"
+                      >
+                        <ImageIcon className="h-4 w-4 mr-1" />
+                        {label}
+                      </a>
+
+                      {isImg && (
+                        <img
+                          src={buildPreviewUrl(url)}
+                          alt={label}
+                          loading="lazy"
+                          className="max-h-56 w-auto rounded-md border object-contain bg-muted/40"
+                        />
+                      )}
+
+                      {isVid && (
+                        <video
+                          src={url}
+                          controls
+                          preload="metadata"
+                          className="max-h-64 w-full rounded-md border bg-black"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

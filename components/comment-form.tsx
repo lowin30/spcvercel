@@ -17,7 +17,7 @@ interface CommentFormProps {
 
 export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
   const [contenido, setContenido] = useState("")
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { supabase, user } = useSupabase()
   const { toast } = useToast()
@@ -26,10 +26,10 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!contenido.trim()) {
+    if (!contenido.trim() && files.length === 0) {
       toast({
         title: "Error",
-        description: "El comentario no puede estar vacío",
+        description: "Agrega texto o al menos un archivo para enviar",
         variant: "destructive",
       })
       return
@@ -46,37 +46,78 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
       return
     }
 
+    if (!user?.id) {
+      toast({
+        title: "Sesión requerida",
+        description: "Debes iniciar sesión para comentar.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
-      let foto_url = null
+      let fotoUrls: string[] = []
 
-      // Si hay un archivo, subirlo a Supabase Storage
-      if (file) {
-        const fileExt = file.name.split(".").pop()
-        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`
-        const filePath = `comentarios/${fileName}`
+      if (files.length > 0) {
+        const now = new Date()
+        const yearMonth = now.toISOString().slice(0, 7)
+        const folder = `spc-comentarios/${yearMonth}/${idTarea}`
 
-        const { error: uploadError, data } = await supabase.storage.from("spc-files").upload(filePath, file)
+        const signatureRes = await fetch("/api/cloudinary/comment-upload-signature", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ folder }),
+        })
 
-        if (uploadError) {
-          throw new Error(uploadError.message)
+        if (!signatureRes.ok) {
+          const data = await signatureRes.json().catch(() => null)
+          const message = data?.error || `Error ${signatureRes.status} al firmar subida`
+          throw new Error(`Cloudinary firma: ${message}`)
         }
 
-        // Obtener URL pública
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("spc-files").getPublicUrl(filePath)
+        const { timestamp, signature, cloudName, apiKey, uploadPreset } = await signatureRes.json()
 
-        foto_url = publicUrl
+        for (const file of files) {
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("api_key", apiKey)
+          formData.append("timestamp", String(timestamp))
+          formData.append("signature", signature)
+          formData.append("folder", folder)
+          formData.append("upload_preset", uploadPreset)
+
+          const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
+            method: "POST",
+            body: formData,
+          })
+
+          if (!uploadRes.ok) {
+            let serverMsg = ""
+            try {
+              const errJson = await uploadRes.json()
+              serverMsg = errJson?.error?.message || JSON.stringify(errJson)
+            } catch {
+              // ignore parse errors
+            }
+            throw new Error(`Error al subir a Cloudinary (${uploadRes.status}): ${serverMsg || "sin detalle"}`)
+          }
+
+          const uploadData = await uploadRes.json()
+          if (uploadData.secure_url) {
+            fotoUrls.push(uploadData.secure_url as string)
+          }
+        }
       }
 
-      // Crear comentario
       const { error } = await supabase.from("comentarios").insert({
         contenido,
         id_tarea: idTarea,
         id_usuario: user?.id,
-        foto_url,
+        foto_url: fotoUrls,
       })
 
       if (error) {
@@ -90,7 +131,7 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
 
       // Limpiar formulario
       setContenido("")
-      setFile(null)
+      setFiles([])
 
       // Llamar al callback si existe
       if (onComentarioCreado) {
@@ -99,11 +140,12 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
 
       // Refrescar página
       router.refresh()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al agregar comentario:", error)
+      const message = error?.message || "No se pudo agregar el comentario"
       toast({
         title: "Error",
-        description: "No se pudo agregar el comentario",
+        description: message,
         variant: "destructive",
       })
     } finally {
@@ -127,8 +169,9 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
             type="file"
             id="foto"
             className="hidden"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            accept="image/*,video/*"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
             disabled={isSubmitting}
           />
           <Button
@@ -139,7 +182,7 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
             disabled={isSubmitting}
           >
             <Upload className="h-4 w-4 mr-1" />
-            {file ? file.name : "Adjuntar imagen"}
+            {files.length > 0 ? `${files.length} archivo(s) seleccionado(s)` : "Adjuntar imágenes o videos"}
           </Button>
         </div>
 
