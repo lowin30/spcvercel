@@ -55,19 +55,14 @@ async function getFolderStats(folder: string): Promise<any> {
       timestamp,
       type: "upload",
     }
-  const paramsToSign = {
-    folder,
-    timestamp,
-    type: "upload",
-  }
 
-  const signature = generateSignature(paramsToSign, API_SECRET!)
-  const searchUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image/upload?folder=${folder}&signature=${signature}&api_key=${API_KEY}&timestamp=${timestamp}`
+    const signature = generateSignature(paramsToSign, API_SECRET!)
+    const searchUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image/upload?folder=${folder}&signature=${signature}&api_key=${API_KEY}&timestamp=${timestamp}`
 
-  const response = await fetch(searchUrl)
-  if (!response.ok) {
-    throw new Error(`Error obteniendo recursos: ${response.statusText}`)
-  }
+    const response = await fetch(searchUrl)
+    if (!response.ok) {
+      throw new Error(`Error obteniendo recursos: ${response.statusText}`)
+    }
 
   const data = await response.json()
   return {
