@@ -65,9 +65,16 @@ async function getFolderStats(folder: string): Promise<any> {
     }
 
   const data = await response.json()
-  return {
-    resources: data.resources || [],
-    total: data.resources?.length || 0,
+    return {
+      resources: data.resources || [],
+      total: data.resources?.length || 0,
+    }
+  } catch (error: any) {
+    console.warn("Error obteniendo estadísticas de carpeta:", error.message)
+    return {
+      resources: [],
+      total: 0,
+    }
   }
 }
 
