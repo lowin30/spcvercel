@@ -13,29 +13,48 @@ function generateSignature(params: Record<string, string | number>, apiSecret: s
 
 async function getCloudinaryStats(): Promise<any> {
   try {
-    const timestamp = Math.round(Date.now() / 1000)
-    const paramsToSign = {
-      timestamp,
-    }
-
-    const signature = generateSignature(paramsToSign, API_SECRET!)
-    const statsUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/usage?signature=${signature}&api_key=${API_KEY}&timestamp=${timestamp}`
-
-    const response = await fetch(statsUrl)
-    if (!response.ok) {
-      console.warn("Cloudinary API no disponible, usando modo demo")
+    // Test básico de conexión primero
+    const pingUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/ping`
+    const pingResponse = await fetch(pingUrl, { 
+      signal: AbortSignal.timeout(5000) // 5 segundos timeout
+    })
+    
+    if (!pingResponse.ok) {
+      console.warn("Cloudinary ping falló, usando modo demo")
       return null
     }
 
-    return response.json()
-  } catch (error) {
-    console.warn("Error obteniendo estadísticas de Cloudinary, usando modo demo:", error)
+    // Si el ping funciona, intentar obtener estadísticas
+    const timestamp = Math.round(Date.now() / 1000)
+    const paramsToSign = { timestamp }
+    const signature = generateSignature(paramsToSign, API_SECRET!)
+    const statsUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/usage?signature=${signature}&api_key=${API_KEY}&timestamp=${timestamp}`
+
+    const response = await fetch(statsUrl, {
+      signal: AbortSignal.timeout(10000) // 10 segundos timeout
+    })
+    
+    if (!response.ok) {
+      console.warn("Error obteniendo estadísticas de Cloudinary, usando modo demo:", response.status)
+      return null
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error: any) {
+    console.warn("Error en API de Cloudinary, usando modo demo:", error.message)
     return null
   }
 }
 
 async function getFolderStats(folder: string): Promise<any> {
-  const timestamp = Math.round(Date.now() / 1000)
+  try {
+    const timestamp = Math.round(Date.now() / 1000)
+    const paramsToSign = {
+      folder,
+      timestamp,
+      type: "upload",
+    }
   const paramsToSign = {
     folder,
     timestamp,
