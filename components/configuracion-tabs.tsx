@@ -16,7 +16,7 @@ import { CategoriasTab } from "@/components/categorias-tab"
 import { AdministradoresTab } from "@/components/administradores-tab"
 import { EstadosTab } from "@/components/estados-tab"
 import { AparienciaTab } from "@/components/apariencia-tab"
-import { CloudinaryDashboard } from "@/components/cloudinary-dashboard"
+import { CloudinaryDashboard } from "@/components/cloudinary-dashboard-simple"
 
 interface ConfiguracionTabsProps {
   trabajadores: any[]
