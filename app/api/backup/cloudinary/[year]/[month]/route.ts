@@ -48,7 +48,7 @@ async function getCloudinaryResources(folder: string): Promise<any[]> {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { year: string; month: string } }
+  { params }: { params: Promise<{ year: string; month: string }> }
 ) {
   try {
     if (!CLOUD_NAME || !API_KEY || !API_SECRET) {
@@ -58,7 +58,7 @@ export async function GET(
       )
     }
 
-    const { year, month } = params
+    const { year, month } = await params
     const folder = `spc-comentarios/${year}-${month}`
 
     // Obtener todos los recursos de la carpeta

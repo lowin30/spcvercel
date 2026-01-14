@@ -13,36 +13,31 @@ function generateSignature(params: Record<string, string | number>, apiSecret: s
 
 async function getCloudinaryStats(): Promise<any> {
   try {
-    // Test básico de conexión primero
-    const pingUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/ping`
-    const pingResponse = await fetch(pingUrl, { 
-      signal: AbortSignal.timeout(5000) // 5 segundos timeout
-    })
+    // Usar autenticación básica con Admin API directamente
+    const authString = Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64')
+    const statsUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/usage`
+
+    console.log('🔐 Intentando conectar a Cloudinary Admin API...')
     
-    if (!pingResponse.ok) {
-      console.warn("Cloudinary ping falló, usando modo demo")
-      return null
-    }
-
-    // Si el ping funciona, intentar obtener estadísticas
-    const timestamp = Math.round(Date.now() / 1000)
-    const paramsToSign = { timestamp }
-    const signature = generateSignature(paramsToSign, API_SECRET!)
-    const statsUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/usage?signature=${signature}&api_key=${API_KEY}&timestamp=${timestamp}`
-
     const response = await fetch(statsUrl, {
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/json'
+      },
       signal: AbortSignal.timeout(10000) // 10 segundos timeout
     })
     
     if (!response.ok) {
-      console.warn("Error obteniendo estadísticas de Cloudinary, usando modo demo:", response.status)
+      const errorText = await response.text()
+      console.warn("❌ Error obteniendo estadísticas de Cloudinary:", response.status, errorText)
       return null
     }
 
     const data = await response.json()
+    console.log('✅ Cloudinary stats obtenidas exitosamente')
     return data
   } catch (error: any) {
-    console.warn("Error en API de Cloudinary, usando modo demo:", error.message)
+    console.warn("❌ Error en API de Cloudinary, usando modo demo:", error.message)
     return null
   }
 }
@@ -92,6 +87,7 @@ export async function GET(request: NextRequest) {
 
     // Estadísticas generales de Cloudinary (con fallback)
     let generalStats = await getCloudinaryStats()
+    const isRealData = generalStats !== null
     
     // Si no hay datos reales, usar modo demo
     if (!generalStats) {
@@ -178,7 +174,7 @@ export async function GET(request: NextRequest) {
       alerts,
       folderStats,
       lastUpdated: new Date().toISOString(),
-      isDemo: !generalStats || generalStats.storage?.used === 500000000, // Indicador de modo demo
+      isDemo: !isRealData, // true solo si la API de Cloudinary falló
     }
 
     return NextResponse.json(response)
