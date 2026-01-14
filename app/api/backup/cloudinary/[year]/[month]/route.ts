@@ -109,12 +109,19 @@ export async function GET(
     for (const resource of resources) {
       try {
         const fileBuffer = await downloadFile(resource.secure_url)
-        const fileName = resource.public_id.split("/").pop() || resource.public_id
         
-        zip.file(fileName, fileBuffer)
+        // Obtener el path relativo desde la carpeta base
+        // Ej: spc-comentarios/2026-01/198/archivo -> 198/archivo
+        const relativePath = resource.public_id.replace(`${folder}/`, '')
+        
+        // Agregar extensión al archivo
+        const fileExtension = resource.format ? `.${resource.format}` : ''
+        const fullPath = `${relativePath}${fileExtension}`
+        
+        zip.file(fullPath, fileBuffer)
         
         metadata.files.push({
-          name: fileName,
+          name: fullPath,
           originalUrl: resource.secure_url,
           size: resource.bytes,
           format: resource.format,
