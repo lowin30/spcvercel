@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -63,11 +63,11 @@ export function CloudinaryDashboard() {
     fetchStats()
   }, [])
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    
     try {
-      setLoading(true)
-      setError(null)
-      
       const response = await fetch("/api/cloudinary/stats")
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
@@ -80,7 +80,7 @@ export function CloudinaryDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const testConnection = async () => {
     try {
