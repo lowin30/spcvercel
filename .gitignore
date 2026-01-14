@@ -48,3 +48,6 @@ PRUEBA-SIMPLE-*.md
 CONFIGURACION-N8N-RENDER.md
 RENDER-N8N-CREDENCIALES.txt
 verificar-n8n.md
+
+.env*.local
+.vercel
