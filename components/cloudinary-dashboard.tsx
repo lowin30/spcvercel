@@ -59,10 +59,6 @@ export function CloudinaryDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
-
   const fetchStats = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -81,6 +77,10 @@ export function CloudinaryDashboard() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    fetchStats()
+  }, [fetchStats])
 
   const testConnection = async () => {
     try {
