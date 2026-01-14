@@ -22,26 +22,30 @@ async function downloadFile(url: string): Promise<ArrayBuffer> {
 
 async function getCloudinaryResources(folder: string): Promise<any[]> {
   try {
-    const timestamp = Math.round(Date.now() / 1000)
-    const paramsToSign = {
-      folder,
-      timestamp,
-      type: "upload",
-    }
+    // Usar autenticación básica y prefix para búsqueda recursiva
+    const authString = Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64')
+    const searchUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image/upload?prefix=${folder}&max_results=500`
 
-    const signature = generateSignature(paramsToSign, API_SECRET!)
-    const searchUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image/upload?folder=${folder}&signature=${signature}&api_key=${API_KEY}&timestamp=${timestamp}`
-
-    const response = await fetch(searchUrl)
+    console.log(`🔍 Buscando recursos en: ${folder}`)
+    
+    const response = await fetch(searchUrl, {
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
     if (!response.ok) {
-      console.warn("Cloudinary API no disponible para backup, usando modo demo")
+      const errorText = await response.text()
+      console.warn("❌ Cloudinary API no disponible para backup:", errorText)
       return []
     }
 
     const data = await response.json()
+    console.log(`✅ Encontrados ${data.resources?.length || 0} recursos`)
     return data.resources || []
   } catch (error) {
-    console.warn("Error obteniendo recursos de Cloudinary para backup:", error)
+    console.warn("❌ Error obteniendo recursos de Cloudinary para backup:", error)
     return []
   }
 }
