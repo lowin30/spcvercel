@@ -153,14 +153,17 @@ const fetchData = useCallback(async () => {
         setSupervisoresMap(map)
       }
 
-      // Construir la consulta de tareas - usamos vista_tareas_completa para tener todos los detalles incluyendo estados
-      let query = supabase.from('vista_tareas_completa').select('*')
+      // Construir la consulta de tareas - usamos vistas inteligentes por rol
+      // La lógica de ocultamiento está centralizada en la BD
+      const vistaSegunRol = userDetailsData?.rol === 'supervisor' 
+        ? 'vista_tareas_supervisor'  // Lógica: oculta tareas con PB en estados pausados
+        : 'vista_tareas_admin'        // Lógica: solo oculta liquidadas
+
+      let query = supabase.from(vistaSegunRol).select('*')
 
       if (userDetailsData?.rol === 'supervisor') {
-        // Supervisores: ver solo tareas de su delegación y no mostrar liquidadas (id_estado_nuevo = 9)
-        query = query
-          .eq('id_delegacion', userDetailsData.id_delegacion)
-          .neq('id_estado_nuevo', 9)
+        // Supervisores: filtrar solo por su delegación (ocultamiento ya en vista)
+        query = query.eq('id_delegacion', userDetailsData.id_delegacion)
       }
 
       const { data: tareasData, error: tareasError } = await query.order('id', { ascending: false })
