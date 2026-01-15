@@ -166,8 +166,40 @@ export default function NuevaLiquidacionSupervisorPage () {
 
       const pbSinLiquidar = (presupuestosData as any[]).filter(p => !liquidadas.has(p.id_tarea))
 
+      // 2b) Excluir tareas que tengan presupuestos finales rechazados
+      // Estas tareas no se completaron realmente, no deben liquidarse
+      const taskIdsParaVerificar = pbSinLiquidar.map(p => p.id_tarea).filter(Boolean)
+      let tareasConPfRechazado = new Set<number>()
+      
+      if (taskIdsParaVerificar.length > 0) {
+        // Buscar estado "rechazado" en estados_presupuestos
+        const { data: estadoRechazado } = await supabase
+          .from('estados_presupuestos')
+          .select('id')
+          .eq('codigo', 'rechazado')
+          .maybeSingle()
+        
+        if (estadoRechazado) {
+          // Buscar presupuestos finales rechazados para estas tareas
+          const { data: pfsRechazados, error: pfError } = await supabase
+            .from('presupuestos_finales')
+            .select('id_tarea')
+            .in('id_tarea', taskIdsParaVerificar)
+            .eq('id_estado', estadoRechazado.id)
+          
+          if (!pfError && Array.isArray(pfsRechazados)) {
+            for (const pf of pfsRechazados) {
+              if (pf?.id_tarea) tareasConPfRechazado.add(pf.id_tarea)
+            }
+          }
+        }
+      }
+      
+      // Filtrar tareas con PF rechazados
+      const pbSinRechazados = pbSinLiquidar.filter(p => !tareasConPfRechazado.has(p.id_tarea))
+
       // 3) Para cada PB, obtener el último supervisor de la tarea
-      const presupuestosConSupervisores = await Promise.all(pbSinLiquidar.map(async (presupuesto: any) => {
+      const presupuestosConSupervisores = await Promise.all(pbSinRechazados.map(async (presupuesto: any) => {
         const idTarea = presupuesto.id_tarea
 
         if (!idTarea) {

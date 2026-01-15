@@ -62,6 +62,14 @@ BEGIN
         AND COALESCE(t.finalizada, false) = false
       RETURNING t.id AS id_tarea, pc.fecha_envio
     ),
+    rechazar_pf AS (
+      UPDATE public.presupuestos_finales pf
+      SET id_estado = (SELECT id FROM public.estados_presupuestos WHERE codigo = 'rechazado' LIMIT 1)
+      FROM updated u
+      WHERE pf.id_tarea = u.id_tarea
+        AND pf.id_estado IS DISTINCT FROM (SELECT id FROM public.estados_presupuestos WHERE codigo = 'rechazado' LIMIT 1)
+      RETURNING pf.id, pf.code
+    ),
     comments AS (
       INSERT INTO public.comentarios (contenido, id_tarea, id_usuario)
       SELECT
@@ -128,6 +136,14 @@ BEGIN
       WHERE t.id = pc.id_tarea
         AND COALESCE(t.finalizada, false) = false
       RETURNING t.id AS id_tarea, pc.fecha_envio
+    ),
+    rechazar_pf AS (
+      UPDATE public.presupuestos_finales pf
+      SET id_estado = (SELECT id FROM public.estados_presupuestos WHERE codigo = 'rechazado' LIMIT 1)
+      FROM updated u
+      WHERE pf.id_tarea = u.id_tarea
+        AND pf.id_estado IS DISTINCT FROM (SELECT id FROM public.estados_presupuestos WHERE codigo = 'rechazado' LIMIT 1)
+      RETURNING pf.id, pf.code
     ),
     comments AS (
       INSERT INTO public.comentarios (contenido, id_tarea, id_usuario)
