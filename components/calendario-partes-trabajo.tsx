@@ -107,6 +107,71 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
     fetchPartes()
   }, [fetchPartes])
 
+  // Fix para móviles: Agregar touch event listeners directos
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      
+      // Buscar la celda del día (background o date cell)
+      const dayBg = target.closest('.rbc-day-bg')
+      const dateCell = target.closest('.rbc-date-cell')
+      
+      if (!dayBg && !dateCell) return
+      
+      // Obtener el número del día
+      const dayElement = dateCell || dayBg?.parentElement?.querySelector('.rbc-date-cell')
+      if (!dayElement) return
+      
+      const dayText = dayElement.textContent?.trim()
+      if (!dayText || isNaN(parseInt(dayText))) return
+      
+      const dayNumber = parseInt(dayText)
+      
+      // Obtener mes y año del header
+      const monthHeader = document.querySelector('.rbc-toolbar .rbc-toolbar-label')
+      if (!monthHeader) return
+      
+      const headerText = monthHeader.textContent || ''
+      const parts = headerText.split(' ')
+      if (parts.length < 2) return
+      
+      const monthName = parts[0].toLowerCase()
+      const year = parseInt(parts[1])
+      
+      const monthMap: Record<string, number> = {
+        'enero': 0, 'febrero': 1, 'marzo': 2, 'abril': 3,
+        'mayo': 4, 'junio': 5, 'julio': 6, 'agosto': 7,
+        'septiembre': 8, 'octubre': 9, 'noviembre': 10, 'diciembre': 11
+      }
+      
+      const month = monthMap[monthName]
+      if (month === undefined || isNaN(year)) return
+      
+      const selectedDate = new Date(year, month, dayNumber)
+      
+      // Validar que la fecha sea correcta
+      if (selectedDate.getDate() !== dayNumber || selectedDate.getMonth() !== month) return
+      
+      // Prevenir scroll y zoom en móviles
+      e.preventDefault()
+      
+      // Abrir modal
+      openModalWithData(selectedDate)
+    }
+    
+    // Solo agregar en dispositivos táctiles
+    if ('ontouchstart' in window) {
+      const calendar = document.querySelector('.rbc-month-view')
+      if (calendar) {
+        calendar.addEventListener('touchstart', handleTouchStart as EventListener, { passive: false })
+        
+        return () => {
+          calendar.removeEventListener('touchstart', handleTouchStart as EventListener)
+        }
+      }
+    }
+  }, [openModalWithData])
+
   const openModalWithData = async (date: Date) => {
     // Bloqueo visual inmediato: solo semana actual
     if (!estaEnSemanaActual(date)) {
