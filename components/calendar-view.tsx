@@ -131,6 +131,13 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
     setIsModalOpen(true)
   }
 
+  const handleShowMore = (events: any[], date: Date) => {
+    // Cuando hay muchas tareas y se hace click en "+x tareas más"
+    // Abrir el mismo diálogo bonito en lugar del overlay feo nativo
+    setSelectedDate(date)
+    setIsModalOpen(true)
+  }
+
   const getTareasPorDia = (date: Date): Tarea[] => {
     if (!date) return []
     const dateStr = format(date, 'yyyy-MM-dd')
@@ -242,7 +249,8 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
           onNavigate={(newDate: Date) => setCurrentDate(newDate)}
           onView={(newView: string) => setCurrentView(newView)}
           views={isMobile ? { month: true } : { month: true, week: true, day: true, agenda: true }}
-          popup={true}
+          popup={false}
+          onShowMore={handleShowMore}
           components={{
             event: EventComponent,
             month: { dateHeader: DateHeader },
