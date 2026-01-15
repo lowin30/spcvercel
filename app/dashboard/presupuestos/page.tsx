@@ -349,15 +349,21 @@ export default function PresupuestosPage() {
               <div className="border-l-4 border-blue-500 pl-3">
                 <div className="text-xs text-muted-foreground">📝 Falta crear PF</div>
                 <div className="text-2xl font-bold text-blue-700">{(kpisAdmin.pb_finalizada_sin_pf_count ?? 0) + (kpisAdmin.pb_sin_aprobar_count ?? 0)}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {[
                     ...detallePbFinalizadaSinPF.map((it: any) => ({ ...it, __ap: 'aprobado' })),
                     ...detallePbSinAprobar.map((it: any) => ({ ...it, __ap: 'sin_aprobar' })),
                   ].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
                    .slice(0,3)
                    .map((it: any) => (
-                    <Link key={`${it.id_presupuesto_base}-${it.__ap}`} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    <Link 
+                      key={`${it.id_presupuesto_base}-${it.__ap}`} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="line-clamp-2 leading-snug">
+                        {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                      </div>
                     </Link>
                   ))}
                 </div>
@@ -370,10 +376,21 @@ export default function PresupuestosPage() {
               <div className="border-l-4 border-yellow-500 pl-3">
                 <div className="text-xs text-muted-foreground">⏱️ PF Borrador antiguo</div>
                 <div className="text-2xl font-bold text-yellow-700">{detallePfBorradorAntiguo.length}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {detallePfBorradorAntiguo.slice(0,3).map((it: any) => (
-                    <Link key={it.id_presupuesto_final} href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_pf} · {it.dias_en_borrador}d
+                    <Link 
+                      key={it.id_presupuesto_final} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="line-clamp-2 leading-snug flex-1">
+                          {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 whitespace-nowrap flex-shrink-0">
+                          {it.dias_en_borrador}d
+                        </span>
+                      </div>
                     </Link>
                   ))}
                 </div>
@@ -384,22 +401,28 @@ export default function PresupuestosPage() {
               <div className="border-l-4 border-red-500 pl-3">
                 <div className="text-xs text-muted-foreground">🔴 PF Enviado sin respuesta</div>
                 <div className="text-2xl font-bold text-red-700">{detallePfEnviadoSinAprobar.length}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {detallePfEnviadoSinAprobar.slice(0,3).map((it: any) => (
-                    <div key={it.id_presupuesto_final} className="flex items-center justify-between gap-1">
-                      <Link href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="text-xs text-primary hover:underline truncate flex-1">
-                        {it.code_pf}
-                      </Link>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                        it.prioridad === 'critico' 
-                          ? 'bg-red-100 text-red-800' 
-                          : it.prioridad === 'urgente' 
-                          ? 'bg-orange-100 text-orange-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {it.dias_sin_respuesta}d
-                      </span>
-                    </div>
+                    <Link 
+                      key={it.id_presupuesto_final} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="line-clamp-2 leading-snug flex-1">
+                          {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                        </span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
+                          it.prioridad === 'critico' 
+                            ? 'bg-red-100 text-red-800' 
+                            : it.prioridad === 'urgente' 
+                            ? 'bg-orange-100 text-orange-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {it.dias_sin_respuesta}d
+                        </span>
+                      </div>
+                    </Link>
                   ))}
                 </div>
                 <div className="mt-2 text-[10px] text-red-600">💡 Seguir o rechazar</div>
@@ -409,10 +432,16 @@ export default function PresupuestosPage() {
               <div className="border-l-4 border-green-500 pl-3">
                 <div className="text-xs text-muted-foreground">💰 PF Aprobado sin factura</div>
                 <div className="text-2xl font-bold text-green-700">{kpisAdmin.pf_aprobado_sin_factura_count ?? 0}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {detallePfAprobadoSinFactura.slice(0,3).map((it: any) => (
-                    <Link key={it.id_presupuesto_final} href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_pf}
+                    <Link 
+                      key={it.id_presupuesto_final} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="line-clamp-2 leading-snug">
+                        {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                      </div>
                     </Link>
                   ))}
                 </div>
