@@ -368,10 +368,10 @@ export default function AgendaPage() {
 
       <AgendaFilters edificios={edificios || []} usuarios={usuarios} userRole={userDetails?.rol} />
 
-      <Tabs defaultValue="lista" className="w-full">
+      <Tabs defaultValue="calendario" className="w-full">
         <TabsList className="w-full grid grid-cols-2 mb-2">
-          <TabsTrigger value="lista" className="text-sm">Vista Lista</TabsTrigger>
           <TabsTrigger value="calendario" className="text-sm">Calendario</TabsTrigger>
+          <TabsTrigger value="lista" className="text-sm">Vista Lista</TabsTrigger>
         </TabsList>
         <TabsContent value="lista" className="mt-2">
           <Card className="shadow-sm">

@@ -121,7 +121,9 @@ export default function CalendarView({ tareas, estadosTareas = [], userRole, use
   )
 
   const handleSelectEvent = (event: any) => {
-    window.location.href = `/dashboard/tareas/${event.id}`
+    // Abrir diálogo con las tareas del día en lugar de redirigir directamente
+    setSelectedDate(event.start)
+    setIsModalOpen(true)
   }
 
   const handleSelectSlot = (slotInfo: any) => {
