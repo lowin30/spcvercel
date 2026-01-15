@@ -107,6 +107,54 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
     fetchPartes()
   }, [fetchPartes])
 
+  const openModalWithData = useCallback(async (date: Date) => {
+    // Bloqueo visual inmediato: solo semana actual
+    if (!estaEnSemanaActual(date)) {
+      toast({
+        title: 'Fecha no permitida',
+        description: 'Solo puedes registrar/modificar en la semana actual (L→D).',
+        variant: 'destructive'
+      })
+      return
+    }
+    setIsDialogOpen(true)
+    setModalState({ date, isLoading: true, parteExistente: null, cargaTotalDia: 0, jornadaSeleccionada: '', partesEnOtrasTareas: [] })
+
+    const fechaISO = date.toISOString().split('T')[0]
+    const idTareaNum = parseInt(tareaId)
+
+    // 1. Carga total del día para el trabajador en TODAS las tareas
+    // Optimización: Solo seleccionar campos necesarios (id, id_tarea, tipo_jornada)
+    // Esto reduce ~70% el tamaño de los datos y acelera la respuesta del modal
+    const { data: partesDelDia, error: errorPartesDia } = await supabase
+      .from('partes_de_trabajo')
+      .select('id, id_tarea, tipo_jornada')
+      .eq('id_trabajador', trabajadorId)
+      .eq('fecha', fechaISO)
+
+    if (errorPartesDia) {
+      console.error('Error fetching partes del día:', errorPartesDia)
+      setIsDialogOpen(false)
+      return
+    }
+
+    // 2. Parte existente para ESTA tarea específica
+    const parteExistenteEnTareaActual = partesDelDia.find((p: { id_tarea: number | null }) => p.id_tarea === idTareaNum) as ParteDeTrabajo | null
+    
+    // 3. Partes en OTRAS tareas (para mostrar detalles)
+    const partesEnOtrasTareas = partesDelDia.filter((p: { id_tarea: number | null }) => p.id_tarea !== idTareaNum) as ParteDeTrabajo[]
+    const cargaOtrasTareas = partesEnOtrasTareas.reduce((acc: number, p: { tipo_jornada: string | null }) => acc + (p.tipo_jornada === 'dia_completo' ? 1 : 0.5), 0)
+
+    setModalState({
+      date,
+      isLoading: false,
+      parteExistente: parteExistenteEnTareaActual || null,
+      cargaTotalDia: cargaOtrasTareas,
+      jornadaSeleccionada: parteExistenteEnTareaActual?.tipo_jornada || '',
+      partesEnOtrasTareas
+    })
+  }, [estaEnSemanaActual, supabase, trabajadorId, tareaId])
+
   // Fix para móviles: Agregar touch event listeners directos
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
@@ -171,54 +219,6 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
       }
     }
   }, [openModalWithData])
-
-  const openModalWithData = async (date: Date) => {
-    // Bloqueo visual inmediato: solo semana actual
-    if (!estaEnSemanaActual(date)) {
-      toast({
-        title: 'Fecha no permitida',
-        description: 'Solo puedes registrar/modificar en la semana actual (L→D).',
-        variant: 'destructive'
-      })
-      return
-    }
-    setIsDialogOpen(true)
-    setModalState({ date, isLoading: true, parteExistente: null, cargaTotalDia: 0, jornadaSeleccionada: '', partesEnOtrasTareas: [] })
-
-    const fechaISO = date.toISOString().split('T')[0]
-    const idTareaNum = parseInt(tareaId)
-
-    // 1. Carga total del día para el trabajador en TODAS las tareas
-    // Optimización: Solo seleccionar campos necesarios (id, id_tarea, tipo_jornada)
-    // Esto reduce ~70% el tamaño de los datos y acelera la respuesta del modal
-    const { data: partesDelDia, error: errorPartesDia } = await supabase
-      .from('partes_de_trabajo')
-      .select('id, id_tarea, tipo_jornada')
-      .eq('id_trabajador', trabajadorId)
-      .eq('fecha', fechaISO)
-
-    if (errorPartesDia) {
-      console.error('Error fetching partes del día:', errorPartesDia)
-      setIsDialogOpen(false)
-      return
-    }
-
-    // 2. Parte existente para ESTA tarea específica
-    const parteExistenteEnTareaActual = partesDelDia.find((p: { id_tarea: number | null }) => p.id_tarea === idTareaNum) as ParteDeTrabajo | null
-    
-    // 3. Partes en OTRAS tareas (para mostrar detalles)
-    const partesEnOtrasTareas = partesDelDia.filter((p: { id_tarea: number | null }) => p.id_tarea !== idTareaNum) as ParteDeTrabajo[]
-    const cargaOtrasTareas = partesEnOtrasTareas.reduce((acc: number, p: { tipo_jornada: string | null }) => acc + (p.tipo_jornada === 'dia_completo' ? 1 : 0.5), 0)
-
-    setModalState({
-      date,
-      isLoading: false,
-      parteExistente: parteExistenteEnTareaActual || null,
-      cargaTotalDia: cargaOtrasTareas,
-      jornadaSeleccionada: parteExistenteEnTareaActual?.tipo_jornada || '',
-      partesEnOtrasTareas
-    })
-  }
 
   const handleSave = async () => {
     if (!modalState.date || !modalState.jornadaSeleccionada) return
