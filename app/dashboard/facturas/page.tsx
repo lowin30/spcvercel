@@ -65,6 +65,8 @@ export default function FacturasPage({
   const [detalleLiqSinPF, setDetalleLiqSinPF] = useState<any[]>([])
   const [detallePfAprobSinFactura, setDetallePfAprobSinFactura] = useState<any[]>([])
   const [detallePbFinalizadaSinPF, setDetallePbFinalizadaSinPF] = useState<any[]>([])
+  const [detallePfBorradorAntiguo, setDetallePfBorradorAntiguo] = useState<any[]>([])
+  const [detallePfEnviadoSinAprobar, setDetallePfEnviadoSinAprobar] = useState<any[]>([])
   
   // Inicializar el valor de búsqueda desde la URL al cargar la página
   useEffect(() => {
@@ -189,6 +191,24 @@ export default function FacturasPage({
             .select('*')
             .limit(5)
           setDetallePbFinalizadaSinPF(pbSinPf || [])
+        } catch {}
+
+        try {
+          const { data: pfBorrador } = await supabase
+            .from('vista_admin_pf_borrador_antiguo')
+            .select('*')
+            .order('created_at', { ascending: true })
+            .limit(5)
+          setDetallePfBorradorAntiguo(pfBorrador || [])
+        } catch {}
+
+        try {
+          const { data: pfEnviado } = await supabase
+            .from('vista_admin_pf_enviado_sin_aprobar')
+            .select('*')
+            .order('updated_at', { ascending: true })
+            .limit(5)
+          setDetallePfEnviadoSinAprobar(pfEnviado || [])
         } catch {}
 
         // Consulta usando la vista completa de facturas
@@ -515,49 +535,89 @@ export default function FacturasPage({
         </div>
       </div>
 
-      {/* Panel de recordatorios (solo admin) */}
+      {/* Panel de recordatorios 4 NIVELES (solo admin) */}
       {kpisAdmin && (
         <Card className="bg-amber-50 border-amber-200">
           <CardHeader>
             <CardTitle className="flex items-center text-amber-800">
               <AlertTriangle className="h-4 w-4 mr-2 text-amber-600" /> Recordatorios de administración
             </CardTitle>
+            <p className="text-xs text-amber-700 mt-1">Sistema de seguimiento automático de PF - 4 niveles</p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <div className="text-xs text-muted-foreground">Liquidaciones sin PF</div>
-                <div className="text-2xl font-bold">{kpisAdmin.liquidaciones_sin_pf_count ?? 0}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* NIVEL 1: Falta crear PF */}
+              <div className="border-l-4 border-blue-500 pl-3">
+                <div className="text-xs text-muted-foreground">📝 Falta crear PF</div>
+                <div className="text-2xl font-bold text-blue-700">{kpisAdmin.pb_finalizada_sin_pf_count ?? 0}</div>
                 <div className="mt-2 space-y-1">
-                  {detalleLiqSinPF.slice(0,3).map((it: any) => (
-                    <Link key={it.id_liquidacion} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
+                  {detallePbFinalizadaSinPF.slice(0,3).map((it: any) => (
+                    <Link key={it.id_tarea} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
                       {it.code_tarea || `Tarea #${it.id_tarea}`}
                     </Link>
                   ))}
                 </div>
+                <Button asChild size="sm" className="mt-2 w-full" variant="outline">
+                  <Link href="/dashboard/presupuestos/nuevo?tipo=final">Crear PF</Link>
+                </Button>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground">PF aprobados sin factura</div>
-                <div className="text-2xl font-bold">{kpisAdmin.pf_aprobado_sin_factura_count ?? 0}</div>
+
+              {/* NIVEL 2: PF Borrador antiguo */}
+              <div className="border-l-4 border-yellow-500 pl-3">
+                <div className="text-xs text-muted-foreground">⏱️ PF Borrador antiguo</div>
+                <div className="text-2xl font-bold text-yellow-700">{detallePfBorradorAntiguo.length}</div>
+                <div className="mt-2 space-y-1">
+                  {detallePfBorradorAntiguo.slice(0,3).map((it: any) => (
+                    <Link key={it.id_presupuesto_final} href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_pf} · {it.dias_en_borrador}d
+                    </Link>
+                  ))}
+                </div>
+                <div className="mt-2 text-[10px] text-yellow-600">💡 Enviar al cliente</div>
+              </div>
+
+              {/* NIVEL 3: PF Enviado sin aprobar (CRÍTICO) */}
+              <div className="border-l-4 border-red-500 pl-3">
+                <div className="text-xs text-muted-foreground">🔴 PF Enviado sin respuesta</div>
+                <div className="text-2xl font-bold text-red-700">{detallePfEnviadoSinAprobar.length}</div>
+                <div className="mt-2 space-y-1">
+                  {detallePfEnviadoSinAprobar.slice(0,3).map((it: any) => (
+                    <div key={it.id_presupuesto_final} className="flex items-center justify-between gap-1">
+                      <Link href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="text-xs text-primary hover:underline truncate flex-1">
+                        {it.code_pf}
+                      </Link>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                        it.prioridad === 'critico' 
+                          ? 'bg-red-100 text-red-800' 
+                          : it.prioridad === 'urgente' 
+                          ? 'bg-orange-100 text-orange-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {it.dias_sin_respuesta}d
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-[10px] text-red-600">💡 Seguir o rechazar</div>
+              </div>
+
+              {/* NIVEL 4: PF Aprobado sin factura */}
+              <div className="border-l-4 border-green-500 pl-3">
+                <div className="text-xs text-muted-foreground">💰 PF Aprobado sin factura</div>
+                <div className="text-2xl font-bold text-green-700">{kpisAdmin.pf_aprobado_sin_factura_count ?? 0}</div>
                 <div className="mt-2 space-y-1">
                   {detallePfAprobSinFactura.slice(0,3).map((it: any) => (
-                    <Link key={it.id_presupuesto_final} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_pf || `PF #${it.id_presupuesto_final}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    <Link key={it.id_presupuesto_final} href={`/dashboard/presupuestos-finales/${it.id_presupuesto_final}`} className="block text-xs text-primary hover:underline truncate">
+                      {it.code_pf} · {it.code_tarea}
                     </Link>
                   ))}
                 </div>
+                <Button asChild size="sm" className="mt-2 w-full" variant="outline">
+                  <Link href="/dashboard/facturas/nueva">Crear Factura</Link>
+                </Button>
               </div>
-              <div>
-                <div className="text-xs text-muted-foreground">PB finalizada sin PF</div>
-                <div className="text-2xl font-bold">{kpisAdmin.pb_finalizada_sin_pf_count ?? 0}</div>
-                <div className="mt-2 space-y-1">
-                  {detallePbFinalizadaSinPF.slice(0,3).map((it: any) => (
-                    <Link key={it.id_presupuesto_base} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_pb || `PB #${it.id_presupuesto_base}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
-                    </Link>
-                  ))}
-                </div>
-              </div>
+
             </div>
           </CardContent>
         </Card>

@@ -15,7 +15,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Loader2, MessageSquare } from "lucide-react"
+import { Loader2, MessageSquare, AlertCircle } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 interface FinalizarTareaDialogProps {
   open: boolean
@@ -38,18 +39,31 @@ export function FinalizarTareaDialog({
   onFinalizada
 }: FinalizarTareaDialogProps) {
   const [resumen, setResumen] = useState("")
+  const [huboTrabajo, setHuboTrabajo] = useState<boolean | null>(null)
+  const [tienePB, setTienePB] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [notasDepartamentos, setNotasDepartamentos] = useState<Record<number, string>>({})
   const router = useRouter()
 
-  // Cargar departamentos de la tarea cuando se abre el dialog
+  // Cargar departamentos y validar PB cuando se abre el dialog
   useEffect(() => {
-    const cargarDepartamentos = async () => {
+    const cargarDatos = async () => {
       if (!open || !tareaId) return
 
       try {
         const supabase = createClient()
+        
+        // Verificar si existe PB
+        const { data: pb } = await supabase
+          .from("presupuestos_base")
+          .select("id, aprobado")
+          .eq("id_tarea", tareaId)
+          .maybeSingle()
+        
+        setTienePB(!!pb)
+        
+        // Cargar departamentos
         const { data, error } = await supabase
           .from("departamentos_tareas")
           .select(`
@@ -76,16 +90,38 @@ export function FinalizarTareaDialog({
 
         setDepartamentos(deps)
       } catch (error) {
-        console.error("Error al cargar departamentos:", error)
+        console.error("Error al cargar datos:", error)
       }
     }
 
-    cargarDepartamentos()
+    cargarDatos()
   }, [open, tareaId])
 
   const handleFinalizar = async () => {
+    // Validación 1: ¿Se indicó si hubo trabajo?
+    if (huboTrabajo === null) {
+      toast.error("Debes indicar si se realizó trabajo en esta tarea")
+      return
+    }
+    
+    // Validación 2: Resumen obligatorio
     if (!resumen.trim()) {
       toast.error("Debes escribir un resumen de lo realizado")
+      return
+    }
+
+    // 🔴 VALIDACIÓN CRÍTICA: Si hubo trabajo, debe existir PB
+    if (huboTrabajo && !tienePB) {
+      toast.error("⚠️ Debes crear un Presupuesto Base antes de finalizar esta tarea", {
+        duration: 6000,
+        action: {
+          label: "Crear PB",
+          onClick: () => {
+            router.push(`/dashboard/presupuestos-base/nuevo?tarea=${tareaId}`)
+            onOpenChange(false)
+          }
+        }
+      })
       return
     }
 
@@ -97,27 +133,65 @@ export function FinalizarTareaDialog({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Usuario no autenticado")
 
-      // 1. Guardar comentario con resumen
-      const { error: commentError } = await supabase
-        .from("comentarios")
-        .insert({
-          contenido: `TAREA FINALIZADA\n\nResumen: ${resumen.trim()}`,
-          id_tarea: tareaId,
-          id_usuario: user.id,
-        })
-
-      if (commentError) throw commentError
+      // 1. Determinar estado según si hubo trabajo
+      const nuevoEstado = huboTrabajo ? 7 : 11 // terminado : vencido
 
       // 2. Marcar tarea como finalizada
       const { error: taskError } = await supabase
         .from("tareas")
         .update({
           finalizada: true,
-          id_estado_nuevo: 7 // terminado
+          id_estado_nuevo: nuevoEstado
         })
         .eq("id", tareaId)
 
       if (taskError) throw taskError
+
+      // 3. SI HUBO TRABAJO → Actualizar PF a Enviado (si existe y está en Borrador)
+      if (huboTrabajo) {
+        const { data: pf } = await supabase
+          .from("presupuestos_finales")
+          .select("id, id_estado")
+          .eq("id_tarea", tareaId)
+          .maybeSingle()
+
+        if (pf) {
+          const { data: estadoBorrador } = await supabase
+            .from("estados_presupuestos")
+            .select("id")
+            .eq("codigo", "borrador")
+            .single()
+
+          if (pf.id_estado === estadoBorrador?.id) {
+            const { data: estadoEnviado } = await supabase
+              .from("estados_presupuestos")
+              .select("id")
+              .eq("codigo", "enviado")
+              .single()
+
+            await supabase
+              .from("presupuestos_finales")
+              .update({ id_estado: estadoEnviado?.id })
+              .eq("id", pf.id)
+          }
+        }
+      }
+      // SI NO HUBO TRABAJO → El trigger rechaza PF automáticamente
+
+      // 4. Guardar comentario con contexto
+      const prefijoComentario = huboTrabajo 
+        ? "TAREA FINALIZADA"
+        : "TAREA CERRADA SIN TRABAJO"
+
+      const { error: commentError } = await supabase
+        .from("comentarios")
+        .insert({
+          contenido: `${prefijoComentario}\n\nResumen: ${resumen.trim()}`,
+          id_tarea: tareaId,
+          id_usuario: user.id,
+        })
+
+      if (commentError) throw commentError
 
       // 3. Guardar notas de departamentos (si hay alguna)
       const notasPromises = Object.entries(notasDepartamentos).map(async ([depId, nota]) => {
@@ -155,6 +229,7 @@ export function FinalizarTareaDialog({
       onFinalizada()
       onOpenChange(false)
       setResumen("")
+      setHuboTrabajo(null)
       setNotasDepartamentos({})
       setDepartamentos([])
       
@@ -173,6 +248,7 @@ export function FinalizarTareaDialog({
 
   const handleCancel = () => {
     setResumen("")
+    setHuboTrabajo(null)
     setNotasDepartamentos({})
     onOpenChange(false)
   }
@@ -183,19 +259,51 @@ export function FinalizarTareaDialog({
         <DialogHeader>
           <DialogTitle>Finalizar Tarea</DialogTitle>
           <DialogDescription>
-            Describe brevemente qué se realizó para completar esta tarea.
-            Este resumen quedará registrado como comentario en el historial.
+            Confirma si se realizó trabajo y describe qué se hizo o por qué se cancela.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* NUEVA SECCIÓN: ¿Se trabajó? */}
+          <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4">
+            <Label className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              ¿Se realizó trabajo en esta tarea? *
+            </Label>
+            <RadioGroup 
+              value={huboTrabajo?.toString()} 
+              onValueChange={(v) => setHuboTrabajo(v === "true")}
+            >
+              <div className="flex items-start space-x-2 mb-2">
+                <RadioGroupItem value="true" id="trabajo-si" />
+                <Label htmlFor="trabajo-si" className="cursor-pointer">
+                  <div className="font-medium">Sí, se trabajó</div>
+                  <div className="text-xs text-muted-foreground">
+                    La tarea se completó y se debe facturar al cliente
+                  </div>
+                </Label>
+              </div>
+              <div className="flex items-start space-x-2">
+                <RadioGroupItem value="false" id="trabajo-no" />
+                <Label htmlFor="trabajo-no" className="cursor-pointer">
+                  <div className="font-medium">No, no se trabajó</div>
+                  <div className="text-xs text-muted-foreground">
+                    Tarea cancelada o sin actividad real
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
           <div>
             <Label htmlFor="resumen" className="text-sm font-medium">
               Resumen de lo realizado *
             </Label>
             <Textarea
               id="resumen"
-              placeholder="Ej: Se realizó la reparación completa del sistema eléctrico, se cambiaron todos los fusibles defectuosos y se verificó el correcto funcionamiento..."
+              placeholder={huboTrabajo === false 
+                ? "Ej: Cliente canceló el trabajo, no se pudo acceder al depto..."
+                : "Ej: Se realizó la reparación completa del sistema eléctrico..."}
               value={resumen}
               onChange={(e) => setResumen(e.target.value)}
               rows={4}
@@ -260,7 +368,7 @@ export function FinalizarTareaDialog({
           </Button>
           <Button
             onClick={handleFinalizar}
-            disabled={isSubmitting || !resumen.trim()}
+            disabled={isSubmitting || !resumen.trim() || huboTrabajo === null}
             className="bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-400/60"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
