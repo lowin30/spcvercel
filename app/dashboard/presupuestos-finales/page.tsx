@@ -80,10 +80,16 @@ export default async function PresupuestosFinalesPage() {
               <div>
                 <div className="text-xs text-muted-foreground">Liquidaciones sin PF</div>
                 <div className="text-2xl font-bold">{(kpis as any).liquidaciones_sin_pf_count ?? 0}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {(liqSinPf || []).slice(0,3).map((it: any) => (
-                    <Link key={it.id_liquidacion} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    <Link 
+                      key={it.id_liquidacion} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="line-clamp-2 leading-snug">
+                        {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                      </div>
                     </Link>
                   ))}
                 </div>
@@ -91,10 +97,16 @@ export default async function PresupuestosFinalesPage() {
               <div>
                 <div className="text-xs text-muted-foreground">PF aprobados sin factura</div>
                 <div className="text-2xl font-bold">{(kpis as any).pf_aprobado_sin_factura_count ?? 0}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {(pfSinFac || []).slice(0,3).map((it: any) => (
-                    <Link key={it.id_presupuesto_final} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_pf || `PF #${it.id_presupuesto_final}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    <Link 
+                      key={it.id_presupuesto_final} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="line-clamp-2 leading-snug">
+                        {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                      </div>
                     </Link>
                   ))}
                 </div>
@@ -102,10 +114,16 @@ export default async function PresupuestosFinalesPage() {
               <div>
                 <div className="text-xs text-muted-foreground">PB finalizada sin PF</div>
                 <div className="text-2xl font-bold">{(kpis as any).pb_finalizada_sin_pf_count ?? 0}</div>
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-1.5">
                   {(pbSinPf || []).slice(0,3).map((it: any) => (
-                    <Link key={it.id_presupuesto_base} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-xs text-primary hover:underline truncate">
-                      {it.code_pb || `PB #${it.id_presupuesto_base}`} · {it.code_tarea || `Tarea #${it.id_tarea}`}
+                    <Link 
+                      key={it.id_presupuesto_base} 
+                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                      className="block text-xs text-primary hover:underline"
+                    >
+                      <div className="line-clamp-2 leading-snug">
+                        {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
+                      </div>
                     </Link>
                   ))}
                 </div>
