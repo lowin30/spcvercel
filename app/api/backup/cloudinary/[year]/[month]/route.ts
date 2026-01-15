@@ -24,26 +24,34 @@ async function getCloudinaryResources(folder: string): Promise<any[]> {
   try {
     // Usar autenticación básica y prefix para búsqueda recursiva
     const authString = Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64')
-    const searchUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image/upload?prefix=${folder}&max_results=500`
-
+    
     console.log(`🔍 Buscando recursos en: ${folder}`)
     
-    const response = await fetch(searchUrl, {
+    // Buscar imágenes
+    const imageUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/image/upload?prefix=${folder}&max_results=500`
+    const imageResponse = await fetch(imageUrl, {
       headers: {
         'Authorization': `Basic ${authString}`,
         'Content-Type': 'application/json'
       }
     })
     
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.warn("❌ Cloudinary API no disponible para backup:", errorText)
-      return []
-    }
-
-    const data = await response.json()
-    console.log(`✅ Encontrados ${data.resources?.length || 0} recursos`)
-    return data.resources || []
+    // Buscar videos
+    const videoUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/resources/video/upload?prefix=${folder}&max_results=500`
+    const videoResponse = await fetch(videoUrl, {
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    const images = imageResponse.ok ? (await imageResponse.json()).resources || [] : []
+    const videos = videoResponse.ok ? (await videoResponse.json()).resources || [] : []
+    
+    const allResources = [...images, ...videos]
+    console.log(`✅ Encontrados ${images.length} imágenes y ${videos.length} videos (total: ${allResources.length})`)
+    
+    return allResources
   } catch (error) {
     console.warn("❌ Error obteniendo recursos de Cloudinary para backup:", error)
     return []
