@@ -7,17 +7,14 @@
 -- cuando la tarea asociada se marca como finalizada.
 --
 -- CASOS CUBIERTOS:
--- 1. Auto-finalización por inactividad (pg_cron)
+-- 1. Auto-finalización por inactividad (pg_cron) → estado 'vencido'
 -- 2. Cambio manual de estado a "Cerrado sin respuesta" (vencido)
--- 3. Cambio manual de estado a "Terminado"
--- 4. Finalización mediante diálogo de la app
--- 5. Cualquier otro flujo futuro que marque finalizada=true
 --
 -- LÓGICA:
--- - Detecta cuando finalizada cambia de FALSE → TRUE
--- - Detecta cuando id_estado_nuevo cambia a 'vencido' o 'terminado'
--- - Auto-rechaza TODOS los presupuestos finales de esa tarea
+-- - SOLO detecta cuando id_estado_nuevo cambia a 'vencido' (Cerrado sin respuesta)
+-- - Auto-rechaza presupuestos finales de esa tarea
 -- - Solo afecta PF que NO estén ya rechazados
+-- - NO afecta tareas facturadas, liquidadas o terminadas normalmente
 --
 -- SEGURIDAD:
 -- - SECURITY DEFINER: se ejecuta con permisos de owner, no del usuario
@@ -50,9 +47,7 @@ AS $$
 DECLARE
   v_estado_rechazado_id INTEGER;
   v_estado_vencido_id INTEGER;
-  v_estado_terminado_id INTEGER;
   v_pf_afectados INTEGER := 0;
-  v_debe_rechazar BOOLEAN := FALSE;
 BEGIN
   -- Obtener IDs de estados relevantes
   SELECT id INTO v_estado_rechazado_id
@@ -64,33 +59,13 @@ BEGIN
   FROM public.estados_tareas
   WHERE codigo = 'vencido'
   LIMIT 1;
-  
-  SELECT id INTO v_estado_terminado_id
-  FROM public.estados_tareas
-  WHERE codigo = 'terminado'
-  LIMIT 1;
 
-  -- CONDICIÓN 1: Tarea se marcó como finalizada
-  IF NEW.finalizada = TRUE AND COALESCE(OLD.finalizada, FALSE) = FALSE THEN
-    v_debe_rechazar := TRUE;
-  END IF;
-
-  -- CONDICIÓN 2: Estado cambió a 'vencido' (Cerrado sin respuesta)
+  -- ÚNICA CONDICIÓN: Estado cambió a 'vencido' (Cerrado sin respuesta)
+  -- NO afecta tareas facturadas, liquidadas o terminadas normalmente
   IF v_estado_vencido_id IS NOT NULL 
      AND NEW.id_estado_nuevo = v_estado_vencido_id 
-     AND OLD.id_estado_nuevo IS DISTINCT FROM NEW.id_estado_nuevo THEN
-    v_debe_rechazar := TRUE;
-  END IF;
-
-  -- CONDICIÓN 3: Estado cambió a 'terminado'
-  IF v_estado_terminado_id IS NOT NULL 
-     AND NEW.id_estado_nuevo = v_estado_terminado_id 
-     AND OLD.id_estado_nuevo IS DISTINCT FROM NEW.id_estado_nuevo THEN
-    v_debe_rechazar := TRUE;
-  END IF;
-
-  -- Si se debe rechazar y tenemos el estado rechazado configurado
-  IF v_debe_rechazar AND v_estado_rechazado_id IS NOT NULL THEN
+     AND OLD.id_estado_nuevo IS DISTINCT FROM NEW.id_estado_nuevo 
+     AND v_estado_rechazado_id IS NOT NULL THEN
     -- Auto-rechazar todos los PF de esta tarea que NO estén ya rechazados
     UPDATE public.presupuestos_finales
     SET id_estado = v_estado_rechazado_id,
@@ -122,42 +97,49 @@ FOR EACH ROW
 EXECUTE FUNCTION public.auto_rechazar_pf_al_finalizar_tarea();
 
 -- ============================================
--- SCRIPT DE LIMPIEZA: Corregir tareas ya finalizadas
+-- SCRIPT DE LIMPIEZA: Corregir tareas "Cerrado sin respuesta"
 -- ============================================
 -- Este script se ejecuta UNA VEZ para corregir inconsistencias existentes.
--- Rechaza PF de tareas que ya están finalizadas pero tienen PF activos.
+-- Rechaza PF SOLO de tareas en estado 'vencido' (Cerrado sin respuesta).
+-- NO afecta tareas facturadas, liquidadas o terminadas normalmente.
 
 DO $$
 DECLARE
   v_estado_rechazado_id INTEGER;
-  v_tareas_corregidas INTEGER := 0;
+  v_estado_vencido_id INTEGER;
+  v_pf_corregidos INTEGER := 0;
 BEGIN
-  -- Obtener ID del estado 'rechazado'
+  -- Obtener IDs de estados
   SELECT id INTO v_estado_rechazado_id
   FROM public.estados_presupuestos
   WHERE codigo = 'rechazado'
   LIMIT 1;
   
-  IF v_estado_rechazado_id IS NOT NULL THEN
-    -- Rechazar PF de tareas finalizadas que tienen PF activos
-    WITH tareas_finalizadas AS (
+  SELECT id INTO v_estado_vencido_id
+  FROM public.estados_tareas
+  WHERE codigo = 'vencido'
+  LIMIT 1;
+  
+  IF v_estado_rechazado_id IS NOT NULL AND v_estado_vencido_id IS NOT NULL THEN
+    -- Rechazar PF SOLO de tareas "Cerrado sin respuesta"
+    WITH tareas_vencidas AS (
       SELECT DISTINCT id
       FROM public.tareas
-      WHERE finalizada = TRUE
+      WHERE id_estado_nuevo = v_estado_vencido_id
     ),
     pf_corregidos AS (
       UPDATE public.presupuestos_finales pf
       SET id_estado = v_estado_rechazado_id,
           updated_at = NOW()
-      FROM tareas_finalizadas tf
-      WHERE pf.id_tarea = tf.id
+      FROM tareas_vencidas tv
+      WHERE pf.id_tarea = tv.id
         AND pf.id_estado IS DISTINCT FROM v_estado_rechazado_id
       RETURNING pf.id
     )
-    SELECT COUNT(*) INTO v_tareas_corregidas FROM pf_corregidos;
+    SELECT COUNT(*) INTO v_pf_corregidos FROM pf_corregidos;
     
-    RAISE NOTICE 'LIMPIEZA: % presupuesto(s) final(es) corregido(s) de tareas ya finalizadas', 
-      v_tareas_corregidas;
+    RAISE NOTICE 'LIMPIEZA: % presupuesto(s) final(es) corregido(s) de tareas "Cerrado sin respuesta"', 
+      v_pf_corregidos;
   END IF;
 END $$;
 
@@ -173,12 +155,20 @@ COMMIT;
 -- 3. TRIGGER-AUTO-APROBAR-PB-AL-FINALIZAR-TAREA.sql - Auto-aprueba PB
 --
 -- Orden de ejecución típico:
--- Usuario finaliza tarea → Este trigger → Auto-rechaza PF
+-- Usuario cambia estado a "Cerrado sin respuesta" → Este trigger → Auto-rechaza PF
 -- ó
--- pg_cron finaliza tarea → Este trigger → Auto-rechaza PF
+-- pg_cron auto-finaliza por inactividad (estado vencido) → Este trigger → Auto-rechaza PF
 --
--- Casos especiales ya cubiertos:
--- - Tarea 156: Cerrado sin respuesta → PF se auto-rechazará
--- - Tarea 70: PF rechazado manualmente → No aparece en liquidaciones
--- - Tarea 63: Auto-finalizada → PF se auto-rechazó (arreglo previo)
+-- IMPORTANTE - NO AFECTA:
+-- ✅ Tareas facturadas → PF debe estar aprobado → Aparecen en liquidaciones
+-- ✅ Tareas liquidadas → PF debe estar aprobado → Ya liquidadas
+-- ✅ Tareas terminadas normalmente → PF aprobado → Pueden liquidarse
+--
+-- SOLO AFECTA:
+-- ❌ Tareas "Cerrado sin respuesta" → PF auto-rechazado → No en liquidaciones
+--
+-- Casos específicos:
+-- - Tarea 63, 80, 81, 108, 118, 119, 120, 122, 130, 156, 160, 161
+-- - Todas las tareas cerradas sin respuesta tendrán PF rechazado
+-- - Tareas como la 40 (facturada) NO se afectan
 -- ============================================
