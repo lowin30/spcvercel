@@ -330,13 +330,13 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
 
         {/* Vista para escritorio */}
         <div className="hidden md:block rounded-md border">
-          <Table className="table-fixed w-full text-sm leading-tight">
+          <Table className="w-full text-sm">
             <colgroup>
-              <col className="w-[40%]" />
+              <col className="w-auto" />
               <col className="w-24" />
-              <col className="w-28" />
-              <col className="w-[20%]" />
-              {userRole === "admin" && <col className="w-20" />}
+              <col className="w-32" />
+              <col className="w-36" />
+              {userRole === "admin" && <col className="w-24" />}
             </colgroup>
             <TableHeader>
               <TableRow>
@@ -361,40 +361,40 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                   
                   return (
                   <TableRow key={task.id}>
-                    <TableCell className="px-2 py-2">
+                    <TableCell className="px-3 py-3">
                       <Link href={`/dashboard/tareas/${task.id}`} className="text-primary hover:underline">
-                        <span className="block truncate max-w-[200px]">{task.titulo}</span>
+                        <div className="line-clamp-2 leading-snug">{task.titulo}</div>
                       </Link>
                     </TableCell>
-                    <TableCell className="px-1 py-1 whitespace-nowrap">
-                      <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-[11px] px-1.5 py-0` }>
+                    <TableCell className="px-2 py-3 whitespace-nowrap">
+                      <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5` }>
                         {estadoInfo.nombre}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-1 py-1 whitespace-nowrap">
+                    <TableCell className="px-2 py-3 whitespace-nowrap">
                       {task.fecha_visita ? (
                         <div className="flex items-center whitespace-nowrap">
-                          <Calendar className="mr-0.5 h-3 w-3 text-muted-foreground" />
-                          <span className="truncate max-w-[100px]">{formatDateTime(task.fecha_visita)}</span>
+                          <Calendar className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs">{formatDateTime(task.fecha_visita)}</span>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">No programada</span>
+                        <span className="text-xs text-muted-foreground">No programada</span>
                       )}
                     </TableCell>
-                    <TableCell className="px-2 py-2">
+                    <TableCell className="px-3 py-3">
                       {(() => {
                         const sup = getSupervisorInfo(task)
                         return (
                           <div className="flex items-center">
-                            <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: sup.color }} />
-                            <span className="truncate max-w-[140px]" style={{ color: sup.color }}>{sup.nombre || 'S/N'}</span>
+                            <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: sup.color }} />
+                            <span className="truncate text-xs" style={{ color: sup.color }}>{sup.nombre || 'S/N'}</span>
                           </div>
                         )
                       })()}
                     </TableCell>
                     {userRole === "admin" && (
-                      <TableCell className="px-1 py-1 whitespace-nowrap">
-                        <div className="flex items-center space-x-1">
+                      <TableCell className="px-2 py-3 whitespace-nowrap">
+                        <div className="flex items-center justify-center space-x-1">
                           <Button
                             variant="ghost"
                             size="icon"
