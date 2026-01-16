@@ -66,6 +66,7 @@ interface Edificio {
   latitud: number | null
   longitud: number | null
   cuit: string | null
+  notas: string | null
   departamentos?: Departamento[]
 }
 
@@ -85,6 +86,7 @@ export function EditBuildingForm({ edificio, administradores }: EditBuildingForm
   const [latitud, setLatitud] = useState(edificio.latitud?.toString() || "")
   const [longitud, setLongitud] = useState(edificio.longitud?.toString() || "")
   const [cuit, setCuit] = useState(edificio.cuit || "")
+  const [notas, setNotas] = useState(edificio.notas || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
   
   // Estados para gestión de departamentos
@@ -224,6 +226,7 @@ export function EditBuildingForm({ edificio, administradores }: EditBuildingForm
           latitud: latitud ? Number.parseFloat(latitud) : null,
           longitud: longitud ? Number.parseFloat(longitud) : null,
           cuit: cuit ? cleanCuit(cuit) : null,
+          notas: notas || null,
         })
         .eq("id", edificio.id)
 
@@ -291,6 +294,19 @@ export function EditBuildingForm({ edificio, administradores }: EditBuildingForm
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground">Se almacenará sin guiones ni espacios (ej: 707924574)</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notas">Notas</Label>
+            <Textarea
+              id="notas"
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Particularidades y observaciones del edificio"
+              disabled={isSubmitting}
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">Información adicional sobre el edificio (timbre roto, acceso especial, etc.)</p>
           </div>
 
           <div className="space-y-2">

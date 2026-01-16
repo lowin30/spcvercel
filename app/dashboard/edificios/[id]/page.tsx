@@ -10,26 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { Building, MapPin, User, Calendar, ExternalLink, AlertTriangle, Loader2, ArrowLeft, Plus, Phone, Star, Edit, Trash, ChevronDown, ChevronUp, X } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+import { Building, MapPin, User, Calendar, ExternalLink, AlertTriangle, Loader2, ArrowLeft, Plus, Phone, Star } from "lucide-react"
+import { DepartamentosDialog } from "@/components/departamentos-dialog"
 
 interface EdificioPageProps {
   params: {
@@ -65,21 +47,6 @@ export default function EdificioPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [departamentosDialogOpen, setDepartamentosDialogOpen] = useState(false)
-  const [nuevoDepartamento, setNuevoDepartamento] = useState({ codigo: "", propietario: "", notas: "" })
-  const [creandoDepartamento, setCreandoDepartamento] = useState(false)
-  
-  // Estados para gestión de teléfonos
-  const [telefonoDialogOpen, setTelefonoDialogOpen] = useState(false)
-  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<number | null>(null)
-  const [nuevoTelefono, setNuevoTelefono] = useState({
-    numero: "",
-    nombre_contacto: "",
-    es_principal: false,
-    relacion: "",
-    notas: ""
-  })
-  const [editandoTelefono, setEditandoTelefono] = useState<number | null>(null)
-  const [procesandoTelefono, setProcesandoTelefono] = useState(false)
   const router = useRouter()
 
   // Función para cargar datos del edificio
@@ -273,9 +240,9 @@ export default function EdificioPage() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">{edificio.nombre}</h1>
+    <div className="container mx-auto p-3 sm:p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl sm:text-2xl font-bold">{edificio.nombre}</h1>
         <Badge className={getEstadoEdificioColor(edificio.estado)}>
           {edificio.estado === "en_obra"
             ? "En Obra"
@@ -283,66 +250,58 @@ export default function EdificioPage() {
         </Badge>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Información General</CardTitle>
+      <Card className="mb-4">
+        <CardHeader className="p-4 pb-3">
+          <CardTitle className="text-base sm:text-lg">Información General</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-start">
-                <MapPin className="h-5 w-5 mr-2 mt-0.5 text-gray-500" />
-                <div>
-                  <p className="font-medium">Dirección</p>
-                  <p className="text-gray-600 dark:text-gray-400">{edificio.direccion}</p>
-                </div>
+        <CardContent className="p-4 pt-0 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex items-start gap-2">
+              <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">Dirección</p>
+                <p className="text-sm">{edificio.direccion}</p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-start">
-                <User className="h-5 w-5 mr-2 mt-0.5 text-gray-500" />
-                <div>
-                  <p className="font-medium">Administrador</p>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {edificio.nombre_administrador || "Sin administrador"}
-                  </p>
-                </div>
+            <div className="flex items-start gap-2">
+              <User className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">Administrador</p>
+                <p className="text-sm truncate">
+                  {edificio.nombre_administrador || "Sin administrador"}
+                </p>
               </div>
             </div>
 
             {edificio.cuit && (
-              <div className="space-y-2">
-                <div className="flex items-start">
-                  <Building className="h-5 w-5 mr-2 mt-0.5 text-gray-500" />
-                  <div>
-                    <p className="font-medium">CUIT</p>
-                    <p className="text-gray-600 dark:text-gray-400">{formatCuit(edificio.cuit)}</p>
-                  </div>
+              <div className="flex items-start gap-2">
+                <Building className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">CUIT</p>
+                  <p className="text-sm font-mono">{formatCuit(edificio.cuit)}</p>
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <div className="flex items-start">
-                <Calendar className="h-5 w-5 mr-2 mt-0.5 text-gray-500" />
-                <div>
-                  <p className="font-medium">Fecha de creación</p>
-                  <p className="text-gray-600 dark:text-gray-400">{formatDate(edificio.created_at)}</p>
-                </div>
+            <div className="flex items-start gap-2">
+              <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground">Creación</p>
+                <p className="text-sm">{formatDate(edificio.created_at)}</p>
               </div>
             </div>
           </div>
 
           {edificio.mapa_url && (
-            <div className="pt-4">
+            <div className="pt-2 border-t">
               <a
                 href={edificio.mapa_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                className="flex items-center text-sm text-primary hover:underline"
               >
-                <ExternalLink className="h-4 w-4 mr-1" />
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                 Ver ubicación en mapa
               </a>
             </div>
@@ -350,458 +309,93 @@ export default function EdificioPage() {
         </CardContent>
       </Card>
 
-      {/* Card para Departamentos con Acordeón */}
-      <Card className="mb-6">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Departamentos</CardTitle>
-          <div className="flex gap-2">
-            <Dialog open={departamentosDialogOpen} onOpenChange={setDepartamentosDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="flex items-center gap-1">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden md:inline">Agregar departamento</span>
-                  <span className="md:hidden">Agregar</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Crear Nuevo Departamento</DialogTitle>
-                  <DialogDescription>
-                    Complete los datos para crear un nuevo departamento
-                  </DialogDescription>
-                </DialogHeader>
-                
-                {edificio?.id && (
-                  <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="codigo">Código *</Label>
-                      <Input 
-                        id="codigo" 
-                        value={nuevoDepartamento.codigo} 
-                        onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, codigo: e.target.value})}
-                        placeholder="Ej: 1A, 2B, PB"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="propietario">Propietario</Label>
-                      <Input 
-                        id="propietario" 
-                        value={nuevoDepartamento.propietario} 
-                        onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, propietario: e.target.value})}
-                        placeholder="Nombre del propietario"
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="notas">Notas</Label>
-                      <Textarea 
-                        id="notas" 
-                        value={nuevoDepartamento.notas} 
-                        onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, notas: e.target.value})}
-                        placeholder="Información adicional"
-                        rows={2}
-                      />
-                    </div>
-                    
-                    <DialogFooter>
-                      <Button 
-                        type="button" 
-                        disabled={!nuevoDepartamento.codigo || creandoDepartamento} 
-                        onClick={async () => {
-                          if (!nuevoDepartamento.codigo || !edificio.id) return;
-                          
-                          setCreandoDepartamento(true);
-                          const supabase = createClient();
-                          
-                          try {
-                            const { data, error } = await supabase
-                              .from("departamentos")
-                              .insert({
-                                edificio_id: edificio.id,
-                                codigo: nuevoDepartamento.codigo,
-                                propietario: nuevoDepartamento.propietario || null,
-                                notas: nuevoDepartamento.notas || null
-                              })
-                              .select();
-                              
-                            if (error) throw error;
-                            
-                            toast({
-                              title: "Departamento creado",
-                              description: `El departamento ${nuevoDepartamento.codigo} ha sido creado correctamente`,
-                            });
-                            
-                            // Recargar el edificio para actualizar la información
-                            await cargarEdificio();
-                            
-                            // Resetear formulario y cerrar diálogo
-                            setNuevoDepartamento({ codigo: "", propietario: "", notas: "" });
-                            setDepartamentosDialogOpen(false);
-                            
-                          } catch (error: any) {
-                            console.error("Error al crear departamento:", error);
-                            toast({
-                              title: "Error al crear departamento",
-                              description: error.message || "Ha ocurrido un error al crear el departamento",
-                              variant: "destructive",
-                            });
-                          } finally {
-                            setCreandoDepartamento(false);
-                          }
-                        }}
-                      >
-                        {creandoDepartamento ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Creando...
-                          </>
-                        ) : "Crear departamento"}
-                      </Button>
-                    </DialogFooter>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
-          </div>
+      {/* Card para Departamentos */}
+      <Card className="mb-4">
+        <CardHeader className="p-4 pb-3 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base sm:text-lg">
+            Deptos ({edificio.departamentos?.length || 0})
+          </CardTitle>
+          <Button 
+            size="sm" 
+            onClick={() => setDepartamentosDialogOpen(true)}
+            className="h-8 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            <span className="hidden sm:inline">Gestionar</span>
+            <span className="sm:hidden">Gestionar</span>
+          </Button>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="p-4 pt-0">
           {edificio.departamentos && edificio.departamentos.length > 0 ? (
-            <Accordion type="multiple" className="w-full">
-              {ordenarDepartamentos(edificio.departamentos).map((depto: any) => {
+            <div className="space-y-1.5">
+              {ordenarDepartamentos(edificio.departamentos).slice(0, 10).map((depto: any) => {
                 const tieneTelefonoPrincipal = depto.telefonos?.some((tel: any) => tel.es_principal);
                 const cantidadTelefonos = depto.telefonos?.length || 0;
                 
                 return (
-                  <AccordionItem key={depto.id} value={`depto-${depto.id}`} className="border rounded-md mb-2 overflow-hidden">
-                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/20">
-                      <div className="flex items-center w-full justify-between mr-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{depto.codigo}</span>
-                          {tieneTelefonoPrincipal && <Badge className="bg-green-500"><Star className="h-3 w-3 mr-1" /> Principal</Badge>}
-                          {cantidadTelefonos > 0 && <Badge variant="outline" className="text-xs"><Phone className="h-3 w-3 mr-1" /> {cantidadTelefonos}</Badge>}
-                        </div>
-                        <div className="text-sm text-muted-foreground truncate max-w-[150px]">
-                          {depto.propietario || "Sin propietario"}
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    
-                    <AccordionContent className="px-4 pb-3 pt-0">
-                      <div className="space-y-3">
-                        {/* Detalles del departamento */}
-                        <div className="border-b pb-2">
-                          {depto.propietario && <p className="text-sm"><span className="font-medium">Propietario:</span> {depto.propietario}</p>}
-                          {depto.notas && <p className="text-sm mt-1"><span className="font-medium">Notas:</span> {depto.notas}</p>}
-                        </div>
-                        
-                        {/* Sección de teléfonos */}
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium">Teléfonos</h4>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 px-2 text-xs" 
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setDepartamentoSeleccionado(depto.id);
-                                setEditandoTelefono(null);
-                                setNuevoTelefono({
-                                  numero: "",
-                                  nombre_contacto: "",
-                                  es_principal: false,
-                                  relacion: "",
-                                  notas: ""
-                                });
-                                setTelefonoDialogOpen(true);
-                              }}
-                            >
-                              <Plus className="h-3 w-3 mr-1" /> Agregar
-                            </Button>
-                          </div>
-                          
-                          {depto.telefonos && depto.telefonos.length > 0 ? (
-                            <div className="space-y-2">
-                              {depto.telefonos.map((tel: any) => (
-                                <div key={tel.id} className={`flex items-start justify-between p-2 rounded-md ${tel.es_principal ? 'bg-green-50 border border-green-100' : 'bg-gray-50 border border-gray-100'}`}>
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-1">
-                                      {tel.es_principal && <Star className="h-3 w-3 text-green-500" />}
-                                      <span className="font-medium">{tel.numero}</span>
-                                    </div>
-                                    {tel.nombre_contacto && (
-                                      <p className="text-xs text-muted-foreground">
-                                        {tel.nombre_contacto} 
-                                        {tel.relacion && <span className="text-xs"> ({tel.relacion})</span>}
-                                      </p>
-                                    )}
-                                    {tel.notas && <p className="text-xs italic text-muted-foreground">{tel.notas}</p>}
-                                  </div>
-                                  
-                                  <div className="flex gap-1">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      className="h-6 w-6 p-0"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setDepartamentoSeleccionado(depto.id);
-                                        setEditandoTelefono(tel.id);
-                                        setNuevoTelefono({
-                                          numero: tel.numero || "",
-                                          nombre_contacto: tel.nombre_contacto || "",
-                                          es_principal: tel.es_principal || false,
-                                          relacion: tel.relacion || "",
-                                          notas: tel.notas || ""
-                                        });
-                                        setTelefonoDialogOpen(true);
-                                      }}
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                      onClick={async (e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        
-                                        if (confirm(`¿Está seguro que desea eliminar este teléfono?`)) {
-                                          const supabase = createClient();
-                                          
-                                          try {
-                                            const { error } = await supabase
-                                              .from("telefonos_departamento")
-                                              .delete()
-                                              .eq("id", tel.id);
-                                              
-                                            if (error) throw error;
-                                            
-                                            toast({
-                                              title: "Teléfono eliminado",
-                                              description: "El teléfono ha sido eliminado correctamente",
-                                            });
-                                            
-                                            await cargarEdificio();
-                                            
-                                          } catch (error: any) {
-                                            console.error("Error al eliminar teléfono:", error);
-                                            toast({
-                                              title: "Error al eliminar teléfono",
-                                              description: error.message || "Ha ocurrido un error al eliminar el teléfono",
-                                              variant: "destructive",
-                                            });
-                                          }
-                                        }
-                                      }}
-                                    >
-                                      <Trash className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No hay teléfonos registrados para este departamento.</p>
-                          )}
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                  <div 
+                    key={depto.id} 
+                    className="flex items-center justify-between p-2 sm:p-2.5 border border-border rounded-md hover:bg-muted/50 dark:hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-medium text-sm">{depto.codigo}</span>
+                      {tieneTelefonoPrincipal && (
+                        <Badge className="bg-green-500 text-[10px] h-5 px-1.5">
+                          <Star className="h-2.5 w-2.5 mr-0.5" /> Principal
+                        </Badge>
+                      )}
+                      {cantidadTelefonos > 0 && (
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                          <Phone className="h-2.5 w-2.5 mr-0.5" /> {cantidadTelefonos}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate max-w-[120px] sm:max-w-[200px]">
+                      {depto.propietario || "Sin propietario"}
+                    </div>
+                  </div>
                 );
               })}
-            </Accordion>
+              {edificio.departamentos.length > 10 && (
+                <p className="text-[10px] sm:text-xs text-muted-foreground text-center pt-1">
+                  ... y {edificio.departamentos.length - 10} más
+                </p>
+              )}
+            </div>
           ) : (
-            <p className="text-sm text-muted-foreground mb-2">
-              No hay departamentos registrados. Haga clic en "Agregar departamento" para añadir nuevos departamentos.
-            </p>
+            <div className="text-center py-6">
+              <Building className="h-10 w-10 mx-auto mb-2 text-muted-foreground opacity-50" />
+              <p className="text-xs text-muted-foreground mb-1">
+                No hay departamentos
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Haz clic en "Gestionar"
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
+      
+      {/* Diálogo completo de Departamentos */}
+      <DepartamentosDialog
+        edificioId={edificio.id}
+        edificioNombre={edificio.nombre}
+        open={departamentosDialogOpen}
+        onOpenChange={setDepartamentosDialogOpen}
+        onDepartamentosUpdated={cargarEdificio}
+      />
 
-      {/* Modal para gestionar teléfonos */}
-      <Dialog open={telefonoDialogOpen} onOpenChange={setTelefonoDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editandoTelefono ? "Editar Teléfono" : "Agregar Nuevo Teléfono"}
-            </DialogTitle>
-            <DialogDescription>
-              {editandoTelefono 
-                ? "Modifique la información del teléfono seleccionado" 
-                : "Complete los datos para agregar un nuevo teléfono"}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="numero">Número de Teléfono *</Label>
-              <Input 
-                id="numero" 
-                value={nuevoTelefono.numero} 
-                onChange={(e) => setNuevoTelefono({...nuevoTelefono, numero: e.target.value})}
-                placeholder="Ej: 555-123-4567"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="nombre_contacto">Nombre del Contacto</Label>
-              <Input 
-                id="nombre_contacto" 
-                value={nuevoTelefono.nombre_contacto} 
-                onChange={(e) => setNuevoTelefono({...nuevoTelefono, nombre_contacto: e.target.value})}
-                placeholder="Nombre de la persona"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="relacion">Relación</Label>
-              <Input 
-                id="relacion" 
-                value={nuevoTelefono.relacion} 
-                onChange={(e) => setNuevoTelefono({...nuevoTelefono, relacion: e.target.value})}
-                placeholder="Ej: Propietario, Inquilino, Familiar"
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="es_principal" 
-                checked={nuevoTelefono.es_principal}
-                onCheckedChange={(checked) => 
-                  setNuevoTelefono({...nuevoTelefono, es_principal: checked as boolean})
-                }
-              />
-              <Label 
-                htmlFor="es_principal" 
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Marcar como teléfono principal
-              </Label>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="notas">Notas</Label>
-              <Textarea 
-                id="notas" 
-                value={nuevoTelefono.notas} 
-                onChange={(e) => setNuevoTelefono({...nuevoTelefono, notas: e.target.value})}
-                placeholder="Información adicional"
-                rows={2}
-              />
-            </div>
-            
-            <DialogFooter>
-              <Button 
-                type="button" 
-                disabled={!nuevoTelefono.numero || procesandoTelefono} 
-                onClick={async () => {
-                  if (!nuevoTelefono.numero || !departamentoSeleccionado) return;
-                  
-                  // Generar nombre completo para el contacto
-                  // Buscar el departamento seleccionado para obtener su código
-                  const departamento = edificio.departamentos.find((d: any) => d.id === departamentoSeleccionado);
-                  const nombreEdificio = edificio.nombre;
-                  const codigoDepartamento = departamento?.codigo || '';
-                  const nombreContactoOriginal = nuevoTelefono.nombre_contacto || '';
-                  
-                  // Formato: "Nombre Edificio Código Departamento Nombre Contacto"
-                  const nombreContactoCompleto = `${nombreEdificio} ${codigoDepartamento} ${nombreContactoOriginal}`.trim();
-                  
-                  setProcesandoTelefono(true);
-                  const supabase = createClient();
-                  
-                  try {
-                    if (editandoTelefono) {
-                      // Actualizar teléfono existente
-                      const { error } = await supabase
-                        .from("telefonos_departamento")
-                        .update({
-                          numero: cleanPhoneNumber(nuevoTelefono.numero),
-                          nombre_contacto: nombreContactoCompleto || null,
-                          es_principal: nuevoTelefono.es_principal,
-                          relacion: nuevoTelefono.relacion || "contacto", // Valor predeterminado
-                          notas: nuevoTelefono.notas || null
-                        })
-                        .eq("id", editandoTelefono);
-                        
-                      if (error) throw error;
-                      
-                      toast({
-                        title: "Teléfono actualizado",
-                        description: `El teléfono ha sido actualizado correctamente`,
-                      });
-                    } else {
-                      // Crear nuevo teléfono
-                      const { error } = await supabase
-                        .from("telefonos_departamento")
-                        .insert({
-                          departamento_id: departamentoSeleccionado,
-                          numero: cleanPhoneNumber(nuevoTelefono.numero),
-                          nombre_contacto: nombreContactoCompleto || null,
-                          es_principal: nuevoTelefono.es_principal,
-                          relacion: nuevoTelefono.relacion || "contacto", // Valor predeterminado
-                          notas: nuevoTelefono.notas || null
-                        });
-                        
-                      if (error) throw error;
-                      
-                      toast({
-                        title: "Teléfono agregado",
-                        description: `El teléfono ha sido agregado correctamente`,
-                      });
-                    }
-                    
-                    // Recargar el edificio para actualizar la información
-                    await cargarEdificio();
-                    
-                    // Resetear formulario y cerrar diálogo
-                    setNuevoTelefono({
-                      numero: "",
-                      nombre_contacto: "",
-                      es_principal: false,
-                      relacion: "",
-                      notas: ""
-                    });
-                    setTelefonoDialogOpen(false);
-                    setEditandoTelefono(null);
-                    setDepartamentoSeleccionado(null);
-                    
-                  } catch (error: any) {
-                    console.error("Error al gestionar teléfono:", error);
-                    toast({
-                      title: `Error al ${editandoTelefono ? 'actualizar' : 'agregar'} teléfono`,
-                      description: error.message || `Ha ocurrido un error al ${editandoTelefono ? 'actualizar' : 'agregar'} el teléfono`,
-                      variant: "destructive",
-                    });
-                  } finally {
-                    setProcesandoTelefono(false);
-                  }
-                }}
-              >
-                {procesandoTelefono ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : editandoTelefono ? "Guardar cambios" : "Agregar teléfono"}
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="flex justify-end space-x-4">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
         <Link href={`/dashboard/edificios/${edificioId}/editar`}>
-          <Button variant="outline">Editar Edificio</Button>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+            Editar Edificio
+          </Button>
         </Link>
         <Link href="/dashboard/edificios">
-          <Button variant="secondary">Volver a la lista</Button>
+          <Button variant="secondary" size="sm" className="w-full sm:w-auto">
+            Volver a lista
+          </Button>
         </Link>
       </div>
     </div>

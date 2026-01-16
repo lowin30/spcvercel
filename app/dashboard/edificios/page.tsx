@@ -40,21 +40,6 @@ export default function EdificiosPage({
     }
   }, [searchQuery])
   
-  // Recarga los edificios cuando la página obtiene el foco o cuando regresamos a ella
-  useEffect(() => {
-    // Función para recargar los datos cuando la ventana obtiene el foco
-    const recargarEdificios = () => {
-      console.log('Recargando datos de edificios...')
-      fetchEdificios() // Llamamos a la función interna que obtiene los edificios
-    }
-    
-    // Verificamos cuándo la ventana obtiene el foco (por ejemplo, al regresar de otra página)
-    window.addEventListener('focus', recargarEdificios)
-    
-    return () => {
-      window.removeEventListener('focus', recargarEdificios)
-    }
-  }, [])
   
   // Aplicar filtros cada vez que cambian
   useEffect(() => {
@@ -89,9 +74,8 @@ export default function EdificiosPage({
   }, [edificios, searchTerm, activeFilters])
   
   // Filtrar edificios por estado
-  const edificiosActivos = edificiosFiltrados?.filter((edificio) => edificio.estado === "activo") || []
-  const edificiosEnObra = edificiosFiltrados?.filter((edificio) => edificio.estado === "en_obra") || []
-  const edificiosFinalizados = edificiosFiltrados?.filter((edificio) => edificio.estado === "finalizado") || []
+  const edificiosActivos = edificiosFiltrados?.filter((edificio) => edificio.estado === "activo" || edificio.estado === "en_obra") || []
+  const edificiosInactivos = edificiosFiltrados?.filter((edificio) => edificio.estado === "finalizado") || []
 
   // Cargar edificios al inicio
   useEffect(() => {
@@ -213,28 +197,6 @@ export default function EdificiosPage({
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumen de Edificios</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-green-100 dark:bg-green-900 p-4 rounded-lg">
-              <h3 className="font-medium">Activos</h3>
-              <p className="text-2xl font-bold">{edificiosActivos.length}</p>
-            </div>
-            <div className="bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg">
-              <h3 className="font-medium">En Obra</h3>
-              <p className="text-2xl font-bold">{edificiosEnObra.length}</p>
-            </div>
-            <div className="bg-blue-100 dark:bg-blue-900 p-4 rounded-lg">
-              <h3 className="font-medium">Finalizados</h3>
-              <p className="text-2xl font-bold">{edificiosFinalizados.length}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="flex items-center space-x-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -336,24 +298,16 @@ export default function EdificiosPage({
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="todos">
-        <TabsList className="grid grid-cols-4 md:w-auto w-full">
-          <TabsTrigger value="todos">Todos</TabsTrigger>
+      <Tabs defaultValue="activos">
+        <TabsList className="grid grid-cols-2 md:w-auto w-full">
           <TabsTrigger value="activos">Activos</TabsTrigger>
-          <TabsTrigger value="en_obra">En Obra</TabsTrigger>
-          <TabsTrigger value="finalizados">Finalizados</TabsTrigger>
+          <TabsTrigger value="inactivos">Inactivos</TabsTrigger>
         </TabsList>
-        <TabsContent value="todos" className="mt-4">
-          <BuildingList buildings={edificiosFiltrados || []} />
-        </TabsContent>
         <TabsContent value="activos" className="mt-4">
-          <BuildingList buildings={edificiosActivos} />
+          <BuildingList buildings={edificiosActivos} onBuildingUpdated={fetchEdificios} />
         </TabsContent>
-        <TabsContent value="en_obra" className="mt-4">
-          <BuildingList buildings={edificiosEnObra} />
-        </TabsContent>
-        <TabsContent value="finalizados" className="mt-4">
-          <BuildingList buildings={edificiosFinalizados} />
+        <TabsContent value="inactivos" className="mt-4">
+          <BuildingList buildings={edificiosInactivos} onBuildingUpdated={fetchEdificios} />
         </TabsContent>
       </Tabs>
     </div>
