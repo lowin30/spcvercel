@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2 } from "lucide-react"
+import { MFASecuritySection } from "@/components/mfa-security-section"
 
 export function SystemSettings() {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -68,10 +69,11 @@ export function SystemSettings() {
         </p>
       </div>
       <Tabs defaultValue="general">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="tasks">Tareas</TabsTrigger>
           <TabsTrigger value="financial">Financiera</TabsTrigger>
+          <TabsTrigger value="security">Seguridad</TabsTrigger>
         </TabsList>
       <TabsContent value="general">
         <Card>
@@ -196,6 +198,9 @@ export function SystemSettings() {
             </Button>
           </CardFooter>
         </Card>
+      </TabsContent>
+      <TabsContent value="security">
+        <MFASecuritySection />
       </TabsContent>
     </Tabs>
     </div>

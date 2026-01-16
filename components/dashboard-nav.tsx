@@ -19,6 +19,7 @@ import {
   DollarSign,
   Clock,
   Receipt,
+  User,
 } from "lucide-react"
 
 interface NavItem {
@@ -108,6 +109,11 @@ const navItems: NavItem[] = [
     href: "/dashboard/trabajadores/liquidaciones",
     icon: DollarSign,
     roles: ["trabajador", "supervisor"],
+  },
+  {
+    title: "Mi Perfil",
+    href: "/dashboard/perfil",
+    icon: User,
   },
   {
     title: "Configuración",

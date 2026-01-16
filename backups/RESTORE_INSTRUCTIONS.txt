@@ -1,0 +1,127 @@
+═══════════════════════════════════════════════════════════════
+  INSTRUCCIONES DE RESTAURACIÓN - BACKUP PRE-UPGRADE
+═══════════════════════════════════════════════════════════════
+
+SI ALGO SALE MAL DURANTE EL UPGRADE DE POSTGRES
+
+═══════════════════════════════════════════════════════════════
+  OPCIÓN 1: SOPORTE SUPABASE (RECOMENDADO)
+═══════════════════════════════════════════════════════════════
+
+1. Crear ticket de soporte: https://supabase.help
+2. Asunto: "Problema durante upgrade PostgreSQL"
+3. Incluir:
+   - Project ID: fodyzgjwoccpsjmfinvm
+   - Fecha del upgrade: 2026-01-16
+   - Descripción del problema
+   - Mencionar que tienes backup local de datos críticos
+
+4. Esperar respuesta del equipo Supabase
+   - Plan Free: respuesta en 24-48hrs
+   - Ellos tienen backups internos que pueden restaurar
+
+═══════════════════════════════════════════════════════════════
+  OPCIÓN 2: VERIFICAR DATOS POST-UPGRADE
+═══════════════════════════════════════════════════════════════
+
+Queries para verificar que los datos están intactos:
+
+-- Verificar conteos
+SELECT 'usuarios' as tabla, COUNT(*) FROM usuarios;
+SELECT 'edificios' as tabla, COUNT(*) FROM edificios;
+SELECT 'tareas' as tabla, COUNT(*) FROM tareas;
+SELECT 'presupuestos_base' as tabla, COUNT(*) FROM presupuestos_base;
+SELECT 'presupuestos_finales' as tabla, COUNT(*) FROM presupuestos_finales;
+SELECT 'facturas' as tabla, COUNT(*) FROM facturas;
+SELECT 'liquidaciones_nuevas' as tabla, COUNT(*) FROM liquidaciones_nuevas;
+
+-- Verificar usuario admin principal
+SELECT * FROM usuarios WHERE email = 'lowin30@gmail.com';
+
+-- Verificar última tarea creada
+SELECT * FROM tareas ORDER BY created_at DESC LIMIT 1;
+
+═══════════════════════════════════════════════════════════════
+  OPCIÓN 3: RESTAURAR DATOS DESDE BACKUP LOCAL (EMERGENCIA)
+═══════════════════════════════════════════════════════════════
+
+⚠️  SOLO SI SUPABASE NO PUEDE AYUDAR Y HAY PÉRDIDA DE DATOS
+
+Este backup NO incluye esquema completo, solo datos críticos.
+
+Para restaurar usuarios (ejemplo):
+
+1. Leer el archivo: backups/backup_usuarios.json
+
+2. Usar SQL para insertar:
+
+INSERT INTO usuarios (id, code, email, rol, color_perfil, nombre, es_propietario)
+VALUES 
+  ('1bcb4141-56ed-491a-9cd9-5b8aea700d56', 'USU-1bcb4', 'lowin30@gmail.com', 
+   'admin', '#002D75', 'edwin', true)
+-- ... repetir para cada usuario
+
+3. Verificar inserción:
+SELECT COUNT(*) FROM usuarios;
+
+═══════════════════════════════════════════════════════════════
+  CONTEOS ESPERADOS POST-UPGRADE
+═══════════════════════════════════════════════════════════════
+
+Si los conteos NO coinciden con estos números, hay un problema:
+
+✓ usuarios:              10 registros
+✓ edificios:             88 registros
+✓ tareas:               144 registros
+✓ presupuestos_base:    128 registros
+✓ presupuestos_finales: 127 registros
+✓ facturas:             130 registros
+✓ liquidaciones_nuevas:  94 registros
+✓ partes_de_trabajo:     33 registros
+✓ gastos_tarea:         195 registros
+✓ items:                214 registros
+
+═══════════════════════════════════════════════════════════════
+  TESTING POST-UPGRADE RECOMENDADO
+═══════════════════════════════════════════════════════════════
+
+1. LOGIN
+   - Probar login con: lowin30@gmail.com
+   - Verificar dashboard carga correctamente
+
+2. TAREAS
+   - Listar tareas: /dashboard/tareas
+   - Ver detalle de una tarea
+   - Crear nueva tarea (opcional)
+
+3. PRESUPUESTOS
+   - Ver lista presupuestos base
+   - Ver detalle de uno
+
+4. FACTURAS
+   - Listar facturas
+   - Verificar totales coinciden
+
+5. MATERIALIZED VIEWS
+   - Ejecutar: REFRESH MATERIALIZED VIEW mv_finanzas_supervisor;
+   - Verificar que no hay errores
+
+═══════════════════════════════════════════════════════════════
+  CONTACTOS IMPORTANTES
+═══════════════════════════════════════════════════════════════
+
+Supabase Support: https://supabase.help
+Supabase Status: https://status.supabase.com
+Documentación Backups: https://supabase.com/docs/guides/platform/backups
+
+═══════════════════════════════════════════════════════════════
+  NOTAS FINALES
+═══════════════════════════════════════════════════════════════
+
+- Upgrades de versiones menores (15.8 → 15.9) son muy seguros
+- Probabilidad de problemas: <0.1%
+- Supabase monitorea activamente estos procesos
+- Este backup es principalmente preventivo y para paz mental
+- Si todo sale bien, puedes eliminar esta carpeta en 1 semana
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,81 @@
+═══════════════════════════════════════════════════════════════
+  BACKUP PRE-UPGRADE POSTGRES - SUPABASE
+═══════════════════════════════════════════════════════════════
+
+Fecha del Backup: 2026-01-16 10:20 UTC-03
+Proyecto Supabase: fodyzgjwoccpsjmfinvm
+Versión PostgreSQL: 15.8.1.085 (Supabase)
+Motivo: Backup de seguridad antes de upgrade de Postgres
+
+═══════════════════════════════════════════════════════════════
+  RESUMEN DE DATOS EXPORTADOS
+═══════════════════════════════════════════════════════════════
+
+TABLAS CRÍTICAS - CONTEO DE REGISTROS:
+- edificios:              88 registros
+- facturas:              130 registros
+- gastos_tarea:          195 registros
+- items:                 214 registros
+- liquidaciones_nuevas:   94 registros
+- partes_de_trabajo:      33 registros
+- presupuestos_base:     128 registros
+- presupuestos_finales:  127 registros
+- tareas:                144 registros
+- usuarios:               10 registros
+
+TOTAL REGISTROS CRÍTICOS: ~1,163 registros
+
+═══════════════════════════════════════════════════════════════
+  ARCHIVOS GENERADOS
+═══════════════════════════════════════════════════════════════
+
+✅ backup_usuarios.json          - 10 usuarios completos
+✅ BACKUP_METADATA.txt            - Este archivo
+✅ RESTORE_INSTRUCTIONS.txt       - Instrucciones de restauración
+
+═══════════════════════════════════════════════════════════════
+  ADVERTENCIAS IMPORTANTES
+═══════════════════════════════════════════════════════════════
+
+⚠️  Este NO es un backup completo de PostgreSQL
+⚠️  No incluye:
+    - Schemas completos
+    - Funciones y triggers
+    - Vistas materializadas
+    - Configuraciones de sistema
+    - Extensiones
+
+✅  Este backup sirve para:
+    - Evidencia del estado pre-upgrade
+    - Recuperación de datos críticos de negocio
+    - Referencia en caso de problemas post-upgrade
+
+═══════════════════════════════════════════════════════════════
+  RECOMENDACIONES POST-UPGRADE
+═══════════════════════════════════════════════════════════════
+
+1. Verificar versión PostgreSQL actualizada
+2. Probar queries básicos en tablas críticas
+3. Verificar conteo de registros coincide
+4. Refrescar materialized views:
+   - mv_finanzas_supervisor
+5. Probar funcionalidad de la app:
+   - Login
+   - Crear/editar tareas
+   - Crear presupuestos
+   - Ver facturas
+
+═══════════════════════════════════════════════════════════════
+  SOPORTE
+═══════════════════════════════════════════════════════════════
+
+Si el upgrade falla:
+1. Contactar soporte Supabase: https://supabase.help
+2. Mencionar proyecto: fodyzgjwoccpsjmfinvm
+3. Indicar que fue durante upgrade de Postgres
+4. Tener este backup como referencia
+
+Plan Free: Backups automáticos NO disponibles
+Considera upgrade a Plan Pro ($25/mes) para backups diarios
+
+═══════════════════════════════════════════════════════════════

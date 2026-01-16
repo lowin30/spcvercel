@@ -24,6 +24,7 @@ import {
   FileBarChart,
   CreditCard,
   Shield, // Añadido para el ítem Ajustes
+  User, // Para Mi Perfil
 } from "lucide-react"
 
 interface MobileMenuExpandedProps {
@@ -138,6 +139,11 @@ export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
       icon: UserCheck,
       title: "Pagos Personal",
       role: ["trabajador", "supervisor", "admin"],
+    },
+    {
+      href: "/dashboard/perfil",
+      icon: User,
+      title: "Mi Perfil",
     },
     {
       href: "/dashboard/configuracion",
