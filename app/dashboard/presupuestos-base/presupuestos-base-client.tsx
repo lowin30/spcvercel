@@ -5,28 +5,40 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Plus, Loader2, Trash2 } from "lucide-react"
+import { Plus, Loader2, Trash2, Eye, FileText, ExternalLink, Calendar } from "lucide-react"
 import { formatDate } from "@/lib/date-utils"
 import { formatCurrency } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { getPresupuestosBase, deletePresupuestoBase } from "./actions"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface PresupuestosBaseClientProps {
   initialData: any[]
+  todosData?: any[]
   userRole: string
   userId: string
 }
 
-export function PresupuestosBaseClient({ initialData, userRole, userId }: PresupuestosBaseClientProps) {
+export function PresupuestosBaseClient({ initialData, todosData, userRole, userId }: PresupuestosBaseClientProps) {
   const router = useRouter()
   const [presupuestosBase, setPresupuestosBase] = useState<any[]>(initialData)
-  const [filtroAprobacion, setFiltroAprobacion] = useState<'todos' | 'aprobados' | 'pendientes'>('todos')
-  const [filtroLiquidacion, setFiltroLiquidacion] = useState<'todos' | 'liquidados' | 'por_liquidar'>('por_liquidar')
+  const [filtroActivo, setFiltroActivo] = useState<string>(
+    userRole === 'supervisor' ? 'activos' : 'requiere_accion'
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [busqueda, setBusqueda] = useState("")
   const [isPending, startTransition] = useTransition()
+  const [todosLosPB, setTodosLosPB] = useState<any[]>(todosData || initialData)
 
   // Función para normalizar texto (búsqueda inteligente)
   const normalizarTexto = (texto: string): string => {
@@ -43,50 +55,195 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
       .replace(/[iy]/g, 'i')
   }
 
-  // Filtrar presupuestos según término de búsqueda
-  const presupuestosFiltrados = presupuestosBase.filter(presupuesto => {
-    // Si hay un término de búsqueda, filtrar por coincidencias en código, nota_pb, o título de tarea
+  // Calcular estadísticas para supervisor usando TODOS los PB
+  const estadisticas = userRole === 'supervisor' ? {
+    // Activos = aprobados, no liquidados, SIN PF pausado
+    activos: todosLosPB.filter(pb => 
+      pb.aprobado && !pb.esta_liquidado && !pb.tiene_pf_pausado
+    ).length,
+    // En pausa = CON PF pausado (borrador/enviado), sin importar si PB está aprobado
+    en_pausa: todosLosPB.filter(pb => 
+      !pb.esta_liquidado && pb.tiene_pf_pausado
+    ).length,
+    // Liquidados = todos los liquidados
+    liquidados: todosLosPB.filter(pb => pb.esta_liquidado).length,
+    // Total = todos los PB del supervisor
+    total: todosLosPB.length
+  } : null
+
+  // Decidir qué datos usar según el filtro
+  // Supervisor: siempre usar todosLosPB para poder filtrar por cualquier estado
+  const datosParaFiltrar = userRole === 'supervisor' ? todosLosPB : 
+    (filtroActivo === 'todos' ? todosLosPB : presupuestosBase)
+
+  // Filtrar presupuestos según término de búsqueda Y filtro activo
+  const presupuestosFiltrados = datosParaFiltrar.filter(presupuesto => {
+    // Aplicar búsqueda
     if (busqueda) {
       const terminoBusqueda = normalizarTexto(busqueda)
-      return (
+      const coincide = (
         (normalizarTexto(presupuesto.code || '').includes(terminoBusqueda)) ||
         (normalizarTexto(presupuesto.nota_pb || '').includes(terminoBusqueda)) ||
-        (normalizarTexto(presupuesto.tareas?.titulo || '').includes(terminoBusqueda))
+        (normalizarTexto(presupuesto.titulo_tarea || '').includes(terminoBusqueda))
       )
+      if (!coincide) return false
+    }
+
+    // Aplicar filtro por tabs o cards
+    if (userRole === 'supervisor') {
+      if (filtroActivo === 'activos') {
+        return presupuesto.aprobado && !presupuesto.esta_liquidado && !presupuesto.tiene_pf_pausado
+      } else if (filtroActivo === 'pendientes') {
+        return !presupuesto.aprobado
+      } else if (filtroActivo === 'en_pausa') {
+        return !presupuesto.esta_liquidado && presupuesto.tiene_pf_pausado
+      } else if (filtroActivo === 'liquidados') {
+        return presupuesto.esta_liquidado
+      } else if (filtroActivo === 'todos') {
+        return true // Mostrar todos sin filtros
+      }
+    } else {
+      // Admin
+      if (filtroActivo === 'requiere_accion') {
+        return presupuesto.aprobado && !presupuesto.tiene_presupuesto_final && !presupuesto.esta_liquidado
+      } else if (filtroActivo === 'aprobados') {
+        return presupuesto.aprobado && !presupuesto.esta_liquidado
+      } else if (filtroActivo === 'pendientes') {
+        return !presupuesto.aprobado
+      } else if (filtroActivo === 'liquidados') {
+        return presupuesto.esta_liquidado
+      }
     }
     return true
   })
 
-  // Cargar presupuestos según filtros seleccionados
-  const cargarPresupuestos = async (
-    filtroApro: 'todos' | 'aprobados' | 'pendientes',
-    filtroLiq: 'todos' | 'liquidados' | 'por_liquidar'
-  ) => {
-    setIsLoading(true)
-    try {
-      const result = await getPresupuestosBase(filtroApro, filtroLiq)
-      if (result.success) {
-        setPresupuestosBase(result.data)
-      } else {
-        console.error("Error al cargar presupuestos:", result.message)
+  // Obtener badges según rol y estado
+  const getBadges = (pb: any) => {
+    const badges = []
+    
+    // Badge principal de aprobación
+    badges.push(
+      <Badge key="aprobado" className={pb.aprobado ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+        {pb.aprobado ? "Aprobado" : "Pendiente"}
+      </Badge>
+    )
+
+    // Solo admin ve badges de PF
+    if (userRole === 'admin') {
+      if (pb.tiene_presupuesto_final) {
+        badges.push(
+          <Badge key="pf" className="bg-blue-100 text-blue-800 text-xs">
+            PF ✓
+          </Badge>
+        )
       }
-    } catch (error) {
-      console.error("Error inesperado:", error)
-    } finally {
-      setIsLoading(false)
     }
+
+    // Badge de liquidado (ambos roles)
+    if (pb.esta_liquidado) {
+      badges.push(
+        <Badge key="liquidado" className="bg-purple-100 text-purple-800 text-xs">
+          Liquidado
+        </Badge>
+      )
+    }
+
+    return badges
   }
 
-  // Actualizar filtro de aprobación y cargar datos
-  const cambiarFiltroAprobacion = (nuevoFiltro: 'todos' | 'aprobados' | 'pendientes') => {
-    setFiltroAprobacion(nuevoFiltro)
-    cargarPresupuestos(nuevoFiltro, filtroLiquidacion)
-  }
+  // Obtener acciones según rol y estado
+  const getAcciones = (pb: any) => {
+    const acciones = []
 
-  // Actualizar filtro de liquidación y cargar datos
-  const cambiarFiltroLiquidacion = (nuevoFiltro: 'todos' | 'liquidados' | 'por_liquidar') => {
-    setFiltroLiquidacion(nuevoFiltro)
-    cargarPresupuestos(filtroAprobacion, nuevoFiltro)
+    // Ver detalles (siempre)
+    acciones.push(
+      <Button
+        key="ver"
+        variant="ghost"
+        size="sm"
+        asChild
+        className="h-8 px-2"
+      >
+        <Link href={`/dashboard/presupuestos-base/${pb.id}`}>
+          <Eye className="h-4 w-4 mr-1" />
+          <span className="hidden sm:inline">Ver</span>
+        </Link>
+      </Button>
+    )
+
+    // Ver tarea (siempre)
+    if (pb.id_tarea) {
+      acciones.push(
+        <Button
+          key="tarea"
+          variant="ghost"
+          size="sm"
+          asChild
+          className="h-8 px-2"
+        >
+          <Link href={`/dashboard/tareas/${pb.id_tarea}`}>
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </Button>
+      )
+    }
+
+    // Admin: Crear PF si está aprobado y no tiene PF
+    if (userRole === 'admin' && pb.aprobado && !pb.tiene_presupuesto_final && !pb.esta_liquidado) {
+      acciones.push(
+        <Button
+          key="crear-pf"
+          variant="default"
+          size="sm"
+          asChild
+          className="h-8 px-2 text-xs"
+        >
+          <Link href={`/dashboard/presupuestos-finales/nuevo?idTarea=${pb.id_tarea}`}>
+            <FileText className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Crear PF</span>
+          </Link>
+        </Button>
+      )
+    }
+
+    // Admin: Ver PF si existe
+    if (userRole === 'admin' && pb.tiene_presupuesto_final && pb.id_presupuesto_final) {
+      acciones.push(
+        <Button
+          key="ver-pf"
+          variant="outline"
+          size="sm"
+          asChild
+          className="h-8 px-2 text-xs"
+        >
+          <Link href={`/dashboard/presupuestos-finales/${pb.id_presupuesto_final}`}>
+            <FileText className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Ver PF</span>
+          </Link>
+        </Button>
+      )
+    }
+
+    // Eliminar (solo admin y no aprobados)
+    if (userRole === 'admin' && !pb.aprobado) {
+      acciones.push(
+        <Button
+          key="eliminar"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={(e) => {
+            e.preventDefault()
+            handleDelete(e, pb.id, pb.aprobado)
+          }}
+          disabled={isPending}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )
+    }
+
+    return acciones
   }
 
   // Eliminar presupuesto base
@@ -134,78 +291,78 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
         </Link>
       </div>
 
-      {/* Filtros y búsqueda */}
+      {/* Card de estadísticas para supervisor - CLICABLES */}
+      {userRole === 'supervisor' && estadisticas && (
+        <Card className="bg-muted/50 border-primary/20">
+          <CardContent className="py-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <button
+                onClick={() => setFiltroActivo('activos')}
+                className="p-3 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
+              >
+                <div className="text-xs text-muted-foreground">🔥 Activos</div>
+                <div className="text-2xl font-bold text-primary">{estadisticas.activos}</div>
+              </button>
+              <button
+                onClick={() => setFiltroActivo('en_pausa')}
+                className="p-3 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-950 transition-colors cursor-pointer"
+              >
+                <div className="text-xs text-muted-foreground">⏸️ En pausa</div>
+                <div className="text-2xl font-bold text-orange-600">{estadisticas.en_pausa}</div>
+              </button>
+              <button
+                onClick={() => setFiltroActivo('liquidados')}
+                className="p-3 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950 transition-colors cursor-pointer"
+              >
+                <div className="text-xs text-muted-foreground">✅ Liquidados</div>
+                <div className="text-2xl font-bold text-purple-600">{estadisticas.liquidados}</div>
+              </button>
+              <button
+                onClick={() => setFiltroActivo('todos')}
+                className="p-3 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+              >
+                <div className="text-xs text-muted-foreground">📊 Total</div>
+                <div className="text-2xl font-bold">{estadisticas.total}</div>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filtros minimalistas en 1 fila */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b">
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-          {/* Filtros por aprobación */}
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Aprobación:</div>
-            <div className="flex gap-2 flex-wrap">
-              <Button 
-                variant={filtroAprobacion === 'todos' ? "default" : "outline"}
-                size="sm"
-                onClick={() => cambiarFiltroAprobacion('todos')}
-                disabled={isLoading}
-              >
-                Todos
-              </Button>
-              <Button 
-                variant={filtroAprobacion === 'pendientes' ? "default" : "outline"}
-                size="sm"
-                onClick={() => cambiarFiltroAprobacion('pendientes')}
-                disabled={isLoading}
-              >
-                Pendientes
-              </Button>
-              <Button 
-                variant={filtroAprobacion === 'aprobados' ? "default" : "outline"}
-                size="sm"
-                onClick={() => cambiarFiltroAprobacion('aprobados')}
-                disabled={isLoading}
-              >
-                Aprobados
-              </Button>
-            </div>
-
-            <div className="text-xs font-medium text-muted-foreground mt-3">Liquidación:</div>
-            <div className="flex gap-2 flex-wrap">
-              <Button 
-                variant={filtroLiquidacion === 'todos' ? "default" : "outline"}
-                size="sm"
-                onClick={() => cambiarFiltroLiquidacion('todos')}
-                disabled={isLoading}
-              >
-                Todos
-              </Button>
-              <Button 
-                variant={filtroLiquidacion === 'por_liquidar' ? "default" : "outline"}
-                size="sm"
-                onClick={() => cambiarFiltroLiquidacion('por_liquidar')}
-                disabled={isLoading}
-              >
-                Por liquidar
-              </Button>
-              <Button 
-                variant={filtroLiquidacion === 'liquidados' ? "default" : "outline"}
-                size="sm"
-                onClick={() => cambiarFiltroLiquidacion('liquidados')}
-                disabled={isLoading}
-              >
-                Liquidados
-              </Button>
-            </div>
-          </div>
-
-          {/* Campo de búsqueda */}
-          <div className="flex-1 max-w-xs">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          {/* Búsqueda */}
+          <div className="w-full sm:w-64">
             <Input
-              placeholder="Buscar (código, nota, tarea)..."
+              placeholder="Buscar..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="text-sm"
               title="Búsqueda inteligente: ignora acentos, mayúsculas y diferencias entre s/z, i/y"
             />
           </div>
+
+          {/* Tabs según rol */}
+          <Tabs value={filtroActivo} onValueChange={setFiltroActivo} className="w-full sm:w-auto">
+            <TabsList className="grid w-full grid-cols-4 sm:w-auto">
+              {userRole === 'supervisor' ? (
+                <>
+                  <TabsTrigger value="activos" className="text-xs">🔥 Activos</TabsTrigger>
+                  <TabsTrigger value="pendientes" className="text-xs">Pendientes</TabsTrigger>
+                  <TabsTrigger value="todos" className="text-xs">📚 Todos</TabsTrigger>
+                </>
+              ) : (
+                <>
+                  <TabsTrigger value="requiere_accion" className="text-xs">🔥 Acción</TabsTrigger>
+                  <TabsTrigger value="aprobados" className="text-xs">Aprobados</TabsTrigger>
+                  <TabsTrigger value="pendientes" className="text-xs">Pendientes</TabsTrigger>
+                  <TabsTrigger value="liquidados" className="text-xs">Liquidados</TabsTrigger>
+                  <TabsTrigger value="todos" className="text-xs">Todos</TabsTrigger>
+                </>
+              )}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
@@ -214,73 +371,95 @@ export function PresupuestosBaseClient({ initialData, userRole, userId }: Presup
           <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin" />
           <span className="ml-2 text-sm sm:text-base">Cargando presupuestos base...</span>
         </div>
+      ) : presupuestosFiltrados.length > 0 ? (
+        <>
+          {/* Vista DESKTOP: Tabla */}
+          <div className="hidden md:block rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">TAREA</TableHead>
+                  <TableHead className="font-semibold">CÓDIGO</TableHead>
+                  <TableHead className="font-semibold">ESTADO</TableHead>
+                  <TableHead className="font-semibold text-right">TOTAL</TableHead>
+                  <TableHead className="font-semibold text-center">ACCIONES</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {presupuestosFiltrados.map((pb) => (
+                  <TableRow key={pb.id} className="hover:bg-muted/30">
+                    <TableCell className="max-w-[300px]">
+                      <Link href={`/dashboard/tareas/${pb.id_tarea}`} className="text-primary hover:underline">
+                        <div className="line-clamp-2 leading-snug text-sm">
+                          {pb.titulo_tarea || pb.code_tarea || `Tarea #${pb.id_tarea}`}
+                        </div>
+                      </Link>
+                      {pb.nombre_edificio && (
+                        <div className="text-xs text-muted-foreground truncate">{pb.nombre_edificio}</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{pb.code || 'S/C'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {getBadges(pb)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      {formatCurrency(pb.total || 0)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1 flex-wrap">
+                        {getAcciones(pb)}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Vista MÓVIL: Cards */}
+          <div className="md:hidden space-y-3">
+            {presupuestosFiltrados.map((pb) => (
+              <Card key={pb.id} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <Link href={`/dashboard/tareas/${pb.id_tarea}`} className="flex-1 min-w-0">
+                      <CardTitle className="text-base line-clamp-2 leading-snug text-primary hover:underline">
+                        {pb.titulo_tarea || pb.code_tarea || `Tarea #${pb.id_tarea}`}
+                      </CardTitle>
+                    </Link>
+                  </div>
+                  {pb.nombre_edificio && (
+                    <p className="text-xs text-muted-foreground truncate">{pb.nombre_edificio}</p>
+                  )}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {getBadges(pb)}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-2 gap-1 text-xs">
+                    <span className="text-muted-foreground">Código:</span>
+                    <span className="font-mono text-right">{pb.code || 'S/C'}</span>
+                    
+                    <span className="text-muted-foreground">Total:</span>
+                    <span className="font-semibold text-right">{formatCurrency(pb.total || 0)}</span>
+                    
+                    <span className="text-muted-foreground">Creado:</span>
+                    <span className="text-right">{pb.dias_desde_creacion || 0}d</span>
+                  </div>
+                  
+                  <div className="flex gap-1 pt-2 border-t flex-wrap">
+                    {getAcciones(pb)}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {presupuestosFiltrados.length > 0 ? (
-            presupuestosFiltrados.map((presupuesto) => (
-              <div key={presupuesto.id} className="relative">
-                <Link href={`/dashboard/presupuestos-base/${presupuesto.id}`}>
-                  <Card className="cursor-pointer transition-all hover:bg-muted/50 max-w-full overflow-hidden h-full">
-                    <CardHeader className="pb-1 sm:pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg sm:text-xl truncate">
-                          {presupuesto.code || "Sin código"}
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                          <Badge className={presupuesto.aprobado ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                            {presupuesto.aprobado ? "Aprobado" : "Pendiente"}
-                          </Badge>
-                          {/* Botón eliminar (solo admin y no aprobados) */}
-                          {userRole === "admin" && !presupuesto.aprobado && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={(e) => handleDelete(e, presupuesto.id, presupuesto.aprobado)}
-                              disabled={isPending}
-                              title="Eliminar presupuesto"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  <CardContent>
-                    <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
-                      <p className="truncate">Creado: {formatDate(presupuesto.created_at)}</p>
-                      
-                      {presupuesto.tareas?.titulo && (
-                        <p className="truncate">Tarea: {presupuesto.tareas.titulo}</p>
-                      )}
-
-                      <div className="mt-2 pt-1 border-t border-muted">
-                        <div className="grid grid-cols-2 gap-1">
-                          <p>Materiales:</p>
-                          <p className="text-right font-medium">{formatCurrency(presupuesto.materiales || 0)}</p>
-                          
-                          <p>Mano de obra:</p>
-                          <p className="text-right font-medium">{formatCurrency(presupuesto.mano_obra || 0)}</p>
-                          
-                          <p className="font-medium">Total:</p>
-                          <p className="text-right font-semibold">{formatCurrency(presupuesto.total || 0)}</p>
-                        </div>
-                      </div>
-
-                      {presupuesto.nota_pb && (
-                        <p className="mt-2 truncate text-xs">Nota: {presupuesto.nota_pb}</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center py-10">
-              <p className="text-muted-foreground">No hay presupuestos base disponibles.</p>
-            </div>
-          )}
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No hay presupuestos base disponibles.</p>
         </div>
       )}
 

@@ -7,6 +7,7 @@ import { PresupuestosBaseClient } from "./presupuestos-base-client"
 
 export default function PresupuestosBasePage() {
   const [presupuestos, setPresupuestos] = useState<any[]>([])
+  const [todosPresupuestos, setTodosPresupuestos] = useState<any[]>([])
   const [userDetails, setUserDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -58,64 +59,40 @@ export default function PresupuestosBasePage() {
           return
         }
   
-        // Construir consulta según rol
+        // Construir consulta según rol usando vistas inteligentes
         let presupuestosBase;
         let presupuestosError;
         
         if (userData?.rol === "admin") {
-          // Admin ve todos los presupuestos con info de liquidación
+          // Admin: usar vista con info completa (incluye flags de PF)
           const result = await supabase
-            .from("presupuestos_base")
-            .select(`
-              *,
-              tareas (id, titulo, code),
-              liquidaciones_nuevas!id_presupuesto_base (id)
-            `)
+            .from("vista_pb_admin")
+            .select('*')
             .order('created_at', { ascending: false })
-            .limit(50)
           
           presupuestosBase = result.data
           presupuestosError = result.error
           
-          // Filtrar por defecto: solo "por liquidar"
-          if (presupuestosBase) {
-            presupuestosBase = presupuestosBase.filter(pb => 
-              !pb.liquidaciones_nuevas || pb.liquidaciones_nuevas.length === 0
-            )
-          }
-          
         } else if (userData?.rol === "supervisor") {
-          // Supervisor: obtener tareas asignadas y luego presupuestos
-          const { data: tareasAsignadas, error: tareasError } = await supabase
-            .from("supervisores_tareas")
-            .select("id_tarea")
-            .eq("id_supervisor", user.id)
+          // Supervisor: usar función SQL que calcula flags automáticamente
+          const { data: todosPB, error: todosError } = await supabase
+            .rpc('obtener_pb_supervisor_con_flags', { p_id_supervisor: user.id })
           
-          if (tareasError) {
-            presupuestosError = tareasError
-          } else if (tareasAsignadas && tareasAsignadas.length > 0) {
-            const idsTareas = tareasAsignadas.map(t => t.id_tarea)
+          if (todosError) {
+            presupuestosError = todosError
+            presupuestosBase = []
+          } else if (todosPB && todosPB.length > 0) {
+            // Guardar TODOS los PB (para tab "Todos")
+            setTodosPresupuestos(todosPB)
             
-            const result = await supabase
-              .from("presupuestos_base")
-              .select(`
-                *,
-                tareas (id, titulo, code),
-                liquidaciones_nuevas!id_presupuesto_base (id)
-              `)
-              .in('id_tarea', idsTareas)
-              .order('created_at', { ascending: false })
-              .limit(50)
+            // Filtrar para tabs "Activos" y "Pendientes" (vista inteligente)
+            // Excluir: liquidados O con PF pausado (borrador/enviado)
+            presupuestosBase = todosPB.filter((pb: any) => 
+              !pb.esta_liquidado && !pb.tiene_pf_pausado
+            )
             
-            presupuestosBase = result.data
-            presupuestosError = result.error
-            
-            // Filtrar por defecto: solo "por liquidar"
-            if (presupuestosBase) {
-              presupuestosBase = presupuestosBase.filter(pb => 
-                !pb.liquidaciones_nuevas || pb.liquidaciones_nuevas.length === 0
-              )
-            }
+            setPresupuestos(presupuestosBase)
+            presupuestosError = null
           } else {
             // Supervisor sin tareas asignadas
             presupuestosBase = []
@@ -131,7 +108,10 @@ export default function PresupuestosBasePage() {
           return
         }
         
-        setPresupuestos(presupuestosBase || [])
+        // Solo guardar presupuestosBase si no es supervisor (admin no carga todosPresupuestos)
+        if (userData?.rol === 'admin') {
+          setPresupuestos(presupuestosBase || [])
+        }
         
       } catch (err: any) {
         console.error("Error inesperado:", err)
@@ -169,7 +149,8 @@ export default function PresupuestosBasePage() {
   // Pasar datos al componente cliente
   return (
     <PresupuestosBaseClient 
-      initialData={presupuestos} 
+      initialData={presupuestos}
+      todosData={todosPresupuestos}
       userRole={userDetails?.rol || ''}
       userId={userDetails?.id || ''}
     />
