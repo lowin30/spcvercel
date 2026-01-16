@@ -52,8 +52,10 @@ export default function FacturasPage({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [administradores, setAdministradores] = useState<{id: number, nombre: string}[]>([])
+  const [edificios, setEdificios] = useState<{id: number, nombre: string, id_administrador: number}[]>([])
   const [estados, setEstados] = useState<{id: number, nombre: string, color: string}[]>([])
   const [filtroAdmin, setFiltroAdmin] = useState<number | null>(null)
+  const [filtroEdificio, setFiltroEdificio] = useState<number | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [vistaActual, setVistaActual] = useState<'todas' | 'pendientes' | 'pagadas' | 'vencidas'>('pendientes') // Por defecto: pendientes
@@ -81,6 +83,7 @@ export default function FacturasPage({
       try {
         const filters = JSON.parse(savedFilters);
         setFiltroAdmin(filters.filtroAdmin || null);
+        setFiltroEdificio(filters.filtroEdificio || null);
         setFiltroEstado(filters.filtroEstado || null);
         setSearchQuery(filters.searchQuery || "");
         setVistaActual(filters.vistaActual || 'pendientes');
@@ -95,12 +98,13 @@ export default function FacturasPage({
     if (isMounted) {
       localStorage.setItem('spc_filters_facturas', JSON.stringify({
         filtroAdmin,
+        filtroEdificio,
         filtroEstado,
         searchQuery,
         vistaActual
       }));
     }
-  }, [filtroAdmin, filtroEstado, searchQuery, vistaActual, isMounted])
+  }, [filtroAdmin, filtroEdificio, filtroEstado, searchQuery, vistaActual, isMounted])
 
   // Calcular estadísticas basadas en facturas
   const totalFacturas = facturas?.length || 0
@@ -147,6 +151,12 @@ export default function FacturasPage({
           .from("administradores")
           .select("id, nombre")
           .eq('estado', 'activo');
+        
+        // Cargar edificios con su administrador
+        const { data: edificiosData, error: edificiosError } = await supabase
+          .from("edificios")
+          .select("id, nombre, id_administrador")
+          .order('nombre');
         
         if (administradoresError) {
           console.error("Error al cargar administradores:", administradoresError);
@@ -248,8 +258,9 @@ export default function FacturasPage({
           throw new Error(`Error al cargar facturas: ${facturasError.message}`)
         }
         
-        // Guardar los administradores y estados para los filtros
+        // Guardar los administradores, edificios y estados para los filtros
         setAdministradores(administradoresData || []);
+        setEdificios(edificiosData || []);
         setEstados(estadosData || []);
 
         // Enriquecer con gastos adicionales (gastos_extra_pdf_factura)
@@ -460,6 +471,14 @@ export default function FacturasPage({
     // Filtro por administrador
     if (filtroAdmin && invoice.id_administrador !== filtroAdmin) {
       return false;
+    }
+    
+    // Filtro por edificio
+    if (filtroEdificio) {
+      const factura = invoice as any;
+      if (factura.id_edificio !== filtroEdificio) {
+        return false;
+      }
     }
     
     // Filtro por estado
@@ -709,7 +728,7 @@ export default function FacturasPage({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Filtro por búsqueda */}
             <div>
               <label className="text-sm font-medium mb-1 block">Buscar</label>
@@ -729,7 +748,15 @@ export default function FacturasPage({
             {/* Filtro por administrador */}
             <div>
               <label className="text-sm font-medium mb-1 block">Administrador</label>
-              <Select value={filtroAdmin?.toString() || 'todos'} onValueChange={(value) => setFiltroAdmin(value !== 'todos' ? parseInt(value) : null)}>
+              <Select 
+                value={filtroAdmin?.toString() || 'todos'} 
+                onValueChange={(value) => {
+                  const newAdmin = value !== 'todos' ? parseInt(value) : null;
+                  setFiltroAdmin(newAdmin);
+                  // Resetear filtro de edificio al cambiar admin
+                  setFiltroEdificio(null);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Todos los administradores" />
                 </SelectTrigger>
@@ -740,6 +767,30 @@ export default function FacturasPage({
                       {admin.nombre}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtro por edificio (en cascada) */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Edificio</label>
+              <Select 
+                value={filtroEdificio?.toString() || 'todos'} 
+                onValueChange={(value) => setFiltroEdificio(value !== 'todos' ? parseInt(value) : null)}
+                disabled={!filtroAdmin && edificios.length > 50} // Opcional: deshabilitar si hay muchos edificios y no hay admin seleccionado
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={filtroAdmin ? "Todos los edificios" : "Selecciona administrador primero"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los edificios</SelectItem>
+                  {edificios
+                    .filter(edificio => !filtroAdmin || edificio.id_administrador === filtroAdmin)
+                    .map((edificio) => (
+                      <SelectItem key={edificio.id} value={edificio.id.toString()}>
+                        {edificio.nombre}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
