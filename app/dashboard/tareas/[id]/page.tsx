@@ -13,8 +13,11 @@ import { CommentForm } from "@/components/comment-form"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { ArrowLeft, Calendar, MapPin, Calculator, FileText, UserPlus, UserCog, AlertTriangle, Loader2, X, UserRound, CalendarDays, CheckCircle, Circle, Map, Phone, InfoIcon, Users, Building, BuildingIcon, LinkIcon, ExternalLink, Trash2Icon, TrashIcon, EditIcon, FileTextIcon } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Calculator, FileText, UserPlus, UserCog, AlertTriangle, Loader2, X, UserRound, CalendarDays, CheckCircle, Circle, Map, Phone, InfoIcon, Users, Building, BuildingIcon, LinkIcon, ExternalLink, Trash2Icon, TrashIcon, EditIcon, FileTextIcon, Pencil } from "lucide-react";
 import { DatePickerVisual } from "@/components/date-picker-visual"
 import { DatePickerDiaSimple } from "@/components/date-picker-dia-simple"
 import { RegistroParteTrabajoForm } from "@/components/registro-parte-trabajo-form";
@@ -62,6 +65,53 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   // Estados locales para actualización en tiempo real
   const [prioridadActual, setPrioridadActual] = useState<string>("")
   const [mostrarFormularioParte, setMostrarFormularioParte] = useState(false);
+  
+  // Estados para edición de notas del edificio
+  const [notasEdificioDialogOpen, setNotasEdificioDialogOpen] = useState(false)
+  const [notasEdificioTemp, setNotasEdificioTemp] = useState("")
+  const [guardandoNotasEdificio, setGuardandoNotasEdificio] = useState(false)
+  
+  // Función para guardar las notas del edificio
+  const guardarNotasEdificio = async () => {
+    if (!tarea?.edificios?.id) return;
+    
+    setGuardandoNotasEdificio(true);
+    try {
+      const supabase = createClient();
+      
+      const { error } = await supabase
+        .from('edificios')
+        .update({ notas: notasEdificioTemp || null })
+        .eq('id', tarea.edificios.id);
+      
+      if (error) throw error;
+      
+      // Actualizar estado local
+      setTarea({
+        ...tarea,
+        edificios: {
+          ...tarea.edificios,
+          notas: notasEdificioTemp || null
+        }
+      });
+      
+      toast({
+        title: "Notas actualizadas",
+        description: "Las notas del edificio se han guardado correctamente"
+      });
+      
+      setNotasEdificioDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error guardando notas:', error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudieron guardar las notas",
+        variant: "destructive"
+      });
+    } finally {
+      setGuardandoNotasEdificio(false);
+    }
+  };
   
   // Función para cargar presupuestos desde las tablas correctas
   const cargarPresupuestos = async (userRol?: string) => {
@@ -225,7 +275,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         .from("tareas")
         .select(`
           *,
-          edificios!left (id, nombre, direccion, cuit)
+          edificios!left (id, nombre, direccion, cuit, notas)
         `)
         .eq("id", tareaId)
         .single()
@@ -750,6 +800,50 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             <p className="whitespace-pre-line">{tarea.descripcion}</p>
           </div>
 
+          {/* Notas del Edificio - Compacto */}
+          {tarea.edificios?.notas && (
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-400 rounded-md p-2.5 sm:p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    <h3 className="text-xs font-semibold text-red-600 dark:text-red-400">NOTAS EDIFICIO</h3>
+                  </div>
+                  <p className="text-xs text-red-700 dark:text-red-300 whitespace-pre-line">
+                    {tarea.edificios.notas}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNotasEdificioTemp(tarea.edificios.notas || "");
+                    setNotasEdificioDialogOpen(true);
+                  }}
+                  className="flex-shrink-0 h-7 px-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {/* Botón para agregar notas si no existen */}
+          {!tarea.edificios?.notas && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setNotasEdificioTemp("");
+                setNotasEdificioDialogOpen(true);
+              }}
+              className="h-8 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+            >
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+              Agregar notas del edificio
+            </Button>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
               <h3 className="font-medium mb-1">Edificio</h3>
@@ -1212,6 +1306,67 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Diálogo para editar notas del edificio */}
+      <Dialog open={notasEdificioDialogOpen} onOpenChange={setNotasEdificioDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Notas Importantes del Edificio
+            </DialogTitle>
+            <DialogDescription>
+              Estas notas se mostrarán en todas las tareas de este edificio como advertencia urgente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="notas-edificio">
+                Notas del edificio: {tarea.edificios?.nombre}
+              </Label>
+              <Textarea
+                id="notas-edificio"
+                value={notasEdificioTemp}
+                onChange={(e) => setNotasEdificioTemp(e.target.value)}
+                placeholder="Ej: Timbre roto, acceso por puerta trasera, perro en el patio, etc."
+                rows={5}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                💡 Información importante que los trabajadores deben ver al entrar a cualquier tarea de este edificio
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setNotasEdificioDialogOpen(false)}
+              disabled={guardandoNotasEdificio}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={guardarNotasEdificio}
+              disabled={guardandoNotasEdificio}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {guardandoNotasEdificio ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  Guardar Notas
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <FinalizarTareaDialog
         open={showFinalizarDialog}
