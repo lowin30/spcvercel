@@ -32,6 +32,7 @@ interface MobileMenuExpandedProps {
     rol: string
     email: string
   }
+  colorPerfil?: string
 }
 
 interface RouteItem {
@@ -43,10 +44,13 @@ interface RouteItem {
   badgeColor?: string
 }
 
-export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
+export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: MobileMenuExpandedProps) {
   const pathname = usePathname()
   const router = useRouter()
   const userRole = userDetails?.rol || ""
+  
+  // Obtener inicial del usuario
+  const userInitial = userDetails?.email ? userDetails.email.charAt(0).toUpperCase() : 'U'
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -158,19 +162,36 @@ export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b">
-        <h2 className="font-semibold text-lg">SPC Sistema de Gestión</h2>
-        {userDetails && (
-          <div className="mt-2 text-sm text-muted-foreground">
-            <div className="font-medium">{userDetails.email}</div>
-            <div className="capitalize">{userDetails.rol}</div>
+      {/* Header con avatar */}
+      <div className="p-4 border-b space-y-3">
+        {/* Avatar con color personalizado */}
+        <div className="flex items-center justify-center">
+          <div 
+            className="flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-lg shadow-lg"
+            style={{ backgroundColor: colorPerfil }}
+          >
+            {userInitial}
           </div>
-        )}
+        </div>
+        
+        <div>
+          <h2 className="font-semibold text-lg text-center">SPC Sistema de Gestión</h2>
+          {userDetails && (
+            <div className="mt-2 text-sm text-muted-foreground text-center">
+              <div className="font-medium">{userDetails.email}</div>
+              <div className="capitalize">{userDetails.rol}</div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex-1 overflow-auto py-2">
+      {/* Navigation Links con tinte de color */}
+      <div 
+        className="flex-1 overflow-auto py-2"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${colorPerfil} 3%, transparent)`
+        }}
+      >
         <nav className="grid items-start px-2 text-sm font-medium">
           {filteredRoutes.map((item, index) => {
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
@@ -179,9 +200,13 @@ export function MobileMenuExpanded({ userDetails }: MobileMenuExpandedProps) {
                 key={index}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary relative",
                   isActive ? "bg-muted" : "transparent",
                 )}
+                style={isActive ? {
+                  borderLeft: `3px solid ${colorPerfil}`,
+                  paddingLeft: 'calc(0.75rem - 3px)'
+                } : undefined}
               >
                 <item.icon className="h-4 w-4" />
                 <div className="flex items-center gap-1.5">

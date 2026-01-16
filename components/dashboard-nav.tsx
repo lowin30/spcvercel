@@ -125,10 +125,15 @@ const navItems: NavItem[] = [
 
 interface DashboardNavProps {
   userRole?: string
+  userEmail?: string
+  colorPerfil?: string
 }
 
-export function DashboardNav({ userRole }: DashboardNavProps) {
+export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: DashboardNavProps) {
   const pathname = usePathname()
+  
+  // Obtener inicial del usuario
+  const userInitial = userEmail ? userEmail.charAt(0).toUpperCase() : 'U'
 
   const filteredItems = navItems.filter((item) => {
     if (!item.roles) return true
@@ -136,7 +141,24 @@ export function DashboardNav({ userRole }: DashboardNavProps) {
   })
 
   return (
-    <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+    <div className="space-y-4">
+      {/* Avatar con color personalizado */}
+      <div className="flex items-center justify-center">
+        <div 
+          className="flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-lg shadow-lg"
+          style={{ backgroundColor: colorPerfil }}
+        >
+          {userInitial}
+        </div>
+      </div>
+      
+      {/* Navegación con tinte sutil en modo oscuro */}
+      <nav 
+        className="grid items-start px-2 text-sm font-medium lg:px-4"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${colorPerfil} 3%, transparent)`
+        }}
+      >
       {filteredItems.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href
@@ -146,9 +168,13 @@ export function DashboardNav({ userRole }: DashboardNavProps) {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary relative",
               isActive && "bg-muted text-primary",
             )}
+            style={isActive ? {
+              borderLeft: `3px solid ${colorPerfil}`,
+              paddingLeft: 'calc(0.75rem - 3px)'
+            } : undefined}
           >
             <Icon className="h-4 w-4" />
             <span className="flex-1">{item.title}</span>
@@ -162,6 +188,7 @@ export function DashboardNav({ userRole }: DashboardNavProps) {
           </Link>
         )
       })}
-    </nav>
+      </nav>
+    </div>
   )
 }

@@ -21,6 +21,7 @@ interface DashboardShellProps {
 // Esta exportación debe ser nombrada para evitar problemas con las importaciones existentes
 export function DashboardShell({ children, userDetails }: DashboardShellProps) {
   const [userId, setUserId] = useState<string | null>(null)
+  const [colorPerfil, setColorPerfil] = useState<string>('#3498db')
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -42,6 +43,17 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
         
         if (data?.user) {
           setUserId(data.user.id)
+          
+          // Obtener color_perfil del usuario
+          const { data: userData } = await supabase
+            .from('usuarios')
+            .select('color_perfil')
+            .eq('id', data.user.id)
+            .single()
+          
+          if (userData?.color_perfil) {
+            setColorPerfil(userData.color_perfil)
+          }
         }
       } catch (error) {
         console.error('Error en fetchUserId:', error)
@@ -58,7 +70,7 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
       suppressHydrationWarning 
     >
       {/* Navegación móvil - visible solo en pantallas pequeñas */}
-      <MobileNav userDetails={userDetails} />
+      <MobileNav userDetails={userDetails} colorPerfil={colorPerfil} />
 
       <div className="flex flex-1" suppressHydrationWarning>
         {/* Navegación de escritorio - visible solo en pantallas md y superiores */}
@@ -77,7 +89,11 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <DashboardNav userRole={userDetails?.rol} />
+              <DashboardNav 
+                userRole={userDetails?.rol} 
+                userEmail={userDetails?.email}
+                colorPerfil={colorPerfil}
+              />
             </div>
           </div>
         </div>

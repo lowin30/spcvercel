@@ -15,9 +15,10 @@ interface MobileNavProps {
     rol: string
     email: string
   }
+  colorPerfil?: string
 }
 
-export function MobileNav({ userDetails }: MobileNavProps) {
+export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
@@ -88,7 +89,7 @@ export function MobileNav({ userDetails }: MobileNavProps) {
               Navegación principal y opciones de la cuenta.
             </SheetDescription>
           </SheetHeader>
-          <MobileMenuExpanded userDetails={userDetails} />
+          <MobileMenuExpanded userDetails={userDetails} colorPerfil={colorPerfil} />
         </SheetContent>
       </Sheet>
     </header>

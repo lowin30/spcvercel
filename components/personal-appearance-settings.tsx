@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -16,22 +17,23 @@ interface PersonalAppearanceSettingsProps {
 }
 
 export function PersonalAppearanceSettings({ userId, initialColorPerfil }: PersonalAppearanceSettingsProps) {
+  const router = useRouter()
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium')
-  const [colorPerfil, setColorPerfil] = useState<string>(initialColorPerfil || 'blue')
+  const [colorPerfil, setColorPerfil] = useState<string>(initialColorPerfil || '#3498db')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
   const supabase = createClient()
 
   const coloresPerfil = [
-    { name: 'Azul', value: 'blue', class: 'bg-blue-600' },
-    { name: 'Verde', value: 'green', class: 'bg-green-600' },
-    { name: 'Púrpura', value: 'purple', class: 'bg-purple-600' },
-    { name: 'Naranja', value: 'orange', class: 'bg-orange-600' },
-    { name: 'Rojo', value: 'red', class: 'bg-red-600' },
-    { name: 'Índigo', value: 'indigo', class: 'bg-indigo-600' },
-    { name: 'Rosa', value: 'pink', class: 'bg-pink-600' },
-    { name: 'Amarillo', value: 'yellow', class: 'bg-yellow-600' },
+    { name: 'Azul', value: '#3498db', class: 'bg-blue-600' },
+    { name: 'Verde', value: '#10b981', class: 'bg-green-600' },
+    { name: 'Púrpura', value: '#9333ea', class: 'bg-purple-600' },
+    { name: 'Naranja', value: '#f97316', class: 'bg-orange-600' },
+    { name: 'Rojo', value: '#ef4444', class: 'bg-red-600' },
+    { name: 'Índigo', value: '#6366f1', class: 'bg-indigo-600' },
+    { name: 'Rosa', value: '#ec4899', class: 'bg-pink-600' },
+    { name: 'Amarillo', value: '#eab308', class: 'bg-yellow-600' },
   ]
 
   // Cargar preferencias guardadas
@@ -123,6 +125,9 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
         title: "Color de perfil actualizado",
         description: "Tu color de perfil se ha guardado correctamente",
       })
+      
+      // Refrescar la página para actualizar el color en el menú
+      router.refresh()
     } catch (err) {
       console.error("Error inesperado:", err)
       toast({
