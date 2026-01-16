@@ -70,8 +70,22 @@ export default function PresupuestosBasePage() {
             .select('*')
             .order('created_at', { ascending: false })
           
-          presupuestosBase = result.data
-          presupuestosError = result.error
+          if (result.error) {
+            presupuestosError = result.error
+            presupuestosBase = []
+          } else if (result.data && result.data.length > 0) {
+            // Guardar TODOS los PB (para tab "Todos" y filtros de cards)
+            setTodosPresupuestos(result.data)
+            
+            // Vista por defecto: excluir liquidados
+            presupuestosBase = result.data.filter((pb: any) => !pb.esta_liquidado)
+            
+            setPresupuestos(presupuestosBase)
+            presupuestosError = null
+          } else {
+            presupuestosBase = []
+            presupuestosError = null
+          }
           
         } else if (userData?.rol === "supervisor") {
           // Supervisor: usar función SQL que calcula flags automáticamente

@@ -55,7 +55,7 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
       .replace(/[iy]/g, 'i')
   }
 
-  // Calcular estadísticas para supervisor usando TODOS los PB
+  // Calcular estadísticas usando TODOS los PB
   const estadisticas = userRole === 'supervisor' ? {
     // Activos = aprobados, no liquidados, SIN PF pausado
     activos: todosLosPB.filter(pb => 
@@ -69,12 +69,26 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
     liquidados: todosLosPB.filter(pb => pb.esta_liquidado).length,
     // Total = todos los PB del supervisor
     total: todosLosPB.length
+  } : userRole === 'admin' ? {
+    // Requiere Acción = aprobados sin PF y no liquidados
+    requiere_accion: todosLosPB.filter(pb => 
+      pb.aprobado && !pb.tiene_presupuesto_final && !pb.esta_liquidado
+    ).length,
+    // Aprobados = aprobados no liquidados
+    aprobados: todosLosPB.filter(pb => 
+      pb.aprobado && !pb.esta_liquidado
+    ).length,
+    // Pendientes = sin aprobar
+    pendientes: todosLosPB.filter(pb => !pb.aprobado).length,
+    // Liquidados = todos los liquidados
+    liquidados: todosLosPB.filter(pb => pb.esta_liquidado).length,
+    // Total = todos los PB
+    total: todosLosPB.length
   } : null
 
   // Decidir qué datos usar según el filtro
-  // Supervisor: siempre usar todosLosPB para poder filtrar por cualquier estado
-  const datosParaFiltrar = userRole === 'supervisor' ? todosLosPB : 
-    (filtroActivo === 'todos' ? todosLosPB : presupuestosBase)
+  // Siempre usar todosLosPB para poder filtrar por cualquier estado
+  const datosParaFiltrar = todosLosPB
 
   // Filtrar presupuestos según término de búsqueda Y filtro activo
   const presupuestosFiltrados = datosParaFiltrar.filter(presupuesto => {
@@ -291,40 +305,80 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
         </Link>
       </div>
 
-      {/* Card de estadísticas para supervisor - CLICABLES */}
-      {userRole === 'supervisor' && estadisticas && (
+      {/* Card de estadísticas - CLICABLES */}
+      {estadisticas && (
         <Card className="bg-muted/50 border-primary/20">
           <CardContent className="py-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <button
-                onClick={() => setFiltroActivo('activos')}
-                className="p-3 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
-              >
-                <div className="text-xs text-muted-foreground">🔥 Activos</div>
-                <div className="text-2xl font-bold text-primary">{estadisticas.activos}</div>
-              </button>
-              <button
-                onClick={() => setFiltroActivo('en_pausa')}
-                className="p-3 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-950 transition-colors cursor-pointer"
-              >
-                <div className="text-xs text-muted-foreground">⏸️ En pausa</div>
-                <div className="text-2xl font-bold text-orange-600">{estadisticas.en_pausa}</div>
-              </button>
-              <button
-                onClick={() => setFiltroActivo('liquidados')}
-                className="p-3 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950 transition-colors cursor-pointer"
-              >
-                <div className="text-xs text-muted-foreground">✅ Liquidados</div>
-                <div className="text-2xl font-bold text-purple-600">{estadisticas.liquidados}</div>
-              </button>
-              <button
-                onClick={() => setFiltroActivo('todos')}
-                className="p-3 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-              >
-                <div className="text-xs text-muted-foreground">📊 Total</div>
-                <div className="text-2xl font-bold">{estadisticas.total}</div>
-              </button>
-            </div>
+            {userRole === 'supervisor' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <button
+                  onClick={() => setFiltroActivo('activos')}
+                  className="p-3 rounded-lg hover:bg-primary/10 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">🔥 Activos</div>
+                  <div className="text-2xl font-bold text-primary">{estadisticas.activos}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('en_pausa')}
+                  className="p-3 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-950 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">⏸️ En pausa</div>
+                  <div className="text-2xl font-bold text-orange-600">{estadisticas.en_pausa}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('liquidados')}
+                  className="p-3 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">✅ Liquidados</div>
+                  <div className="text-2xl font-bold text-purple-600">{estadisticas.liquidados}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('todos')}
+                  className="p-3 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">📊 Total</div>
+                  <div className="text-2xl font-bold">{estadisticas.total}</div>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                <button
+                  onClick={() => setFiltroActivo('requiere_accion')}
+                  className="p-3 rounded-lg hover:bg-red-100 dark:hover:bg-red-950 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">🚨 Requiere Acción</div>
+                  <div className="text-2xl font-bold text-red-600">{estadisticas.requiere_accion}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('aprobados')}
+                  className="p-3 rounded-lg hover:bg-green-100 dark:hover:bg-green-950 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">✅ Aprobados</div>
+                  <div className="text-2xl font-bold text-green-600">{estadisticas.aprobados}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('pendientes')}
+                  className="p-3 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-950 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">⏳ Pendientes</div>
+                  <div className="text-2xl font-bold text-orange-600">{estadisticas.pendientes}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('liquidados')}
+                  className="p-3 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950 transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">💜 Liquidados</div>
+                  <div className="text-2xl font-bold text-purple-600">{estadisticas.liquidados}</div>
+                </button>
+                <button
+                  onClick={() => setFiltroActivo('todos')}
+                  className="p-3 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <div className="text-xs text-muted-foreground">📊 Total</div>
+                  <div className="text-2xl font-bold">{estadisticas.total}</div>
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
