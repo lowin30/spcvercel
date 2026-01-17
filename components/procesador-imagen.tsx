@@ -222,6 +222,14 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
       const url = URL.createObjectURL(file)
       setPreviewUrl(url)
 
+      // VALIDACIÓN ESTRICTA: Solo permitir imágenes
+      if (!file.type.startsWith('image/')) {
+        toast.error("Solo se permiten archivos de imagen (JPG, PNG, WebP)")
+        setError("El archivo seleccionado no es una imagen válida.")
+        setPaso('seleccion')
+        return false
+      }
+
       // Cargar imagen en un elemento Image para procesarla con canvas
       const imagenOriginal = new Image()
 
@@ -495,6 +503,10 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
   // Función para analizar imagen con IA
   const analizarImagenConIA = async (file: File) => {
     try {
+      if (!file || !file.type.startsWith('image/')) {
+        console.log("Omitiendo análisis IA: El archivo no es una imagen compatible.");
+        return;
+      }
       setAnalizandoIA(true);
       toast.info("🤖 Analizando comprobante con lA...", { duration: 2000 });
 
@@ -1279,6 +1291,6 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
           </div>
         )}
       </CardContent>
-    </Card>
+    </Card >
   );
 }

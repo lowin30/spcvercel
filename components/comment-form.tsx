@@ -207,7 +207,7 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
             type="file"
             id="foto"
             className="hidden"
-            accept="image/*,video/*"
+            accept="image/*, video/*, .mp4, .mov, .webm, .ogg"
             multiple
             onChange={(e) => setFiles(Array.from(e.target.files || []))}
             disabled={isSubmitting}
