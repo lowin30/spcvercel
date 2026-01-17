@@ -51,3 +51,11 @@ verificar-n8n.md
 
 .env*.local
 .vercel
+
+# Gradle build system
+.gradle/
+
+# Archivos de prueba de IA (solo desarrollo)
+test-gemini.js
+test-groq.js
+groq_models.txt
