@@ -23,6 +23,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "latest",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -61,12 +62,14 @@
     "@types/react-big-calendar": "^1.16.2",
     "chart.js": "latest",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.9.0",
     "clsx": "1.2.1",
     "cmdk": "1.0.4",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
     "embla-carousel-react": "8.5.1",
     "fuse.js": "^7.0.0",
+    "groq-sdk": "^0.37.0",
     "input-otp": "1.4.1",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "latest",
