@@ -4,19 +4,20 @@ import { v2 as cloudinary } from 'cloudinary';
 
 export const maxDuration = 30; // 30 segundos timeout Vercel
 
-// Configuración de Cloudinary Server-Side (usa API Secret del .env)
-cloudinary.config({
-    cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-});
-
 export async function POST(req: NextRequest) {
     try {
+        // Configuración Lazy de Cloudinary (dentro del request para evitar fallos de build)
+        cloudinary.config({
+            cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+            api_key: process.env.CLOUDINARY_API_KEY,
+            api_secret: process.env.CLOUDINARY_API_SECRET
+        });
+
+        // Inicialización Lazy de Groq
+        const groq = new Groq({
+            apiKey: process.env.GROQ_API_KEY,
+        });
+
         const { imagen, imagenUrl } = await req.json();
 
         let finalImageUrl = "";
