@@ -8,7 +8,7 @@ const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET ?? "spc"
 
 const ASSET_TRANSFORMATIONS: Record<"image" | "video", string> = {
   image: "q_auto:eco,w_1200,c_limit,f_auto,fl_progressive,cs_tinysrgb",
-  video: "q_auto:eco,w_720,vc_auto,h_720,c_limit,du_5",
+  video: "q_auto:eco,w_720,vc_auto,h_720,c_limit",
 }
 
 const THUMBNAIL_TRANSFORMATIONS: Record<"image" | "video", string> = {
