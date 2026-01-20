@@ -313,9 +313,9 @@ export function AiChatWidget() {
                                     type="button"
                                     onClick={isRecording ? stopRecording : startRecording}
                                     disabled={isLoading || isTranscribing}
-                                    className={`rounded-xl w-11 h-11 flex items-center justify-center transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
-                                        ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse shadow-red-500/30 ring-2 ring-red-500/20'
-                                        : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 hover:shadow-lg hover:ring-2 hover:ring-gray-500/20'
+                                    className={`rounded-xl w-9 h-9 flex items-center justify-center transition-all duration-300 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
+                                        ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse shadow-red-500/20 ring-2 ring-red-500/20'
+                                        : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 hover:shadow-md hover:ring-2 hover:ring-gray-500/20'
                                         }`}
                                     title="Grabar audio"
                                 >
