@@ -63,13 +63,17 @@ export async function POST(req: Request) {
 
         console.log(`[AI] ✅ Usuario ${userData.email} (${userData.rol}) - Groq API activado`)
 
-        // Stream con Groq usando modelo ACTIVO (3.1 fue descontinuado)
+        // Importar herramientas financieras
+        const { financialTools } = await import('@/lib/ai/tools')
+
+        // Stream con Groq usando modelo ACTIVO + Tool Calling
         const result = await streamText({
             model: groq('llama-3.3-70b-versatile'),
             messages: [
                 { role: 'system', content: systemPrompt },
                 ...messages
             ],
+            tools: userData.rol === 'trabajador' ? {} : financialTools, // Trabajadores no tienen tools
             temperature: 0.7,
         })
 
