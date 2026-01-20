@@ -16,7 +16,7 @@ export const calcularROI = tool({
     parameters: z.object({
         presupuesto_final: z.number().describe('Presupuesto final del proyecto (lo que se cobró al cliente)'),
         gastos_reales: z.number().describe('Gastos reales del proyecto (materiales + mano de obra)'),
-        margen_extra: z.number().optional().describe('Margen extra agregado por admin (opcional)'),
+        margen_extra: z.number().default(0).describe('Margen extra agregado por admin (opcional, default: 0)'),
     }),
     execute: async ({ presupuesto_final, gastos_reales, margen_extra = 0 }) => {
         // Cálculo puro en TypeScript - SIN errores de IA
@@ -121,7 +121,7 @@ export const obtenerResumenProyecto = tool({
 export const calcularLiquidacionSemanal = tool({
     description: 'Calcula la liquidación semanal de un trabajador basado en sus partes de trabajo.',
     parameters: z.object({
-        trabajador_id: z.string().uuid().describe('ID del trabajador'),
+        trabajador_id: z.string().describe('ID del trabajador (UUID)'),
         semana_inicio: z.string().describe('Fecha de inicio de semana (YYYY-MM-DD)'),
         semana_fin: z.string().describe('Fecha de fin de semana (YYYY-MM-DD)'),
     }),
@@ -199,9 +199,9 @@ export const estimarPresupuestoConHistorico = tool({
     description: 'Estima el presupuesto de un trabajo basado en trabajos similares del histórico. Usa embeddings de similitud.',
     parameters: z.object({
         descripcion: z.string().describe('Descripción del trabajo a presupuestar'),
-        tipo_trabajo: z.enum(['plomeria', 'gas', 'pintura', 'albanileria', 'herreria', 'destapacion', 'impermeabilizacion', 'otro']).optional(),
+        tipo_trabajo: z.enum(['plomeria', 'gas', 'pintura', 'albanileria', 'herreria', 'destapacion', 'impermeabilizacion', 'otro']).default('otro').describe('Tipo de trabajo (opcional, default: otro)'),
     }),
-    execute: async ({ descripcion, tipo_trabajo }) => {
+    execute: async ({ descripcion, tipo_trabajo = 'otro' }) => {
         // TODO: Implementar búsqueda con embeddings cuando esté configurado pgvector
         // Por ahora, retornar estimación genérica basada en tipo
 

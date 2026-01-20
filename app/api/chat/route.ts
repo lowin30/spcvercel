@@ -58,33 +58,34 @@ export async function POST(req: Request) {
             })
         }
 
-        // Cargar prompt personalizado o usar default
-        const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
+        // ===== 🎯 CLASIFICACIÓN DE INTENCIÓN CON GROQ (RÁPIDO) =====
+        const lastUserMessage = messages[messages.length - 1]?.content || ''
 
-        console.log(`[AI] ✅ Usuario ${userData.email} (${userData.rol}) - Groq API activado`)
+        console.log('[AI] 🔍 Clasificando intención del mensaje:', lastUserMessage.substring(0, 100))
 
-        // Importar herramientas financieras
-        const { financialTools } = await import('@/lib/ai/tools')
+        const intent = await classifyIntent(lastUserMessage)
 
-        // Stream con Groq usando modelo ACTIVO + Tool Calling
-        const result = await streamText({
-            model: groq('llama-3.3-70b-versatile'),
-            messages: [
-                { role: 'system', content: systemPrompt },
-                ...messages
-            ],
-            tools: userData.rol === 'trabajador' ? {} : financialTools, // Trabajadores no tienen tools
-            temperature: 0.7,
-        })
+        console.log('[AI] 🎯 Intención detectada:', intent)
 
-        return result.toTextStreamResponse()
+        // ===== 🔀 ROUTER: DECIDIR QUÉ MODELO USAR =====
+        const financialIntents = ['financial_calculation', 'budget_validation', 'project_summary']
+
+        if (financialIntents.includes(intent) && userData.rol !== 'trabajador') {
+            // Usar OpenAI para análisis financiero
+            console.log('[AI] 💰 Redirigiendo a OpenAI (análisis financiero)')
+            return await handleFinancialRequest(messages, userData, supabase)
+        } else {
+            // Usar Groq para respuestas rápidas
+            console.log('[AI] ⚡ Usando Groq (respuesta rápida)')
+            return await handleGeneralRequest(messages, userData, supabase)
+        }
 
     } catch (error: any) {
         console.error('[AI] ❌ Error:', error.message)
 
         return new Response(JSON.stringify({
             error: 'Error en el servicio de IA',
-            hint: error.message?.includes('API key') ? 'Verifica tu Groq API key' : 'Intenta de nuevo'
+            hint: error.message?.includes('API key') ? 'Verifica tu API key' : 'Intenta de nuevo'
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
@@ -216,3 +217,92 @@ Responde de forma simple y clara. Usa emojis (✅ ❌ ⏳) para indicar estado.`
             return `Eres un asistente IA para el sistema SPC de gestión de consorcios. Tu rol (${rol}) no está configurado. Responde de forma útil y general.`
     }
 }
+
+// ===== 🎯 CLASIFICACIÓN DE INTENCIÓN CON GROQ =====
+async function classifyIntent(userMessage: string): Promise<string> {
+    try {
+        const classificationPrompt = `Analiza la siguiente pregunta y determina la intención del usuario.
+
+Pregunta: "${userMessage}"
+
+Responde SOLO con UNA palabra (sin JSON, sin explicaciones):
+- financial_calculation (si pide calcular ROI, ganancias, márgenes, análisis numérico)
+- budget_validation (si pregunta si un presupuesto está bien, o quiere validar costos)
+- project_summary (si pide resumen financiero de un proyecto)
+- general_question (preguntas de procedimientos, cómo hacer algo)
+- data_extraction (leer facturas, OCR, extraer datos)
+
+Responde SOLO la categoría, nada más.`
+
+        const result = await streamText({
+            model: groq('llama-3.3-70b-versatile'),
+            messages: [
+                { role: 'system', content: 'Eres un clasificador de intenciones. Responde SOLO con la categoría.' },
+                { role: 'user', content: classificationPrompt }
+            ],
+            temperature: 0.1,
+        })
+
+        let intentText = ''
+        for await (const chunk of result.textStream) {
+            intentText += chunk
+        }
+
+        const detectedIntent = intentText.trim().toLowerCase()
+
+        // Validar que sea una intención válida
+        const validIntents = ['financial_calculation', 'budget_validation', 'project_summary', 'general_question', 'data_extraction']
+
+        if (validIntents.includes(detectedIntent)) {
+            return detectedIntent
+        }
+
+        console.log('[AI] ⚠️ Intención no reconocida, usando default:', detectedIntent)
+        return 'general_question'
+
+    } catch (error) {
+        console.error('[AI] Error en clasificación, usando default:', error)
+        return 'general_question'
+    }
+}
+
+// ===== 💰 HANDLER FINANCIERO (OpenAI) =====
+async function handleFinancialRequest(messages: any[], userData: any, supabase: any) {
+    const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
+
+    const { openai } = await import('@ai-sdk/openai')
+    const { financialTools } = await import('@/lib/ai/tools')
+
+    console.log('[AI] 🤖 OpenAI GPT-4o-mini con herramientas financieras')
+
+    const result = await streamText({
+        model: openai('gpt-4o-mini'),
+        messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages
+        ],
+        tools: financialTools,
+        temperature: 0.2,
+    })
+
+    return result.toTextStreamResponse()
+}
+
+// ===== ⚡ HANDLER GENERAL (Groq) =====
+async function handleGeneralRequest(messages: any[], userData: any, supabase: any) {
+    const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
+
+    console.log('[AI] 🚀 Groq llama-3.3 (respuesta rápida)')
+
+    const result = await streamText({
+        model: groq('llama-3.3-70b-versatile'),
+        messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages
+        ],
+        temperature: 0.7,
+    })
+
+    return result.toTextStreamResponse()
+}
+
