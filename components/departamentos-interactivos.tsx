@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { X, Phone, PlusCircle, Loader2, MessageSquare } from "lucide-react"
+import { X, Phone, PlusCircle, Loader2, MessageSquare, Plus, Star } from "lucide-react"
 import { PhoneActions } from "@/components/phone-actions"
 import { NotasDepartamentoDialog } from "@/components/notas-departamento-dialog"
 import {
@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -23,6 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface Departamento {
   id: string
@@ -61,6 +64,18 @@ export function DepartamentosInteractivos({
   const [userRole, setUserRole] = useState<string | null>(null)
   const [notasDialogOpen, setNotasDialogOpen] = useState(false)
   const [departamentoNotasActivo, setDepartamentoNotasActivo] = useState<{ id: number; codigo: string } | null>(null)
+  
+  // Estados para crear nuevo departamento
+  const [crearDepartamentoDialogOpen, setCrearDepartamentoDialogOpen] = useState(false)
+  const [nuevoDepartamento, setNuevoDepartamento] = useState({ codigo: "", notas: "" })
+  const [creandoDepartamento, setCreandoDepartamento] = useState(false)
+  const [telefonosNuevos, setTelefonosNuevos] = useState<{
+    nombre_contacto: string;
+    relacion: string;
+    numero: string;
+    es_principal: boolean;
+    notas: string;
+  }[]>([{ nombre_contacto: '', relacion: '', numero: '', es_principal: true, notas: '' }])
   
   // Cargar rol de usuario
   useEffect(() => {
@@ -176,6 +191,124 @@ export function DepartamentosInteractivos({
     cargarDepartamentosTarea()
   }, [tareaId, edificioId])
   
+  // Funciones para gestionar teléfonos del nuevo departamento
+  const agregarTelefonoNuevo = () => {
+    setTelefonosNuevos([...telefonosNuevos, { 
+      nombre_contacto: '', 
+      relacion: '', 
+      numero: '', 
+      es_principal: false, 
+      notas: '' 
+    }]);
+  };
+  
+  const actualizarTelefonoNuevo = (index: number, campo: string, valor: any) => {
+    const nuevos = [...telefonosNuevos];
+    (nuevos[index] as any)[campo] = valor;
+    setTelefonosNuevos(nuevos);
+  };
+  
+  const eliminarTelefonoNuevo = (index: number) => {
+    setTelefonosNuevos(telefonosNuevos.filter((_, i) => i !== index));
+  };
+  
+  // Función para crear un nuevo departamento
+  const crearNuevoDepartamento = async () => {
+    if (!nuevoDepartamento.codigo || !edificioId) return;
+    
+    setCreandoDepartamento(true);
+    const supabase = createClient();
+    
+    try {
+      // Verificar si ya existe
+      const { data: existingDepts, error: checkError } = await supabase
+        .from("departamentos")
+        .select("id, codigo")
+        .eq("edificio_id", edificioId);
+      
+      if (checkError) throw checkError;
+      
+      const codigoDuplicado = existingDepts?.find(
+        dept => dept.codigo.toLowerCase() === nuevoDepartamento.codigo.toLowerCase()
+      );
+      
+      if (codigoDuplicado) {
+        toast({
+          title: "Error",
+          description: `Ya existe un departamento con el código "${codigoDuplicado.codigo}" en este edificio.`,
+          variant: "destructive"
+        });
+        setCreandoDepartamento(false);
+        return;
+      }
+      
+      // Crear departamento
+      const { data: nuevoDep, error: createError } = await supabase
+        .from("departamentos")
+        .insert({
+          edificio_id: edificioId,
+          codigo: nuevoDepartamento.codigo,
+          notas: nuevoDepartamento.notas || null
+        })
+        .select()
+        .single();
+      
+      if (createError) throw createError;
+      
+      // Crear teléfonos asociados
+      const telefonosValidos = telefonosNuevos.filter(tel => 
+        tel.numero.trim() || tel.nombre_contacto.trim()
+      );
+      
+      if (telefonosValidos.length > 0 && nuevoDep) {
+        const telefonosParaInsertar = telefonosValidos.map(tel => ({
+          departamento_id: nuevoDep.id,
+          nombre_contacto: tel.nombre_contacto.trim() || '',
+          relacion: tel.relacion.trim() || '',
+          numero: tel.numero.replace(/\D/g, ''),
+          es_principal: tel.es_principal,
+          notas: tel.notas.trim() || ''
+        }));
+        
+        const { error: telefonosError } = await supabase
+          .from("telefonos_departamento")
+          .insert(telefonosParaInsertar);
+        
+        if (telefonosError) throw telefonosError;
+      }
+      
+      toast({
+        title: "Éxito",
+        description: `Departamento ${nuevoDepartamento.codigo} creado correctamente${telefonosValidos.length > 0 ? ` con ${telefonosValidos.length} teléfono(s)` : ''}`
+      });
+      
+      // Actualizar lista de departamentos disponibles
+      const { data: todosLosDepartamentos } = await supabase
+        .from("departamentos")
+        .select("id, codigo, propietario")
+        .eq("edificio_id", edificioId);
+      
+      if (todosLosDepartamentos) {
+        setDepartamentosDisponibles(todosLosDepartamentos);
+      }
+      
+      // Resetear y cerrar
+      setNuevoDepartamento({ codigo: "", notas: "" });
+      setTelefonosNuevos([{ nombre_contacto: '', relacion: '', numero: '', es_principal: true, notas: '' }]);
+      setCrearDepartamentoDialogOpen(false);
+      
+    } catch (error: any) {
+      console.error("Error al crear departamento:", error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear el departamento",
+        variant: "destructive"
+      });
+    } finally {
+      setCreandoDepartamento(false);
+    }
+  };
+  
   // Función para agregar un departamento a la tarea
   const agregarDepartamento = async () => {
     if (!departamentoSeleccionado || !tareaId) return
@@ -184,34 +317,27 @@ export function DepartamentosInteractivos({
     const supabase = createClient()
     
     try {
-      // Verificar si la relación ya existe
-      const { data: existingRel } = await supabase
-        .from("departamentos_tareas")
-        .select("id")
-        .eq("id_tarea", tareaId)
-        .eq("id_departamento", departamentoSeleccionado)
-        .maybeSingle()
+      // Usar función RPC con SECURITY DEFINER para evitar problemas de RLS
+      const { data: resultado, error: rpcError } = await supabase.rpc(
+        'agregar_departamento_tarea',
+        { 
+          p_tarea_id: tareaId, 
+          p_departamento_id: Number(departamentoSeleccionado)
+        }
+      )
       
-      if (existingRel) {
-        toast({
-          title: "Información",
-          description: "Este departamento ya está asociado a la tarea."
-        })
-        setDialogOpen(false)
-        setIsUpdating(false)
-        return
-      }
-      
-      // Insertar nueva relación
-      const { error: insertError } = await supabase
-        .from("departamentos_tareas")
-        .insert({
-          id_tarea: tareaId,
-          id_departamento: Number(departamentoSeleccionado)
-        })
-      
-      if (insertError) {
-        throw insertError
+      if (rpcError) {
+        // Si el error es que ya existe, mostrar mensaje informativo
+        if (rpcError.message.includes('ya está asociado')) {
+          toast({
+            title: "Información",
+            description: "Este departamento ya está asociado a la tarea."
+          })
+          setDialogOpen(false)
+          setIsUpdating(false)
+          return
+        }
+        throw rpcError
       }
       
       // Obtener datos del departamento para actualizar UI
@@ -461,48 +587,215 @@ export function DepartamentosInteractivos({
       <div className={`space-y-2 ${className}`}>
         <div className="text-sm text-muted-foreground">No hay departamentos asignados</div>
         
-        {/* Mostrar botón solo si es admin */}
+        {/* Mostrar botones solo si es admin */}
         {userRole === "admin" && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="mt-1">
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Añadir departamento
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Añadir departamento</DialogTitle>
-                <DialogDescription>
-                  Selecciona un departamento para añadir a esta tarea.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <Select
-                  value={departamentoSeleccionado || ''}
-                  onValueChange={(value) => setDepartamentoSeleccionado(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar departamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departamentosDisponibles.map((dep) => (
-                      <SelectItem key={dep.id} value={dep.id}>
-                        {dep.codigo} {dep.propietario ? `(${dep.propietario})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <div className="flex justify-end">
-                  <Button onClick={agregarDepartamento} disabled={!departamentoSeleccionado || isUpdating}>
-                    {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Añadir
-                  </Button>
+          <div className="flex gap-2 mt-2">
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Añadir Existente
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Añadir departamento</DialogTitle>
+                  <DialogDescription>
+                    Selecciona un departamento para añadir a esta tarea.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <Select
+                    value={departamentoSeleccionado || ''}
+                    onValueChange={(value) => setDepartamentoSeleccionado(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar departamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departamentosDisponibles.map((dep) => (
+                        <SelectItem key={dep.id} value={dep.id}>
+                          {dep.codigo} {dep.propietario ? `(${dep.propietario})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <div className="flex justify-end">
+                    <Button onClick={agregarDepartamento} disabled={!departamentoSeleccionado || isUpdating}>
+                      {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Añadir
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog open={crearDepartamentoDialogOpen} onOpenChange={setCrearDepartamentoDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear Nuevo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Crear Nuevo Departamento</DialogTitle>
+                  <DialogDescription>
+                    Complete los datos para crear un nuevo departamento en el edificio
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="codigo-new">Código</Label>
+                    <Input 
+                      id="codigo-new" 
+                      value={nuevoDepartamento.codigo} 
+                      onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, codigo: e.target.value})}
+                      placeholder="Ej: 1A, 2B, PB"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="notas-new">Notas</Label>
+                    <Input 
+                      id="notas-new" 
+                      value={nuevoDepartamento.notas} 
+                      onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, notas: e.target.value})}
+                      placeholder="Información adicional"
+                    />
+                  </div>
+                  
+                  {/* Sección de teléfonos */}
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-semibold flex items-center">
+                        <Phone className="mr-2 h-4 w-4" />
+                        Teléfonos de contacto
+                      </Label>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={agregarTelefonoNuevo}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Añadir teléfono
+                      </Button>
+                    </div>
+                    
+                    {telefonosNuevos.map((telefono, index) => (
+                      <div key={index} className="p-3 border rounded-md bg-muted/20 space-y-3">
+                        <div className="grid grid-cols-1 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label htmlFor={`tel-nombre-new-${index}`} className="text-sm">Nombre del contacto</Label>
+                              <Input 
+                                id={`tel-nombre-new-${index}`}
+                                value={telefono.nombre_contacto} 
+                                onChange={(e) => actualizarTelefonoNuevo(index, 'nombre_contacto', e.target.value)}
+                                placeholder="Ej: Juan Pérez"
+                                className="h-8"
+                              />
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label htmlFor={`tel-relacion-new-${index}`} className="text-sm">Relación</Label>
+                              <Input 
+                                id={`tel-relacion-new-${index}`}
+                                value={telefono.relacion} 
+                                onChange={(e) => actualizarTelefonoNuevo(index, 'relacion', e.target.value)}
+                                placeholder="Ej: Propietario, Encargado"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label htmlFor={`tel-numero-new-${index}`} className="text-sm">Número</Label>
+                              <Input 
+                                id={`tel-numero-new-${index}`}
+                                value={telefono.numero} 
+                                onChange={(e) => actualizarTelefonoNuevo(index, 'numero', e.target.value.replace(/\D/g, ''))}
+                                placeholder="Solo números (ej: 5491150055262)"
+                                className="h-8"
+                              />
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label htmlFor={`tel-notas-new-${index}`} className="text-sm">Notas</Label>
+                              <Input 
+                                id={`tel-notas-new-${index}`}
+                                value={telefono.notas} 
+                                onChange={(e) => actualizarTelefonoNuevo(index, 'notas', e.target.value)}
+                                placeholder="Información adicional"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`tel-principal-new-${index}`}
+                              checked={telefono.es_principal}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  const nuevosTelefonos = telefonosNuevos.map((t, i) => ({
+                                    ...t,
+                                    es_principal: i === index
+                                  }));
+                                  setTelefonosNuevos(nuevosTelefonos);
+                                } else {
+                                  actualizarTelefonoNuevo(index, 'es_principal', false);
+                                }
+                              }}
+                              className="rounded"
+                            />
+                            <Label htmlFor={`tel-principal-new-${index}`} className="text-sm flex items-center">
+                              <Star className="h-3 w-3 mr-1 text-amber-500" />
+                              Teléfono principal
+                            </Label>
+                          </div>
+                          
+                          {telefonosNuevos.length > 1 && (
+                            <Button 
+                              type="button" 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => eliminarTelefonoNuevo(index)}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Eliminar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <DialogFooter>
+                    <Button 
+                      type="button" 
+                      disabled={!nuevoDepartamento.codigo.trim() || creandoDepartamento} 
+                      onClick={crearNuevoDepartamento}
+                    >
+                      {creandoDepartamento ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creando...
+                        </>
+                      ) : "Crear departamento"}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         )}
       </div>
     )
@@ -543,14 +836,15 @@ export function DepartamentosInteractivos({
           </Badge>
         ))}
         
-        {/* Botón para añadir más (solo para admin) */}
+        {/* Botones para añadir existente o crear nuevo (solo para admin) */}
         {userRole === "admin" && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-6 px-2">
-                <PlusCircle className="h-3 w-3 mr-1" /> Añadir
-              </Button>
-            </DialogTrigger>
+          <>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-6 px-2">
+                  <PlusCircle className="h-3 w-3 mr-1" /> Añadir
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Añadir departamento</DialogTitle>
@@ -587,6 +881,171 @@ export function DepartamentosInteractivos({
               </div>
             </DialogContent>
           </Dialog>
+          
+          <Dialog open={crearDepartamentoDialogOpen} onOpenChange={setCrearDepartamentoDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="h-6 px-2">
+                <Plus className="h-3 w-3 mr-1" /> Crear Nuevo
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Departamento</DialogTitle>
+                <DialogDescription>
+                  Complete los datos para crear un nuevo departamento en el edificio
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="codigo">Código</Label>
+                  <Input 
+                    id="codigo" 
+                    value={nuevoDepartamento.codigo} 
+                    onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, codigo: e.target.value})}
+                    placeholder="Ej: 1A, 2B, PB"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="notas">Notas</Label>
+                  <Input 
+                    id="notas" 
+                    value={nuevoDepartamento.notas} 
+                    onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, notas: e.target.value})}
+                    placeholder="Información adicional"
+                  />
+                </div>
+                
+                {/* Sección de teléfonos */}
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold flex items-center">
+                      <Phone className="mr-2 h-4 w-4" />
+                      Teléfonos de contacto
+                    </Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={agregarTelefonoNuevo}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Añadir teléfono
+                    </Button>
+                  </div>
+                  
+                  {telefonosNuevos.map((telefono, index) => (
+                    <div key={index} className="p-3 border rounded-md bg-muted/20 space-y-3">
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label htmlFor={`telefono-nombre-${index}`} className="text-sm">Nombre del contacto</Label>
+                            <Input 
+                              id={`telefono-nombre-${index}`}
+                              value={telefono.nombre_contacto} 
+                              onChange={(e) => actualizarTelefonoNuevo(index, 'nombre_contacto', e.target.value)}
+                              placeholder="Ej: Juan Pérez"
+                              className="h-8"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label htmlFor={`telefono-relacion-${index}`} className="text-sm">Relación</Label>
+                            <Input 
+                              id={`telefono-relacion-${index}`}
+                              value={telefono.relacion} 
+                              onChange={(e) => actualizarTelefonoNuevo(index, 'relacion', e.target.value)}
+                              placeholder="Ej: Propietario, Encargado"
+                              className="h-8"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label htmlFor={`telefono-numero-${index}`} className="text-sm">Número</Label>
+                            <Input 
+                              id={`telefono-numero-${index}`}
+                              value={telefono.numero} 
+                              onChange={(e) => actualizarTelefonoNuevo(index, 'numero', e.target.value.replace(/\D/g, ''))}
+                              placeholder="Solo números (ej: 5491150055262)"
+                              className="h-8"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label htmlFor={`telefono-notas-${index}`} className="text-sm">Notas</Label>
+                            <Input 
+                              id={`telefono-notas-${index}`}
+                              value={telefono.notas} 
+                              onChange={(e) => actualizarTelefonoNuevo(index, 'notas', e.target.value)}
+                              placeholder="Información adicional"
+                              className="h-8"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`telefono-principal-${index}`}
+                            checked={telefono.es_principal}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const nuevosTelefonos = telefonosNuevos.map((t, i) => ({
+                                  ...t,
+                                  es_principal: i === index
+                                }));
+                                setTelefonosNuevos(nuevosTelefonos);
+                              } else {
+                                actualizarTelefonoNuevo(index, 'es_principal', false);
+                              }
+                            }}
+                            className="rounded"
+                          />
+                          <Label htmlFor={`telefono-principal-${index}`} className="text-sm flex items-center">
+                            <Star className="h-3 w-3 mr-1 text-amber-500" />
+                            Teléfono principal
+                          </Label>
+                        </div>
+                        
+                        {telefonosNuevos.length > 1 && (
+                          <Button 
+                            type="button" 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => eliminarTelefonoNuevo(index)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Eliminar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <DialogFooter>
+                  <Button 
+                    type="button" 
+                    disabled={!nuevoDepartamento.codigo.trim() || creandoDepartamento} 
+                    onClick={crearNuevoDepartamento}
+                  >
+                    {creandoDepartamento ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creando...
+                      </>
+                    ) : "Crear departamento"}
+                  </Button>
+                </DialogFooter>
+              </div>
+            </DialogContent>
+          </Dialog>
+          </>
         )}
       </div>
       

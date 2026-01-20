@@ -458,7 +458,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       
       // Si hay comentarios, obtener información de usuarios
       if (comentariosData.length > 0) {
-        const userIds = [...new Set(comentariosData.map((c: any) => c.id_usuario))]
+        const userIds = [...new Set(comentariosData.map((c: any) => c.id_usuario))].filter(id => id)
         
         // Obtener datos de usuarios relacionados
         let usuariosResponse;
