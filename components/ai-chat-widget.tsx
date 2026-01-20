@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Bot, Send, Mic, MicOff, Loader2, X } from "lucide-react"
 import { usePathname } from "next/navigation"
 
 export function AiChatWidget() {
     const [isOpen, setIsOpen] = useState(false)
+    const [isMounted, setIsMounted] = useState(false)
     const pathname = usePathname()
     const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -26,6 +26,11 @@ export function AiChatWidget() {
     const [isTranscribing, setIsTranscribing] = useState(false)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
+
+    // Fix hydration: solo renderizar después de montar
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     // Enviar mensaje de texto
     const handleSubmit = async (e: React.FormEvent) => {
@@ -158,7 +163,8 @@ export function AiChatWidget() {
         }
     }, [messages])
 
-    if (shouldHide) return null
+    // No renderizar hasta que esté montado en el cliente (fix hydration)
+    if (!isMounted || shouldHide) return null
 
     return (
         <>
@@ -166,52 +172,69 @@ export function AiChatWidget() {
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="fixed bottom-4 right-4 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all"
+                    className="fixed bottom-4 right-4 z-50 w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full shadow-xl hover:shadow-2xl hover:shadow-blue-500/30 flex items-center justify-center transition-all duration-300 transform hover:scale-110 active:scale-95"
                     aria-label="Abrir chat IA"
                 >
                     <Bot className="w-6 h-6" />
                 </button>
             )}
 
-            {/* Chat widget - MINIMALISTA MÓVIL */}
+            {/* Chat widget - MODERNO */}
             {isOpen && (
-                <div className="fixed bottom-0 right-0 z-50 w-full md:w-96 md:bottom-4 md:right-4 h-[100dvh] md:h-[600px] bg-white dark:bg-gray-900 shadow-2xl md:rounded-2xl border border-gray-200 dark:border-gray-800 flex flex-col">
-                    {/* Header compacto */}
-                    <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                        <div className="flex items-center gap-2">
-                            <Bot className="w-5 h-5" />
-                            <span className="font-semibold text-sm">Asistente SPC</span>
+                <div className="fixed bottom-0 right-0 z-50 w-full md:w-96 md:bottom-4 md:right-4 h-[100dvh] md:h-[600px] bg-white dark:bg-gray-900 shadow-2xl md:rounded-3xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
+                    {/* Header moderno con gradiente */}
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-600 text-white relative overflow-hidden">
+                        {/* Background pattern */}
+                        <div className="absolute inset-0 opacity-10">
+                            <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+                            <div className="absolute bottom-0 right-0 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5 relative z-10">
+                            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <Bot className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <span className="font-semibold text-sm block">Asistente SPC</span>
+                                <span className="text-xs opacity-90">Powered by AI</span>
+                            </div>
                         </div>
                         <button
                             onClick={() => setIsOpen(false)}
-                            className="hover:bg-blue-800 rounded-full p-1 transition-colors"
+                            className="hover:bg-white/20 rounded-xl p-2 transition-colors relative z-10 backdrop-blur-sm"
                         >
                             <X className="w-5 h-5" />
                         </button>
                     </div>
 
                     {/* Mensajes */}
-                    <ScrollArea className="flex-1 p-3" ref={scrollRef}>
+                    <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-950" ref={scrollRef}>
                         {messages.length === 0 && (
-                            <div className="text-center text-gray-500 dark:text-gray-400 mt-8 px-4">
-                                <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                <p className="text-sm">¡Hola! Soy tu asistente de SPC.</p>
-                                <p className="text-xs mt-1">Pregúntame sobre proyectos, liquidaciones o finanzas.</p>
+                            <div className="text-center text-gray-500 dark:text-gray-400 mt-12 px-4">
+                                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                    <Bot className="w-9 h-9 text-white" />
+                                </div>
+                                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">¡Hola! Soy tu asistente inteligente</p>
+                                <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">Pregúntame sobre proyectos, liquidaciones o finanzas.</p>
+                                <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full">
+                                    <Mic className="w-3 h-3" />
+                                    <span>Puedes escribir o grabar tu mensaje</span>
+                                </div>
                             </div>
                         )}
 
                         {messages.map((message) => (
                             <div
                                 key={message.id}
-                                className={`flex gap-2 mb-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                className={`flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                             >
                                 <div
-                                    className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${message.role === 'user'
-                                            ? 'bg-blue-600 text-white rounded-br-sm'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-sm'
+                                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${message.role === 'user'
+                                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-md shadow-blue-500/20'
+                                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md border border-gray-200 dark:border-gray-700'
                                         }`}
                                 >
-                                    <div className="whitespace-pre-wrap break-words">
+                                    <div className="whitespace-pre-wrap break-words font-medium">
                                         {message.content}
                                     </div>
                                 </div>
@@ -219,69 +242,104 @@ export function AiChatWidget() {
                         ))}
 
                         {isLoading && (
-                            <div className="flex gap-2 mb-3">
-                                <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-3 py-2 rounded-bl-sm">
-                                    <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                            <div className="flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">Pensando...</span>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {error && (
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-3">
-                                <p className="text-xs text-red-800 dark:text-red-300">{error.message}</p>
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <p className="text-xs text-red-800 dark:text-red-300 font-medium">{error.message}</p>
                             </div>
                         )}
                     </ScrollArea>
 
-                    {/* Input compacto con audio */}
-                    <form onSubmit={handleSubmit} className="p-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+                    {/* Input mejorado - MULTI-LÍNEA + MODERNO */}
+                    <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-b from-gray-50/80 to-white/80 dark:from-gray-900/80 dark:to-gray-950/80 backdrop-blur-sm">
                         {isTranscribing && (
-                            <div className="mb-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                Transcribiendo audio...
+                            <div className="mb-2.5 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5 font-semibold animate-in fade-in slide-in-from-top-1 duration-300">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span className="animate-pulse">Transcribiendo audio...</span>
                             </div>
                         )}
 
-                        <div className="flex gap-2">
-                            <Input
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Escribe o graba un mensaje..."
-                                disabled={isLoading || isRecording || isTranscribing}
-                                className="flex-1 text-sm border-gray-300 dark:border-gray-700 rounded-full"
-                            />
+                        <div className="flex gap-2.5 items-end">
+                            {/* Textarea multi-línea moderna */}
+                            <div className="flex-1 relative group">
+                                <textarea
+                                    value={input}
+                                    onChange={(e) => {
+                                        setInput(e.target.value)
+                                        // Auto-resize textarea
+                                        e.target.style.height = 'auto'
+                                        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
+                                    }}
+                                    onKeyDown={(e) => {
+                                        // Enviar con Enter (sin Shift)
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault()
+                                            handleSubmit(e as any)
+                                        }
+                                    }}
+                                    placeholder="Escribe tu consulta o graba un mensaje..."
+                                    disabled={isLoading || isRecording || isTranscribing}
+                                    rows={1}
+                                    className="w-full resize-none text-sm px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed max-h-[120px] overflow-y-auto leading-relaxed shadow-sm focus:shadow-md"
+                                    style={{
+                                        scrollbarWidth: 'thin',
+                                        scrollbarColor: 'rgb(156 163 175) transparent',
+                                        minHeight: '52px'
+                                    }}
+                                />
+                                {/* Indicador de caracteres */}
+                                {input.length > 50 && (
+                                    <div className="absolute bottom-2 right-3 text-[10px] text-gray-400 dark:text-gray-600 font-mono bg-white/80 dark:bg-gray-800/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                                        {input.length}
+                                    </div>
+                                )}
+                                {/* Glow effect on focus */}
+                                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                            </div>
 
-                            {/* Botón de audio */}
-                            <Button
+                            {/* Botón de audio - MEJORADO */}
+                            <button
                                 type="button"
-                                size="icon"
                                 onClick={isRecording ? stopRecording : startRecording}
                                 disabled={isLoading || isTranscribing}
-                                className={`rounded-full w-10 h-10 ${isRecording
-                                        ? 'bg-red-600 hover:bg-red-700 animate-pulse'
-                                        : 'bg-gray-600 hover:bg-gray-700'
+                                className={`rounded-2xl min-w-[52px] h-[52px] flex items-center justify-center transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
+                                    ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse shadow-red-500/40 ring-4 ring-red-500/20'
+                                    : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 hover:shadow-xl hover:ring-4 hover:ring-gray-500/20'
                                     }`}
                             >
                                 {isRecording ? (
-                                    <MicOff className="w-5 h-5" />
+                                    <MicOff className="w-5 h-5 text-white" />
                                 ) : (
-                                    <Mic className="w-5 h-5" />
+                                    <Mic className="w-5 h-5 text-white" />
                                 )}
-                            </Button>
+                            </button>
 
-                            {/* Botón de enviar */}
-                            <Button
+                            {/* Botón de enviar - MEJORADO */}
+                            <button
                                 type="submit"
-                                size="icon"
                                 disabled={!input.trim() || isLoading || isRecording}
-                                className="rounded-full bg-blue-600 hover:bg-blue-700 w-10 h-10"
+                                className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 min-w-[52px] h-[52px] flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 hover:ring-4 hover:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform active:scale-95 disabled:transform-none"
                             >
                                 {isLoading ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-5 h-5 animate-spin text-white" />
                                 ) : (
-                                    <Send className="w-5 h-5" />
+                                    <Send className="w-5 h-5 text-white" />
                                 )}
-                            </Button>
+                            </button>
+                        </div>
+
+                        {/* Hint de Enter para enviar */}
+                        <div className="mt-2.5 text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium">
+                            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 shadow-sm">Enter</kbd> enviar • <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 shadow-sm">Shift+Enter</kbd> nueva línea
                         </div>
                     </form>
                 </div>
