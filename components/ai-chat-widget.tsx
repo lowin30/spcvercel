@@ -192,7 +192,7 @@ export function AiChatWidget() {
 
                         <div className="flex items-center gap-2.5 relative z-10">
                             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                                <Bot className="w-5 h-5" />
+                                <Bot className="w-4.5 h-4.5" />
                             </div>
                             <div>
                                 <span className="font-semibold text-sm block">Asistente SPC</span>
@@ -203,7 +203,7 @@ export function AiChatWidget() {
                             onClick={() => setIsOpen(false)}
                             className="hover:bg-white/20 rounded-xl p-2 transition-colors relative z-10 backdrop-blur-sm"
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4.5 h-4.5" />
                         </button>
                     </div>
 
@@ -268,7 +268,7 @@ export function AiChatWidget() {
                             </div>
                         )}
 
-                        <div className="flex gap-2.5 items-end">
+                        <div className="flex gap-2.5 items-start">
                             {/* Textarea multi-línea moderna */}
                             <div className="flex-1 relative group">
                                 <textarea
@@ -311,15 +311,15 @@ export function AiChatWidget() {
                                 type="button"
                                 onClick={isRecording ? stopRecording : startRecording}
                                 disabled={isLoading || isTranscribing}
-                                className={`rounded-2xl min-w-[52px] h-[52px] flex items-center justify-center transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
+                                className={`rounded-2xl w-11 h-11 flex items-center justify-center transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
                                     ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse shadow-red-500/40 ring-4 ring-red-500/20'
                                     : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 hover:shadow-xl hover:ring-4 hover:ring-gray-500/20'
                                     }`}
                             >
                                 {isRecording ? (
-                                    <MicOff className="w-5 h-5 text-white" />
+                                    <MicOff className="w-4.5 h-4.5 text-white" />
                                 ) : (
-                                    <Mic className="w-5 h-5 text-white" />
+                                    <Mic className="w-4.5 h-4.5 text-white" />
                                 )}
                             </button>
 
@@ -327,12 +327,12 @@ export function AiChatWidget() {
                             <button
                                 type="submit"
                                 disabled={!input.trim() || isLoading || isRecording}
-                                className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 min-w-[52px] h-[52px] flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 hover:ring-4 hover:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform active:scale-95 disabled:transform-none"
+                                className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 w-11 h-11 flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 hover:ring-4 hover:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform active:scale-95 disabled:transform-none"
                             >
                                 {isLoading ? (
-                                    <Loader2 className="w-5 h-5 animate-spin text-white" />
+                                    <Loader2 className="w-4.5 h-4.5 animate-spin text-white" />
                                 ) : (
-                                    <Send className="w-5 h-5 text-white" />
+                                    <Send className="w-4.5 h-4.5 text-white" />
                                 )}
                             </button>
                         </div>
@@ -347,3 +347,5 @@ export function AiChatWidget() {
         </>
     )
 }
+
+
