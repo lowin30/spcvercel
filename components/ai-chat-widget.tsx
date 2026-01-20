@@ -289,11 +289,11 @@ export function AiChatWidget() {
                                     placeholder="Escribe tu consulta o graba un mensaje..."
                                     disabled={isLoading || isRecording || isTranscribing}
                                     rows={1}
-                                    className="w-full resize-none text-sm px-4 py-3.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed max-h-[120px] overflow-y-auto leading-relaxed shadow-sm focus:shadow-md"
+                                    className="w-full resize-none text-xs px-3.5 py-2.5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed max-h-[120px] overflow-y-auto leading-relaxed shadow-sm focus:shadow-md"
                                     style={{
                                         scrollbarWidth: 'thin',
                                         scrollbarColor: 'rgb(156 163 175) transparent',
-                                        minHeight: '52px'
+                                        minHeight: '40px'
                                     }}
                                 />
                                 {/* Indicador de caracteres */}
@@ -306,35 +306,40 @@ export function AiChatWidget() {
                                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-blue-500/0 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
                             </div>
 
-                            {/* Botón de audio - MEJORADO */}
-                            <button
-                                type="button"
-                                onClick={isRecording ? stopRecording : startRecording}
-                                disabled={isLoading || isTranscribing}
-                                className={`rounded-2xl w-11 h-11 flex items-center justify-center transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
-                                    ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse shadow-red-500/40 ring-4 ring-red-500/20'
-                                    : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 hover:shadow-xl hover:ring-4 hover:ring-gray-500/20'
-                                    }`}
-                            >
-                                {isRecording ? (
-                                    <MicOff className="w-4.5 h-4.5 text-white" />
-                                ) : (
-                                    <Mic className="w-4.5 h-4.5 text-white" />
-                                )}
-                            </button>
+                            {/* Botones apilados verticalmente - COMPACTOS */}
+                            <div className="flex flex-col gap-2">
+                                {/* Botón de audio */}
+                                <button
+                                    type="button"
+                                    onClick={isRecording ? stopRecording : startRecording}
+                                    disabled={isLoading || isTranscribing}
+                                    className={`rounded-xl w-11 h-11 flex items-center justify-center transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 ${isRecording
+                                        ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse shadow-red-500/30 ring-2 ring-red-500/20'
+                                        : 'bg-gradient-to-br from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 hover:shadow-lg hover:ring-2 hover:ring-gray-500/20'
+                                        }`}
+                                    title="Grabar audio"
+                                >
+                                    {isRecording ? (
+                                        <MicOff className="w-4 h-4 text-white" />
+                                    ) : (
+                                        <Mic className="w-4 h-4 text-white" />
+                                    )}
+                                </button>
 
-                            {/* Botón de enviar - MEJORADO */}
-                            <button
-                                type="submit"
-                                disabled={!input.trim() || isLoading || isRecording}
-                                className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 w-11 h-11 flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 hover:ring-4 hover:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform active:scale-95 disabled:transform-none"
-                            >
-                                {isLoading ? (
-                                    <Loader2 className="w-4.5 h-4.5 animate-spin text-white" />
-                                ) : (
-                                    <Send className="w-4.5 h-4.5 text-white" />
-                                )}
-                            </button>
+                                {/* Botón de enviar */}
+                                <button
+                                    type="submit"
+                                    disabled={!input.trim() || isLoading || isRecording}
+                                    className="rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 w-9 h-9 flex items-center justify-center transition-all duration-300 shadow-sm hover:shadow-md hover:shadow-blue-500/20 hover:ring-2 hover:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transform active:scale-95 disabled:transform-none"
+                                    title="Enviar mensaje"
+                                >
+                                    {isLoading ? (
+                                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                    ) : (
+                                        <Send className="w-4 h-4 text-white" />
+                                    )}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Hint de Enter para enviar */}
