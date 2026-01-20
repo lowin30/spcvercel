@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Database, Shield, Palette, UserCheck, Users, Package, Tag, Users2, ActivitySquare, Cloud } from "lucide-react"
+import { Settings, Database, Shield, Palette, UserCheck, Users, Package, Tag, Users2, ActivitySquare, Cloud, Cpu } from "lucide-react"
 import { UserRoleManager } from "@/components/user-role-manager"
 import { ConfigurarTrabajadorForm } from "@/components/configurar-trabajador-form"
 import { EditarTrabajadorForm } from "@/components/editar-trabajador-form"
@@ -17,6 +17,7 @@ import { AdministradoresTab } from "@/components/administradores-tab"
 import { EstadosTab } from "@/components/estados-tab"
 import { AparienciaTab } from "@/components/apariencia-tab"
 import { CloudinaryDashboard } from "@/components/cloudinary-dashboard-simple"
+import { PromptsManager } from "@/components/admin/prompts-manager"
 
 interface ConfiguracionTabsProps {
   trabajadores: any[]
@@ -29,10 +30,10 @@ interface ConfiguracionTabsProps {
   estadosFacturas?: any[]
 }
 
-export default function ConfiguracionTabs({ 
-  trabajadores, 
-  combinedUsers, 
-  productos = [], 
+export default function ConfiguracionTabs({
+  trabajadores,
+  combinedUsers,
+  productos = [],
   categorias = [],
   administradores = [],
   estadosTareas = [],
@@ -43,7 +44,7 @@ export default function ConfiguracionTabs({
   const [editMode, setEditMode] = useState(false)
   const [editTrabajadorId, setEditTrabajadorId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("usuarios")
-  
+
   useEffect(() => {
     // Detectar si venimos de una edición exitosa para forzar recarga
     const refresh = searchParams.get('refresh')
@@ -53,18 +54,18 @@ export default function ConfiguracionTabs({
       window.location.href = `/dashboard/configuracion?tab=${tabParam}`
       return
     }
-    
+
     // Leer el tab de los parámetros de búsqueda
     const tabParam = searchParams.get('tab')
     if (tabParam) {
       setActiveTab(tabParam)
     }
-    
+
     // Verificar si estamos en modo edición o vista
     const editId = searchParams.get('edit')
     const viewId = searchParams.get('view')
     const liquidacionesId = searchParams.get('liquidaciones')
-    
+
     if (editId) {
       setEditMode(true)
       setEditTrabajadorId(editId)
@@ -97,45 +98,50 @@ export default function ConfiguracionTabs({
               <Shield className="h-4 w-4" />
               <span>Usuarios y Roles</span>
             </SelectItem>
-          
+
             <SelectItem value="trabajadores" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
               <span>Trabajadores</span>
             </SelectItem>
-          
+
             <SelectItem value="sistema" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               <span>Sistema</span>
             </SelectItem>
-          
+
             <SelectItem value="apariencia" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
               <span>Apariencia</span>
             </SelectItem>
-          
+
             <SelectItem value="productos" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               <span>Productos</span>
             </SelectItem>
-          
+
             <SelectItem value="categorias" className="flex items-center gap-2">
               <Tag className="h-4 w-4" />
               <span>Categorías</span>
             </SelectItem>
-          
+
             <SelectItem value="administradores" className="flex items-center gap-2">
               <Users2 className="h-4 w-4" />
               <span>Administradores</span>
             </SelectItem>
-          
+
             <SelectItem value="estados" className="flex items-center gap-2">
               <ActivitySquare className="h-4 w-4" />
               <span>Estados</span>
             </SelectItem>
-          
+
             <SelectItem value="cloudinary" className="flex items-center gap-2">
               <Cloud className="h-4 w-4" />
               <span>Cloudinary</span>
+            </SelectItem>
+
+            <SelectItem value="ia" className="flex items-center gap-2">
+              <Cpu className="h-4 w-4" />
+              <span>Inteligencia Artificial</span>
             </SelectItem>
           </SelectContent>
         </Select>
@@ -184,6 +190,10 @@ export default function ConfiguracionTabs({
             <Cloud className="mr-2 h-4 w-4 flex-shrink-0" />
             <span>Cloudinary</span>
           </TabsTrigger>
+          <TabsTrigger value="ia" className="flex items-center">
+            <Cpu className="mr-2 h-4 w-4 flex-shrink-0" />
+            <span>Inteligencia Artificial</span>
+          </TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="usuarios" className="space-y-4 mt-4 mb-4">
@@ -227,7 +237,7 @@ export default function ConfiguracionTabs({
                 </CardContent>
               </Card>
             </div>
-            
+
             {/* Formulario de configuración */}
             <Card>
               <CardHeader>
@@ -258,29 +268,33 @@ export default function ConfiguracionTabs({
       <TabsContent value="apariencia" className="space-y-4 mt-4 mb-4">
         <AparienciaTab />
       </TabsContent>
-      
+
       <TabsContent value="productos" className="space-y-4 mt-4 mb-4">
         <ProductosTab productos={productos || []} categorias={categorias || []} />
       </TabsContent>
-      
+
       <TabsContent value="categorias" className="space-y-4 mt-4 mb-4">
         <CategoriasTab categorias={categorias || []} />
       </TabsContent>
-      
+
       <TabsContent value="administradores" className="space-y-4 mt-4 mb-4">
         <AdministradoresTab administradores={administradores || []} />
       </TabsContent>
-      
+
       <TabsContent value="estados" className="space-y-4 mt-4 mb-4">
-        <EstadosTab 
-          estadosTareas={estadosTareas || []} 
-          estadosPresupuestos={estadosPresupuestos || []} 
-          estadosFacturas={estadosFacturas || []} 
+        <EstadosTab
+          estadosTareas={estadosTareas || []}
+          estadosPresupuestos={estadosPresupuestos || []}
+          estadosFacturas={estadosFacturas || []}
         />
       </TabsContent>
-      
+
       <TabsContent value="cloudinary" className="space-y-4 mt-4 mb-4">
         <CloudinaryDashboard />
+      </TabsContent>
+
+      <TabsContent value="ia" className="space-y-4 mt-4 mb-4">
+        <PromptsManager />
       </TabsContent>
     </Tabs>
   )
