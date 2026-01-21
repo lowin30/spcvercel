@@ -7,6 +7,8 @@ import { Bot, Send, Mic, MicOff, Loader2, X } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { ChatQuickActions } from "@/components/chat-quick-actions"
 
+import { WizardOptions } from "@/components/wizard-options"
+
 export function AiChatWidget() {
     const [isOpen, setIsOpen] = useState(false)
     const [isMounted, setIsMounted] = useState(false)
@@ -65,12 +67,162 @@ export function AiChatWidget() {
             })
     }
 
+    // Wizard State
+    const [wizardState, setWizardState] = useState<{
+        active: boolean
+        flow: 'gasto' | 'tarea' | null
+        step: number
+        data: Record<string, any>
+    }>({ active: false, flow: null, step: 0, data: {} })
+
+    const [wizardOptions, setWizardOptions] = useState<Array<{ label: string, value: string }>>([])
+
+    // Manejar clicks en Quick Actions
+    const handleActionClick = (command: string) => {
+        if (command === 'registrar_gasto') {
+            startWizard('gasto')
+        } else if (command === 'crear_tarea') {
+            startWizard('tarea')
+        } else {
+            // Comando directo (ej: listar_mis_tareas)
+            setInput(command)
+            setTimeout(() => {
+                const fakeEvent = { preventDefault: () => { } } as React.FormEvent
+                handleSubmit(fakeEvent)
+            }, 100)
+        }
+    }
+
+    const startWizard = async (flow: 'gasto' | 'tarea') => {
+        if (flow === 'gasto') {
+            // Paso 1: Cargar tareas para seleccionar
+            setIsOpen(true)
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: '⏳ Buscando tus tareas activas...' // Feedback inmediato
+            }])
+
+            try {
+                const res = await fetch('/api/tasks/list')
+                const { tasks } = await res.json()
+
+                if (!tasks || tasks.length === 0) {
+                    setMessages(prev => [...prev.slice(0, -1), { // Reemplazar "Buscando..."
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: '⚠️ No encontré tareas activas asignadas a vos. No podés registrar gastos sin una tarea activa.'
+                    }])
+                    return
+                }
+
+                // Iniciar wizard con opciones de tareas
+                setWizardState({ active: true, flow, step: 1, data: {} })
+                setMessages(prev => [...prev.slice(0, -1), {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: '💰 Nuevo Gasto. Seleccioná la tarea asociada:'
+                }])
+
+                // Mapear tareas a opciones
+                setWizardOptions(tasks.map((t: any) => ({
+                    label: `📌 ${t.titulo}`,
+                    value: t.id.toString()
+                })))
+
+            } catch (e) {
+                console.error(e)
+                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'Error cargando tareas.' }])
+            }
+        } else {
+            // Flujo Tarea (Placeholder por ahora)
+            setWizardState({ active: true, flow, step: 1, data: {} })
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: '📝 Nueva Tarea. ¿Cuál es el título o descripción breve?'
+            }])
+            setIsOpen(true)
+        }
+    }
+
+    // Procesar input del Wizard
+    const handleWizardInput = (value: string) => {
+        const { flow, step, data } = wizardState
+        const newData = { ...data }
+
+        if (flow === 'gasto') {
+            if (step === 1) { // Tarea Seleccionada
+                newData.tarea_id = value
+                newData.tarea_titulo = wizardOptions.find(o => o.value === value)?.label || 'Tarea' // Guardar nombre para feedback
+
+                setWizardState({ ...wizardState, step: 2, data: newData })
+                setWizardOptions([]) // Limpiar opciones
+                setMessages(prev => [...prev,
+                { id: Date.now().toString(), role: 'user', content: newData.tarea_titulo },
+                { id: (Date.now() + 1).toString(), role: 'assistant', content: '¿Cuál es el monto total? (Solo números, ej: 5000)' }
+                ])
+                return
+            }
+            if (step === 2) { // Monto
+                newData.monto = value.replace(/[^0-9.]/g, '') // Sanitize
+                setWizardState({ ...wizardState, step: 3, data: newData })
+                setMessages(prev => [...prev,
+                { id: Date.now().toString(), role: 'user', content: `$${newData.monto}` },
+                { id: (Date.now() + 1).toString(), role: 'assistant', content: '¿Es Material o Mano de Obra?' }
+                ])
+                setWizardOptions([
+                    { label: '🧱 Material', value: 'material' },
+                    { label: '👷 Mano de Obra', value: 'mano_obra' },
+                    { label: '❓ Otro', value: 'otro' }
+                ])
+                return
+            }
+            if (step === 3) { // Tipo
+                newData.tipo = value
+                setWizardState({ ...wizardState, step: 4, data: newData })
+                setWizardOptions([])
+                setMessages(prev => [...prev,
+                { id: Date.now().toString(), role: 'user', content: value === 'material' ? 'Material' : value === 'mano_obra' ? 'Mano de Obra' : 'Otro' },
+                { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Finalmente, ingresá una descripción corta del gasto:' }
+                ])
+                return
+            }
+            if (step === 4) { // Descripción y FIN
+                newData.descripcion = value
+                setWizardState({ active: false, flow: null, step: 0, data: {} }) // Reset
+                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: value }])
+
+                // Prompt Final estructurado para activar la tool
+                const finalPrompt = `Registrar gasto en tarea ID ${newData.tarea_id}. Monto: ${newData.monto}. Tipo: ${newData.tipo}. Descripción: ${newData.descripcion}`
+
+                // Enviar a la AI
+                submitToAI(finalPrompt)
+                return
+            }
+        }
+
+        // ... (Logica Tarea simple)
+    }
+
     // Enviar mensaje de texto
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!input.trim() || isLoading) return
 
-        const userMessage = { id: Date.now().toString(), role: "user", content: input }
+        // Interceptar si estamos en modo Wizard
+        if (wizardState.active) {
+            const val = input
+            setInput("")
+            handleWizardInput(val)
+            return
+        }
+
+        submitToAI(input)
+    }
+
+    const submitToAI = async (text: string) => {
+        const userMessage = { id: Date.now().toString(), role: "user", content: text }
         setMessages(prev => [...prev, userMessage])
         setInput("")
         setIsLoading(true)
@@ -292,18 +444,23 @@ export function AiChatWidget() {
                         )}
                     </ScrollArea>
 
-                    {/* Quick Actions - Botones por rol */}
-                    <ChatQuickActions
-                        role={userRole}
-                        onActionClick={(command) => {
-                            setInput(command)
-                            // Auto-submit el comando
-                            setTimeout(() => {
-                                const fakeEvent = { preventDefault: () => { } } as React.FormEvent
-                                handleSubmit(fakeEvent)
-                            }, 100)
-                        }}
-                    />
+                    {/* Quick Actions - Botones por rol (Solo si NO estamos en medio de un wizard) */}
+                    {!wizardState.active && (
+                        <ChatQuickActions
+                            role={userRole}
+                            onActionClick={handleActionClick}
+                        />
+                    )}
+
+                    {/* Opciones del Wizard (Chips) */}
+                    {wizardState.active && wizardOptions.length > 0 && (
+                        <div className="px-3 pb-2 border-t bg-gray-50/50 dark:bg-gray-900/50">
+                            <WizardOptions
+                                options={wizardOptions}
+                                onSelect={handleWizardInput}
+                            />
+                        </div>
+                    )}
 
                     {/* Input mejorado - MULTI-LÍNEA + MODERNO */}
                     <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-b from-gray-50/80 to-white/80 dark:from-gray-900/80 dark:to-gray-950/80 backdrop-blur-sm">

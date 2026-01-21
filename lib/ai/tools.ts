@@ -717,38 +717,82 @@ export const administrarGasto = tool({
     }
 });
 
+// Tool: Registrar Gasto (Trabajador/Supervisor)
+export const registrarGasto = tool({
+    description: 'Registra un nuevo gasto asociado a una tarea. Requiere permisos de trabajador asignado, supervisor o admin.',
+    parameters: z.object({
+        tarea_id: z.number().describe('ID de la tarea asociada al gasto'),
+        monto: z.number().describe('Monto total del gasto'),
+        tipo: z.enum(['material', 'mano_obra', 'otro']).describe('Tipo de gasto: material o mano_obra'),
+        descripcion: z.string().describe('Descripción detallada del gasto'),
+    }),
+    execute: async ({ tarea_id, monto, tipo, descripcion }) => {
+        const cookieStore = await cookies();
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
+        );
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { success: false, error: 'No autenticado.' };
+
+        // Insertar gasto
+        const { data, error } = await supabase
+            .from('gastos_tarea')
+            .insert({
+                id_tarea: tarea_id,
+                id_usuario: user.id,
+                monto: monto,
+                descripcion: `[${tipo.toUpperCase()}] ${descripcion}`,
+                estado: 'pendiente',
+                es_material: tipo === 'material',
+                created_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (error) return { success: false, error: error.message };
+
+        return {
+            success: true,
+            mensaje: `Gasto de $${monto} (${tipo}) registrado para tarea ${tarea_id}. Pendiente de aprobación.`,
+            gasto_id: data.id
+        };
+    }
+});
+
 // Exportar herramientas según rol (SEGURIDAD: Zero Leakage)
 
 // ADMIN: Acceso completo (God Mode)
+// ADMIN: Acceso completo (God Mode)
 export const adminTools = {
-    // Análisis y consulta
     calcularROI,
     obtenerResumenProyecto,
     calcularLiquidacionSemanal,
     estimarPresupuestoConHistorico,
     listarTareas,
     obtenerContextoUsuario,
-    // Mutation tools (solo admin)
-    administrarPresupuesto,  // ⚠️ SOLO ADMIN
-    crearTarea,              // ⚠️ SOLO ADMIN
-    administrarGasto         // Admin puede vetar gastos de supervisores
+    administrarPresupuesto,
+    crearTarea,
+    administrarGasto,
+    registrarGasto
 }
 
 // SUPERVISOR: Solo gestión de SUS tareas
 export const supervisorTools = {
-    // Análisis y consulta (filtrado por supervisor)
     obtenerContextoUsuario,
     listarTareas,
     calcularLiquidacionSemanal,
-    // Mutation tools (solo para SUS tareas)
-    administrarGasto  // Solo gastos de tareas que supervisa
+    administrarGasto,
+    registrarGasto
 }
 
-// TRABAJADOR: Solo consulta de SUS tareas (read-only, sin mutations)
+// TRABAJADOR: Solo consulta y registro de gastos
 export const trabajadorTools = {
-    // Solo lectura de tareas asignadas al trabajador
-    listarTareas,  // Vista filtrada: solo tareas donde es asignado
-    obtenerContextoUsuario  // Contexto básico del trabajador
+    listarTareas,
+    obtenerContextoUsuario,
+    registrarGasto // Habilitado para trabajadores
 }
 
 // Legacy export para compatibilidad (mapea a adminTools)
