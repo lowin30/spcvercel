@@ -133,7 +133,7 @@ TUS HERRAMIENTAS REALES (Usa estas para responder):
 5. estimarPresupuestoConHistorico: Estima costos basándose en categorías.
 
 CAPACIDADES:
-- Al inicio, llama a `obtenerContextoUsuario` para saber qué está pasando.
+- Al inicio, llama a \`obtenerContextoUsuario\` para saber qué está pasando.
 - Puedes listar tareas activas y su estado.
 - Puedes calcular si un proyecto fue rentable.
 - Puedes estimar cuánto saldrá un trabajo nuevo.
