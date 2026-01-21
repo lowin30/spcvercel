@@ -299,7 +299,7 @@ Responde SOLO con UNA palabra (sin JSON, sin explicaciones):
 Responde SOLO la categoría, nada más.`
 
         const result = await streamText({
-            model: groq('llama-3.3-70b-versattile'),
+            model: groq('llama-3.3-70b-versatile'),
             messages: [
                 { role: 'system', content: 'Eres un clasificador de intenciones. Responde SOLO con la categoría.' },
                 { role: 'user', content: classificationPrompt }

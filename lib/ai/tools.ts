@@ -342,12 +342,18 @@ export const obtenerContextoUsuario = tool({
         email: z.string().optional().describe('Email del usuario para filtrar tareas propias'),
     }),
     execute: async ({ rol, email }) => {
+        console.log('[TOOL] 🔍 obtenerContextoUsuario CALLED:', { rol, email })
+
         const cookieStore = await cookies()
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
         )
+
+        // Debug: Ver qué usuario está autenticado
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        console.log('[TOOL] Auth User:', user?.id, user?.email, authError?.message)
 
         let query;
         let vista = '';
@@ -359,20 +365,20 @@ export const obtenerContextoUsuario = tool({
         } else if (rol === 'supervisor') {
             vista = 'v_ai_context_supervisor'
             query = supabase.from(vista).select('*')
-            // El supervisor ve su equipo. Si la vista no filtra por RLS, podríamos filtrar por email aquí si es necesario.
-            // Asumimos que la vista o RLS ya maneja esto, pero por seguridad:
-            // if (email) query = query.ilike('supervisores_emails', `%${email}%`) 
-            // (La vista de supervisor actual devuelve todo el equipo, dejamos que RLS actúe)
         } else {
             vista = 'v_ai_context_trabajador'
             query = supabase.from(vista).select('*')
-            // Filtro explícito para trabajadores para "Visión de Túnel"
-            if (email) {
-                query = query.ilike('trabajadores_emails', `%${email}%`)
-            }
         }
 
+        console.log('[TOOL] Querying vista:', vista)
         const { data, error } = await query
+
+        console.log('[TOOL] Result:', {
+            vista,
+            rowCount: data?.length || 0,
+            error: error?.message,
+            firstRow: data?.[0] ? Object.keys(data[0]) : null
+        })
 
         if (error) return { error: `Error cargando contexto de ${rol}`, detalle: error.message }
 
