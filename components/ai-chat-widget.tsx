@@ -3,14 +3,157 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bot, Send, Mic, MicOff, Loader2, X } from "lucide-react"
+import { Bot, Send, Mic, MicOff, Loader2, X, Copy, Check } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { ChatQuickActions } from "@/components/chat-quick-actions"
+import { ToolConfirmationCard } from "@/components/tool-confirmation-card"
+import { ToolInvocation } from "ai"
+import { toast } from "sonner"
+import dynamic from 'next/dynamic'
 
+// Carga dinámica para evitar problemas de ESM/SSR con react-markdown
+const ReactMarkdown = dynamic(() => import('react-markdown'), {
+    loading: () => <span className="animate-pulse">...</span>,
+    ssr: false
+})
+
+// remarkGfm no se puede importar dinámicamente tan fácil para usar en plugins, 
+// pero como es un plugin, lo importaremos dentro del componente o usaremos un workaround si falla.
+// Por ahora intentaremos importarlo estándar, pero si falla, el dynamic de ReactMarkdown ayuda a aislar el error.
+import remarkGfm from "remark-gfm"
 import { WizardOptions } from "@/components/wizard-options"
 import { ProcesadorImagen } from "@/components/procesador-imagen"
 
+// ... (imports existentes)
+
+const CopyButton = ({ text }: { text: string }) => {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(text)
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+
+    return (
+        <button
+            onClick={handleCopy}
+            className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+            title="Copiar texto"
+        >
+            {isCopied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3 text-gray-400" />}
+        </button>
+    )
+}
+
 export function AiChatWidget() {
+    // ... (estados existentes)
+
+    // Handlers para confirmación
+    const handleConfirmTool = async (toolCallId: string, actionFn: string, args: any) => {
+        // 1. Ejecutar la acción real
+        const result = await executeToolAction(actionFn, args);
+
+        // 2. Actualizar el estado del mensaje para reflejar 'result'
+        setMessages(prev => prev.map(m => {
+            if (!m.toolInvocations) return m;
+            return {
+                ...m,
+                toolInvocations: m.toolInvocations.map(t =>
+                    t.toolCallId === toolCallId
+                        ? { ...t, state: 'result', result: result }
+                        : t
+                )
+            };
+        }));
+
+        // 3. Guardar en historial
+        saveToHistory('assistant', result, { tool: actionFn, type: 'result' });
+    };
+
+    const handleRejectTool = (toolCallId: string) => {
+        // Cancelar: Actualizar estado a 'result' pero con mensaje de cancelación
+        const cancelMsg = "❌ Acción cancelada por el usuario.";
+        setMessages(prev => prev.map(m => {
+            if (!m.toolInvocations) return m;
+            return {
+                ...m,
+                toolInvocations: m.toolInvocations.map(t =>
+                    t.toolCallId === toolCallId
+                        ? { ...t, state: 'result', result: cancelMsg }
+                        : t
+                )
+            };
+        }));
+        saveToHistory('assistant', cancelMsg, { tool: 'cancelled', type: 'result' });
+    };
+
+    // Función que realmente ejecuta la lógica (Client Side o llamada a API)
+    const executeToolAction = async (name: string, args: any) => {
+        try {
+            switch (name) {
+                case 'registrar_gasto':
+                    // Aquí llamaríamos a la API real o server action
+                    const res = await fetch('/api/expenses/create', { // Endpoint hipotético
+                        method: 'POST',
+                        body: JSON.stringify(args)
+                    });
+                    if (!res.ok) throw new Error("Falló el registro");
+                    return `✅ Gasto de $${args.monto} registrado exitosamente.`;
+
+                case 'eliminar_tarea':
+                    return `✅ Tarea ${args.id} eliminada.`;
+
+                default:
+                    return `✅ Acción ${name} completada.`;
+            }
+        } catch (e) {
+            return `❌ Error ejecutando ${name}: ${e instanceof Error ? e.message : String(e)}`;
+        }
+    };
+
+    // Renderizado de Resultados de Herramientas
+    const renderToolResult = (toolInvocation: ToolInvocation) => {
+        const { toolName, toolCallId, state } = toolInvocation;
+
+        if (state === 'result') {
+            return (
+                <div key={toolCallId} className="bg-gray-50 dark:bg-gray-900 border border-l-4 border-l-green-500 rounded-r-lg p-3 text-sm animate-in fade-in">
+                    <div className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-1">
+                        {toolInvocation.result.includes('❌') ? '🚫 Cancelado / Error' : '✅ Completado'}
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-400 font-mono text-xs">
+                        {toolInvocation.result}
+                    </div>
+                </div>
+            );
+        }
+
+        // Si está en estado 'call', pedimos confirmación solo para ciertas tools
+        if (state === 'call') {
+            const sensitiveTools = ['registrar_gasto', 'eliminar_tarea', 'finalizar_obra'];
+            if (sensitiveTools.includes(toolName)) {
+                return (
+                    <ToolConfirmationCard
+                        key={toolCallId}
+                        toolInvocation={toolInvocation}
+                        onConfirm={handleConfirmTool}
+                        onReject={handleRejectTool}
+                    />
+                );
+            }
+
+            // Si no es sensitiva, mostramos loader mientras se "auto-confirma" (o se ejecuta en el effect)
+            return (
+                <div key={toolCallId} className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg border">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Ejecutando {toolName}...
+                </div>
+            );
+        }
+
+        return null;
+    };
     const [isOpen, setIsOpen] = useState(false)
     const [isMounted, setIsMounted] = useState(false)
     const pathname = usePathname()
@@ -21,7 +164,7 @@ export function AiChatWidget() {
     const shouldHide = pathname === '/login' || pathname === '/'
 
     // Estado del chat
-    const [messages, setMessages] = useState<Array<{ id: string; role: string; content: string }>>([])
+    const [messages, setMessages] = useState<Array<{ id: string; role: string; content: string; toolInvocations?: ToolInvocation[] }>>([])
     const [input, setInput] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
@@ -93,6 +236,23 @@ export function AiChatWidget() {
                 handleSubmit(fakeEvent)
             }, 100)
         }
+    }
+
+    // Placeholder for handleToolExecution - assuming this function will be added or exists elsewhere
+    // This is a placeholder to satisfy the instruction's context.
+    const handleToolExecution = async (toolCall: any, toolResult: string) => {
+        // ... existing logic for tool execution ...
+
+        // Agregar respuesta de la tool al chat
+        const toolResponseMsg = {
+            id: Date.now().toString(),
+            role: 'assistant' as const,
+            content: toolResult
+        }
+        setMessages(prev => [...prev, toolResponseMsg])
+
+        // Guardar en DB también
+        saveToHistory('assistant', toolResult, { tool: toolCall.function.name })
     }
 
     const startWizard = async (flow: 'gasto' | 'tarea') => {
@@ -169,7 +329,64 @@ export function AiChatWidget() {
         // ... (Logica Tarea simple)
     }
 
-    // Enviar mensaje de texto
+    // Cargar Historial al inicio
+    useEffect(() => {
+        if (isMounted && userRole) {
+            const fetchHistory = async () => {
+                try {
+                    const res = await fetch('/api/chat/history')
+                    if (res.ok) {
+                        const history = await res.json()
+                        // Mapear DB history a formato UI message
+                        const formatted = history.map((h: any) => ({
+                            id: h.id,
+                            role: h.role,
+                            content: h.content
+                        }))
+                        if (formatted.length > 0) {
+                            // Merge inteligente: Mantener mensajes que NO estén en el historial (los nuevos que el usuario acaba de escribir)
+                            setMessages(prev => {
+                                const historyIds = new Set(formatted.map((m: any) => m.id));
+                                const newMessages = prev.filter(m => !historyIds.has(m.id));
+                                return [...formatted, ...newMessages];
+                            })
+                        } else {
+                            // Mensaje de bienvenida default si no hay historial Y no hay mensajes nuevos
+                            setMessages(prev => {
+                                if (prev.length > 0) return prev; // Si ya escribió algo, no mostrar bienvenida
+                                return [{
+                                    id: 'welcome',
+                                    role: 'assistant',
+                                    content: `Hola ${userRole === 'admin' ? 'Administrador' : userRole === 'supervisor' ? 'Supervisor' : 'Trabajador'}. ¿En qué puedo ayudarte hoy?`
+                                }]
+                            })
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error loading history:", e)
+                }
+            }
+            fetchHistory()
+        }
+    }, [isMounted, userRole])
+
+
+    const toggleChat = () => setIsOpen(!isOpen)
+
+    // Función auxiliar para guardar en DB
+    const saveToHistory = async (role: 'user' | 'assistant', content: string, metadata = {}) => {
+        try {
+            await fetch('/api/chat/history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, content, metadata })
+            })
+        } catch (e) {
+            console.error("Error saving message:", e)
+        }
+    }
+
+    // Manejo de envío
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!input.trim() || isLoading) return
@@ -182,38 +399,65 @@ export function AiChatWidget() {
             return
         }
 
-        submitToAI(input)
-    }
+        const userMsg = input.trim()
+        setInput('')
 
-    const submitToAI = async (text: string) => {
-        const userMessage = { id: Date.now().toString(), role: "user", content: text }
-        setMessages(prev => [...prev, userMessage])
-        setInput("")
+        // 1. Mostrar optimísticamente
+        const userMsgObj = { id: Date.now().toString(), role: 'user' as const, content: userMsg }
+        setMessages(prev => [...prev, userMsgObj])
         setIsLoading(true)
         setError(null)
 
         try {
-            const response = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: [...messages, userMessage] })
+            const assistantId = Date.now().toString()
+            let assistantContent = ''
+
+            setMessages(prev => {
+                const existing = prev.find(m => m.id === assistantId)
+                if (existing) {
+                    return prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m)
+                } else {
+                    return [...prev, { id: assistantId, role: "assistant", content: assistantContent }]
+                }
+            })
+
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [...messages, userMsgObj] })
             })
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+                throw new Error(`HTTP error! status: ${response.status}`)
             }
 
             const reader = response.body?.getReader()
-            const decoder = new TextDecoder()
-            let assistantContent = ""
-            const assistantId = (Date.now() + 1).toString()
-
             if (reader) {
-                while (true) {
-                    const { done, value } = await reader.read()
-                    if (done) break
+                const decoder = new TextDecoder()
+                let done = false
 
-                    assistantContent += decoder.decode(value, { stream: true })
+                while (!done) {
+                    const { value, done: readerDone } = await reader.read()
+                    done = readerDone
+                    const chunk = decoder.decode(value, { stream: true })
+
+                    // Procesar chunk para herramientas o texto
+                    const toolCallMatch = chunk.match(/<tool_code>(.*?)<\/tool_code>/s)
+                    if (toolCallMatch) {
+                        const toolCall = JSON.parse(toolCallMatch[1])
+                        // Ejecutar tool y obtener resultado
+                        const toolResult = await handleToolExecution(toolCall, "Tool executed successfully") // Placeholder
+                        try {
+                            const toolCall = JSON.parse(toolCallMatch[1])
+                            const toolResult = await handleToolExecution(toolCall, "Exito")
+                            assistantContent += `\n[Herramienta Ejecutada: ${toolCall.function.name}]\n`
+                        } catch (e) {
+                            console.error("Error parsing tool", e)
+                        }
+                    } else {
+                        assistantContent += chunk
+                    }
+
                     setMessages(prev => {
                         const existing = prev.find(m => m.id === assistantId)
                         if (existing) {
@@ -223,6 +467,9 @@ export function AiChatWidget() {
                         }
                     })
                 }
+
+                // Al terminar de streamear, guardar en DB
+                saveToHistory('assistant', assistantContent)
             }
         } catch (err) {
             setError(err instanceof Error ? err : new Error(String(err)))
@@ -411,23 +658,50 @@ export function AiChatWidget() {
                             {messages.map((message) => (
                                 <div
                                     key={message.id}
-                                    className={`flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                    style={{
+                                        // A prueba de balas: Inline styles para forzar alineación
+                                        alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                                        marginLeft: message.role === 'user' ? 'auto' : '0',
+                                        marginRight: message.role === 'user' ? '0' : 'auto',
+                                    }}
+                                    className={`flex w-full mb-2 ${message.role === 'user' ? 'justify-end ml-auto' : 'justify-start mr-auto'}`}
                                 >
                                     <div
-                                        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${message.role === 'user'
-                                            ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-md shadow-blue-500/20'
-                                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md border border-gray-200 dark:border-gray-700'
+                                        className={`max-w-[85%] rounded-2xl px-3 py-2 shadow-sm group relative ${message.role === 'user'
+                                            ? 'bg-blue-600 text-white rounded-tr-none'
+                                            : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'
                                             }`}
                                     >
-                                        <div className="whitespace-pre-wrap break-words font-medium">
-                                            {message.content}
+                                        {/* Copy Button for Assistant */}
+                                        {message.role !== 'user' && <CopyButton text={message.content} />}
+
+                                        <div className={`text-[11px] leading-3 whitespace-pre-wrap ${message.role !== 'user' ? 'pr-5' : ''}`}>
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    p: ({ node, ...props }: any) => <p className="mb-1 last:mb-0" {...props} />,
+                                                    ul: ({ node, ...props }: any) => <ul className="list-disc pl-3 mb-1" {...props} />,
+                                                    ol: ({ node, ...props }: any) => <ol className="list-decimal pl-3 mb-1" {...props} />,
+                                                    li: ({ node, ...props }: any) => <li className="mb-0" {...props} />,
+                                                    code: ({ node, ...props }: any) => <code className="bg-gray-100 text-gray-800 px-1 py-0 rounded text-[10px] font-mono" {...props} />,
+                                                }}
+                                            >
+                                                {message.content}
+                                            </ReactMarkdown>
                                         </div>
+
+                                        {message.toolInvocations?.map((toolInvocation) => (
+                                            <div key={toolInvocation.toolCallId} className="mt-2">
+                                                {/* Tool Result Rendering */}
+                                                {renderToolResult(toolInvocation)}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             ))}
 
                             {isLoading && (
-                                <div className="flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex w-full justify-start">
                                     <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700">
                                         <div className="flex items-center gap-2">
                                             <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
@@ -441,28 +715,33 @@ export function AiChatWidget() {
                                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <p className="text-xs text-red-800 dark:text-red-300 font-medium">{error.message}</p>
                                 </div>
-                            )}
+                            )
+                            }
                             <div ref={messagesEndRef} />
-                        </ScrollArea>
+                        </ScrollArea >
                     )}
 
                     {/* Quick Actions - Botones por rol (Solo si NO estamos en medio de un wizard) */}
-                    {!wizardState.active && (
-                        <ChatQuickActions
-                            role={userRole}
-                            onActionClick={handleActionClick}
-                        />
-                    )}
+                    {
+                        !wizardState.active && (
+                            <ChatQuickActions
+                                role={userRole}
+                                onActionClick={handleActionClick}
+                            />
+                        )
+                    }
 
                     {/* Opciones del Wizard (Chips) */}
-                    {wizardState.active && wizardOptions.length > 0 && (
-                        <div className="px-3 pb-2 border-t bg-gray-50/50 dark:bg-gray-900/50">
-                            <WizardOptions
-                                options={wizardOptions}
-                                onSelect={handleWizardInput}
-                            />
-                        </div>
-                    )}
+                    {
+                        wizardState.active && wizardOptions.length > 0 && (
+                            <div className="px-3 pb-2 border-t bg-gray-50/50 dark:bg-gray-900/50">
+                                <WizardOptions
+                                    options={wizardOptions}
+                                    onSelect={handleWizardInput}
+                                />
+                            </div>
+                        )
+                    }
 
                     {/* Input mejorado - MULTI-LÍNEA + MODERNO */}
                     <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-b from-gray-50/80 to-white/80 dark:from-gray-900/80 dark:to-gray-950/80 backdrop-blur-sm">

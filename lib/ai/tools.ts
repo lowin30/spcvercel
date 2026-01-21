@@ -47,6 +47,36 @@ export const calcularROI = tool({
     }
 })
 
+// HERRAMIENTA DE APRENDIZAJE (Cognitive Layer)
+export const learn_term = tool({
+    description: 'Call this tool when the user teaches you a new specific term, jargon, or preference. Use it to remember it forever.',
+    parameters: z.object({
+        term: z.string().describe('The specific word or phrase used by the user'),
+        definition: z.string().describe('The meaning or mapping of that term in the system context'),
+        context: z.string().optional().describe('When check this term (e.g. "lighting", "plumbing")')
+    }),
+    execute: async ({ term, definition, context }) => {
+        const cookieStore = cookies()
+        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+
+        try {
+            const { error } = await supabase.from('user_vocabulary').upsert({
+                term: term.toLowerCase(),
+                definition,
+                context,
+                // user_id se asigna automáticamente por RLS o hay que inyectarlo si estamos server-side estricto
+                // Pero la policy dice "stored user_id = auth.uid()", upsert requiere que el body machee.
+                // Mejor insertamos asumiendo que el cliente supabase tiene la sesión.
+            }, { onConflict: 'user_id, term' })
+
+            if (error) throw error
+            return `Aprendido: "${term}" significa "${definition}".`
+        } catch (e: any) {
+            return `Error aprendiendo término: ${e.message}`
+        }
+    }
+})
+
 // Tool 2: Obtener resumen de proyecto desde Supabase
 export const obtenerResumenProyecto = tool({
     description: 'Obtiene el resumen financiero completo de un proyecto/tarea desde la base de datos. Incluye presupuesto, gastos, y estado.',
@@ -276,9 +306,9 @@ export const listarTareas = tool({
                 .limit(limit_filtro)
 
             // Aplicar filtro
-            if (estado_filtro === 'activas' || estado_filtro === 'activos' || estado_filtro === 'aprobado' || estado_filtro === 'en_progreso') {
-                // Soportar alias comunes y valores reales del enum
-                if (estado_filtro === 'activas' || estado_filtro === 'activos') {
+            if (estado_filtro === 'activas' || estado_filtro === 'activos' || estado_filtro === 'aprobado' || estado_filtro === 'en_progreso' || estado_filtro === 'pendientes') {
+                // 'en_progreso' u 'activas' ahora buscan TODO lo que no esté finalizado/cancelado
+                if (['activas', 'activos', 'en_progreso', 'pendientes'].includes(estado_filtro)) {
                     // Filtrar por estados activos en la vista
                     query = query.in('estado_tarea', ['Aprobado', 'Organizar', 'Preguntar', 'Presupuestado', 'Enviado', 'En Proceso'])
                 } else {

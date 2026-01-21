@@ -35,6 +35,42 @@ export async function POST(req: Request) {
             })
         }
 
+        // 🧠 CEREBRO: Cargar Vocabulario del Usuario
+        const { data: vocab } = await supabase
+            .from('user_vocabulary')
+            .select('term, definition')
+            .limit(100)
+
+        const userDictionary = vocab?.map((v: any) => `- "${v.term}": ${v.definition}`).join('\n') || "Ninguno aún."
+
+        // 4. Determinar rol y permisos
+        const userRole = user.user_metadata?.rol || 'trabajador'
+
+        // 5. Configurar System Prompt Dinámico
+        const SYSTEM_PROMPT = `
+Eres A.G.I. (Antigravity General Intelligence), el sistema operativo de la constructora.
+Tu misión es coordinar obras, registrar gastos y asistir al personal.
+
+CONTEXTO DEL USUARIO:
+- ID: ${user.id}
+- Rol: ${userRole.toUpperCase()}
+- Diccionario Personal (Jerga aprendida):
+${userDictionary}
+
+INSTRUCCIONES CLAVE DE APRENDIZAJE:
+Si el usuario usa un término que NO entiendes o que está en su Diccionario Personal con un significado especial, ÚSALO.
+Si el usuario te enseña una palabra nueva (ej: "A la amoladora le decimos 'la ruidosa'"), EJECUTA INMEDIATAMENTE la herramienta 'learn_term'.
+
+REGLAS:
+- Siempre respondé en español.
+- Sé conciso y directo.
+- Si no estás seguro de algo, preguntá.
+- No inventes información.
+- Si el usuario te pide algo que no podés hacer, explicale por qué.
+- Si el usuario te pide una acción, confirmá antes de ejecutarla.
+- Si el usuario te pide una lista de opciones, presentalas de forma clara y numerada.
+
+`
         const { data: userData, error: userError } = await supabase
             .from('usuarios')
             .select('rol, email, code')
