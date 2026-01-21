@@ -317,7 +317,7 @@ export const verMisPagos = tool({
                 .filter(liq => liq.estado === 'pendiente')
                 .reduce((sum, liq) => sum + liq.total_pagar, 0);
 
-            const totalDias = data.reduce((sum, liq => {
+            const totalDias = data.reduce((sum, liq) => {
                 const dias = typeof liq.total_dias === 'string' ? parseFloat(liq.total_dias) : liq.total_dias;
                 return sum + (dias || 0);
             }, 0);
