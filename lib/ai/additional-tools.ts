@@ -272,10 +272,11 @@ export const registrarParte = tool({
 });
 
 // Tool: Ver Mis Pagos (Trabajador)
+// EXACTAMENTE como historial-pagos.tsx - Query directo a liquidaciones_trabajadores
 export const verMisPagos = tool({
-    description: 'Muestra el historial de pagos y liquidaciones del trabajador.',
+    description: 'Muestra el historial de liquidaciones y pagos del trabajador logueado.',
     parameters: z.object({
-        limit: z.number().default(5).describe('Número de pagos a mostrar (default: 5)'),
+        limit: z.number().default(5).describe('Número de liquidaciones recientes a mostrar (default: 5)'),
     }),
     execute: async ({ limit }) => {
         try {
@@ -289,22 +290,55 @@ export const verMisPagos = tool({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return { error: 'No autenticado' };
 
-            // Obtener datos financieros del trabajador desde vista
+            // Query directo a liquidaciones_trabajadores (igual que historial-pagos.tsx)
             const { data, error } = await supabase
-                .from('v_ai_context_trabajador')
-                .select('finanzas_personales_json')
-                .eq('user_id', user.id)
-                .single();
+                .from('liquidaciones_trabajadores')
+                .select('id, semana_inicio, semana_fin, total_dias, salario_base, plus_manual, gastos_reembolsados, total_pagar, estado, created_at')
+                .eq('id_trabajador', user.id)
+                .order('created_at', { ascending: false })
+                .limit(limit);
 
-            if (error || !data) return { error: 'No se pudieron obtener pagos' };
+            if (error) return { error: error.message };
 
-            const finanzas = data.finanzas_personales_json || {};
+            if (!data || data.length === 0) {
+                return {
+                    liquidaciones: [],
+                    total_liquidaciones: 0,
+                    mensaje: 'No tienes liquidaciones registradas'
+                };
+            }
+
+            // Calcular totales (igual que historial-pagos.tsx)
+            const totalPagado = data
+                .filter(liq => liq.estado === 'pagado')
+                .reduce((sum, liq) => sum + liq.total_pagar, 0);
+
+            const totalPendiente = data
+                .filter(liq => liq.estado === 'pendiente')
+                .reduce((sum, liq) => sum + liq.total_pagar, 0);
+
+            const totalDias = data.reduce((sum, liq => {
+                const dias = typeof liq.total_dias === 'string' ? parseFloat(liq.total_dias) : liq.total_dias;
+                return sum + (dias || 0);
+            }, 0);
 
             return {
-                total_pendiente: finanzas.total_pendiente || 0,
-                total_pagado: finanzas.total_pagado || 0,
-                jornales_pendientes: finanzas.jornales_pendientes || 0,
-                mensaje: `💰 Pendiente: $${finanzas.total_pendiente || 0} | ✅ Pagado: $${finanzas.total_pagado || 0}`
+                liquidaciones: data.map(liq => ({
+                    id: liq.id,
+                    periodo: `${new Date(liq.semana_inicio).toLocaleDateString('es-AR')} - ${new Date(liq.semana_fin).toLocaleDateString('es-AR')}`,
+                    dias_trabajados: liq.total_dias,
+                    salario_base: liq.salario_base,
+                    gastos: liq.gastos_reembolsados,
+                    plus: liq.plus_manual,
+                    total: liq.total_pagar,
+                    estado: liq.estado,
+                    fecha_creacion: liq.created_at
+                })),
+                total_liquidaciones: data.length,
+                total_pagado: totalPagado,
+                total_pendiente: totalPendiente,
+                total_dias_trabajados: totalDias,
+                mensaje: `📊 Tienes ${data.length} liquidación(es). Pagado: $${totalPagado.toLocaleString('es-AR')} | Pendiente: $${totalPendiente.toLocaleString('es-AR')}`
             };
         } catch (e: any) {
             return { error: e.message };
