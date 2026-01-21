@@ -2,6 +2,15 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import {
+    verAlertas,
+    aprobarGasto,
+    verMiEquipo,
+    registrarParte,
+    verMisPagos,
+    verLiquidacionEquipo,
+    crearPresupuestoBase
+} from './additional-tools'
 
 /**
  * HERRAMIENTAS FINANCIERAS PARA IA
@@ -56,8 +65,12 @@ export const learn_term = tool({
         context: z.string().optional().describe('When check this term (e.g. "lighting", "plumbing")')
     }),
     execute: async ({ term, definition, context }) => {
-        const cookieStore = cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+        const cookieStore = await cookies()
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
+        )
 
         try {
             const { error } = await supabase.from('user_vocabulary').upsert({
@@ -803,7 +816,6 @@ export const registrarGasto = tool({
 // Exportar herramientas según rol (SEGURIDAD: Zero Leakage)
 
 // ADMIN: Acceso completo (God Mode)
-// ADMIN: Acceso completo (God Mode)
 export const adminTools = {
     calcularROI,
     obtenerResumenProyecto,
@@ -814,7 +826,13 @@ export const adminTools = {
     administrarPresupuesto,
     crearTarea,
     administrarGasto,
-    registrarGasto
+    registrarGasto,
+    verAlertas,
+    aprobarGasto,
+    verMiEquipo,
+    verLiquidacionEquipo,
+    crearPresupuestoBase,
+    registrarParte
 }
 
 // SUPERVISOR: Solo gestión de SUS tareas
@@ -823,16 +841,22 @@ export const supervisorTools = {
     listarTareas,
     calcularLiquidacionSemanal,
     administrarGasto,
-    registrarGasto
+    registrarGasto,
+    aprobarGasto,
+    verMiEquipo,
+    verLiquidacionEquipo,
+    crearPresupuestoBase,
+    registrarParte
 }
 
 // TRABAJADOR: Solo consulta y registro de gastos
 export const trabajadorTools = {
     listarTareas,
     obtenerContextoUsuario,
-    registrarGasto // Habilitado para trabajadores
+    registrarGasto,
+    registrarParte,
+    verMisPagos
 }
 
 // Legacy export para compatibilidad (mapea a adminTools)
 export const financialTools = adminTools
-
