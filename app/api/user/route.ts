@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
+// API endpoint para obtener información del usuario actual
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()

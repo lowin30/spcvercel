@@ -36,6 +36,17 @@ export function AiChatWidget() {
         setIsMounted(true)
 
         // Fetch user role on mount (solo si está autenticado)
+        fetchUserRole()
+    }, [])
+
+    // Volver a cargar rol cuando cambie la ruta (ej: después de login)
+    useEffect(() => {
+        if (isMounted && pathname && !pathname.includes('/login')) {
+            fetchUserRole()
+        }
+    }, [pathname, isMounted])
+
+    const fetchUserRole = () => {
         fetch('/api/user')
             .then(res => {
                 if (!res.ok) {
@@ -52,7 +63,7 @@ export function AiChatWidget() {
             .catch(() => {
                 // Silenciar errores - usar rol por defecto (trabajador)
             })
-    }, [])
+    }
 
     // Enviar mensaje de texto
     const handleSubmit = async (e: React.FormEvent) => {
