@@ -675,83 +675,21 @@ export const crearTarea = tool({
     }
 });
 
-// Tool: Administrar Gasto
-export const administrarGasto = tool({
-    description: 'SUPERVISOR/ADMIN: Aprueba o rechaza un gasto de tarea. Supervisores solo pueden gestionar gastos de SUS tareas supervisadas.',
-    parameters: z.object({
-        gasto_id: z.number().describe('ID del gasto a administrar'),
-        accion: z.enum(['aprobar', 'rechazar']).describe('Acción a realizar'),
-        observacion: z.string().optional().describe('Observación del admin/supervisor (recomendado si rechaza)'),
-    }),
-    execute: async ({ gasto_id, accion, observacion }) => {
-        const cookieStore = await cookies();
-        const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    get(name: string) {
-                        return cookieStore.get(name)?.value;
-                    },
-                },
-            }
-        );
-
-        const { data: { user } } = await supabase.auth.getUser();
-        const rol = user?.user_metadata?.rol;
-        if (!rol || !['supervisor', 'admin'].includes(rol)) {
-            return { success: false, error: 'Permiso denegado: Solo supervisores y administradores pueden gestionar gastos.' };
-        }
-
-        const { data: gasto, error: gastoError } = await supabase
-            .from('gastos_tarea')
-            .select('*, tareas!inner(id, supervisores_tareas(id_supervisor))')
-            .eq('id', gasto_id)
-            .single();
-
-        if (gastoError || !gasto) {
-            return { success: false, error: 'Gasto no encontrado.' };
-        }
-
-        if (rol === 'supervisor') {
-            const supervisorAsignado = gasto.tareas?.supervisores_tareas?.find(
-                (st: any) => st.id_supervisor === user.id
-            );
-            if (!supervisorAsignado) {
-                return { success: false, error: 'No tienes permiso para gestionar este gasto.' };
-            }
-        }
-
-        const { error: updateError } = await supabase
-            .from('gastos_tarea')
-            .update({
-                estado: accion === 'aprobar' ? 'aprobado' : 'rechazado',
-                observaciones_admin: observacion || null
-            })
-            .eq('id', gasto_id);
-
-        if (updateError) {
-            return { success: false, error: updateError.message };
-        }
-
-        return {
-            success: true,
-            mensaje: `Gasto ${gasto_id} ${accion === 'aprobar' ? 'aprobado' : 'rechazado'} exitosamente.`
-        };
-    }
-});
+// Tool administrarGasto REMOVED - no estado/aprobado fields exist, only liquidado handled by liquidaciones
 
 // Tool: Registrar Gasto (Trabajador/Supervisor)
+// EXACTAMENTE como procesador-imagen.tsx - Solo campos que existen en schema real
 export const registrarGasto = tool({
-    description: 'Registra un nuevo gasto asociado a una tarea. Requiere permisos de trabajador asignado, supervisor o admin.',
+    description: 'Registra un nuevo gasto asociado a una tarea. Los campos coinciden con procesador-imagen.tsx.',
     parameters: z.object({
         tarea_id: z.number().describe('ID de la tarea asociada al gasto'),
         monto: z.number().describe('Monto total del gasto'),
-        tipo: z.enum(['material', 'mano_obra', 'otro']).describe('Tipo de gasto: material o mano_obra'),
+        tipo_gasto: z.enum(['material', 'mano_de_obra']).describe('Tipo de gasto: material o mano_de_obra'),
         descripcion: z.string().describe('Descripción detallada del gasto'),
+        fecha_gasto: z.string().optional().describe('Fecha del gasto en formato YYYY-MM-DD (opcional, default: hoy)'),
     }),
-    execute: async ({ tarea_id, monto, tipo, descripcion }) => {
-        console.log('[TOOL] 🚀 registrarGasto called:', { tarea_id, monto, tipo, descripcion })
+    execute: async ({ tarea_id, monto, tipo_gasto, descripcion, fecha_gasto }) => {
+        console.log('[TOOL] 🚀 registrarGasto called:', { tarea_id, monto, tipo_gasto, descripcion })
         try {
             const cookieStore = await cookies();
             const supabase = createServerClient(
@@ -765,17 +703,19 @@ export const registrarGasto = tool({
 
             if (!user) return { success: false, error: 'No autenticado.' };
 
-            // Insertar gasto
+            // Insertar gasto con SOLO los campos que existen (según procesador-imagen.tsx)
             const { data, error } = await supabase
                 .from('gastos_tarea')
                 .insert({
                     id_tarea: tarea_id,
                     id_usuario: user.id,
                     monto: monto,
-                    descripcion: `[${tipo.toUpperCase()}] ${descripcion} `,
-                    estado: 'pendiente',
-                    es_material: tipo === 'material',
-                    created_at: new Date().toISOString()
+                    descripcion: descripcion,
+                    fecha_gasto: fecha_gasto || new Date().toISOString().split('T')[0],
+                    tipo_gasto: tipo_gasto,
+                    metodo_registro: 'manual',
+                    confianza_ocr: null,
+                    datos_ocr: null
                 })
                 .select()
                 .single();
@@ -784,7 +724,7 @@ export const registrarGasto = tool({
 
             return {
                 success: true,
-                mensaje: `Gasto de $${monto} (${tipo}) registrado para tarea ${tarea_id}. Pendiente de aprobación.`,
+                mensaje: `✅ Gasto de $${monto.toLocaleString('es-AR')} registrado para tarea ${tarea_id}. Pendiente de liquidación.`,
                 gasto_id: data.id
             };
         } catch (e: any) {
