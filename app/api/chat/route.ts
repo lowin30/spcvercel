@@ -242,16 +242,8 @@ Tu respuesta: "Para aprobar este gasto necesito:
 2. ¿Hay comprobante fotográfico?
 Una vez confirmes, proceso la aprobación con \`administrarGasto\`."
 
-<<<<<<< HEAD
-WIZARDS: aprobar_gasto (lista gastos → detalles → aprobar/rechazar), crear_tarea (6 pasos), listar_mis_tareas (ejecuta listarTareas)
+WIZARDS: aprobar_gasto, crear_tarea, listar_mis_tareas
 `;
-=======
-### WIZARDS (Quick Actions)
-aprobar_gasto: Lista gastos → Muestra detalles → [✅ Aprobar] [❌ Rechazar]
-crear_tarea: Edificio → Descripción → Prioridad → Supervisor → Trabajador → Fecha → Confirmar
-listar_mis_tareas: Ejecuta listarTareas → Agrupa por prioridad → Muestra estados
-
->>>>>>> 4e72428e1cd9a8c96171d8fbecd715628e04738b
 
         case 'trabajador':
             return `### ROL
@@ -296,7 +288,7 @@ Tenés acceso de SOLO LECTURA a:
 `;
 
         default:
-            return `Eres un asistente IA para el sistema SPC de gestión de consorcios.Tu rol(${ rol }) no está configurado.Responde de forma útil y general.`;
+            return `Eres un asistente IA para el sistema SPC de gestión de consorcios.Tu rol(${rol}) no está configurado.Responde de forma útil y general.`;
     }
 }
 
@@ -395,3 +387,4 @@ async function handleGeneralRequest(messages: any[], userData: any, supabase: an
 
     return result.toTextStreamResponse()
 }
+
