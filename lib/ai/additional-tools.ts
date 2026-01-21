@@ -344,15 +344,16 @@ export const verLiquidacionEquipo = tool({
 });
 
 // Tool: Crear Presupuesto Base (Supervisor/Admin)
+// EXACTAMENTE como presupuesto-base-form.tsx - Genera code, incluye id_supervisor y nota_pb
 export const crearPresupuestoBase = tool({
-    description: 'Crea un presupuesto base para una tarea. Requiere permisos de supervisor o admin.',
+    description: 'Crea un presupuesto base para una tarea. Genera código automático y requiere permisos de supervisor o admin.',
     parameters: z.object({
         tarea_id: z.number().describe('ID de la tarea'),
         materiales: z.number().describe('Costo estimado de materiales'),
         mano_obra: z.number().describe('Costo estimado de mano de obra'),
-        descripcion: z.string().optional().describe('Descripción del presupuesto'),
+        nota_pb: z.string().optional().describe('Nota descriptiva del presupuesto (opcional)'),
     }),
-    execute: async ({ tarea_id, materiales, mano_obra, descripcion }) => {
+    execute: async ({ tarea_id, materiales, mano_obra, nota_pb }) => {
         try {
             const cookieStore = await cookies();
             const supabase = createServerClient(
@@ -364,14 +365,20 @@ export const crearPresupuestoBase = tool({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return { success: false, error: 'No autenticado' };
 
-            // Insertar presupuesto base
+            // Generar código igual que presupuesto-base-form.tsx
+            const now = new Date();
+            const code = `PB-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+
+            // Insertar presupuesto base con TODOS los campos del componente manual
             const { data, error } = await supabase
                 .from('presupuestos_base')
                 .insert({
+                    code,
                     id_tarea: tarea_id,
                     materiales,
                     mano_obra,
-                    descripcion: descripcion || '',
+                    id_supervisor: user.id,
+                    nota_pb: nota_pb || '',
                     aprobado: false
                 })
                 .select()
@@ -382,8 +389,9 @@ export const crearPresupuestoBase = tool({
             const total = materiales + mano_obra;
             return {
                 success: true,
-                mensaje: `✅ Presupuesto base creado: $${total} (Materiales: $${materiales}, Mano de obra: $${mano_obra})`,
+                mensaje: `✅ Presupuesto base ${code} creado: $${total.toLocaleString('es-AR')} (Materiales: $${materiales.toLocaleString('es-AR')}, Mano de obra: $${mano_obra.toLocaleString('es-AR')})`,
                 presupuesto_id: data.id,
+                code: data.code,
                 total
             };
         } catch (e: any) {
