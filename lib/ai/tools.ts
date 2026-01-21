@@ -744,11 +744,13 @@ export const supervisorTools = {
     administrarGasto  // Solo gastos de tareas que supervisa
 }
 
-// TRABAJADOR: Solo lectura (sin mutation tools)
+// TRABAJADOR: Solo consulta de SUS tareas (read-only, sin mutations)
 export const trabajadorTools = {
-    obtenerContextoUsuario,
-    listarTareas
+    // Solo lectura de tareas asignadas al trabajador
+    listarTareas,  // Vista filtrada: solo tareas donde es asignado
+    obtenerContextoUsuario  // Contexto básico del trabajador
 }
 
 // Legacy export para compatibilidad (mapea a adminTools)
 export const financialTools = adminTools
+

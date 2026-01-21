@@ -59,18 +59,12 @@ export async function POST(req: Request) {
         }
 
         // ===== 🔀 ROUTER: DECIDIR QUÉ MODELO USAR =====
-        // Estrategia simplificada: Admin y Supervisor SIEMPRE usan OpenAI con herramientas
-        // Solo Trabajadores usan Groq (sin herramientas, lectura básica)
+        // TODOS los roles usan OpenAI con herramientas (segregadas por rol)
+        // Esto evita alucinaciones de Groq que no tiene acceso a datos reales
 
-        if (userData.rol === 'admin' || userData.rol === 'supervisor') {
-            // Admin y Supervisor: OpenAI con todas las herramientas
-            console.log('[AI] 💰 Redirigiendo a OpenAI (acceso completo a herramientas)')
-            return await handleFinancialRequest(messages, userData, supabase)
-        } else {
-            // Trabajador: Groq sin herramientas (solo lectura)
-            console.log('[AI] ⚡ Usando Groq (trabajador - solo lectura)')
-            return await handleGeneralRequest(messages, userData, supabase)
-        }
+        console.log(`[AI] 💰 Redirigiendo a OpenAI (rol: ${userData.rol})`)
+        return await handleFinancialRequest(messages, userData, supabase)
+
 
     } catch (error: any) {
         console.error('[AI] ❌ Error:', error.message)
@@ -339,7 +333,7 @@ async function handleFinancialRequest(messages: any[], userData: any, supabase: 
     const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
 
     const { openai } = await import('@ai-sdk/openai')
-    const { adminTools, supervisorTools } = await import('@/lib/ai/tools')
+    const { adminTools, supervisorTools, trabajadorTools } = await import('@/lib/ai/tools')
 
     // Seleccionar herramientas según rol (SEGURIDAD: Zero Leakage)
     let tools;
@@ -349,6 +343,9 @@ async function handleFinancialRequest(messages: any[], userData: any, supabase: 
     } else if (userData.rol === 'supervisor') {
         tools = supervisorTools  // Solo herramientas de supervisor
         console.log('[AI] 🔧 Tools cargadas: SUPERVISOR (acceso limitado)')
+    } else if (userData.rol === 'trabajador') {
+        tools = trabajadorTools  // Solo lectura de tareas
+        console.log('[AI] 🔧 Tools cargadas: TRABAJADOR (read-only)')
     } else {
         tools = {}  // Sin herramientas para otros roles
         console.log('[AI] 🔧 Tools cargadas: NINGUNA')
