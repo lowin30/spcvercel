@@ -241,6 +241,8 @@ Tu respuesta: "Para aprobar este gasto necesito:
 1. ¿A qué tarea corresponde? (Necesito el ID o nombre de la tarea)
 2. ¿Hay comprobante fotográfico?
 Una vez confirmes, proceso la aprobación con \`administrarGasto\`."
+
+WIZARDS: aprobar_gasto (lista gastos → detalles → aprobar/rechazar), crear_tarea (6 pasos), listar_mis_tareas (ejecuta listarTareas)
 `;
 
         case 'trabajador':
