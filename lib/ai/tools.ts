@@ -1,10 +1,10 @@
+```
 import { tool } from 'ai'
 import { z } from 'zod'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import {
     verAlertas,
-    aprobarGasto,
     verMiEquipo,
     registrarParte,
     verMisPagos,
@@ -85,7 +85,7 @@ export const learn_term = tool({
             if (error) throw error
             return `Aprendido: "${term}" significa "${definition}".`
         } catch (e: any) {
-            return `Error aprendiendo término: ${e.message}`
+            return `Error aprendiendo término: ${ e.message } `
         }
     }
 })
@@ -115,17 +115,17 @@ export const obtenerResumenProyecto = tool({
         const { data: tarea, error: tareaError } = await supabase
             .from('tareas')
             .select(`
-                id,
-                titulo,
-                descripcion,
-                estado_tarea,
-                presupuestos_base (
-                    id,
-                    total,
-                    materiales,
-                    mano_obra
-                )
-            `)
+id,
+    titulo,
+    descripcion,
+    estado_tarea,
+    presupuestos_base(
+        id,
+        total,
+        materiales,
+        mano_obra
+    )
+        `)
             .eq('id', tarea_id)
             .single()
 
@@ -224,7 +224,7 @@ export const calcularLiquidacionSemanal = tool({
 
         return {
             trabajador_id,
-            semana: `${semana_inicio} a ${semana_fin}`,
+            semana: `${ semana_inicio } a ${ semana_fin } `,
             dias_completos,
             medios_dias,
             total_dias,
@@ -325,10 +325,10 @@ export const listarTareas = tool({
                     // Filtrar por estados activos en la vista
                     query = query.in('estado_tarea', ['Aprobado', 'Organizar', 'Preguntar', 'Presupuestado', 'Enviado', 'En Proceso'])
                 } else {
-                    query = query.ilike('estado_tarea', `%${estado_filtro}%`)
+                    query = query.ilike('estado_tarea', `% ${ estado_filtro }% `)
                 }
             } else if (estado_filtro && estado_filtro !== 'todas') {
-                query = query.ilike('estado_tarea', `%${estado_filtro}%`)
+                query = query.ilike('estado_tarea', `% ${ estado_filtro }% `)
             }
 
             console.error('[TOOL] 🚀 Executing query...')
@@ -342,18 +342,18 @@ export const listarTareas = tool({
                 }
             }
 
-            console.error(`[TOOL] ✅ Query success. Rows: ${data?.length}`)
+            console.error(`[TOOL] ✅ Query success.Rows: ${ data?.length } `)
 
             if (!data || data.length === 0) {
                 return {
-                    mensaje: `No se encontraron tareas con criterio: ${estado_filtro}`,
+                    mensaje: `No se encontraron tareas con criterio: ${ estado_filtro } `,
                     total: 0,
                     tareas: []
                 }
             }
 
             const resultado = {
-                mensaje: `Se encontraron ${data.length} tareas`,
+                mensaje: `Se encontraron ${ data.length } tareas`,
                 filtros_usados: { estado: estado_filtro, limit: limit_filtro },
                 tareas: data.map(t => ({
                     id: t.id,
@@ -423,7 +423,7 @@ export const obtenerContextoUsuario = tool({
             firstRow: data?.[0] ? Object.keys(data[0]) : null
         })
 
-        if (error) return { error: `Error cargando contexto de ${rol}`, detalle: error.message }
+        if (error) return { error: `Error cargando contexto de ${ rol } `, detalle: error.message }
 
         return {
             tipo_contexto: rol,
@@ -476,7 +476,7 @@ export const administrarPresupuesto = tool({
                 .eq('id', presupuesto_id);
 
             if (error) return { success: false, error: error.message };
-            return { success: true, mensaje: `Presupuesto ${presupuesto_id} rechazado.` };
+            return { success: true, mensaje: `Presupuesto ${ presupuesto_id } rechazado.` };
         }
 
         // 2. APROBAR: Lógica compleja de facturación
@@ -546,7 +546,7 @@ export const administrarPresupuesto = tool({
                 id_estado_nuevo: 1
             };
 
-            const nombreBase = presupuesto.tareas?.titulo || `Presupuesto ${presupuesto.code}`;
+            const nombreBase = presupuesto.tareas?.titulo || `Presupuesto ${ presupuesto.code } `;
             let facturaRegularId = null;
             let facturaMaterialId = null;
 
@@ -563,7 +563,7 @@ export const administrarPresupuesto = tool({
                     .select()
                     .single();
 
-                if (facturaRError) throw new Error(`Error creando factura regular: ${facturaRError.message}`);
+                if (facturaRError) throw new Error(`Error creando factura regular: ${ facturaRError.message } `);
                 facturaRegularId = facturaR.id;
 
                 for (const item of itemsRegulares) {
@@ -588,12 +588,12 @@ export const administrarPresupuesto = tool({
                         total: Math.round(totalMaterial),
                         saldo_pendiente: totalMaterial,
                         total_pagado: 0,
-                        nombre: `${nombreBase} material`
+                        nombre: `${ nombreBase } material`
                     })
                     .select()
                     .single();
 
-                if (facturaMError) throw new Error(`Error creando factura materiales: ${facturaMError.message}`);
+                if (facturaMError) throw new Error(`Error creando factura materiales: ${ facturaMError.message } `);
                 facturaMaterialId = facturaM.id;
 
                 for (const item of itemsMateriales) {
@@ -617,12 +617,12 @@ export const administrarPresupuesto = tool({
 
             return {
                 success: true,
-                mensaje: `Presupuesto aprobado. ${facturaRegularId ? 'Factura Regular: ' + facturaRegularId : ''} ${facturaMaterialId ? 'Factura Material: ' + facturaMaterialId : ''}`,
+                mensaje: `Presupuesto aprobado.${ facturaRegularId ? 'Factura Regular: ' + facturaRegularId : '' } ${ facturaMaterialId ? 'Factura Material: ' + facturaMaterialId : '' } `,
                 facturas_creadas: { regular: facturaRegularId, material: facturaMaterialId }
             };
 
         } catch (error: any) {
-            return { success: false, error: `Error al aprobar: ${error.message}` };
+            return { success: false, error: `Error al aprobar: ${ error.message } ` };
         }
     }
 });
@@ -687,7 +687,7 @@ export const crearTarea = tool({
 
             if (error) return { success: false, error: error.message };
 
-            return { success: true, mensaje: `Tarea creada con ID: ${newTaskId}`, tarea_id: newTaskId };
+            return { success: true, mensaje: `Tarea creada con ID: ${ newTaskId } `, tarea_id: newTaskId };
         } catch (error: any) {
             return { success: false, error: error.message };
         }
@@ -755,7 +755,7 @@ export const administrarGasto = tool({
 
         return {
             success: true,
-            mensaje: `Gasto ${gasto_id} ${accion === 'aprobar' ? 'aprobado' : 'rechazado'} exitosamente.`
+            mensaje: `Gasto ${ gasto_id } ${ accion === 'aprobar' ? 'aprobado' : 'rechazado' } exitosamente.`
         };
     }
 });
@@ -791,7 +791,7 @@ export const registrarGasto = tool({
                     id_tarea: tarea_id,
                     id_usuario: user.id,
                     monto: monto,
-                    descripcion: `[${tipo.toUpperCase()}] ${descripcion}`,
+                    descripcion: `[${ tipo.toUpperCase() }] ${ descripcion } `,
                     estado: 'pendiente',
                     es_material: tipo === 'material',
                     created_at: new Date().toISOString()
@@ -803,7 +803,7 @@ export const registrarGasto = tool({
 
             return {
                 success: true,
-                mensaje: `Gasto de $${monto} (${tipo}) registrado para tarea ${tarea_id}. Pendiente de aprobación.`,
+                mensaje: `Gasto de $${ monto } (${ tipo }) registrado para tarea ${ tarea_id }. Pendiente de aprobación.`,
                 gasto_id: data.id
             };
         } catch (e: any) {
