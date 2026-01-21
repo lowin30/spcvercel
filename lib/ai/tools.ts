@@ -727,38 +727,46 @@ export const registrarGasto = tool({
         descripcion: z.string().describe('Descripción detallada del gasto'),
     }),
     execute: async ({ tarea_id, monto, tipo, descripcion }) => {
-        const cookieStore = await cookies();
-        const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
-        );
+        console.log('[TOOL] 🚀 registrarGasto called:', { tarea_id, monto, tipo, descripcion })
+        try {
+            const cookieStore = await cookies();
+            const supabase = createServerClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
+            );
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return { success: false, error: 'No autenticado.' };
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            console.log('[TOOL] Auth User:', user?.id, authError)
 
-        // Insertar gasto
-        const { data, error } = await supabase
-            .from('gastos_tarea')
-            .insert({
-                id_tarea: tarea_id,
-                id_usuario: user.id,
-                monto: monto,
-                descripcion: `[${tipo.toUpperCase()}] ${descripcion}`,
-                estado: 'pendiente',
-                es_material: tipo === 'material',
-                created_at: new Date().toISOString()
-            })
-            .select()
-            .single();
+            if (!user) return { success: false, error: 'No autenticado.' };
 
-        if (error) return { success: false, error: error.message };
+            // Insertar gasto
+            const { data, error } = await supabase
+                .from('gastos_tarea')
+                .insert({
+                    id_tarea: tarea_id,
+                    id_usuario: user.id,
+                    monto: monto,
+                    descripcion: `[${tipo.toUpperCase()}] ${descripcion}`,
+                    estado: 'pendiente',
+                    es_material: tipo === 'material',
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .single();
 
-        return {
-            success: true,
-            mensaje: `Gasto de $${monto} (${tipo}) registrado para tarea ${tarea_id}. Pendiente de aprobación.`,
-            gasto_id: data.id
-        };
+            if (error) return { success: false, error: error.message };
+
+            return {
+                success: true,
+                mensaje: `Gasto de $${monto} (${tipo}) registrado para tarea ${tarea_id}. Pendiente de aprobación.`,
+                gasto_id: data.id
+            };
+        } catch (e: any) {
+            console.error('[TOOL] 💥 ERROR en registrarGasto:', e)
+            return { success: false, error: e.message }
+        }
     }
 });
 

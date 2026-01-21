@@ -20,6 +20,7 @@ interface ProcesadorImagenProps {
   tareaTitulo?: string;
   mode?: 'normal' | 'extra_pdf';
   facturaId?: number;
+  onSuccess?: () => void; // Callback para integración con Chat
 }
 
 interface DatosGasto {
@@ -39,7 +40,7 @@ type ModoRegistroType = 'camara' | 'archivo' | 'manual'
 type CategoriaGastoType = 'materiales' | 'mano_de_obra'
 type ModoImagenType = 'original' | 'suave' | 'fuerte'
 
-export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', ...restProps }: ProcesadorImagenProps) {
+export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', onSuccess, ...restProps }: ProcesadorImagenProps) {
   // Estado para controlar la pestaña activa
   const [modoRegistro, setModoRegistro] = useState<ModoRegistroType>('camara')
 
@@ -757,9 +758,18 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
 
       // Resetear el formulario para un nuevo ingreso
       setPaso('completado')
-      setTimeout(() => {
-        reiniciarProceso()
-      }, 2000)
+
+      // Si hay callback de éxito (Chat), llamarlo después de breve delay
+      if (onSuccess) {
+        setTimeout(() => {
+          // No forzamos cierre automático para dejar leer el mensaje de éxito, 
+          // el usuario usará el botón "Volver al chat"
+        }, 2000)
+      } else {
+        setTimeout(() => {
+          reiniciarProceso()
+        }, 2000)
+      }
 
     } catch (error) {
       console.error("Error:", error)
@@ -1282,11 +1292,14 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
             <Check className="h-12 w-12 mx-auto mb-3 text-green-500" />
             <p className="text-lg font-medium text-green-600 mb-2">¡Gasto registrado correctamente!</p>
             <Button
-              onClick={reiniciarProceso}
+              onClick={() => {
+                if (onSuccess) onSuccess()
+                else reiniciarProceso()
+              }}
               variant="outline"
               className="mx-auto mt-2"
             >
-              Registrar otro gasto
+              {onSuccess ? "Volver al chat" : "Registrar otro gasto"}
             </Button>
           </div>
         )}

@@ -344,8 +344,8 @@ async function handleFinancialRequest(messages: any[], userData: any, supabase: 
         tools = supervisorTools  // Solo herramientas de supervisor
         console.log('[AI] 🔧 Tools cargadas: SUPERVISOR (acceso limitado)')
     } else if (userData.rol === 'trabajador') {
-        tools = trabajadorTools  // Solo lectura de tareas
-        console.log('[AI] 🔧 Tools cargadas: TRABAJADOR (read-only)')
+        tools = trabajadorTools
+        console.log('[AI] 🔧 Tools cargadas: TRABAJADOR (Expenses Enabled)')
     } else {
         tools = {}  // Sin herramientas para otros roles
         console.log('[AI] 🔧 Tools cargadas: NINGUNA')

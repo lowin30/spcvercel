@@ -20,7 +20,8 @@ export async function GET() {
         const { data: tasks, error } = await supabase
             .from('vista_tareas_completa')
             .select('id, titulo, estado_tarea')
-            .in('estado_tarea', ['Aprobado', 'En Proceso', 'Organizar', 'Presupuestado', 'Facturado', 'Cerrado sin respuesta'])
+            .eq('finalizada', false) // Filtrar por booleano real
+            .not('estado_tarea', 'in', '("Finalizada", "Cancelada", "Completada")') // Garantía extra de exclusión
             .order('created_at', { ascending: false })
             .limit(20)
 

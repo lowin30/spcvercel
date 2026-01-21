@@ -8,12 +8,14 @@ import { usePathname } from "next/navigation"
 import { ChatQuickActions } from "@/components/chat-quick-actions"
 
 import { WizardOptions } from "@/components/wizard-options"
+import { ProcesadorImagen } from "@/components/procesador-imagen"
 
 export function AiChatWidget() {
     const [isOpen, setIsOpen] = useState(false)
     const [isMounted, setIsMounted] = useState(false)
     const pathname = usePathname()
     const scrollRef = useRef<HTMLDivElement>(null)
+    const messagesEndRef = useRef<HTMLDivElement>(null) // Nueva ref para el final
 
     // No mostrar en login/home
     const shouldHide = pathname === '/login' || pathname === '/'
@@ -151,53 +153,15 @@ export function AiChatWidget() {
         const { flow, step, data } = wizardState
         const newData = { ...data }
 
-        if (flow === 'gasto') {
-            if (step === 1) { // Tarea Seleccionada
+        if (wizardState.flow === 'gasto') {
+            if (wizardState.step === 1) { // Tarea Seleccionada
+                // Guardar datos de la tarea seleccionada
                 newData.tarea_id = value
-                newData.tarea_titulo = wizardOptions.find(o => o.value === value)?.label || 'Tarea' // Guardar nombre para feedback
+                newData.tarea_titulo = wizardOptions.find(o => o.value === value)?.label || 'Tarea'
 
-                setWizardState({ ...wizardState, step: 2, data: newData })
-                setWizardOptions([]) // Limpiar opciones
-                setMessages(prev => [...prev,
-                { id: Date.now().toString(), role: 'user', content: newData.tarea_titulo },
-                { id: (Date.now() + 1).toString(), role: 'assistant', content: '¿Cuál es el monto total? (Solo números, ej: 5000)' }
-                ])
-                return
-            }
-            if (step === 2) { // Monto
-                newData.monto = value.replace(/[^0-9.]/g, '') // Sanitize
-                setWizardState({ ...wizardState, step: 3, data: newData })
-                setMessages(prev => [...prev,
-                { id: Date.now().toString(), role: 'user', content: `$${newData.monto}` },
-                { id: (Date.now() + 1).toString(), role: 'assistant', content: '¿Es Material o Mano de Obra?' }
-                ])
-                setWizardOptions([
-                    { label: '🧱 Material', value: 'material' },
-                    { label: '👷 Mano de Obra', value: 'mano_obra' },
-                    { label: '❓ Otro', value: 'otro' }
-                ])
-                return
-            }
-            if (step === 3) { // Tipo
-                newData.tipo = value
-                setWizardState({ ...wizardState, step: 4, data: newData })
+                // IR DIRECTO AL COMPONENTE INTELIGENTE (que ya maneja foto y manual)
+                setWizardState({ ...wizardState, step: 99, data: newData })
                 setWizardOptions([])
-                setMessages(prev => [...prev,
-                { id: Date.now().toString(), role: 'user', content: value === 'material' ? 'Material' : value === 'mano_obra' ? 'Mano de Obra' : 'Otro' },
-                { id: (Date.now() + 1).toString(), role: 'assistant', content: 'Finalmente, ingresá una descripción corta del gasto:' }
-                ])
-                return
-            }
-            if (step === 4) { // Descripción y FIN
-                newData.descripcion = value
-                setWizardState({ active: false, flow: null, step: 0, data: {} }) // Reset
-                setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: value }])
-
-                // Prompt Final estructurado para activar la tool
-                const finalPrompt = `Registrar gasto en tarea ID ${newData.tarea_id}. Monto: ${newData.monto}. Tipo: ${newData.tipo}. Descripción: ${newData.descripcion}`
-
-                // Enviar a la AI
-                submitToAI(finalPrompt)
                 return
             }
         }
@@ -341,12 +305,23 @@ export function AiChatWidget() {
         }
     }
 
-    // Auto-scroll
+    // Auto-scroll mejorado
     useEffect(() => {
         if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+            // Usamos un pequeño timeout para asegurar que el DOM se pintó
+            setTimeout(() => {
+                const scrollElement = scrollRef.current;
+                if (scrollElement) {
+                    // Forzar scroll al fondo
+                    scrollElement.scrollTo({ top: scrollElement.scrollHeight, behavior: 'instant' });
+                }
+            }, 100)
         }
-    }, [messages])
+        // También intentar scrollear al div "final"
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ block: "end", behavior: "smooth" });
+        }
+    }, [messages, wizardState, isLoading]) // Agregamos dependencias clave
 
     // No renderizar hasta que esté montado en el cliente (fix hydration)
     if (!isMounted || shouldHide) return null
@@ -392,57 +367,84 @@ export function AiChatWidget() {
                         </button>
                     </div>
 
-                    {/* Mensajes */}
-                    <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-950" ref={scrollRef}>
-                        {messages.length === 0 && (
-                            <div className="text-center text-gray-500 dark:text-gray-400 mt-12 px-4">
-                                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                    <Bot className="w-9 h-9 text-white" />
-                                </div>
-                                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">¡Hola! Soy tu asistente inteligente</p>
-                                <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">Pregúntame sobre proyectos, liquidaciones o finanzas.</p>
-                                <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full">
-                                    <Mic className="w-3 h-3" />
-                                    <span>Puedes escribir o grabar tu mensaje</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {messages.map((message) => (
-                            <div
-                                key={message.id}
-                                className={`flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                            >
-                                <div
-                                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${message.role === 'user'
-                                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-md shadow-blue-500/20'
-                                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md border border-gray-200 dark:border-gray-700'
-                                        }`}
+                    {/* Mensajes o Wizard de Imagen */}
+                    {wizardState.active && wizardState.step === 99 ? (
+                        <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-2">
+                            <div className="flex justify-end p-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setWizardState({ active: false, flow: null, step: 0, data: {} })}
                                 >
-                                    <div className="whitespace-pre-wrap break-words font-medium">
-                                        {message.content}
+                                    <X className="h-4 w-4 mr-2" /> Cancelar
+                                </Button>
+                            </div>
+                            <ProcesadorImagen
+                                tareaId={parseInt(wizardState.data.tarea_id) || 0}
+                                tareaTitulo={wizardState.data.tarea_titulo}
+                                onSuccess={() => {
+                                    setWizardState({ active: false, flow: null, step: 0, data: {} })
+                                    setMessages(prev => [...prev, {
+                                        id: Date.now().toString(),
+                                        role: 'assistant',
+                                        content: '✅ ¡Excelente! El gasto y el comprobante se procesaron correctamente.'
+                                    }])
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-950" ref={scrollRef}>
+                            {messages.length === 0 && (
+                                <div className="text-center text-gray-500 dark:text-gray-400 mt-12 px-4">
+                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                        <Bot className="w-9 h-9 text-white" />
+                                    </div>
+                                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">¡Hola! Soy tu asistente inteligente</p>
+                                    <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">Pregúntame sobre proyectos, liquidaciones o finanzas.</p>
+                                    <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full">
+                                        <Mic className="w-3 h-3" />
+                                        <span>Puedes escribir o grabar tu mensaje</span>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )}
 
-                        {isLoading && (
-                            <div className="flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700">
-                                    <div className="flex items-center gap-2">
-                                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">Pensando...</span>
+                            {messages.map((message) => (
+                                <div
+                                    key={message.id}
+                                    className={`flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                >
+                                    <div
+                                        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${message.role === 'user'
+                                            ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-md shadow-blue-500/20'
+                                            : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md border border-gray-200 dark:border-gray-700'
+                                            }`}
+                                    >
+                                        <div className="whitespace-pre-wrap break-words font-medium">
+                                            {message.content}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            ))}
 
-                        {error && (
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <p className="text-xs text-red-800 dark:text-red-300 font-medium">{error.message}</p>
-                            </div>
-                        )}
-                    </ScrollArea>
+                            {isLoading && (
+                                <div className="flex gap-2.5 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700">
+                                        <div className="flex items-center gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Pensando...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {error && (
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <p className="text-xs text-red-800 dark:text-red-300 font-medium">{error.message}</p>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                        </ScrollArea>
+                    )}
 
                     {/* Quick Actions - Botones por rol (Solo si NO estamos en medio de un wizard) */}
                     {!wizardState.active && (
@@ -550,8 +552,9 @@ export function AiChatWidget() {
                             <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 shadow-sm">Enter</kbd> enviar • <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 shadow-sm">Shift+Enter</kbd> nueva línea
                         </div>
                     </form>
-                </div>
-            )}
+                </div >
+            )
+            }
         </>
     )
 }
