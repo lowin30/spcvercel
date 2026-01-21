@@ -717,16 +717,38 @@ export const administrarGasto = tool({
     }
 });
 
-// Exportar todas las herramientas
-export const financialTools = {
+// Exportar herramientas según rol (SEGURIDAD: Zero Leakage)
+
+// ADMIN: Acceso completo (God Mode)
+export const adminTools = {
+    // Análisis y consulta
     calcularROI,
     obtenerResumenProyecto,
     calcularLiquidacionSemanal,
     estimarPresupuestoConHistorico,
     listarTareas,
     obtenerContextoUsuario,
-    // Mutation tools
-    administrarPresupuesto,
-    crearTarea,
-    administrarGasto
+    // Mutation tools (solo admin)
+    administrarPresupuesto,  // ⚠️ SOLO ADMIN
+    crearTarea,              // ⚠️ SOLO ADMIN
+    administrarGasto         // Admin puede vetar gastos de supervisores
 }
+
+// SUPERVISOR: Solo gestión de SUS tareas
+export const supervisorTools = {
+    // Análisis y consulta (filtrado por supervisor)
+    obtenerContextoUsuario,
+    listarTareas,
+    calcularLiquidacionSemanal,
+    // Mutation tools (solo para SUS tareas)
+    administrarGasto  // Solo gastos de tareas que supervisa
+}
+
+// TRABAJADOR: Solo lectura (sin mutation tools)
+export const trabajadorTools = {
+    obtenerContextoUsuario,
+    listarTareas
+}
+
+// Legacy export para compatibilidad (mapea a adminTools)
+export const financialTools = adminTools

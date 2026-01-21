@@ -58,25 +58,17 @@ export async function POST(req: Request) {
             })
         }
 
-        // ===== 🎯 CLASIFICACIÓN DE INTENCIÓN CON GROQ (RÁPIDO) =====
-        const lastUserMessage = messages[messages.length - 1]?.content || ''
-
-        console.log('[AI] 🔍 Clasificando intención del mensaje:', lastUserMessage.substring(0, 100))
-
-        const intent = await classifyIntent(lastUserMessage)
-
-        console.log('[AI] 🎯 Intención detectada:', intent)
-
         // ===== 🔀 ROUTER: DECIDIR QUÉ MODELO USAR =====
-        const financialIntents = ['financial_calculation', 'budget_validation', 'project_summary', 'project_listing', 'task_creation', 'budget_approval', 'expense_management']
+        // Estrategia simplificada: Admin y Supervisor SIEMPRE usan OpenAI con herramientas
+        // Solo Trabajadores usan Groq (sin herramientas, lectura básica)
 
-        if (financialIntents.includes(intent) && userData.rol !== 'trabajador') {
-            // Usar OpenAI para análisis financiero Y acciones administrativas
-            console.log('[AI] 💰 Redirigiendo a OpenAI (análisis financiero + herramientas)')
+        if (userData.rol === 'admin' || userData.rol === 'supervisor') {
+            // Admin y Supervisor: OpenAI con todas las herramientas
+            console.log('[AI] 💰 Redirigiendo a OpenAI (acceso completo a herramientas)')
             return await handleFinancialRequest(messages, userData, supabase)
         } else {
-            // Usar Groq para respuestas rápidas
-            console.log('[AI] ⚡ Usando Groq (respuesta rápida)')
+            // Trabajador: Groq sin herramientas (solo lectura)
+            console.log('[AI] ⚡ Usando Groq (trabajador - solo lectura)')
             return await handleGeneralRequest(messages, userData, supabase)
         }
 
@@ -325,9 +317,22 @@ async function handleFinancialRequest(messages: any[], userData: any, supabase: 
     const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
 
     const { openai } = await import('@ai-sdk/openai')
-    const { financialTools } = await import('@/lib/ai/tools')
+    const { adminTools, supervisorTools } = await import('@/lib/ai/tools')
 
-    console.log('[AI] 🤖 OpenAI GPT-4o-mini con herramientas financieras')
+    // Seleccionar herramientas según rol (SEGURIDAD: Zero Leakage)
+    let tools;
+    if (userData.rol === 'admin') {
+        tools = adminTools  // Acceso completo
+        console.log('[AI] 🔧 Tools cargadas: ADMIN (acceso completo)')
+    } else if (userData.rol === 'supervisor') {
+        tools = supervisorTools  // Solo herramientas de supervisor
+        console.log('[AI] 🔧 Tools cargadas: SUPERVISOR (acceso limitado)')
+    } else {
+        tools = {}  // Sin herramientas para otros roles
+        console.log('[AI] 🔧 Tools cargadas: NINGUNA')
+    }
+
+    console.log('[AI] 🤖 OpenAI GPT-4o-mini con herramientas')
 
     const result = await streamText({
         model: openai('gpt-4o-mini'),
@@ -335,7 +340,7 @@ async function handleFinancialRequest(messages: any[], userData: any, supabase: 
             { role: 'system', content: systemPrompt },
             ...messages
         ],
-        tools: financialTools,
+        tools: tools,
         temperature: 0.2,
         maxSteps: 5, // Permitir que la IA ejecute la herramienta y luego responda
     })
