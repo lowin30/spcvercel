@@ -64,48 +64,6 @@ export const verAlertas = tool({
     }
 });
 
-// Tool: Aprobar Gasto (Supervisor/Admin)
-export const aprobarGasto = tool({
-    description: 'Aprueba un gasto pendiente. Solo supervisores de la tarea o admins pueden aprobar.',
-    parameters: z.object({
-        gasto_id: z.number().describe('ID del gasto a aprobar'),
-    }),
-    execute: async ({ gasto_id }) => {
-        try {
-            const cookieStore = await cookies();
-            const supabase = createServerClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
-            );
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return { success: false, error: 'No autenticado' };
-
-            // Actualizar estado del gasto
-            const { data, error } = await supabase
-                .from('gastos_tarea')
-                .update({
-                    estado: 'aprobado',
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', gasto_id)
-                .select()
-                .single();
-
-            if (error) return { success: false, error: error.message };
-
-            return {
-                success: true,
-                mensaje: `✅ Gasto de $${data.monto} aprobado correctamente`,
-                gasto_id: data.id
-            };
-        } catch (e: any) {
-            return { success: false, error: e.message };
-        }
-    }
-});
-
 // Tool: Ver Mi Equipo (Supervisor)
 export const verMiEquipo = tool({
     description: 'Muestra información del equipo de trabajadores asignados a las tareas del supervisor.',
