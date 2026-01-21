@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Bot, Send, Mic, MicOff, Loader2, X } from "lucide-react"
 import { usePathname } from "next/navigation"
+import { ChatQuickActions } from "@/components/chat-quick-actions"
 
 export function AiChatWidget() {
     const [isOpen, setIsOpen] = useState(false)
@@ -27,9 +28,22 @@ export function AiChatWidget() {
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
 
+    // Usuario y rol (para Quick Actions)
+    const [userRole, setUserRole] = useState<string>('trabajador')
+
     // Fix hydration: solo renderizar después de montar
     useEffect(() => {
         setIsMounted(true)
+
+        // Fetch user role on mount
+        fetch('/api/user')
+            .then(res => res.json())
+            .then(data => {
+                if (data.user?.rol) {
+                    setUserRole(data.user.rol)
+                }
+            })
+            .catch(err => console.error('Error fetching user:', err))
     }, [])
 
     // Enviar mensaje de texto
@@ -258,6 +272,19 @@ export function AiChatWidget() {
                             </div>
                         )}
                     </ScrollArea>
+
+                    {/* Quick Actions - Botones por rol */}
+                    <ChatQuickActions
+                        role={userRole}
+                        onActionClick={(command) => {
+                            setInput(command)
+                            // Auto-submit el comando
+                            setTimeout(() => {
+                                const fakeEvent = { preventDefault: () => { } } as React.FormEvent
+                                handleSubmit(fakeEvent)
+                            }, 100)
+                        }}
+                    />
 
                     {/* Input mejorado - MULTI-LÍNEA + MODERNO */}
                     <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-b from-gray-50/80 to-white/80 dark:from-gray-900/80 dark:to-gray-950/80 backdrop-blur-sm">
