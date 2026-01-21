@@ -796,7 +796,7 @@ export const registrarGasto = tool({
 
 // Exportar herramientas según rol (SEGURIDAD: Zero Leakage)
 
-// ADMIN: Acceso completo (God Mode)
+//ADMIN: Acceso completo (God Mode)
 export const adminTools = {
     calcularROI,
     obtenerResumenProyecto,
@@ -806,7 +806,6 @@ export const adminTools = {
     obtenerContextoUsuario,
     administrarPresupuesto,
     crearTarea,
-    administrarGasto,
     registrarGasto,
     verAlertas,
     verMiEquipo,
@@ -820,7 +819,6 @@ export const supervisorTools = {
     obtenerContextoUsuario,
     listarTareas,
     calcularLiquidacionSemanal,
-    administrarGasto,
     registrarGasto,
     verMiEquipo,
     verLiquidacionEquipo,
