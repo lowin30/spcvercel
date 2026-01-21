@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         console.log('[AI] 🎯 Intención detectada:', intent)
 
         // ===== 🔀 ROUTER: DECIDIR QUÉ MODELO USAR =====
-        const financialIntents = ['financial_calculation', 'budget_validation', 'project_summary']
+        const financialIntents = ['financial_calculation', 'budget_validation', 'project_summary', 'project_listing']
 
         if (financialIntents.includes(intent) && userData.rol !== 'trabajador') {
             // Usar OpenAI para análisis financiero
@@ -124,39 +124,32 @@ function getDefaultPromptByRole(rol: string): string {
 
 CONTEXTO: SPC gestiona trabajos de mantenimiento en edificios. Tienes acceso COMPLETO a todas las tareas, presupuestos, facturas y liquidaciones.
 
-TU ROL:
-- Analizar rentabilidad de proyectos
-- Calcular márgenes y liquidaciones
-- Aprobar/rechazar presupuestos base
-- Responder consultas financieras estratégicas
+TUS HERRAMIENTAS REALES (Usa estas para responder):
+1. listarTareas: Busca proyectos activos, pendientes o por estado.
+2. calcularROI: Realiza cálculos de rentabilidad precisos.
+3. obtenerResumenProyecto: Trae datos financieros detalle de una tarea.
+4. calcularLiquidacionSemanal: Calcula pagos a trabajadores.
+5. estimarPresupuestoConHistorico: Estima costos basándose en categorías.
 
-DATOS QUE VES (sin restricciones RLS):
-- Todas las tareas y presupuestos (base + finales)
-- Todas las facturas y liquidaciones
-- Márgenes extra y ajustes confidenciales
-- Productos (exclusivo admin)
+CAPACIDADES:
+- Puedes listar tareas activas y su estado.
+- Puedes calcular si un proyecto fue rentable.
+- Puedes estimar cuánto saldrá un trabajo nuevo.
+- NO tienes acceso a Excel, Tableau, Jira ni software externo. Todo lo haces aquí.
 
-⚠️ REGLA CRÍTICA - STRUCTURED OUTPUTS:
-Cuando hagas análisis financiero, SIEMPRE termina tu respuesta con un bloque JSON así:
+⚠️ REGLA DE FORMATO JSON (SOLO para Cálculos Financieros):
+SI y SOLO SI el usuario pide un cálculo financiero explícito (ROI, margen, liquidación), termina tu respuesta con este JSON:
 
 \`\`\`json
 {
   "metrica": "rentabilidad_proyecto",
   "tarea_id": 123,
-  "presupuesto_final": 13000,
-  "gastos_reales": 7000,
-  "ganancia_neta": 6000,
-  "rentabilidad_porcentaje": 46.15,
   "analisis": "rentable",
-  "desviacion_porcentaje": 5.2,
-  "alerta": false,
   "recomendacion": "Proyecto muy rentable"
 }
 \`\`\`
 
-NO calcules números complejos tú mismo. Para cálculos precisos, pide los datos al usuario o menciona que necesitas una herramienta SQL.
-
-Responde de forma ejecutiva y directa. Usa números concretos.`
+Para consultas generales (como "¿Qué puedes hacer?" o "Hola"), responde en TEXTO NATURAL sin JSON.`
 
         case 'supervisor':
             return `Eres el asistente operativo IA para supervisores de SPC.
@@ -229,6 +222,7 @@ Responde SOLO con UNA palabra (sin JSON, sin explicaciones):
 - financial_calculation (si pide calcular ROI, ganancias, márgenes, análisis numérico)
 - budget_validation (si pregunta si un presupuesto está bien, o quiere validar costos)
 - project_summary (si pide resumen financiero de un proyecto)
+- project_listing (si pide listar tareas, proyectos, ver qué está activo/aprobado)
 - general_question (preguntas de procedimientos, cómo hacer algo)
 - data_extraction (leer facturas, OCR, extraer datos)
 
@@ -251,7 +245,7 @@ Responde SOLO la categoría, nada más.`
         const detectedIntent = intentText.trim().toLowerCase()
 
         // Validar que sea una intención válida
-        const validIntents = ['financial_calculation', 'budget_validation', 'project_summary', 'general_question', 'data_extraction']
+        const validIntents = ['financial_calculation', 'budget_validation', 'project_summary', 'project_listing', 'general_question', 'data_extraction']
 
         if (validIntents.includes(detectedIntent)) {
             return detectedIntent
@@ -283,6 +277,7 @@ async function handleFinancialRequest(messages: any[], userData: any, supabase: 
         ],
         tools: financialTools,
         temperature: 0.2,
+        maxSteps: 5, // Permitir que la IA ejecute la herramienta y luego responda
     })
 
     return result.toTextStreamResponse()

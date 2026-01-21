@@ -16,19 +16,22 @@ export const calcularROI = tool({
     parameters: z.object({
         presupuesto_final: z.number().describe('Presupuesto final del proyecto (lo que se cobró al cliente)'),
         gastos_reales: z.number().describe('Gastos reales del proyecto (materiales + mano de obra)'),
-        margen_extra: z.number().default(0).describe('Margen extra agregado por admin (opcional, default: 0)'),
+        margen_extra: z.number().default(0).describe('Margen extra agregado por admin (opcional)'),
     }),
-    execute: async ({ presupuesto_final, gastos_reales, margen_extra = 0 }) => {
+    execute: async ({ presupuesto_final, gastos_reales, margen_extra }) => {
+        // Default en código
+        const margen = margen_extra
+
         // Cálculo puro en TypeScript - SIN errores de IA
         const ganancia_bruta = presupuesto_final - gastos_reales
-        const ganancia_neta = ganancia_bruta - margen_extra
+        const ganancia_neta = ganancia_bruta - margen
         const roi = (ganancia_neta / gastos_reales) * 100
         const margen_porcentaje = (ganancia_bruta / presupuesto_final) * 100
 
         return {
             presupuesto_final,
             gastos_reales,
-            margen_extra,
+            margen_extra: margen,
             ganancia_bruta,
             ganancia_neta,
             roi_porcentaje: parseFloat(roi.toFixed(2)),
@@ -72,7 +75,7 @@ export const obtenerResumenProyecto = tool({
                 id,
                 titulo,
                 descripcion,
-                estado,
+                estado_tarea,
                 presupuestos_base (
                     id,
                     total,
@@ -103,7 +106,7 @@ export const obtenerResumenProyecto = tool({
         return {
             tarea_id: tarea.id,
             titulo: tarea.titulo,
-            estado: tarea.estado,
+            estado: tarea.estado_tarea,
             presupuesto_base: presupuesto_base?.total || 0,
             materiales_presupuestados: presupuesto_base?.materiales || 0,
             mano_obra_presupuestada: presupuesto_base?.mano_obra || 0,
@@ -199,11 +202,13 @@ export const estimarPresupuestoConHistorico = tool({
     description: 'Estima el presupuesto de un trabajo basado en trabajos similares del histórico. Usa embeddings de similitud.',
     parameters: z.object({
         descripcion: z.string().describe('Descripción del trabajo a presupuestar'),
-        tipo_trabajo: z.enum(['plomeria', 'gas', 'pintura', 'albanileria', 'herreria', 'destapacion', 'impermeabilizacion', 'otro']).default('otro').describe('Tipo de trabajo (opcional, default: otro)'),
+        tipo_trabajo: z.enum(['plomeria', 'gas', 'pintura', 'albanileria', 'herreria', 'destapacion', 'impermeabilizacion', 'otro']).default('otro').describe('Tipo de trabajo. Default: otro'),
     }),
-    execute: async ({ descripcion, tipo_trabajo = 'otro' }) => {
+    execute: async ({ descripcion, tipo_trabajo }) => {
         // TODO: Implementar búsqueda con embeddings cuando esté configurado pgvector
         // Por ahora, retornar estimación genérica basada en tipo
+
+        const tipo = tipo_trabajo
 
         const estimaciones_base: Record<string, { materiales: number, mano_obra: number }> = {
             plomeria: { materiales: 8000, mano_obra: 5000 },
@@ -216,17 +221,115 @@ export const estimarPresupuestoConHistorico = tool({
             otro: { materiales: 10000, mano_obra: 8000 }
         }
 
-        const base = estimaciones_base[tipo_trabajo || 'otro']
+        const base = estimaciones_base[tipo] || estimaciones_base.otro
 
         return {
             descripcion,
-            tipo_trabajo: tipo_trabajo || 'otro',
+            tipo_trabajo: tipo,
             materiales_estimados: base.materiales,
             mano_obra_estimada: base.mano_obra,
             presupuesto_base_total: base.materiales + base.mano_obra,
-            confianza: tipo_trabajo ? 'media' : 'baja',
+            confianza: tipo !== 'otro' ? 'media' : 'baja',
             nota: 'Estimación basada en promedios históricos. Para precisión mayor, implementar búsqueda con embeddings.',
             proyectos_similares: 0 // TODO: contar cuando tengamos embeddings
+        }
+    }
+})
+
+// Tool 5: Listar tareas/proyectos
+export const listarTareas = tool({
+    description: 'Lista las tareas o proyectos del sistema, permitiendo filtrar por estado. Útil para responder preguntas como "¿Qué tareas están activas?" o "Listame las tareas aprobadas".',
+    parameters: z.object({
+        estado: z.string().default('todas').describe('Estado de las tareas a buscar (pendiente, en_progreso, aprobado, finalizado, cancelado, todas). Default: todas'),
+        limit: z.number().default(10).describe('Cantidad máxima de tareas a listar. Default: 10')
+    }),
+    execute: async ({ estado, limit }) => {
+        console.error('[TOOL] 🚨 START listarTareas', { estado, limit })
+        try {
+            const estado_filtro = estado
+            const limit_filtro = limit
+
+            console.error('[TOOL] 🍪 Getting cookies...')
+            const cookieStore = await cookies()
+
+            console.error('[TOOL] 🔌 Connecting to Supabase...')
+            const supabase = createServerClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                {
+                    cookies: {
+                        get(name: string) {
+                            return cookieStore.get(name)?.value
+                        }
+                    }
+                }
+            )
+
+            // Construir query - USANDO COLUMNA CORRECTA: estado_tarea
+            console.error('[TOOL] 🔍 Building query...')
+            // Construir query - USANDO VISTA CORRECTA
+            console.error('[TOOL] 🔍 Building query...')
+            let query = supabase
+                .from('vista_tareas_completa')
+                .select('id, titulo, descripcion, estado_tarea, fecha_visita, nombre_edificio')
+                .order('created_at', { ascending: false })
+                .limit(limit_filtro)
+
+            // Aplicar filtro
+            if (estado_filtro === 'activas' || estado_filtro === 'activos' || estado_filtro === 'aprobado' || estado_filtro === 'en_progreso') {
+                // Soportar alias comunes y valores reales del enum
+                if (estado_filtro === 'activas' || estado_filtro === 'activos') {
+                    // Filtrar por estados activos en la vista
+                    query = query.in('estado_tarea', ['Aprobado', 'Organizar', 'Preguntar', 'Presupuestado', 'Enviado', 'En Proceso'])
+                } else {
+                    query = query.ilike('estado_tarea', `%${estado_filtro}%`)
+                }
+            } else if (estado_filtro && estado_filtro !== 'todas') {
+                query = query.ilike('estado_tarea', `%${estado_filtro}%`)
+            }
+
+            console.error('[TOOL] 🚀 Executing query...')
+            const { data, error } = await query
+
+            if (error) {
+                console.error('[TOOL] ❌ Supabase Error:', error)
+                return {
+                    error: 'Error al buscar tareas en base de datos',
+                    detalle: error.message
+                }
+            }
+
+            console.error(`[TOOL] ✅ Query success. Rows: ${data?.length}`)
+
+            if (!data || data.length === 0) {
+                return {
+                    mensaje: `No se encontraron tareas con criterio: ${estado_filtro}`,
+                    total: 0,
+                    tareas: []
+                }
+            }
+
+            const resultado = {
+                mensaje: `Se encontraron ${data.length} tareas`,
+                filtros_usados: { estado: estado_filtro, limit: limit_filtro },
+                tareas: data.map(t => ({
+                    id: t.id,
+                    titulo: t.titulo,
+                    estado: t.estado_tarea,
+                    edificio: t.nombre_edificio,
+                    descripcion: t.descripcion?.substring(0, 100),
+                    fecha_visita: t.fecha_visita
+                }))
+            }
+            // console.error('[TOOL] Result:', JSON.stringify(resultado).substring(0, 100) + '...')
+            return resultado
+
+        } catch (e: any) {
+            console.error('[TOOL] 💥 CRITICAL ERROR in listarTareas:', e)
+            return {
+                error: 'Excepción interna al listar tareas',
+                mensaje: e.message
+            }
         }
     }
 })
@@ -236,5 +339,6 @@ export const financialTools = {
     calcularROI,
     obtenerResumenProyecto,
     calcularLiquidacionSemanal,
-    estimarPresupuestoConHistorico
+    estimarPresupuestoConHistorico,
+    listarTareas
 }

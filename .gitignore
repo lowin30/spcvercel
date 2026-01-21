@@ -59,3 +59,5 @@ verificar-n8n.md
 test-gemini.js
 test-groq.js
 groq_models.txt
+test-*.js
+check-*.js
