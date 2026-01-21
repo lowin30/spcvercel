@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Bot, Send, Mic, MicOff, Loader2, X, Copy, Check } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { ChatQuickActions } from "@/components/chat-quick-actions"
+import { TaskListWelcome } from "@/components/task-list-welcome"
 import { ToolConfirmationCard } from "@/components/tool-confirmation-card"
 import { ToolInvocation } from "ai"
 import { toast } from "sonner"
@@ -222,6 +223,11 @@ export function AiChatWidget() {
 
     const [wizardOptions, setWizardOptions] = useState<Array<{ label: string, value: string }>>([])
 
+    // Estado para tareas activas (task-centric UX)
+    const [activeTasks, setActiveTasks] = useState<Array<any>>([])
+    const [loadingTasks, setLoadingTasks] = useState(false)
+    const [selectedTask, setSelectedTask] = useState<{ id: number, title: string } | null>(null)
+
     // Manejar clicks en Quick Actions
     const handleActionClick = (command: string) => {
         if (command === 'registrar_gasto') {
@@ -329,6 +335,45 @@ export function AiChatWidget() {
         // ... (Logica Tarea simple)
     }
 
+    // Cargar tareas activas cuando el chat abre vacío
+    useEffect(() => {
+        if (isOpen && messages.length === 0 && activeTasks.length === 0 && !loadingTasks) {
+            loadActiveTasks()
+        }
+    }, [isOpen, messages.length])
+
+    const loadActiveTasks = async () => {
+        setLoadingTasks(true)
+        try {
+            const res = await fetch('/api/tasks/active')
+            if (res.ok) {
+                const data = await res.json()
+                setActiveTasks(data.tasks || [])
+            }
+        } catch (e) {
+            console.error('Error loading tasks:', e)
+        } finally {
+            setLoadingTasks(false)
+        }
+    }
+
+    // Handler cuando usuario selecciona una tarea
+    const handleTaskSelect = (taskId: number, taskTitle: string) => {
+        setSelectedTask({ id: taskId, title: taskTitle })
+
+        // Para empezar simple: al seleccionar una tarea, abrir wizard de gasto directo
+        // (podemos agregar menú contextual después)
+        setWizardState({
+            active: true,
+            flow: 'gasto',
+            step: 99, // Ir directo a ProcesadorImagen
+            data: {
+                tarea_id: taskId.toString(),
+                tarea_titulo: taskTitle
+            }
+        })
+    }
+
     // Cargar Historial al inicio
     useEffect(() => {
         if (isMounted && userRole) {
@@ -385,6 +430,35 @@ export function AiChatWidget() {
             console.error("Error saving message:", e)
         }
     }
+
+    // Manejar clicks en acciones rápidas
+    const handleQuickAction = (command: string) => {
+        let message = command;
+        // Traducir comandos técnicos a lenguaje natural para la IA
+        switch (command) {
+            case 'crear_tarea': message = 'Quiero crear una nueva tarea'; break;
+            case 'aprobar_presupuesto': message = 'Quiero aprobar presupuestos pendientes'; break;
+            case 'mostrar_kpis': message = 'Muéstrame los KPIs y métricas globales'; break;
+            case 'ver_alertas': message = '¿Hay alertas del sistema?'; break;
+            case 'crear_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
+            case 'calcular_roi_tarea': message = 'Calcular el ROI de una tarea'; break;
+            case 'listar_mis_tareas': message = 'Ver mis tareas asignadas'; break;
+            case 'aprobar_gasto': message = 'Aprobar gastos pendientes'; break;
+            case 'crear_presupuesto_base': message = 'Crear un presupuesto base'; break;
+            case 'ver_mi_equipo': message = 'Ver estado de mi equipo'; break;
+            case 'ver_liquidacion_equipo': message = 'Ver liquidación de mi equipo'; break;
+            case 'registrar_parte': message = 'Quiero registrar mi parte diario'; break;
+            case 'registrar_gasto': message = 'Quiero registrar un nuevo gasto'; break;
+            case 'ver_mis_pagos': message = 'Ver mis pagos y liquidaciones'; break;
+        }
+
+        // Enviar mensaje como si lo escribiera el usuario
+        setInput(message);
+        setTimeout(() => {
+            const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
+            handleSubmit(fakeEvent);
+        }, 100);
+    };
 
     // Manejo de envío
     const handleSubmit = async (e: React.FormEvent) => {
@@ -641,17 +715,18 @@ export function AiChatWidget() {
                         </div>
                     ) : (
                         <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-950" ref={scrollRef}>
-                            {messages.length === 0 && (
-                                <div className="text-center text-gray-500 dark:text-gray-400 mt-12 px-4">
-                                    <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                        <Bot className="w-9 h-9 text-white" />
-                                    </div>
-                                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">¡Hola! Soy tu asistente inteligente</p>
-                                    <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">Pregúntame sobre proyectos, liquidaciones o finanzas.</p>
-                                    <div className="mt-4 inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full">
-                                        <Mic className="w-3 h-3" />
-                                        <span>Puedes escribir o grabar tu mensaje</span>
-                                    </div>
+                            {messages.length === 0 && !loadingTasks && (
+                                <TaskListWelcome
+                                    tasks={activeTasks}
+                                    onTaskSelect={handleTaskSelect}
+                                    userRole={userRole}
+                                />
+                            )}
+
+                            {messages.length === 0 && loadingTasks && (
+                                <div className="text-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-500" />
+                                    <p className="text-xs text-gray-500 mt-2">Cargando tareas...</p>
                                 </div>
                             )}
 
