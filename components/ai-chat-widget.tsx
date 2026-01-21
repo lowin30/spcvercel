@@ -35,15 +35,23 @@ export function AiChatWidget() {
     useEffect(() => {
         setIsMounted(true)
 
-        // Fetch user role on mount
+        // Fetch user role on mount (solo si está autenticado)
         fetch('/api/user')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    // 401 o 404 es normal si el usuario no está logueado
+                    return null
+                }
+                return res.json()
+            })
             .then(data => {
-                if (data.user?.rol) {
+                if (data?.user?.rol) {
                     setUserRole(data.user.rol)
                 }
             })
-            .catch(err => console.error('Error fetching user:', err))
+            .catch(() => {
+                // Silenciar errores - usar rol por defecto (trabajador)
+            })
     }, [])
 
     // Enviar mensaje de texto
