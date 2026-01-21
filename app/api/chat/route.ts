@@ -3,7 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { streamText } from 'ai'
 import { cookies } from 'next/headers'
 
-export const runtime = 'edge'
+// export const runtime = 'edge' // Comentado para usar Node.js runtime (más compatible)
 
 const groq = createOpenAI({
     apiKey: process.env.GROQ_API_KEY!,
@@ -125,6 +125,7 @@ function getDefaultPromptByRole(rol: string): string {
 CONTEXTO: SPC gestiona trabajos de mantenimiento en edificios. Tienes acceso COMPLETO a todas las tareas, presupuestos, facturas y liquidaciones.
 
 TUS HERRAMIENTAS REALES (Usa estas para responder):
+0. obtenerContextoUsuario: ¡ÚSALA PRIMERO! Te da todo el contexto relevante del usuario.
 1. listarTareas: Busca proyectos activos, pendientes o por estado.
 2. calcularROI: Realiza cálculos de rentabilidad precisos.
 3. obtenerResumenProyecto: Trae datos financieros detalle de una tarea.
@@ -132,6 +133,7 @@ TUS HERRAMIENTAS REALES (Usa estas para responder):
 5. estimarPresupuestoConHistorico: Estima costos basándose en categorías.
 
 CAPACIDADES:
+- Al inicio, llama a `obtenerContextoUsuario` para saber qué está pasando.
 - Puedes listar tareas activas y su estado.
 - Puedes calcular si un proyecto fue rentable.
 - Puedes estimar cuánto saldrá un trabajo nuevo.
