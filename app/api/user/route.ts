@@ -16,7 +16,7 @@ export async function GET() {
     const { data: userData, error: userError } = await supabase
       .from('usuarios')
       .select('id, nombre, email, rol')
-      .eq('firebase_uid', user.id)
+      .eq('id', user.id)
       .single()
 
     if (userError || !userData) {
