@@ -48,25 +48,23 @@ export function ChatQuickActions({ role, onActionClick }: ChatQuickActionsProps)
     }
 
     return (
-        <div className="border-b bg-muted/20 p-3">
-            <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">
-                    🚀 Acciones Rápidas
-                </h3>
+        <div className="border-b bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 px-3 py-2">
+            <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Acciones Rápidas
+                </span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
                 {roleActions.map((action) => (
                     <Button
                         key={action.command}
                         variant={action.variant || 'outline'}
                         size="sm"
-                        className="h-auto py-3 px-3 flex flex-col items-start gap-1 text-left"
+                        className="h-auto py-1.5 px-2 flex items-center justify-start gap-1.5 text-left hover:scale-105 transition-transform"
                         onClick={() => onActionClick(action.command)}
                     >
-                        <div className="flex items-center gap-2 w-full">
-                            <span className="text-lg">{action.icon}</span>
-                            <span className="text-xs font-medium flex-1">{action.label}</span>
-                        </div>
+                        <span className="text-sm">{action.icon}</span>
+                        <span className="text-[10px] font-medium leading-tight">{action.label}</span>
                     </Button>
                 ))}
             </div>
