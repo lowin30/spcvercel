@@ -163,8 +163,9 @@ id,
 })
 
 // Tool 3: Calcular liquidación semanal
+// EXACTAMENTE como generar-liquidacion-dialog.tsx - Usa RPC calcular_liquidacion_semanal
 export const calcularLiquidacionSemanal = tool({
-    description: 'Calcula la liquidación semanal de un trabajador basado en sus partes de trabajo.',
+    description: 'Calcula la liquidación semanal de un trabajador basado en sus partes de trabajo usando la función RPC de base de datos.',
     parameters: z.object({
         trabajador_id: z.string().describe('ID del trabajador (UUID)'),
         semana_inicio: z.string().describe('Fecha de inicio de semana (YYYY-MM-DD)'),
@@ -185,56 +186,37 @@ export const calcularLiquidacionSemanal = tool({
             }
         )
 
-        // Obtener partes de trabajo
-        const { data: partes, error } = await supabase
-            .from('partes_de_trabajo')
-            .select('tipo_jornada, fecha')
-            .eq('id_trabajador', trabajador_id)
-            .gte('fecha', semana_inicio)
-            .lte('fecha', semana_fin)
+        // Llamar a la RPC function de PostgreSQL (igual que generar-liquidacion-dialog.tsx)
+        const { data, error } = await supabase.rpc('calcular_liquidacion_semanal', {
+            p_trabajador_id: trabajador_id,
+            p_fecha_inicio: semana_inicio,
+            p_fecha_fin: semana_fin
+        })
 
-        if (error || !partes) {
+        if (error) {
             return {
-                error: 'No se pudieron obtener partes de trabajo',
+                error: `Error al calcular liquidación: ${error.message}`,
                 trabajador_id
             }
         }
 
-        // Calcular días trabajados
-        const dias_completos = partes.filter(p => p.tipo_jornada === 'dia_completo').length
-        const medios_dias = partes.filter(p => p.tipo_jornada === 'medio_dia').length
-        const total_dias = dias_completos + (medios_dias * 0.5)
+        if (!data || data.length === 0) {
+            return {
+                error: 'No se encontraron datos para el período especificado',
+                trabajador_id,
+                semana: `${semana_inicio} a ${semana_fin}`
+            }
+        }
 
-        // Tarifa estándar (puede configurarse)
-        const tarifa_dia = 6000
-
-        const total_jornales = total_dias * tarifa_dia
-
-        // Obtener gastos aprobados para reembolso
-        const { data: gastos } = await supabase
-            .from('gastos_tarea')
-            .select('monto, aprobado')
-            .eq('id_usuario', trabajador_id)
-            .gte('created_at', semana_inicio)
-            .lte('created_at', semana_fin)
-            .eq('aprobado', true)
-
-        const total_reembolsos = gastos?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0
-
+        const calculo = data[0]
         return {
             trabajador_id,
-            semana: `${semana_inicio} a ${semana_fin} `,
-            dias_completos,
-            medios_dias,
-            total_dias,
-            tarifa_dia,
-            total_jornales,
-            total_reembolsos,
-            total_a_pagar: total_jornales + total_reembolsos,
-            detalle_partes: partes.map(p => ({
-                fecha: p.fecha,
-                tipo: p.tipo_jornada
-            }))
+            semana: `${semana_inicio} a ${semana_fin}`,
+            total_dias: calculo.total_dias,
+            salario_base: calculo.salario_base,
+            gastos_reembolsados: calculo.gastos_reembolsados,
+            total_pagar: calculo.total_pagar,
+            mensaje: `📊 Liquidación calculada: ${calculo.total_dias} días, Salario: $${calculo.salario_base.toLocaleString('es-AR')}, Gastos: $${calculo.gastos_reembolsados.toLocaleString('es-AR')}, Total: $${calculo.total_pagar.toLocaleString('es-AR')}`
         }
     }
 })
