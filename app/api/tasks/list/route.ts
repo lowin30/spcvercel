@@ -18,7 +18,7 @@ export async function GET() {
         // Esto alinea la experiencia con lo que ve la IA en 'listarTareas'.
 
         const { data: tasks, error } = await supabase
-            .from('tareas')
+            .from('vista_tareas_completa')
             .select('id, titulo, estado_tarea')
             .in('estado_tarea', ['Aprobado', 'En Proceso', 'Organizar', 'Presupuestado', 'Facturado', 'Cerrado sin respuesta'])
             .order('created_at', { ascending: false })
