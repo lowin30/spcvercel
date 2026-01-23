@@ -43,8 +43,33 @@ export async function POST(req: Request) {
 
         const userDictionary = vocab?.map((v: any) => `- "${v.term}": ${v.definition}`).join('\n') || "Ninguno aún."
 
+        // 🆕 NIVEL 2: Pre-load messages to search knowledge base
+        const { messages: incomingMessages } = await req.json()
+
         // 4. Determinar rol y permisos
         const userRole = user.user_metadata?.rol || 'trabajador'
+
+        // 🆕 NIVEL 2: Buscar documentos relevantes de knowledge base
+        const lastUserMessage = incomingMessages[incomingMessages.length - 1]?.content || ''
+
+        let knowledgeContext = ''
+        if (lastUserMessage.trim().length > 0) {
+            const { data: relevantDocs } = await supabase.rpc('search_knowledge', {
+                query_text: lastUserMessage,
+                user_role: userRole,
+                doc_category: null
+            })
+
+            const topDocs = relevantDocs?.slice(0, 2) || []
+
+            if (topDocs.length > 0) {
+                knowledgeContext = `\n📚 DOCUMENTACIÓN RELEVANTE:\n${topDocs.map((doc: any, i: number) => `
+${i + 1}. **${doc.display_title}** (${doc.category})
+   ${doc.summary || 'Sin resumen'}
+   Relevancia: ${Math.round((doc.relevance || 0) * 100)}%
+`).join('\n')}\n💡 Si la consulta está relacionada con estos docs, referencialos.\n`
+            }
+        }
 
         // 5. Configurar System Prompt Dinámico
         const SYSTEM_PROMPT = `
@@ -56,6 +81,7 @@ CONTEXTO DEL USUARIO:
 - Rol: ${userRole.toUpperCase()}
 - Diccionario Personal (Jerga aprendida):
 ${userDictionary}
+${knowledgeContext}
 
 INSTRUCCIONES CLAVE DE APRENDIZAJE:
 Si el usuario usa un término que NO entiendes o que está en su Diccionario Personal con un significado especial, ÚSALO.
@@ -85,7 +111,8 @@ REGLAS:
             })
         }
 
-        const { messages } = await req.json()
+        // Messages already loaded above for knowledge search
+        const messages = incomingMessages
 
         if (!messages || messages.length === 0) {
             return new Response(JSON.stringify({ error: 'No se enviaron mensajes' }), {

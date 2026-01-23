@@ -36,7 +36,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   // Función para colorear eventos según tarea
   const eventStyleGetter = (event: CalendarEvent) => {
     const esEstaTarea = event.resource.id_tarea === parseInt(tareaId)
-    
+
     let backgroundColor
     if (esEstaTarea) {
       // Tarea actual: Verde/Naranja (editables)
@@ -45,7 +45,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
       // Otras tareas: Gris (solo lectura)
       backgroundColor = event.resource.tipo_jornada === 'dia_completo' ? '#6B7280' : '#9CA3AF'
     }
-    
+
     const style = {
       backgroundColor,
       borderRadius: '5px',
@@ -60,11 +60,11 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   const [partes, setPartes] = useState<ParteDeTrabajo[]>([])
   const [tareasInfo, setTareasInfo] = useState<Record<number, { codigo: string, titulo: string }>>({})
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [modalState, setModalState] = useState<{ 
-    date: Date | null, 
-    isLoading: boolean, 
-    parteExistente: ParteDeTrabajo | null, 
-    cargaTotalDia: number, 
+  const [modalState, setModalState] = useState<{
+    date: Date | null,
+    isLoading: boolean,
+    parteExistente: ParteDeTrabajo | null,
+    cargaTotalDia: number,
     jornadaSeleccionada: Jornada | '',
     partesEnOtrasTareas: ParteDeTrabajo[]  // Lista de partes en otras tareas para mostrar detalles
   }>({ date: null, isLoading: false, parteExistente: null, cargaTotalDia: 0, jornadaSeleccionada: '', partesEnOtrasTareas: [] })
@@ -75,7 +75,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
     let query = supabase
       .from('partes_de_trabajo')
       .select('id, id_tarea, fecha, tipo_jornada, tareas(code, titulo)')
-    
+
     // Para trabajadores: Mostrar TODOS sus partes (de todas las tareas)
     // Para admin/supervisor: Solo de esta tarea y este trabajador
     if (usuarioActual.rol === 'trabajador') {
@@ -83,12 +83,12 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
     } else {
       query = query.eq('id_tarea', parseInt(tareaId)).eq('id_trabajador', trabajadorId)
     }
-    
+
     const { data, error } = await query
     if (error) console.error('Error fetching partes:', error)
     else {
       setPartes(data || [])
-      
+
       // Construir mapa de tareas para referencia rápida
       const tareasMap: Record<number, { codigo: string, titulo: string }> = {}
       data?.forEach((p: any) => {
@@ -140,7 +140,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
 
     // 2. Parte existente para ESTA tarea específica
     const parteExistenteEnTareaActual = partesDelDia.find((p: { id_tarea: number | null }) => p.id_tarea === idTareaNum) as ParteDeTrabajo | null
-    
+
     // 3. Partes en OTRAS tareas (para mostrar detalles)
     const partesEnOtrasTareas = partesDelDia.filter((p: { id_tarea: number | null }) => p.id_tarea !== idTareaNum) as ParteDeTrabajo[]
     const cargaOtrasTareas = partesEnOtrasTareas.reduce((acc: number, p: { tipo_jornada: string | null }) => acc + (p.tipo_jornada === 'dia_completo' ? 1 : 0.5), 0)
@@ -159,60 +159,60 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement
-      
+
       // Buscar la celda del día (background o date cell)
       const dayBg = target.closest('.rbc-day-bg')
       const dateCell = target.closest('.rbc-date-cell')
-      
+
       if (!dayBg && !dateCell) return
-      
+
       // Obtener el número del día
       const dayElement = dateCell || dayBg?.parentElement?.querySelector('.rbc-date-cell')
       if (!dayElement) return
-      
+
       const dayText = dayElement.textContent?.trim()
       if (!dayText || isNaN(parseInt(dayText))) return
-      
+
       const dayNumber = parseInt(dayText)
-      
+
       // Obtener mes y año del header
       const monthHeader = document.querySelector('.rbc-toolbar .rbc-toolbar-label')
       if (!monthHeader) return
-      
+
       const headerText = monthHeader.textContent || ''
       const parts = headerText.split(' ')
       if (parts.length < 2) return
-      
+
       const monthName = parts[0].toLowerCase()
       const year = parseInt(parts[1])
-      
+
       const monthMap: Record<string, number> = {
         'enero': 0, 'febrero': 1, 'marzo': 2, 'abril': 3,
         'mayo': 4, 'junio': 5, 'julio': 6, 'agosto': 7,
         'septiembre': 8, 'octubre': 9, 'noviembre': 10, 'diciembre': 11
       }
-      
+
       const month = monthMap[monthName]
       if (month === undefined || isNaN(year)) return
-      
+
       const selectedDate = new Date(year, month, dayNumber)
-      
+
       // Validar que la fecha sea correcta
       if (selectedDate.getDate() !== dayNumber || selectedDate.getMonth() !== month) return
-      
+
       // Prevenir scroll y zoom en móviles
       e.preventDefault()
-      
+
       // Abrir modal
       openModalWithData(selectedDate)
     }
-    
+
     // Solo agregar en dispositivos táctiles
     if ('ontouchstart' in window) {
       const calendar = document.querySelector('.rbc-month-view')
       if (calendar) {
         calendar.addEventListener('touchstart', handleTouchStart as EventListener, { passive: false })
-        
+
         return () => {
           calendar.removeEventListener('touchstart', handleTouchStart as EventListener)
         }
@@ -248,7 +248,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           try {
             const j = await resp.json()
             msg = j?.error || j?.message || msg
-          } catch {}
+          } catch { }
           toast({ title: 'Error', description: msg, variant: 'destructive' })
           return
         }
@@ -311,7 +311,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           try {
             const j = await resp.json()
             msg = j?.error || j?.message || msg
-          } catch {}
+          } catch { }
           toast({ title: 'Error', description: msg, variant: 'destructive' })
           return
         }
@@ -322,14 +322,14 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           if (parte) {
             setPartes(prev => [...prev, parte])
           }
-        } catch {}
+        } catch { }
       } catch (e: any) {
         console.error('Error en llamada a API /api/partes/registrar:', e)
         toast({ title: 'Error', description: 'Fallo al comunicar con el servidor', variant: 'destructive' })
         return
       }
     }
-    
+
     // Cerrar diálogo sin refetch (UI ya está actualizada optimistamente)
     setIsDialogOpen(false)
   }
@@ -354,7 +354,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
         try {
           const j = await resp.json()
           msg = j?.error || j?.message || msg
-        } catch {}
+        } catch { }
         toast({ title: 'Error', description: msg, variant: 'destructive' })
         return
       }
@@ -365,7 +365,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
       toast({ title: 'Error', description: 'Fallo al comunicar con el servidor', variant: 'destructive' })
       return
     }
-    
+
     setIsDialogOpen(false)
   }
 
@@ -374,7 +374,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   const events: CalendarEvent[] = useMemo(() => {
     return partes.map(p => {
       const emoji = p.tipo_jornada === 'dia_completo' ? '☀️' : '🌙'
-      
+
       return {
         title: emoji,
         start: new Date(p.fecha + 'T00:00:00'),
@@ -387,12 +387,12 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
 
   // Optimización: Memoizar cálculos del modal para evitar recalcular en cada render
   const { cargaActualEnEstaTarea, puedeSeleccionarMedioDia, puedeSeleccionarDiaCompleto, ambasOpcionesDeshabilitadas, diaCompletoOcupadoEnOtrasTareas } = useMemo(() => {
-    const carga = modalState.parteExistente?.tipo_jornada === 'dia_completo' ? 1 : 
-                  (modalState.parteExistente?.tipo_jornada === 'medio_dia' ? 0.5 : 0)
-    
+    const carga = modalState.parteExistente?.tipo_jornada === 'dia_completo' ? 1 :
+      (modalState.parteExistente?.tipo_jornada === 'medio_dia' ? 0.5 : 0)
+
     const puedeMedioDia = modalState.cargaTotalDia + 0.5 <= 1
     const puedeDiaCompleto = modalState.cargaTotalDia + 1 <= 1
-    
+
     return {
       cargaActualEnEstaTarea: carga,
       puedeSeleccionarMedioDia: puedeMedioDia,
@@ -403,7 +403,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
       diaCompletoOcupadoEnOtrasTareas: modalState.cargaTotalDia >= 1 && !modalState.parteExistente
     }
   }, [modalState.parteExistente, modalState.cargaTotalDia])
-  
+
   // Tooltips contextuales
   const getTooltipMedioDia = () => {
     if (puedeSeleccionarMedioDia || cargaActualEnEstaTarea === 0.5) return ''
@@ -411,7 +411,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
     if (modalState.cargaTotalDia > 0) return `Ya tiene ${modalState.cargaTotalDia} día(s) en otras tareas. Máximo permitido: 1 día total`
     return 'No se puede asignar más de 1 día completo en total.'
   }
-  
+
   const getTooltipDiaCompleto = () => {
     if (puedeSeleccionarDiaCompleto || cargaActualEnEstaTarea === 1) return ''
     if (modalState.cargaTotalDia >= 1) return 'El día completo ya está ocupado en otras tareas'
@@ -424,7 +424,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
 
   return (
     <>
-      <div className="h-[70vh]">
+      <div className="h-[55vh] sm:h-[70vh] transition-all duration-300">
         <Calendar
           localizer={calendarLocalizer}
           events={events}
@@ -437,8 +437,8 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           dayPropGetter={(date) => {
             if (!estaEnSemanaActual(date as Date)) {
               return {
-                className: 'cursor-not-allowed',
-                style: { backgroundColor: '#fafafa', opacity: 0.6 }
+                className: 'cursor-not-allowed bg-gray-50/60 opacity-50',
+                style: { backgroundColor: 'transparent' }
               }
             }
             return {}
@@ -448,7 +448,7 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
             if (!estaEnSemanaActual(slotInfo.start as Date)) {
               toast({
                 title: 'Fecha no permitida',
-                description: 'Solo puedes registrar/modificar en la semana actual (L→D).',
+                description: 'Solo puedes registrar/modificar en la semana actual.',
                 variant: 'destructive'
               })
               return
@@ -459,122 +459,83 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
           culture='es'
           messages={calendarMessages}
           eventPropGetter={eventStyleGetter}
+          className="rounded-lg border shadow-sm text-xs sm:text-sm"
         />
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Registrar Jornada</DialogTitle>
-            {modalState.date && <DialogDescription>Para el {format(modalState.date, 'PPP', { locale: es })}.</DialogDescription>}
+        <DialogContent className="w-[95vw] sm:max-w-[400px] p-4 sm:p-6 rounded-xl gap-3">
+          <DialogHeader className="space-y-1.5 text-left">
+            <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
+              Registrar Jornada
+              <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {modalState.date && format(modalState.date, 'd MMM', { locale: es })}
+              </span>
+            </DialogTitle>
+            {/* Description removed for minimalism on mobile, title has date */}
           </DialogHeader>
 
           {modalState.isLoading ? (
-            <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
+            <div className="flex justify-center items-center h-24 sm:h-32"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : (
-            <div className="grid gap-4 py-4">
-              {/* Banner Consolidado: Muestra el resumen completo del día */}
+            <div className="grid gap-3 py-2">
+              {/* Banner Consolidado Compacto */}
               {(modalState.parteExistente || modalState.partesEnOtrasTareas.length > 0) && (
-                <div className={`text-sm p-3 rounded-md border-2 ${
-                  diaCompletoOcupadoEnOtrasTareas 
-                    ? 'bg-red-50 border-red-300 text-red-700' 
-                    : 'bg-blue-50 border-blue-200 text-blue-700'
-                }`}>
-                  <div className="flex items-start gap-2">
-                    {diaCompletoOcupadoEnOtrasTareas ? (
-                      <AlertTriangle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <InfoIcon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-bold text-base mb-2">
-                        {diaCompletoOcupadoEnOtrasTareas ? '🚫 DÍA COMPLETO OCUPADO' : '📋 Resumen de esta fecha'}
-                      </p>
-                      
-                      {/* Parte en ESTA tarea */}
+                <div className={`text-xs sm:text-sm p-2.5 rounded-lg border flex items-start gap-2.5 ${diaCompletoOcupadoEnOtrasTareas
+                    ? 'bg-red-50/50 border-red-200 text-red-800'
+                    : 'bg-blue-50/50 border-blue-200 text-blue-800'
+                  }`}>
+                  {diaCompletoOcupadoEnOtrasTareas ? <AlertTriangle className="h-4 w-4 mt-0.5" /> : <InfoIcon className="h-4 w-4 mt-0.5" />}
+                  <div className="w-full">
+                    <div className="font-semibold flex justify-between items-center mb-1">
+                      <span>{diaCompletoOcupadoEnOtrasTareas ? 'Día ocupado' : 'Resumen'}</span>
+                      <span className="bg-white/50 px-1.5 rounded text-[10px] border border-black/5">
+                        {modalState.cargaTotalDia + cargaActualEnEstaTarea}/1 asignado
+                      </span>
+                    </div>
+
+                    {/* Lista ultracompacta */}
+                    <div className="space-y-1 opacity-90">
                       {modalState.parteExistente && (
-                        <div className="mb-3">
-                          <p className="text-xs font-semibold mb-1">✏️ En esta tarea:</p>
-                          <div className={`p-2 rounded text-xs ${
-                            diaCompletoOcupadoEnOtrasTareas ? 'bg-red-100' : 'bg-blue-100'
-                          }`}>
-                            <p className="font-medium">
-                              {modalState.parteExistente.tipo_jornada === 'dia_completo' ? '☀️ Día Completo' : '🌙 Medio Día'}
-                            </p>
-                            <p className={`text-xs mt-0.5 ${
-                              diaCompletoOcupadoEnOtrasTareas ? 'text-red-600' : 'text-blue-600'
-                            }`}>
-                              Puedes modificarlo o eliminarlo abajo
-                            </p>
-                          </div>
+                        <div className="flex justify-between border-b border-black/5 pb-1 mb-1">
+                          <span>Esta tarea:</span>
+                          <span className="font-medium">{modalState.parteExistente.tipo_jornada === 'dia_completo' ? 'Día Completo' : 'Medio Día'}</span>
                         </div>
                       )}
-                      
-                      {/* Partes en OTRAS tareas */}
-                      {modalState.partesEnOtrasTareas.length > 0 && (
-                        <div className="mb-2">
-                          <p className="text-xs font-semibold mb-1">📌 En otras tareas:</p>
-                          <div className="space-y-1">
-                            {modalState.partesEnOtrasTareas.map((parte) => {
-                              const tareaInfo = tareasInfo[parte.id_tarea || 0]
-                              return (
-                                <div key={parte.id} className={`p-2 rounded text-xs ${
-                                  diaCompletoOcupadoEnOtrasTareas ? 'bg-red-100' : 'bg-orange-50 border border-orange-200'
-                                }`}>
-                                  <p className="font-medium">
-                                    {parte.tipo_jornada === 'dia_completo' ? '☀️ Día Completo' : '🌙 Medio Día'}
-                                  </p>
-                                  <p className={diaCompletoOcupadoEnOtrasTareas ? 'text-red-700' : 'text-orange-700'}>
-                                    {tareaInfo ? `${tareaInfo.codigo} - ${tareaInfo.titulo}` : `Tarea ${parte.id_tarea}`}
-                                  </p>
-                                </div>
-                              )
-                            })}
-                          </div>
+                      {modalState.partesEnOtrasTareas.map(p => (
+                        <div key={p.id} className="flex justify-between truncate">
+                          <span className="truncate max-w-[120px]">Tarea {p.id_tarea}</span>
+                          <span className="font-medium shrink-0">{p.tipo_jornada === 'dia_completo' ? '1.0' : '0.5'}</span>
                         </div>
-                      )}
-                      
-                      {/* Total ocupado */}
-                      <div className={`mt-2 pt-2 border-t ${
-                        diaCompletoOcupadoEnOtrasTareas ? 'border-red-200' : 'border-blue-200'
-                      }`}>
-                        <p className="text-xs font-bold">
-                          Total ocupado: {modalState.cargaTotalDia + cargaActualEnEstaTarea} día(s) de 1
-                        </p>
-                        {diaCompletoOcupadoEnOtrasTareas && (
-                          <p className="text-xs mt-1">⚠️ No puedes registrar más trabajo para esta fecha</p>
-                        )}
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               )}
-              
-              {/* Si ambas opciones están deshabilitadas, mostrar mensaje en lugar de botones */}
+
+              {/* Opciones en Grid: Siempre side-by-side para ser compacto */}
               {ambasOpcionesDeshabilitadas ? (
-                <div className="text-center p-6 bg-gray-50 border border-gray-200 rounded-md">
-                  <InfoIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                  <p className="font-medium text-gray-700">No hay opciones disponibles</p>
-                  <p className="text-sm text-gray-500 mt-1">El trabajador ya tiene su capacidad completa asignada para esta fecha.</p>
+                <div className="text-center p-4 bg-muted/30 border border-border rounded-lg">
+                  <p className="text-sm font-medium text-muted-foreground">Opciones no disponibles</p>
                 </div>
               ) : (
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <RadioCard
                     label="Medio Día"
+                    subLabel="0.5"
                     value="medio_dia"
-                    icon={<Moon className="w-8 h-8" />}
+                    icon={<Moon className="w-5 h-5 sm:w-6 sm:h-6" />}
                     isSelected={modalState.jornadaSeleccionada === 'medio_dia'}
                     isDisabled={!puedeSeleccionarMedioDia && cargaActualEnEstaTarea !== 0.5}
-                    disabledTooltip={getTooltipMedioDia()}
                     onSelect={() => setModalState(s => ({ ...s, jornadaSeleccionada: 'medio_dia' }))}
                   />
                   <RadioCard
                     label="Día Completo"
+                    subLabel="1.0"
                     value="dia_completo"
-                    icon={<Sun className="w-8 h-8" />}
+                    icon={<Sun className="w-5 h-5 sm:w-6 sm:h-6" />}
                     isSelected={modalState.jornadaSeleccionada === 'dia_completo'}
                     isDisabled={!puedeSeleccionarDiaCompleto && cargaActualEnEstaTarea !== 1}
-                    disabledTooltip={getTooltipDiaCompleto()}
                     onSelect={() => setModalState(s => ({ ...s, jornadaSeleccionada: 'dia_completo' }))}
                   />
                 </div>
@@ -582,17 +543,15 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
             </div>
           )}
 
-          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between w-full">
-            <div>
-              {modalState.parteExistente && (
-                <Button variant="destructive" onClick={handleDelete} className="w-full sm:w-auto">
-                  <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={!modalState.jornadaSeleccionada || modalState.isLoading}>
+          <DialogFooter className="flex flex-row gap-2 mt-2 pt-2 sm:pt-0 justify-end sm:justify-between border-t sm:border-0">
+            {modalState.parteExistente && (
+              <Button variant="ghost" size="icon" onClick={handleDelete} className="text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="flex gap-2 w-full justify-end">
+              <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(false)} className="h-9">Cancelar</Button>
+              <Button size="sm" onClick={handleSave} disabled={!modalState.jornadaSeleccionada || modalState.isLoading} className="h-9 min-w-[90px]">
                 {modalState.parteExistente ? 'Actualizar' : 'Guardar'}
               </Button>
             </div>
@@ -603,33 +562,28 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   )
 }
 
-// Componente para las tarjetas de radio visuales
-function RadioCard({ label, value, icon, isSelected, isDisabled, onSelect, disabledTooltip }: {
-  label: string, value: Jornada, icon: React.ReactNode, isSelected: boolean, isDisabled: boolean, onSelect: () => void, disabledTooltip: string
+// Componente para las tarjetas de radio visuales - Versión Minimalista
+function RadioCard({ label, subLabel, value, icon, isSelected, isDisabled, onSelect }: {
+  label: string, subLabel: string, value: Jornada, icon: React.ReactNode, isSelected: boolean, isDisabled: boolean, onSelect: () => void
 }) {
-  const content = (
+  return (
     <div
       onClick={!isDisabled ? onSelect : undefined}
-      className={`flex-1 p-4 border-2 rounded-lg flex flex-col items-center justify-center gap-2 transition-all cursor-pointer 
-        ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}
-        ${isDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'hover:border-blue-400'}`
+      className={`relative p-3 border rounded-lg flex flex-col items-center justify-center gap-1.5 transition-all text-center
+        ${isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-card hover:bg-accent/50'}
+        ${isDisabled ? 'opacity-50 grayscale cursor-not-allowed bg-muted/50' : 'cursor-pointer active:scale-95'}`
       }
     >
-      {icon}
-      <span className="font-semibold">{label}</span>
+      <div className={`p-1.5 rounded-full ${isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+        {icon}
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs sm:text-sm font-medium leading-none">{label}</span>
+        <span className="text-[10px] text-muted-foreground mt-0.5 font-mono">{subLabel} jornada</span>
+      </div>
+      {isSelected && (
+        <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary" />
+      )}
     </div>
   )
-
-  if (isDisabled) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>{content}</TooltipTrigger>
-          <TooltipContent><p>{disabledTooltip}</p></TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    )
-  }
-
-  return content
 }

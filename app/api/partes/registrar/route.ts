@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const { id_tarea, id_trabajador, fecha, tipo_jornada } = body || {}
 
     if (!id_tarea || !id_trabajador || !fecha || !tipo_jornada) {
-      return NextResponse.json({ error: 'Faltan datos requeridos' }, { status: 400 })
+      return NextResponse.json({ error: 'Faltan datos requeridos', debug: { id_tarea, id_trabajador, fecha, tipo_jornada } }, { status: 400 })
     }
     if (tipo_jornada !== 'dia_completo' && tipo_jornada !== 'medio_dia') {
       return NextResponse.json({ error: 'tipo_jornada inválido' }, { status: 400 })
@@ -165,6 +165,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, parte: inserted })
   } catch (e: any) {
+    console.error('Error en API /api/partes/registrar:', e)
     return NextResponse.json({ error: e?.message || 'Error del servidor' }, { status: 500 })
   }
 }

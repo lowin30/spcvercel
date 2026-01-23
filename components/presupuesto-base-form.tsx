@@ -24,9 +24,11 @@ interface PresupuestoBaseFormProps {
   tareas: Tarea[]
   userId: string
   presupuesto?: any
+  onSuccess?: (presupuestoData: any) => void
+  onCancel?: () => void
 }
 
-export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: PresupuestoBaseFormProps) {
+export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuccess, onCancel }: PresupuestoBaseFormProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -35,7 +37,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
   const [materiales, setMateriales] = useState(presupuesto?.materiales?.toString() || "")
   const [manoObra, setManoObra] = useState(presupuesto?.mano_obra?.toString() || "")
   const [notaPb, setNotaPb] = useState(presupuesto?.nota_pb || "")
-  
+
   // Estados para la creación de tarea
   const [showCrearTarea, setShowCrearTarea] = useState(false)
   const [creandoTarea, setCreandoTarea] = useState(false)
@@ -45,7 +47,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
     id_edificio: ""
   })
   const [edificios, setEdificios] = useState<any[]>([])
-  
+
   // Cargar edificios para el formulario de tarea
   const cargarEdificios = async () => {
     try {
@@ -53,7 +55,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
         .from("edificios")
         .select("id, nombre")
         .order("nombre")
-      
+
       if (error) throw error
       setEdificios(data || [])
     } catch (error) {
@@ -121,8 +123,8 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
           aprobado: false,
 
         };
-        
-        const { error } = await supabase.from("presupuestos_base").insert(createData);
+
+        const { data, error } = await supabase.from("presupuestos_base").insert(createData).select();
 
         if (error) throw error;
 
@@ -130,11 +132,27 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
           title: "Presupuesto creado",
           description: "El presupuesto base ha sido creado correctamente",
         });
+
+        // Get tarea details for the callback
+        const tareaSeleccionada = tareas.find(t => t.id === Number.parseInt(tareaId));
+
+        // Call onSuccess callback if provided (for chat widget integration)
+        if (onSuccess && data && data[0]) {
+          onSuccess({
+            ...data[0],
+            tarea_titulo: tareaSeleccionada?.titulo || "Tarea",
+            tarea_code: tareaSeleccionada?.code || "",
+            total: totalCalculado
+          });
+          return; // Skip router navigation when using callback
+        }
       }
 
-      // Redireccionar a la página de presupuestos base
-      router.push("/dashboard/presupuestos-base");
-      router.refresh();
+      // Redireccionar a la página de presupuestos base (solo si no hay callback)
+      if (!onSuccess) {
+        router.push("/dashboard/presupuestos-base");
+        router.refresh();
+      }
 
     } catch (error: any) {
       console.error("Error al guardar presupuesto base:", error);
@@ -183,12 +201,12 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
       // Actualizar el estado de tareas añadiendo la nueva tarea
       const nuevaTareaCreada = data[0]
       setTareaId(nuevaTareaCreada.id.toString())
-      
+
       toast({
         title: "Tarea creada",
         description: "La tarea ha sido creada correctamente",
       })
-      
+
       setShowCrearTarea(false)
     } catch (error) {
       console.error("Error al crear tarea:", error)
@@ -208,10 +226,10 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
         <div className="flex justify-between items-center">
           <Label htmlFor="tarea">Tarea</Label>
           {!presupuesto && (
-            <Button 
-              type="button" 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setShowCrearTarea(true)
                 cargarEdificios()
@@ -221,7 +239,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
             </Button>
           )}
         </div>
-        
+
         {tareas.length > 0 ? (
           <Select value={tareaId} onValueChange={setTareaId} disabled={isSubmitting || !!presupuesto}>
             <SelectTrigger>
@@ -238,10 +256,10 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
         ) : (
           <div className="p-4 border rounded-md bg-muted/50 text-center">
             <p className="text-muted-foreground mb-2">No hay tareas disponibles</p>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm" 
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setShowCrearTarea(true)
                 cargarEdificios()
@@ -304,7 +322,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/dashboard/presupuestos-base")}
+          onClick={() => onCancel ? onCancel() : router.push("/dashboard/presupuestos-base")}
           disabled={isSubmitting}
         >
           Cancelar
@@ -319,7 +337,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
           )}
         </Button>
       </div>
-      
+
       {/* Diálogo para crear tarea */}
       <Dialog open={showCrearTarea} onOpenChange={setShowCrearTarea}>
         <DialogContent>
@@ -332,27 +350,27 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
               <Input
                 id="titulo"
                 value={nuevaTarea.titulo}
-                onChange={(e) => setNuevaTarea({...nuevaTarea, titulo: e.target.value})}
+                onChange={(e) => setNuevaTarea({ ...nuevaTarea, titulo: e.target.value })}
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="descripcion">Descripción</Label>
               <Textarea
                 id="descripcion"
                 value={nuevaTarea.descripcion}
-                onChange={(e) => setNuevaTarea({...nuevaTarea, descripcion: e.target.value})}
+                onChange={(e) => setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })}
                 rows={3}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="edificio">Edificio</Label>
               {edificios.length > 0 ? (
-                <Select 
-                  value={nuevaTarea.id_edificio} 
-                  onValueChange={(value) => setNuevaTarea({...nuevaTarea, id_edificio: value})}
+                <Select
+                  value={nuevaTarea.id_edificio}
+                  onValueChange={(value) => setNuevaTarea({ ...nuevaTarea, id_edificio: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona un edificio" />
@@ -372,7 +390,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
               )}
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCrearTarea(false)} disabled={creandoTarea}>
               Cancelar
@@ -380,7 +398,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto }: Pre
             <Button onClick={crearNuevaTarea} disabled={creandoTarea}>
               {creandoTarea ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creando...
                 </>
               ) : (

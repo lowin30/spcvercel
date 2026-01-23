@@ -12,7 +12,9 @@ import { ToolInvocation } from "ai"
 import { toast } from "sonner"
 import dynamic from 'next/dynamic'
 
-// Carga dinámica para evitar problemas de ESM/SSR con react-markdown
+const ProcesadorImagen = dynamic(() => import('./procesador-imagen').then(mod => mod.ProcesadorImagen), { ssr: false })
+const RegistroParteTrabajoForm = dynamic(() => import('./registro-parte-trabajo-form'), { ssr: false })
+const PresupuestoBaseForm = dynamic(() => import('./presupuesto-base-form'), { ssr: false })
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
     loading: () => <span className="animate-pulse">...</span>,
     ssr: false
@@ -23,7 +25,6 @@ const ReactMarkdown = dynamic(() => import('react-markdown'), {
 // Por ahora intentaremos importarlo estándar, pero si falla, el dynamic de ReactMarkdown ayuda a aislar el error.
 import remarkGfm from "remark-gfm"
 import { WizardOptions } from "@/components/wizard-options"
-import { ProcesadorImagen } from "@/components/procesador-imagen"
 
 // ... (imports existentes)
 
@@ -178,6 +179,7 @@ export function AiChatWidget() {
 
     // Usuario y rol (para Quick Actions)
     const [userRole, setUserRole] = useState<string>('trabajador')
+    const [currentUser, setCurrentUser] = useState<any>(null)
 
     // Fix hydration: solo renderizar después de montar
     useEffect(() => {
@@ -197,29 +199,29 @@ export function AiChatWidget() {
     const fetchUserRole = () => {
         fetch('/api/user')
             .then(res => {
-                if (!res.ok) {
-                    // 401 o 404 es normal si el usuario no está logueado
-                    return null
-                }
+                if (!res.ok) return null
                 return res.json()
             })
             .then(data => {
-                if (data?.user?.rol) {
+                if (data?.user) {
                     setUserRole(data.user.rol)
+                    setCurrentUser(data.user)
                 }
             })
-            .catch(() => {
-                // Silenciar errores - usar rol por defecto (trabajador)
-            })
+            .catch(() => { })
     }
 
     // Wizard State
     const [wizardState, setWizardState] = useState<{
         active: boolean
-        flow: 'gasto' | 'tarea' | null
+        flow: 'gasto' | 'parte' | 'tarea' | null
         step: number
         data: Record<string, any>
     }>({ active: false, flow: null, step: 0, data: {} })
+
+    const [showParteWizard, setShowParteWizard] = useState(false)
+    const [showPresupuestoWizard, setShowPresupuestoWizard] = useState(false)
+    const [tareasForPresupuesto, setTareasForPresupuesto] = useState<any[]>([])
 
     const [wizardOptions, setWizardOptions] = useState<Array<{ label: string, value: string }>>([])
 
@@ -232,15 +234,32 @@ export function AiChatWidget() {
     const handleActionClick = (command: string) => {
         if (command === 'registrar_gasto') {
             startWizard('gasto')
+        } else if (command === 'registrar_parte') {
+            // Abrir wizard de calendario de partes
+            setShowParteWizard(true)
+        } else if (command === 'crear_presupuesto_base') {
+            // Abrir wizard de creación de presupuesto base
+            loadTareasForPresupuesto()
         } else if (command === 'crear_tarea') {
             startWizard('tarea')
         } else {
-            // Comando directo (ej: listar_mis_tareas)
-            setInput(command)
-            setTimeout(() => {
-                const fakeEvent = { preventDefault: () => { } } as React.FormEvent
-                handleSubmit(fakeEvent)
-            }, 100)
+            // Comando directo: Traducir a lenguaje natural para mejor contexto
+            let message = command;
+            switch (command) {
+                case 'aprobar_presupuesto': message = 'Quiero aprobar presupuestos pendientes'; break;
+                case 'mostrar_kpis': message = 'Muéstrame los KPIs y métricas globales'; break;
+                case 'ver_alertas': message = '¿Hay alertas del sistema?'; break;
+                case 'crear_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
+                case 'calcular_roi_tarea': message = 'Calcular el ROI de una tarea'; break;
+                case 'listar_mis_tareas': message = 'Ver mis tareas asignadas'; break;
+                case 'aprobar_gasto': message = 'Aprobar gastos pendientes'; break;
+                case 'crear_presupuesto_base': message = 'Crear un presupuesto base'; break;
+                case 'ver_mi_equipo': message = 'Ver estado de mi equipo'; break;
+                case 'ver_liquidacion_equipo': message = 'Ver liquidación de mi equipo'; break;
+                case 'ver_mis_pagos': message = 'Ver mis pagos y liquidaciones'; break;
+            }
+
+            processSubmission(message)
         }
     }
 
@@ -357,6 +376,55 @@ export function AiChatWidget() {
         }
     }
 
+    const loadTareasForPresupuesto = async () => {
+        try {
+            const supabase = (await import('@/lib/supabase-client')).createClient()
+
+            // Verificar sesión de usuario
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) return
+
+            // Obtener rol del usuario
+            const { data: userData } = await supabase
+                .from("usuarios")
+                .select("rol")
+                .eq("id", session.user.id)
+                .single()
+
+            // Construir la consulta base
+            const tareasBaseQuery = supabase.from("tareas").select("id, titulo, code")
+
+            let filteredQuery
+
+            if (userData?.rol === "supervisor") {
+                // Filtrar solo tareas supervisadas
+                const { data: tareasSupervisadas } = await supabase
+                    .from("supervisores_tareas")
+                    .select("id_tarea")
+                    .eq("id_supervisor", session.user.id)
+
+                if (tareasSupervisadas && tareasSupervisadas.length > 0) {
+                    const tareasIds = tareasSupervisadas.map(t => t.id_tarea)
+                    filteredQuery = tareasBaseQuery.in("id", tareasIds)
+                } else {
+                    filteredQuery = tareasBaseQuery.eq("id", -1) // Sin tareas
+                }
+            } else {
+                // Admin: ver todas las tareas
+                filteredQuery = tareasBaseQuery
+            }
+
+            const { data: tareas } = await filteredQuery
+
+            setTareasForPresupuesto(tareas || [])
+            setShowPresupuestoWizard(true)
+
+        } catch (error) {
+            console.error("Error al cargar tareas para presupuesto:", error)
+            toast("Error al cargar tareas", { description: "No se pudieron cargar las tareas disponibles" })
+        }
+    }
+
     // Handler cuando usuario selecciona una tarea
     const handleTaskSelect = (taskId: number, taskTitle: string) => {
         setSelectedTask({ id: taskId, title: taskTitle })
@@ -431,49 +499,22 @@ export function AiChatWidget() {
         }
     }
 
-    // Manejar clicks en acciones rápidas
-    const handleQuickAction = (command: string) => {
-        let message = command;
-        // Traducir comandos técnicos a lenguaje natural para la IA
-        switch (command) {
-            case 'crear_tarea': message = 'Quiero crear una nueva tarea'; break;
-            case 'aprobar_presupuesto': message = 'Quiero aprobar presupuestos pendientes'; break;
-            case 'mostrar_kpis': message = 'Muéstrame los KPIs y métricas globales'; break;
-            case 'ver_alertas': message = '¿Hay alertas del sistema?'; break;
-            case 'crear_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
-            case 'calcular_roi_tarea': message = 'Calcular el ROI de una tarea'; break;
-            case 'listar_mis_tareas': message = 'Ver mis tareas asignadas'; break;
-            case 'aprobar_gasto': message = 'Aprobar gastos pendientes'; break;
-            case 'crear_presupuesto_base': message = 'Crear un presupuesto base'; break;
-            case 'ver_mi_equipo': message = 'Ver estado de mi equipo'; break;
-            case 'ver_liquidacion_equipo': message = 'Ver liquidación de mi equipo'; break;
-            case 'registrar_parte': message = 'Quiero registrar mi parte diario'; break;
-            case 'registrar_gasto': message = 'Quiero registrar un nuevo gasto'; break;
-            case 'ver_mis_pagos': message = 'Ver mis pagos y liquidaciones'; break;
+    // Nueva función unificada para procesar el envío
+    const processSubmission = async (messageText: string) => {
+        console.log("🚀 Processing Submission:", messageText); // DEBUG LOG
+        if (!messageText.trim() || isLoading) {
+            console.log("⚠️ Submission blocked: Empty or Loading (isLoading:", isLoading, ")");
+            return;
         }
-
-        // Enviar mensaje como si lo escribiera el usuario
-        setInput(message);
-        setTimeout(() => {
-            const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
-            handleSubmit(fakeEvent);
-        }, 100);
-    };
-
-    // Manejo de envío
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!input.trim() || isLoading) return
 
         // Interceptar si estamos en modo Wizard
         if (wizardState.active) {
-            const val = input
             setInput("")
-            handleWizardInput(val)
+            handleWizardInput(messageText)
             return
         }
 
-        const userMsg = input.trim()
+        const userMsg = messageText.trim()
         setInput('')
 
         // 1. Mostrar optimísticamente
@@ -498,7 +539,13 @@ export function AiChatWidget() {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [...messages, userMsgObj] })
+                body: JSON.stringify({
+                    messages: [...messages, userMsgObj].map(m => ({ role: m.role, content: m.content })),
+                    context: {
+                        taskId: selectedTask?.proceso_id || selectedTask?.id,
+                        taskTitle: selectedTask?.title
+                    }
+                })
             })
 
             if (!response.ok) {
@@ -518,9 +565,6 @@ export function AiChatWidget() {
                     // Procesar chunk para herramientas o texto
                     const toolCallMatch = chunk.match(/<tool_code>(.*?)<\/tool_code>/s)
                     if (toolCallMatch) {
-                        const toolCall = JSON.parse(toolCallMatch[1])
-                        // Ejecutar tool y obtener resultado
-                        const toolResult = await handleToolExecution(toolCall, "Tool executed successfully") // Placeholder
                         try {
                             const toolCall = JSON.parse(toolCallMatch[1])
                             const toolResult = await handleToolExecution(toolCall, "Exito")
@@ -550,6 +594,38 @@ export function AiChatWidget() {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    // Manejar clicks en acciones rápidas
+    const handleQuickAction = (command: string) => {
+        console.log("👆 QuickAction Clicked:", command); // DEBUG LOG
+        let message = command;
+        // Traducir comandos técnicos a lenguaje natural para la IA
+        switch (command) {
+            case 'crear_tarea': message = 'Quiero crear una nueva tarea'; break;
+            case 'aprobar_presupuesto': message = 'Quiero aprobar presupuestos pendientes'; break;
+            case 'mostrar_kpis': message = 'Muéstrame los KPIs y métricas globales'; break;
+            case 'ver_alertas': message = '¿Hay alertas del sistema?'; break;
+            case 'crear_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
+            case 'calcular_roi_tarea': message = 'Calcular el ROI de una tarea'; break;
+            case 'listar_mis_tareas': message = 'Ver mis tareas asignadas'; break;
+            case 'aprobar_gasto': message = 'Aprobar gastos pendientes'; break;
+            case 'crear_presupuesto_base': message = 'Crear un presupuesto base'; break;
+            case 'ver_mi_equipo': message = 'Ver estado de mi equipo'; break;
+            case 'ver_liquidacion_equipo': message = 'Ver liquidación de mi equipo'; break;
+            case 'registrar_parte': message = 'Quiero registrar mi parte diario'; break;
+            case 'registrar_gasto': message = 'Quiero registrar un nuevo gasto'; break;
+            case 'ver_mis_pagos': message = 'Ver mis pagos y liquidaciones'; break;
+        }
+
+        // Ejecutar directamente
+        processSubmission(message)
+    };
+
+    // Manejo de envío
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        processSubmission(input)
     }
 
     // Iniciar grabación de audio
@@ -688,7 +764,7 @@ export function AiChatWidget() {
                         </button>
                     </div>
 
-                    {/* Mensajes o Wizard de Imagen */}
+                    {/* Lógica de Contenido Principal (Wizards vs Chat) */}
                     {wizardState.active && wizardState.step === 99 ? (
                         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-2">
                             <div className="flex justify-end p-2">
@@ -712,6 +788,62 @@ export function AiChatWidget() {
                                     }])
                                 }}
                             />
+                        </div>
+                    ) : showParteWizard && currentUser ? (
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Registrar Parte de Trabajo</h3>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowParteWizard(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <RegistroParteTrabajoForm
+                                    usuarioActual={currentUser}
+                                    onParteRegistrado={() => {
+                                        setShowParteWizard(false)
+                                        toast.success("Parte registrado correctamente")
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ) : showPresupuestoWizard && currentUser ? (
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Crear Presupuesto Base</h3>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowPresupuestoWizard(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <PresupuestoBaseForm
+                                    tareas={tareasForPresupuesto}
+                                    userId={currentUser.id}
+                                    onSuccess={(presupuestoData) => {
+                                        setShowPresupuestoWizard(false)
+
+                                        // Agregar mensaje de éxito con detalles al chat
+                                        const successMessage = `✅ **Presupuesto Base Creado Exitosamente**\n\n` +
+                                            `**Código:** ${presupuestoData.code}\n` +
+                                            `**Tarea:** ${presupuestoData.tarea_titulo} (${presupuestoData.tarea_code})\n\n` +
+                                            `**Detalles del Presupuesto:**\n` +
+                                            `• Materiales: $${presupuestoData.materiales.toLocaleString('es-ES')}\n` +
+                                            `• Mano de Obra: $${presupuestoData.mano_obra.toLocaleString('es-ES')}\n` +
+                                            `• **Total: $${presupuestoData.total.toLocaleString('es-ES')}**\n\n` +
+                                            (presupuestoData.nota_pb ? `**Nota:** ${presupuestoData.nota_pb}\n\n` : '') +
+                                            `El presupuesto está pendiente de aprobación.`
+
+                                        setMessages(prev => [...prev, {
+                                            id: Date.now().toString(),
+                                            role: 'assistant',
+                                            content: successMessage
+                                        }])
+
+                                        toast("Presupuesto creado", { description: "El presupuesto base se ha registrado correctamente" })
+                                    }}
+                                    onCancel={() => setShowPresupuestoWizard(false)}
+                                />
+                            </div>
                         </div>
                     ) : (
                         <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-gray-50/50 to-white dark:from-gray-900/50 dark:to-gray-950" ref={scrollRef}>
@@ -794,7 +926,8 @@ export function AiChatWidget() {
                             }
                             <div ref={messagesEndRef} />
                         </ScrollArea >
-                    )}
+                    )
+                    }
 
                     {/* Quick Actions - Botones por rol (Solo si NO estamos en medio de un wizard) */}
                     {

@@ -26,7 +26,7 @@ interface RegistroParteTrabajoFormProps {
   trabajadorIdInicial?: string | null
 }
 
-export function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabajadorIdInicial }: RegistroParteTrabajoFormProps) {
+export default function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabajadorIdInicial }: RegistroParteTrabajoFormProps) {
   const supabase = createClient()
 
   // Estados del componente
@@ -40,7 +40,7 @@ export function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabaj
   // Handlers para los selectores
   const handleTareaChange = (id: string) => {
     setSelectedTareaId(Number(id))
-    
+
     // Solo resetear trabajador si es admin/supervisor
     // Para trabajadores, el trabajadorId SIEMPRE es él mismo
     if (usuarioActual.rol === 'admin' || usuarioActual.rol === 'supervisor') {
@@ -93,10 +93,12 @@ export function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabaj
               setTareas([])
             } else {
               setTareas(tareasData)
+              console.log('DEBUG: Tareas encontradas:', tareasData.length, tareasData)
               // Si viene tareaIdInicial (página de tarea), usarla; si no, auto-seleccionar solo si hay 1
               if (tareaIdInicial && tareasData.some(t => t.id === Number(tareaIdInicial))) {
                 setSelectedTareaId(Number(tareaIdInicial))
               } else if (tareasData.length === 1) {
+                console.log('DEBUG: Auto-seleccionando tarea única:', tareasData[0].id)
                 setSelectedTareaId(tareasData[0].id)
               }
             }
@@ -188,27 +190,44 @@ export function RegistroParteTrabajoForm({ usuarioActual, tareaIdInicial, trabaj
           <label htmlFor="tarea-select-trabajador" className="block text-sm font-medium text-gray-700 mb-2">
             Selecciona la tarea para registrar tus días de trabajo:
           </label>
-          <Select onValueChange={handleTareaChange} value={selectedTareaId?.toString() ?? ''}>
-            <SelectTrigger id="tarea-select-trabajador" className="w-full">
-              <SelectValue placeholder="Elige una tarea..." />
-            </SelectTrigger>
-            <SelectContent>
-              {tareas.map(t => (
-                <SelectItem key={t.id} value={t.id.toString()}>
-                  {t.titulo}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select onValueChange={handleTareaChange} value={selectedTareaId?.toString() ?? ''}>
+              <SelectTrigger id="tarea-select-trabajador" className="w-full">
+                <SelectValue placeholder="Elige una tarea..." />
+              </SelectTrigger>
+              <SelectContent>
+                {tareas.map(t => (
+                  <SelectItem key={t.id} value={t.id.toString()}>
+                    {t.titulo}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedTareaId && (
+              <Button variant="outline" onClick={() => setSelectedTareaId(null)} title="Cambiar tarea">
+                Cambiar
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tarea seleccionada (Si solo hay una o ya está seleccionada) */}
+      {usuarioActual.rol === 'trabajador' && tareas.length === 1 && selectedTareaId && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-md flex items-center justify-between">
+          <div>
+            <span className="text-xs text-blue-600 block mb-0.5">Tarea Asignada:</span>
+            <span className="text-sm text-blue-900 font-bold">{tareas[0].titulo}</span>
+          </div>
         </div>
       )}
 
       {/* Renderizado del calendario cuando todo está seleccionado */}
       {selectedTareaId && selectedTrabajadorId ? (
         <div className="mt-6">
-           <div className="mt-2 mb-4 p-2 bg-amber-50 border border-amber-200 rounded">
-             <p className="text-sm text-amber-700">Para registrar un día, haz clic en la fecha deseada en el calendario y selecciona el tipo de jornada.</p>
-           </div>
+          <div className="mt-2 mb-4 p-2 bg-amber-50 border border-amber-200 rounded">
+            <p className="text-sm text-amber-700">Para registrar un día, haz clic en la fecha deseada en el calendario y selecciona el tipo de jornada.</p>
+          </div>
           <CalendarioPartesTrabajo
             key={`${selectedTareaId}-${selectedTrabajadorId}`}
             tareaId={selectedTareaId.toString()}

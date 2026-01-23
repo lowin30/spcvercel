@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { RegistroParteTrabajoForm } from '@/components/registro-parte-trabajo-form'
+import RegistroParteTrabajoForm from '@/components/registro-parte-trabajo-form'
 import { toast } from '@/components/ui/use-toast'
 import { UserSessionData } from '@/lib/types'
 import { Loader2 } from 'lucide-react'
@@ -33,7 +33,7 @@ export default function RegistroGeneralPartesPage() {
           .single()
 
         if (userError) throw userError
-        
+
         setUserDetails(userData)
       } catch (error: any) {
         console.error('Error al cargar datos de usuario:', error)

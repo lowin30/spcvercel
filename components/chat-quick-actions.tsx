@@ -76,10 +76,15 @@ export function ChatQuickActions({ role, onActionClick }: ChatQuickActionsProps)
                             transition={{ delay: index * 0.05 }}
                         >
                             <Button
+                                type="button" // Important: Prevent form submit
                                 variant={action.variant || 'outline'}
                                 size="sm"
                                 className="w-full h-auto py-1.5 px-2 flex items-center justify-start gap-1.5 text-left hover:scale-105 transition-transform relative"
-                                onClick={() => onActionClick(action.command)}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onActionClick(action.command);
+                                }}
                             >
                                 <span className="text-sm">{action.icon}</span>
                                 <span className="text-[10px] font-medium leading-tight truncate flex-1">{action.label}</span>

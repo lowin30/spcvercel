@@ -20,7 +20,7 @@ import Link from "next/link"
 import { ArrowLeft, Calendar, MapPin, Calculator, FileText, UserPlus, UserCog, AlertTriangle, Loader2, X, UserRound, CalendarDays, CheckCircle, Circle, Map, Phone, InfoIcon, Users, Building, BuildingIcon, LinkIcon, ExternalLink, Trash2Icon, TrashIcon, EditIcon, FileTextIcon, Pencil } from "lucide-react";
 import { DatePickerVisual } from "@/components/date-picker-visual"
 import { DatePickerDiaSimple } from "@/components/date-picker-dia-simple"
-import { RegistroParteTrabajoForm } from "@/components/registro-parte-trabajo-form";
+import RegistroParteTrabajoForm from "@/components/registro-parte-trabajo-form";
 import { EstadoInteractivo } from "@/components/estado-interactivo"
 import { PrioridadInteractiva } from "@/components/prioridad-interactiva"
 import { SupervisorInteractivo } from "@/components/supervisor-interactivo"
@@ -41,7 +41,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   const { id } = use(paramsPromise);
   const router = useRouter()
   const tareaId = parseInt(id);
-  
+
   // Estados para datos principales
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,35 +57,35 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   const [comentarios, setComentarios] = useState<any[]>([])
   const [esTrabajadorAsignado, setEsTrabajadorAsignado] = useState(false)
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false)
-  
+
   // Estados para presupuestos
   const [presupuestoBase, setPresupuestoBase] = useState<any>(null)
   const [presupuestoFinal, setPresupuestoFinal] = useState<any>(null)
-  
+
   // Estados locales para actualización en tiempo real
   const [prioridadActual, setPrioridadActual] = useState<string>("")
   const [mostrarFormularioParte, setMostrarFormularioParte] = useState(false);
-  
+
   // Estados para edición de notas del edificio
   const [notasEdificioDialogOpen, setNotasEdificioDialogOpen] = useState(false)
   const [notasEdificioTemp, setNotasEdificioTemp] = useState("")
   const [guardandoNotasEdificio, setGuardandoNotasEdificio] = useState(false)
-  
+
   // Función para guardar las notas del edificio
   const guardarNotasEdificio = async () => {
     if (!tarea?.edificios?.id) return;
-    
+
     setGuardandoNotasEdificio(true);
     try {
       const supabase = createClient();
-      
+
       const { error } = await supabase
         .from('edificios')
         .update({ notas: notasEdificioTemp || null })
         .eq('id', tarea.edificios.id);
-      
+
       if (error) throw error;
-      
+
       // Actualizar estado local
       setTarea({
         ...tarea,
@@ -94,12 +94,12 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           notas: notasEdificioTemp || null
         }
       });
-      
+
       toast({
         title: "Notas actualizadas",
         description: "Las notas del edificio se han guardado correctamente"
       });
-      
+
       setNotasEdificioDialogOpen(false);
     } catch (error: any) {
       console.error('Error guardando notas:', error);
@@ -112,7 +112,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       setGuardandoNotasEdificio(false);
     }
   };
-  
+
   // Función para cargar presupuestos desde las tablas correctas
   const cargarPresupuestos = async (userRol?: string) => {
     try {
@@ -121,7 +121,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         return
       }
 
-      
+
 
       // 1. Cargar presupuesto base desde la tabla 'presupuestos_base'
       const { data: presupuestoBaseData, error: baseError } = await supabase
@@ -138,7 +138,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         .eq("id_tarea", tareaId)
         .maybeSingle()
 
-      
+
 
       if (baseError) {
         toast({
@@ -155,30 +155,30 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
 
       // 2. Buscar presupuesto final (dos casos posibles)
       let presupuestoFinalData = null
-      
+
       // Caso 1: Si existe un presupuesto base, buscar el presupuesto final asociado
       if (presupuestoBaseData?.id) {
-        
-        
+
+
         const { data, error: finalError } = await supabase
           .from("presupuestos_finales")
           .select("*")
           .eq("id_presupuesto_base", presupuestoBaseData.id)
           .maybeSingle()
 
-        
+
 
         if (finalError) {
-          
+
         } else if (data) {
           presupuestoFinalData = data
         }
       }
-      
+
       // Caso 2: Si no se encontró presupuesto final vía presupuesto base,
       // buscar presupuesto final vinculado directamente a la tarea (sin presupuesto base)
       if (!presupuestoFinalData) {
-        
+
         const { data, error: finalDirectoError } = await supabase
           .from("presupuestos_finales")
           .select("*")
@@ -186,41 +186,41 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .is("id_presupuesto_base", null)
           .maybeSingle()
 
-        
+
 
         if (finalDirectoError) {
-          
+
         } else if (data) {
           presupuestoFinalData = data
         }
       }
-      
+
       // Consultar facturas asociadas al presupuesto final (solo si es admin)
       if (presupuestoFinalData && userRol === "admin") {
-        
-        
+
+
         const { data: facturas, error: facturasError } = await supabase
           .from('facturas')
           .select('id, pagada')
           .eq('id_presupuesto_final', presupuestoFinalData.id)
-        
-        
+
+
         if (facturasError) {
-          
+
         } else if (facturas && facturas.length > 0) {
           presupuestoFinalData.tiene_facturas = true
           presupuestoFinalData.facturas_pagadas = facturas.every(f => f.pagada)
-          
+
         } else {
-          
+
         }
       }
-      
+
       // Establecer el presupuesto final encontrado (o null si no hay ninguno)
       setPresupuestoFinal(presupuestoFinalData)
-      
+
     } catch (error) {
-      
+
       toast({
         title: "Error",
         description: "Ocurrió un error inesperado al cargar los presupuestos.",
@@ -228,47 +228,47 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       })
     }
   }
-  
+
   // Función para cargar todos los datos de la tarea
   const cargarDatosTarea = async () => {
     // Solo cargar datos cuando tengamos un ID de tarea válido
     if (!tareaId) return;
-    
+
     try {
       setLoading(true)
       const supabase = createClient()
-      
+
       if (!supabase) {
         setError("No se pudo inicializar el cliente de Supabase")
         return
       }
-      
+
       // Verificar sesión de usuario
       const sessionResponse = await supabase.auth.getSession()
       const session = sessionResponse.data.session
-      
+
       if (!session) {
         router.push("/login")
         return
       }
-      
+
       // Obtener detalles del usuario
       const userResponse = await supabase
         .from("usuarios")
         .select("*")
         .eq("id", session.user.id)
         .single()
-        
+
       const userData = userResponse.data
       const userError = userResponse.error
-      
+
       if (userError) {
         setError("Error al obtener detalles del usuario")
         return
       }
-      
+
       setUserDetails(userData)
-      
+
       // Obtener tarea con manejo de errores mejorado usando la vista optimizada y expandiendo la información del edificio
       // Realizamos una consulta que garantice que tenemos todos los datos necesarios del edificio
       const { data: tareaData, error: tareaError } = await supabase
@@ -288,18 +288,18 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         setError("La tarea que estás buscando no existe o ha sido eliminada.")
         return
       }
-      
-      
-      
+
+
+
       setTarea(tareaData)
-      
+
       // Verificar si el usuario actual es el trabajador asignado
       if (userDetails?.id && tareaData && tareaData.id_asignado === userDetails.id) {
         setEsTrabajadorAsignado(true)
       } else {
         setEsTrabajadorAsignado(false)
       }
-      
+
       // Inicializar estados cuando se carga la tarea
       if (tareaData) {
         const estadoId = tareaData.id_estado_nuevo != null ? Number(tareaData.id_estado_nuevo) : tareaData.estado != null ? Number(tareaData.estado) : null;
@@ -308,87 +308,87 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         // Asegurarse de que la prioridad sea uno de los valores válidos
         const prioridad = tareaData.prioridad || '';
         setPrioridadActual(prioridad === 'baja' || prioridad === 'media' || prioridad === 'alta' || prioridad === 'urgente' ? prioridad : 'media');
-        
+
       }
-      
+
       // Extraer supervisores y trabajadores de la vista optimizada
       // La vista vista_tareas_completa ya incluye los datos de trabajadores y supervisores
       // como campos planos: supervisores_emails y trabajadores_emails
-      
+
       // Para los supervisores: Consultamos directamente la tabla supervisores_tareas
       // para obtener los datos más actualizados y evitar problemas con la vista
       let supervisorData = null;
-      
-      
-      
+
+
+
       // 1. Primero obtenemos el id_supervisor de la tabla supervisores_tareas
       const { data: supervisorAsignado, error: errorSupervisor } = await supabase
         .from("supervisores_tareas")
         .select("id_supervisor")
         .eq("id_tarea", tareaId)
         .maybeSingle();
-        
+
       if (errorSupervisor) {
-        
+
       }
-      
+
       // 2. Si hay un supervisor asignado, obtenemos sus datos completos de la tabla usuarios
       if (supervisorAsignado?.id_supervisor) {
-        
+
         const { data: supervisorUserData, error: errorUsuario } = await supabase
           .from("usuarios")
           .select("id, email, color_perfil")
           .eq("id", supervisorAsignado.id_supervisor)
           .maybeSingle();
-          
+
         if (errorUsuario) {
-          
+
         }
-        
+
         if (supervisorUserData) {
           supervisorData = {
             usuarios: supervisorUserData
           };
         }
       } else {
-        
+
       }
-      
-      
+
+
       setSupervisor(supervisorData);
 
       // Para los trabajadores: Consultamos directamente la tabla trabajadores_tareas
       // para obtener los datos más actualizados y evitar problemas con la vista
       const trabajadoresData = [];
-      
-      
-      
+
+
+
       // 1. Obtenemos los id_trabajador de la tabla trabajadores_tareas
       const { data: trabajadoresAsignados, error: errorTrabajadores } = await supabase
         .from("trabajadores_tareas")
         .select("id_trabajador")
         .eq("id_tarea", tareaId);
-        
+
       if (errorTrabajadores) {
-        
+
       }
-      
+
       // 2. Si hay trabajadores asignados, obtenemos sus datos completos de la tabla usuarios
       if (trabajadoresAsignados && trabajadoresAsignados.length > 0) {
-        
+
         // Extraer los IDs de trabajadores
         const idsTrabajos = trabajadoresAsignados.map(t => t.id_trabajador);
-        
+
         // Consultar datos completos de los trabajadores
         const { data: trabajadoresUserData, error: errorUsuarios } = await supabase
           .from("usuarios")
           .select("id, email, color_perfil")
           .in("id", idsTrabajos);
-          
+
         if (errorUsuarios) {
-          
+
         }
-        
+
         if (trabajadoresUserData && trabajadoresUserData.length > 0) {
           // Formateamos los datos como el componente espera
           for (const trabajador of trabajadoresUserData) {
@@ -398,29 +398,29 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           }
         }
       } else {
-        
+
       }
-      
-      
+
+
       setTrabajadoresAsignados(trabajadoresData || [])
-      
+
       // Cargar todos los usuarios que son supervisores
       try {
         const { data: supervisores, error: errorSupervisores } = await supabase
           .from("usuarios")
           .select("id, email, color_perfil, code")
           .eq("rol", "supervisor")
-        
+
         if (errorSupervisores) {
-          
+
         } else {
-          
+
           setSupervisoresDisponibles(supervisores || [])
         }
       } catch (error) {
-        
+
       }
-      
+
       // Cargar todos los trabajadores ACTIVOS disponibles
       try {
         // Consulta conjunta para obtener usuarios que son trabajadores y tienen configuración activa
@@ -429,9 +429,9 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           .select("id, email, color_perfil, configuracion_trabajadores!inner(activo)")
           .eq("rol", "trabajador")
           .eq("configuracion_trabajadores.activo", true)
-        
+
         if (errorTrabajadores) {
-          
+
         } else {
           // Convertir al formato que espera el componente
           const trabajadoresFormateados = trabajadores?.map((t: any) => ({
@@ -439,51 +439,51 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             email: t.email,
             color_perfil: t.color_perfil
           })) || []
-          
-          
+
+
           setTrabajadoresDisponibles(trabajadoresFormateados)
         }
       } catch (error) {
-        
+
       }
-      
+
       // Obtener comentarios - Consulta simple sin relaciones
       const comentariosResponse = await supabase
         .from("comentarios")
         .select("id, contenido, created_at, foto_url, id_usuario")
         .eq("id_tarea", tareaId)
         .order("created_at", { ascending: false })
-      
+
       const comentariosData = comentariosResponse.data || []
-      
+
       // Si hay comentarios, obtener información de usuarios
       if (comentariosData.length > 0) {
         const userIds = [...new Set(comentariosData.map((c: any) => c.id_usuario))].filter(id => id)
-        
+
         // Obtener datos de usuarios relacionados
         let usuariosResponse;
-               // Solución alternativa para evitar errores de sintaxis con Supabase
+        // Solución alternativa para evitar errores de sintaxis con Supabase
         // Usar filtro genérico que funciona con uno o múltiples IDs
         try {
           // Construir consulta manualmente con filtro OR - solo columnas que existen
           let query = supabase.from("usuarios").select("id, email, code, color_perfil")
-          
+
           // Si solo hay un ID, usar eq simple
           if (userIds.length === 1) {
-            query = query.filter('id', 'eq', userIds[0])          
+            query = query.filter('id', 'eq', userIds[0])
           } else {
             // Si hay múltiples, usar in
-            query = query.filter('id', 'in', `(${userIds.join(',')})`)  
+            query = query.filter('id', 'in', `(${userIds.join(',')})`)
           }
-          
+
           usuariosResponse = await query
         } catch (error) {
-          
+
           usuariosResponse = { data: [] }
         }
-        
+
         const usuariosData = usuariosResponse.data || []
-        
+
         // Enriquecer los datos de comentarios con la información de usuarios
         const comentariosEnriquecidos = comentariosData.map((comentario: any) => {
           const usuario = usuariosData.find((u: any) => u.id === comentario.id_usuario)
@@ -492,17 +492,17 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             usuarios: usuario || null
           }
         })
-        
+
         setComentarios(comentariosEnriquecidos)
       } else {
         setComentarios([])
       }
-      
 
-      
+
+
       // Cargar datos de presupuestos (base y final)
       await cargarPresupuestos(userData?.rol)
-      
+
     } catch (err) {
       setError("Ocurrió un error inesperado al cargar la tarea")
     } finally {
@@ -515,12 +515,12 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
     try {
       // No verificamos permisos ya que todos los roles pueden modificar la agenda
       // La restricción anterior ha sido eliminada para permitir que todos modifiquen la fecha
-      
+
       const supabase = createClient();
-      
+
       // Comprobar que tenemos una sesión válida
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         toast({
           title: "Error de sesión",
@@ -529,7 +529,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         });
         return;
       }
-      
+
       // Formatear la fecha para PostgreSQL - Formato local sin ajuste de zona horaria
       let formattedDate = null;
       if (date) {
@@ -540,96 +540,96 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const seconds = String(date.getSeconds()).padStart(2, '0');
-        
+
         // Formato YYYY-MM-DD HH:MM:SS (hora local sin ajuste)
         formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        
-        
+
+
       }
-      
+
       // Mostrar indicador de carga
       toast({
         title: "Guardando...",
         description: "Actualizando la fecha de visita"
       });
-      
+
       // IMPORTANTE: Primero intentar usar la función RPC
       try {
         // Convertir el ID a número si es necesario
         const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
-        
-        
-        
-        const { data: rpcResult, error: rpcError } = await supabase.rpc('actualizar_fecha_tarea', { 
-          tarea_id: tareaIdNum, 
-          nueva_fecha: formattedDate 
+
+
+
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('actualizar_fecha_tarea', {
+          tarea_id: tareaIdNum,
+          nueva_fecha: formattedDate
         });
-        
-        
-        
+
+
+
         if (!rpcError) {
           // La RPC funcionó correctamente
           toast({
             title: "Éxito",
             description: "Fecha de visita actualizada correctamente"
           });
-          
+
           // Actualizar interfaz con la fecha devuelta por la RPC
           const fechaRPC = rpcResult?.nueva_fecha || formattedDate;
-          
-          
+
+
           // Primero actualizamos el estado local para UI inmediata
           setTarea((prevTarea: any) => ({
             ...prevTarea,
             fecha_visita: fechaRPC
           }));
-          
+
           // Esperar brevemente para que la BD actualice el valor
           await new Promise(resolve => setTimeout(resolve, 300));
-          
+
           // Recargar datos para asegurar que todo esté sincronizado con la BD
           const { data: tareaActualizada } = await supabase
             .from("tareas")
             .select("*")
             .eq("id", tarea.id)
             .single();
-          
+
           if (tareaActualizada) {
-            
+
             setTarea(tareaActualizada);
           }
           return;
         } else {
-          
-          
+
+
           // La RPC falló, intentar método estándar
           const { error } = await supabase
             .from("tareas")
             .update({ fecha_visita: formattedDate })
             .eq("id", tarea.id);
-          
+
           if (error) {
             throw new Error(`Error al actualizar: ${error.message}`);
           }
-          
+
           // Actualizar interfaz
           setTarea({
             ...tarea,
             fecha_visita: formattedDate
           });
-          
+
           toast({
             title: "Éxito",
             description: "Fecha de visita actualizada"
           });
-          
+
           // Verificar que se haya guardado correctamente
           const { data: verificacion } = await supabase
             .from("tareas")
             .select("fecha_visita")
             .eq("id", tarea.id)
             .single();
-          
+
           if (verificacion && verificacion.fecha_visita !== formattedDate) {
             toast({
               title: "Advertencia",
@@ -637,7 +637,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
               variant: "destructive"
             });
           }
-          
+
           // Recargar datos
           await cargarDatosTarea();
         }
@@ -666,7 +666,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
         await cargarDatosTarea()
       }
     }
-    
+
     cargarDatos()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tareaId]) // Solo se ejecuta cuando cambia tareaId
@@ -674,14 +674,14 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
   // Determinar si el usuario puede ver/crear presupuestos basado en el rol
   const esAdmin = userDetails?.rol === "admin"
   const esSupervisor = userDetails?.rol === "supervisor"
-  
+
   // Verificar si el supervisor actual está asignado a esta tarea
   // La estructura correcta del objeto supervisor incluye usuarios con id
-  const esSupervisorDeTarea = esSupervisor && 
-                             supervisor && 
-                             supervisor.usuarios && 
-                             userDetails && 
-                             supervisor.usuarios.id === userDetails.id
+  const esSupervisorDeTarea = esSupervisor &&
+    supervisor &&
+    supervisor.usuarios &&
+    userDetails &&
+    supervisor.usuarios.id === userDetails.id
 
   // Renderizar estados de carga y error
   if (loading) {
@@ -695,7 +695,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       </div>
     )
   }
-  
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
@@ -708,7 +708,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       </div>
     )
   }
-  
+
   if (!tarea) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
@@ -723,7 +723,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
       </div>
     )
   }
-  
+
   // Renderizar el contenido de la tarea
   return (
     <div className="container mx-auto py-6 space-y-8">
@@ -749,7 +749,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   tareaId={tarea.id}
                   prioridadActual={prioridadActual as "baja" | "media" | "alta" | "urgente"}
                   onPrioridadChange={(nuevaPrioridad) => {
-                    
+
                     setPrioridadActual(nuevaPrioridad);
                     // Aquí se implementaría la actualización en el servidor en una versión completa
                   }}
@@ -766,7 +766,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                     )}
                   </>
                 )}
-                
+
                 {/* Mostrar solo si la tarea está finalizada */}
                 {esTareaFinalizada && (
                   <Badge variant="outline" className="bg-gray-200">
@@ -785,7 +785,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 onEstadoChange={(nuevoEstadoId, finalizada) => {
                   setEstadoActualId(nuevoEstadoId);
                   setEsTareaFinalizada(finalizada);
-                  
+
                 }}
                 onShowFinalizarDialog={() => setShowFinalizarDialog(true)}
                 className="mt-2 sm:mt-0"
@@ -827,7 +827,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
               </div>
             </div>
           )}
-          
+
           {/* Botón para agregar notas si no existen */}
           {!tarea.edificios?.notas && (
             <Button
@@ -857,17 +857,17 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 </Link>
               </div>
             </div>
-{/* Sección de departamentos */}
-<div>
-  <h3 className="font-medium mb-1">Departamentos</h3>
-  <DepartamentosInteractivos 
-    tareaId={tarea.id} 
-    edificioId={tarea.id_edificio}
-    onDepartamentosChange={(departamentos) => {
-      
-    }}
-  />
-</div>
+            {/* Sección de departamentos */}
+            <div>
+              <h3 className="font-medium mb-1">Departamentos</h3>
+              <DepartamentosInteractivos
+                tareaId={tarea.id}
+                edificioId={tarea.id_edificio}
+                onDepartamentosChange={(departamentos) => {
+
+                }}
+              />
+            </div>
             <div>
               <h3 className="font-medium mb-1">Fecha de visita</h3>
               <div className="flex items-center mb-2">
@@ -889,125 +889,125 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                   supervisoresDisponibles={supervisoresDisponibles}
                   userDetailsId={userDetails?.id}
                   onSupervisorChange={async (emailSupervisor) => {
-                  // Ahora recibimos el email del supervisor en lugar del ID
-                  
-                  try {
-                    // Crear cliente Supabase
-                    const supabase = createClient();
-                    
-                    // Intentar obtener la sesión actual
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session) {
-                      toast({
-                        title: "Error",
-                        description: "No hay sesión activa. Por favor inicia sesión nuevamente.",
-                        variant: "destructive",
-                      });
-                      router.push('/login');
-                      return;
-                    }
-                    
-                    // Aseguramos que el tipo sea número
-                    const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
-                    
-                    // Si no se proporciona un nuevo supervisor, lo establecemos a null
-                    if (emailSupervisor === null) {
-                      // Eliminar registros en la tabla relacional supervisores_tareas
-                      const { error: errorRelacion } = await supabase
-                        .from('supervisores_tareas')
-                        .delete()
-                        .eq('id_tarea', tareaIdNum);
-                        
-                      if (errorRelacion) {
-                        throw errorRelacion;
+                    // Ahora recibimos el email del supervisor en lugar del ID
+
+                    try {
+                      // Crear cliente Supabase
+                      const supabase = createClient();
+
+                      // Intentar obtener la sesión actual
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        toast({
+                          title: "Error",
+                          description: "No hay sesión activa. Por favor inicia sesión nuevamente.",
+                          variant: "destructive",
+                        });
+                        router.push('/login');
+                        return;
                       }
-                      
-                      setSupervisor(null);
-                      toast({
-                        title: "Supervisor eliminado",
-                        description: "Se ha eliminado el supervisor de la tarea",
-                      });
-                    }
-                      
-                    // Si hay un nuevo supervisor, lo asignamos
-                    if (emailSupervisor !== null && emailSupervisor !== undefined) {
-                      try {
-                        // Buscar el supervisor por email
-                        const supervisorSeleccionado = supervisoresDisponibles.find(
-                          sup => sup.email === emailSupervisor
-                        );
-                        
-                        if (!supervisorSeleccionado) {
-                          throw new Error(`No se encontró supervisor con email ${emailSupervisor}`);
-                        }
-                        
-                        
-                        
-                        // Asegurar que tenemos un ID válido para la tarea
-                        const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
-                        const supervisorIdNum = supervisorSeleccionado.id; 
-                        
-                        if (isNaN(tareaIdNum)) {
-                          throw new Error(`ID de tarea no válido: ${tarea.id}`);
-                        }
-                        
-                        // Ya no actualizamos la columna id_supervisor en la tabla tareas
-                        // Solo trabajamos con la tabla relacional
-                        
-                        // 2. Primero eliminar cualquier registro existente
-                        const { error: errorDelete } = await supabase
+
+                      // Aseguramos que el tipo sea número
+                      const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
+
+                      // Si no se proporciona un nuevo supervisor, lo establecemos a null
+                      if (emailSupervisor === null) {
+                        // Eliminar registros en la tabla relacional supervisores_tareas
+                        const { error: errorRelacion } = await supabase
                           .from('supervisores_tareas')
                           .delete()
                           .eq('id_tarea', tareaIdNum);
-                          
-                        if (errorDelete) {
-                          throw errorDelete;
+
+                        if (errorRelacion) {
+                          throw errorRelacion;
                         }
-                        
-                        // 3. Insertar nuevo registro en la tabla relacional supervisores_tareas
-                        const { error: errorInsert } = await supabase
-                          .from('supervisores_tareas')
-                          .insert({ 
-                            id_tarea: tareaIdNum, 
-                            id_supervisor: supervisorIdNum 
-                          });
-                          
-                        if (errorInsert) {
-                          throw errorInsert;
-                        }
-                        
-                        // Actualizar el supervisor inmediatamente con el nuevo formato
-                        setSupervisor({
-                          usuarios: supervisorSeleccionado
-                        });
-                        
+
+                        setSupervisor(null);
                         toast({
-                          title: "Supervisor asignado",
-                          description: `Supervisor ${supervisorSeleccionado.email} asignado correctamente a la tarea.`,
-                        });
-                      } catch (error: any) {
-                        
-                        toast({
-                          title: "Error al cambiar supervisor",
-                          description: `No se pudo actualizar el supervisor: ${error instanceof Error ? error.message : 'Error desconocido'}`,
-                          variant: "destructive",
+                          title: "Supervisor eliminado",
+                          description: "Se ha eliminado el supervisor de la tarea",
                         });
                       }
+
+                      // Si hay un nuevo supervisor, lo asignamos
+                      if (emailSupervisor !== null && emailSupervisor !== undefined) {
+                        try {
+                          // Buscar el supervisor por email
+                          const supervisorSeleccionado = supervisoresDisponibles.find(
+                            sup => sup.email === emailSupervisor
+                          );
+
+                          if (!supervisorSeleccionado) {
+                            throw new Error(`No se encontró supervisor con email ${emailSupervisor}`);
+                          }
+
+
+
+                          // Asegurar que tenemos un ID válido para la tarea
+                          const tareaIdNum = typeof tarea.id === 'string' ? parseInt(tarea.id, 10) : tarea.id;
+                          const supervisorIdNum = supervisorSeleccionado.id;
+
+                          if (isNaN(tareaIdNum)) {
+                            throw new Error(`ID de tarea no válido: ${tarea.id}`);
+                          }
+
+                          // Ya no actualizamos la columna id_supervisor en la tabla tareas
+                          // Solo trabajamos con la tabla relacional
+
+                          // 2. Primero eliminar cualquier registro existente
+                          const { error: errorDelete } = await supabase
+                            .from('supervisores_tareas')
+                            .delete()
+                            .eq('id_tarea', tareaIdNum);
+
+                          if (errorDelete) {
+                            throw errorDelete;
+                          }
+
+                          // 3. Insertar nuevo registro en la tabla relacional supervisores_tareas
+                          const { error: errorInsert } = await supabase
+                            .from('supervisores_tareas')
+                            .insert({
+                              id_tarea: tareaIdNum,
+                              id_supervisor: supervisorIdNum
+                            });
+
+                          if (errorInsert) {
+                            throw errorInsert;
+                          }
+
+                          // Actualizar el supervisor inmediatamente con el nuevo formato
+                          setSupervisor({
+                            usuarios: supervisorSeleccionado
+                          });
+
+                          toast({
+                            title: "Supervisor asignado",
+                            description: `Supervisor ${supervisorSeleccionado.email} asignado correctamente a la tarea.`,
+                          });
+                        } catch (error: any) {
+
+                          toast({
+                            title: "Error al cambiar supervisor",
+                            description: `No se pudo actualizar el supervisor: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                            variant: "destructive",
+                          });
+                        }
+                      }
+
+                      // Nota: Ya no necesitamos este código porque actualizamos el supervisor
+                      // inmediatamente después de la inserción exitosa o de la eliminación
+
+                    } catch (error) {
+
+                      toast({
+                        title: "Error",
+                        description: "No se pudo actualizar el supervisor",
+                        variant: "destructive",
+                      });
                     }
-                    
-                    // Nota: Ya no necesitamos este código porque actualizamos el supervisor
-                    // inmediatamente después de la inserción exitosa o de la eliminación
-                    
-                  } catch (error) {
-                    
-                    toast({
-                      title: "Error",
-                      description: "No se pudo actualizar el supervisor",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-              />
+                  }}
+                />
               ) : (
                 /* Para trabajadores, solo mostrar el supervisor sin capacidad de cambiarlo */
                 <div className="flex items-center mt-1">
@@ -1030,152 +1030,152 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 <TrabajadoresInteractivos
                   tareaId={tarea.id}
                   trabajadoresAsignados={
-                  trabajadoresAsignados
-                    .filter(t => t.usuarios) // Filtrar entradas sin datos de usuario
-                    .map(t => ({
-                      id: t.usuarios.id,
-                      email: t.usuarios.email,
-                      color_perfil: t.usuarios.color_perfil
-                    }))
-                }
-                trabajadoresDisponibles={trabajadoresDisponibles}
-                onTrabajadorAdd={async (nuevoTrabajadorId) => {
-                  // Encontrar el trabajador en la lista de disponibles
-                  const trabajadorEncontrado = trabajadoresDisponibles.find(t => t.id === nuevoTrabajadorId);
-                    
-                  if (trabajadorEncontrado) {
-                    // Verificar si el trabajador ya está asignado para evitar duplicados
-                    const yaAsignado = trabajadoresAsignados.some(t => t.usuarios?.id === nuevoTrabajadorId);
-                    
-                    if (yaAsignado) {
+                    trabajadoresAsignados
+                      .filter(t => t.usuarios) // Filtrar entradas sin datos de usuario
+                      .map(t => ({
+                        id: t.usuarios.id,
+                        email: t.usuarios.email,
+                        color_perfil: t.usuarios.color_perfil
+                      }))
+                  }
+                  trabajadoresDisponibles={trabajadoresDisponibles}
+                  onTrabajadorAdd={async (nuevoTrabajadorId) => {
+                    // Encontrar el trabajador en la lista de disponibles
+                    const trabajadorEncontrado = trabajadoresDisponibles.find(t => t.id === nuevoTrabajadorId);
+
+                    if (trabajadorEncontrado) {
+                      // Verificar si el trabajador ya está asignado para evitar duplicados
+                      const yaAsignado = trabajadoresAsignados.some(t => t.usuarios?.id === nuevoTrabajadorId);
+
+                      if (yaAsignado) {
+                        toast({
+                          title: "Trabajador ya asignado",
+                          description: `${trabajadorEncontrado.email} ya está asignado a esta tarea`,
+                          variant: "warning"
+                        });
+                        return;
+                      }
+
+                      // Mostrar estado de carga
+                      setIsLoading(true);
+
+                      // Crear una referencia a Supabase para usar en operaciones asíncronas
+                      const supabase = createClient();
+
+                      try {
+                        // Validar que el ID de la tarea sea un número válido
+                        const tareaIdNum = typeof tareaId === 'string' ? parseInt(tareaId, 10) : tareaId;
+
+                        if (isNaN(tareaIdNum)) {
+                          throw new Error(`ID de tarea inválido: ${tareaId}`);
+                        }
+
+                        // Guardar en la base de datos
+                        const { error } = await supabase
+                          .from("trabajadores_tareas")
+                          .insert({
+                            id_tarea: tareaIdNum,
+                            id_trabajador: nuevoTrabajadorId
+                          });
+
+                        if (error) {
+                          toast({
+                            title: "Error al asignar trabajador",
+                            description: error.message,
+                            variant: "destructive"
+                          });
+                        } else {
+                          // Éxito: actualizar la UI y mostrar notificación
+                          toast({
+                            title: "Trabajador agregado",
+                            description: `Se ha asignado a ${trabajadorEncontrado?.email} a esta tarea`
+                          });
+
+                          // Crear un nuevo objeto con el formato esperado por el componente
+                          const nuevoTrabajadorAsignado = {
+                            usuarios: {
+                              id: trabajadorEncontrado.id,
+                              email: trabajadorEncontrado.email,
+                              color_perfil: trabajadorEncontrado.color_perfil
+                            }
+                          };
+
+                          // Actualizar la lista de trabajadores asignados en el estado local
+                          setTrabajadoresAsignados([...trabajadoresAsignados, nuevoTrabajadorAsignado]);
+
+
+                        }
+                      } catch (error) {
+
+                        toast({
+                          title: "Error inesperado",
+                          description: `No se pudo completar la asignación: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    } else {
+
                       toast({
-                        title: "Trabajador ya asignado",
-                        description: `${trabajadorEncontrado.email} ya está asignado a esta tarea`,
-                        variant: "warning"
+                        title: "Error",
+                        description: "No se encontró el trabajador seleccionado",
+                        variant: "destructive"
                       });
-                      return;
                     }
-                    
-                    // Mostrar estado de carga
+                  }}
+                  onTrabajadorRemove={async (trabajadorId) => {
+
                     setIsLoading(true);
-                    
+
                     // Crear una referencia a Supabase para usar en operaciones asíncronas
                     const supabase = createClient();
-                    
+
+                    // Obtener el trabajador que estamos eliminando para mostrarlo en la notificación
+                    const trabajadorAEliminar = trabajadoresAsignados.find(t => t.usuarios?.id === trabajadorId);
+
                     try {
-                      // Validar que el ID de la tarea sea un número válido
-                      const tareaIdNum = typeof tareaId === 'string' ? parseInt(tareaId, 10) : tareaId;
-                      
-                      if (isNaN(tareaIdNum)) {
-                        throw new Error(`ID de tarea inválido: ${tareaId}`);
-                      }
-                      
-                      // Guardar en la base de datos
+                      // Eliminar de la base de datos utilizando async/await para mayor consistencia y claridad
                       const { error } = await supabase
                         .from("trabajadores_tareas")
-                        .insert({
-                          id_tarea: tareaIdNum,
-                          id_trabajador: nuevoTrabajadorId
-                        });
-                        
+                        .delete()
+                        .eq("id_tarea", tareaId)
+                        .eq("id_trabajador", trabajadorId);
+
                       if (error) {
                         toast({
-                          title: "Error al asignar trabajador",
+                          title: "Error al eliminar trabajador",
                           description: error.message,
                           variant: "destructive"
                         });
                       } else {
-                        // Éxito: actualizar la UI y mostrar notificación
+                        // Filtrar el trabajador de la lista de asignados
+                        const nuevosAsignados = trabajadoresAsignados.filter(
+                          t => t.usuarios?.id !== trabajadorId
+                        );
+
+                        // Actualizar estado inmediatamente
+                        setTrabajadoresAsignados(nuevosAsignados);
+
                         toast({
-                          title: "Trabajador agregado",
-                          description: `Se ha asignado a ${trabajadorEncontrado?.email} a esta tarea`
+                          title: "Trabajador eliminado",
+                          description: `Se ha eliminado a ${trabajadorAEliminar?.usuarios?.email} de esta tarea`
                         });
-                        
-                        // Crear un nuevo objeto con el formato esperado por el componente
-                        const nuevoTrabajadorAsignado = {
-                          usuarios: {
-                            id: trabajadorEncontrado.id,
-                            email: trabajadorEncontrado.email,
-                            color_perfil: trabajadorEncontrado.color_perfil
-                          }
-                        };
-                        
-                        // Actualizar la lista de trabajadores asignados en el estado local
-                        setTrabajadoresAsignados([...trabajadoresAsignados, nuevoTrabajadorAsignado]);
-                        
-                        
+
+
                       }
                     } catch (error) {
-                      
+
                       toast({
                         title: "Error inesperado",
-                        description: `No se pudo completar la asignación: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+                        description: "No se pudo eliminar al trabajador de la tarea",
                         variant: "destructive"
                       });
                     } finally {
                       setIsLoading(false);
                     }
-                  } else {
-                    
-                    toast({
-                      title: "Error",
-                      description: "No se encontró el trabajador seleccionado",
-                      variant: "destructive"
-                    });
-                  }
-                }}
-                onTrabajadorRemove={async (trabajadorId) => {
-                  
-                  setIsLoading(true);
-                  
-                  // Crear una referencia a Supabase para usar en operaciones asíncronas
-                  const supabase = createClient();
-                  
-                  // Obtener el trabajador que estamos eliminando para mostrarlo en la notificación
-                  const trabajadorAEliminar = trabajadoresAsignados.find(t => t.usuarios?.id === trabajadorId);
-                  
-                  try {
-                    // Eliminar de la base de datos utilizando async/await para mayor consistencia y claridad
-                    const { error } = await supabase
-                      .from("trabajadores_tareas")
-                      .delete()
-                      .eq("id_tarea", tareaId)
-                      .eq("id_trabajador", trabajadorId);
-                    
-                    if (error) {
-                      toast({
-                        title: "Error al eliminar trabajador",
-                        description: error.message,
-                        variant: "destructive"
-                      });
-                    } else {
-                      // Filtrar el trabajador de la lista de asignados
-                      const nuevosAsignados = trabajadoresAsignados.filter(
-                        t => t.usuarios?.id !== trabajadorId
-                      );
-                      
-                      // Actualizar estado inmediatamente
-                      setTrabajadoresAsignados(nuevosAsignados);
-                      
-                      toast({
-                        title: "Trabajador eliminado",
-                        description: `Se ha eliminado a ${trabajadorAEliminar?.usuarios?.email} de esta tarea`
-                      });
-                      
-                      
-                    }
-                  } catch (error) {
-                    
-                    toast({
-                      title: "Error inesperado",
-                      description: "No se pudo eliminar al trabajador de la tarea",
-                      variant: "destructive"
-                    });
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}  
-              />
+                  }}
+                />
               ) : (
                 /* Para trabajadores, solo mostrar la lista sin capacidad de modificar */
                 <div className="flex flex-wrap gap-2 mt-1">
@@ -1199,7 +1199,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
           {(userDetails?.rol === "admin" || userDetails?.rol === "supervisor") && (
             <>
               <Separator />
-              
+
               <PresupuestosInteractivos
                 tareaId={tarea.id}
                 userId={userDetails?.id} // userId ya estaba siendo esperado por el componente hijo
@@ -1227,10 +1227,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             </div>
             <div className="grid grid-cols-1 gap-6">
               <ErrorBoundary fallback={<p>Error al cargar el componente de procesamiento de imágenes</p>}>
-                <ProcesadorImagen 
-                  tareaId={Number(tarea.id)} 
-                  tareaCodigo={tarea.codigo} 
-                  tareaTitulo={tarea.titulo} 
+                <ProcesadorImagen
+                  tareaId={Number(tarea.id)}
+                  tareaCodigo={tarea.codigo}
+                  tareaTitulo={tarea.titulo}
                 />
               </ErrorBoundary>
 
@@ -1239,7 +1239,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 <div className="py-4">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
                     <h3 className="text-lg font-semibold flex items-center mb-2 md:mb-0">
-                      <CalendarDays className="mr-2 h-5 w-5 text-primary" /> 
+                      <CalendarDays className="mr-2 h-5 w-5 text-primary" />
                       Registro de Partes de Trabajo
                     </h3>
                     {!mostrarFormularioParte && (
@@ -1284,10 +1284,10 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
                 </div>
               )}
 
-              <Separator className="my-6" />  
+              <Separator className="my-6" />
               <ErrorBoundary fallback={<p>Error al cargar el historial de gastos</p>}>
-                <HistorialGastosOCR 
-                  tareaId={Number(tarea.id)} 
+                <HistorialGastosOCR
+                  tareaId={Number(tarea.id)}
                   userRole={userDetails?.rol || 'trabajador'}
                   userId={userDetails?.id}
                 />
@@ -1319,7 +1319,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
               Estas notas se mostrarán en todas las tareas de este edificio como advertencia urgente
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="notas-edificio">
@@ -1338,7 +1338,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
               </p>
             </div>
           </div>
-          
+
           <DialogFooter className="gap-2">
             <Button
               variant="outline"

@@ -83,37 +83,61 @@ export const verMiEquipo = tool({
             // Obtener trabajadores de las tareas supervisadas
             const { data, error } = await supabase
                 .from('supervisores_tareas')
+
                 .select(`
                     id_tarea,
                     tareas!inner(
                         titulo,
+                        finalizada,
                         trabajadores_tareas(
-                            trabajadores(
+                            id_trabajador,
+                            usuarios(
                                 id,
                                 nombre
                             )
                         )
                     )
-                `)
-                .eq('id_supervisor', user.id);
+                    `)
+                .eq('id_supervisor', user.id)
+                .eq('tareas.finalizada', false);
 
             if (error) return { error: error.message };
 
             // Agrupar trabajadores únicos
             const trabajadoresSet = new Set();
             const tareasCount: Record<string, number> = {};
+            let tareasSinAsignar = 0;
 
             data?.forEach((row: any) => {
-                row.tareas?.trabajadores_tareas?.forEach((tt: any) => {
-                    if (tt.trabajadores) {
-                        const trabajadorId = tt.trabajadores.id;
-                        trabajadoresSet.add(JSON.stringify({
-                            id: trabajadorId,
-                            nombre: tt.trabajadores.nombre
-                        }));
-                        tareasCount[trabajadorId] = (tareasCount[trabajadorId] || 0) + 1;
-                    }
-                });
+                // Doble chequeo por si el filtro de Supabase falla en el join
+                if (row.tareas?.finalizada) return;
+
+                const asignaciones = row.tareas?.trabajadores_tareas || [];
+
+                if (asignaciones.length === 0) {
+                    tareasSinAsignar++;
+                } else {
+                    asignaciones.forEach((tt: any) => {
+                        if (tt.usuarios) {
+                            const trabajadorId = tt.usuarios.id;
+                            trabajadoresSet.add(JSON.stringify({
+                                id: trabajadorId,
+                                nombre: tt.usuarios.nombre
+                            }));
+                            tareasCount[trabajadorId] = (tareasCount[trabajadorId] || 0) + 1;
+                        } else if (tt.id_trabajador) {
+                            // Integridad rota: Hay asignación pero el join con usuarios falló
+                            const placeholderId = `unknown-${tt.id_trabajador}`;
+                            trabajadoresSet.add(JSON.stringify({
+                                id: placeholderId,
+                                nombre: `👻 Usuario Oculto/Borrado (${tt.id_trabajador.substring(0, 6)}...)`
+                            }));
+                            tareasCount[placeholderId] = (tareasCount[placeholderId] || 0) + 1;
+                        } else {
+                            tareasSinAsignar++;
+                        }
+                    });
+                }
             });
 
             const trabajadores = Array.from(trabajadoresSet).map((t: any) => {
@@ -124,10 +148,20 @@ export const verMiEquipo = tool({
                 };
             });
 
+            // Agregar "Sin Asignar" como un trabajador virtual si hay tareas
+            if (tareasSinAsignar > 0) {
+                trabajadores.push({
+                    id: 'unassigned',
+                    nombre: '⚠️ Sin Asignar / Verificar',
+                    tareas_asignadas: tareasSinAsignar
+                });
+            }
+
             return {
                 trabajadores,
-                total: trabajadores.length,
-                mensaje: `Supervisas ${trabajadores.length} trabajadores en ${data?.length || 0} tareas`
+                total_trabajadores: trabajadoresSet.size,
+                total_tareas_activas: data?.length || 0,
+                mensaje: `Supervisas ${data?.length || 0} tareas activas en total. Se detectaron ${trabajadoresSet.size} trabajadores asignados y ${tareasSinAsignar} tareas sin asignar o con datos incompletos.`
             };
         } catch (e: any) {
             return { error: e.message };
@@ -169,7 +203,7 @@ export const registrarParte = tool({
             const end = new Date(start);
             end.setDate(start.getDate() + 6);
             end.setHours(23, 59, 59, 999);
-            const d = new Date(`${fechaISO}T00:00:00`);
+            const d = new Date(`${fechaISO} T00:00:00`);
 
             if (!(d >= start && d <= end)) {
                 return { success: false, error: 'Solo puedes registrar en la semana actual (Lunes-Domingo)' };
@@ -220,7 +254,7 @@ export const registrarParte = tool({
 
             return {
                 success: true,
-                mensaje: `✅ Parte de ${tipo_jornada === 'dia_completo' ? 'jornada completa' : 'media jornada'} registrado para ${fechaISO}`,
+                mensaje: `✅ Parte de ${tipo_jornada === 'dia_completo' ? 'jornada completa' : 'media jornada'} registrado para ${fechaISO} `,
                 parte_id: data.id
             };
         } catch (e: any) {
@@ -256,13 +290,29 @@ export const verMisPagos = tool({
                 .order('created_at', { ascending: false })
                 .limit(limit);
 
+            // Query gastos pendientes (no liquidados)
+            const { data: gastosPendientes } = await supabase
+                .from('gastos_tarea')
+                .select('monto, tareas(titulo)')
+                .eq('id_usuario', user.id)
+                .is('id_liquidacion', null);
+
+            const totalGastosPendientes = gastosPendientes?.reduce((sum, g) => sum + (g.monto || 0), 0) || 0;
+            const cantidadGastosPendientes = gastosPendientes?.length || 0;
+            const tareasPendientes = [...new Set(gastosPendientes?.map(g => { const t = g.tareas as any; return Array.isArray(t) ? t[0]?.titulo : t?.titulo; }).filter(Boolean))];
+
             if (error) return { error: error.message };
 
             if (!data || data.length === 0) {
                 return {
                     liquidaciones: [],
                     total_liquidaciones: 0,
-                    mensaje: 'No tienes liquidaciones registradas'
+                    mensaje: `No tienes liquidaciones registradas.${cantidadGastosPendientes > 0 ? ` Pero tienes ${cantidadGastosPendientes} gastos pendientes por confirmar ($${totalGastosPendientes.toLocaleString('es-AR')}) en: ${[...new Set(gastosPendientes?.map(g => { const t = g.tareas as any; return Array.isArray(t) ? t[0]?.titulo : t?.titulo; }).filter(Boolean))].join(', ')}.` : ''} `,
+                    gastos_pendientes: {
+                        cantidad: cantidadGastosPendientes,
+                        total: totalGastosPendientes,
+                        detalles_por_tarea: gastosPendientes?.map(g => { const t = g.tareas as any; return { tarea: Array.isArray(t) ? t[0]?.titulo : t?.titulo, monto: g.monto }; })
+                    }
                 };
             }
 
@@ -283,7 +333,7 @@ export const verMisPagos = tool({
             return {
                 liquidaciones: data.map(liq => ({
                     id: liq.id,
-                    periodo: `${new Date(liq.semana_inicio).toLocaleDateString('es-AR')} - ${new Date(liq.semana_fin).toLocaleDateString('es-AR')}`,
+                    periodo: `${new Date(liq.semana_inicio).toLocaleDateString('es-AR')} - ${new Date(liq.semana_fin).toLocaleDateString('es-AR')} `,
                     dias_trabajados: liq.total_dias,
                     salario_base: liq.salario_base,
                     gastos: liq.gastos_reembolsados,
@@ -296,7 +346,13 @@ export const verMisPagos = tool({
                 total_pagado: totalPagado,
                 total_pendiente: totalPendiente,
                 total_dias_trabajados: totalDias,
-                mensaje: `📊 Tienes ${data.length} liquidación(es). Pagado: $${totalPagado.toLocaleString('es-AR')} | Pendiente: $${totalPendiente.toLocaleString('es-AR')}`
+
+                mensaje: `📊 Tienes ${data.length} liquidación(es).Pagado: $${totalPagado.toLocaleString('es-AR')} | Pendiente: $${totalPendiente.toLocaleString('es-AR')}${cantidadGastosPendientes > 0 ? ` | ⏳ ${cantidadGastosPendientes} gastos pendientes ($${totalGastosPendientes.toLocaleString('es-AR')}) en: ${tareasPendientes.join(', ')}` : ''} `,
+                gastos_pendientes: {
+                    cantidad: cantidadGastosPendientes,
+                    total: totalGastosPendientes,
+                    tareas: tareasPendientes
+                }
             };
         } catch (e: any) {
             return { error: e.message };
@@ -335,7 +391,7 @@ export const verLiquidacionEquipo = tool({
                 gastos_totales: metricas.gastos_totales || 0,
                 presupuesto_total: metricas.presupuesto_total || 0,
                 tareas_activas: metricas.tareas_activas || 0,
-                mensaje: `📊 Gastos: $${metricas.gastos_totales || 0} | Presupuesto: $${metricas.presupuesto_total || 0}`
+                mensaje: `📊 Gastos: $${metricas.gastos_totales || 0} | Presupuesto: $${metricas.presupuesto_total || 0} `
             };
         } catch (e: any) {
             return { error: e.message };
@@ -367,7 +423,7 @@ export const crearPresupuestoBase = tool({
 
             // Generar código igual que presupuesto-base-form.tsx
             const now = new Date();
-            const code = `PB-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+            const code = `PB - ${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')} -${Math.floor(Math.random() * 1000).toString().padStart(3, '0')} `;
 
             // Insertar presupuesto base con TODOS los campos del componente manual
             const { data, error } = await supabase
@@ -389,7 +445,8 @@ export const crearPresupuestoBase = tool({
             const total = materiales + mano_obra;
             return {
                 success: true,
-                mensaje: `✅ Presupuesto base ${code} creado: $${total.toLocaleString('es-AR')} (Materiales: $${materiales.toLocaleString('es-AR')}, Mano de obra: $${mano_obra.toLocaleString('es-AR')})`,
+                mensaje: `✅ Presupuesto base ${code} creado: $${total.toLocaleString('es-AR')} (Materiales: $${materiales.toLocaleString('es-AR')
+                    }, Mano de obra: $${mano_obra.toLocaleString('es-AR')})`,
                 presupuesto_id: data.id,
                 code: data.code,
                 total
