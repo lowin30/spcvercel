@@ -469,34 +469,38 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
     }
   }
 
-  // Función para subir a Cloudinary y obtener URL optimizada
+  // Función para subir a Cloudinary vía API route signed (más seguro)
   const subirACloudinaryOptimizado = async (file: File): Promise<string | null> => {
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dyb0ui625";
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "spc";
-
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("upload_preset", uploadPreset);
 
     try {
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      const response = await fetch('/api/upload-cloudinary', {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error("Fallo subida a Cloudinary");
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error upload API:", errorData);
+        throw new Error(errorData.error || 'Error al subir imagen');
+      }
 
       const data = await response.json();
 
+      if (!data.success || !data.url) {
+        throw new Error('Respuesta inválida del servidor');
+      }
+
       // Aplicar filtros de mejora de OCR: mejorar contraste y enfocar agresivamente
-      const originalUrl = data.secure_url;
-      const optimizedUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/"); // Pipeline sugerido
+      const originalUrl = data.url;
+      const optimizedUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/");
 
       console.log("Imagen subida y optimizada:", optimizedUrl);
       return optimizedUrl;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error subiendo a Cloudinary:", error);
-      toast.error("Error subiendo imagen a la nube");
+      toast.error(`Error subiendo imagen: ${error.message || 'Error desconocido'}`);
       return null;
     }
   };
@@ -559,7 +563,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
             let updated = false;
 
             if (data.datos.monto && parseFloat(data.datos.monto) > 0) {
-              newData.monto = data.datos.monto.toString();
+              newData.monto = Math.round(parseFloat(data.datos.monto)).toString();
               updated = true;
             }
             if (data.datos.descripcion) {
@@ -647,64 +651,27 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
       const ahora = new Date()
       const timestamp = `${ahora.getFullYear()}${String(ahora.getMonth() + 1).padStart(2, '0')}${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}${String(ahora.getSeconds()).padStart(2, '0')}`
 
-      // Subir imágenes a Supabase Storage
+      // Subir imágenes a Cloudinary
       let comprobanteUrl = null
       let imagenProcesadaUrl = null
 
-      // Asegurar estructura organizada
+      // Subir imagen original a Cloudinary
       if (imagen) {
-        // Nombre de archivo con formato: tarea_timestamp.extension
-        const extension = imagen.name.split('.').pop() || 'jpg'
-        const nombreArchivo = `tarea${tareaId}_${timestamp}.${extension}`
-        const basePath = mode === 'extra_pdf' && facturaId ? `comprobantes_extras/factura_${facturaId}` : `comprobantes/tarea_${tareaId}`
-        const rutaArchivo = `${basePath}/${nombreArchivo}`
-
-        const { data: uploadResult, error: uploadError } = await supabase.storage
-          .from('comprobantes')
-          .upload(rutaArchivo, imagen, {
-            cacheControl: '3600',
-            upsert: false
-          })
-
-        if (uploadError) {
-          console.error('Error subiendo imagen original:', uploadError)
-          toast.error('Error al subir imagen original, intentando continuar...')
-        } else {
-          // Obtener URL pública
-          const { data: urlData } = supabase.storage
-            .from('comprobantes')
-            .getPublicUrl(rutaArchivo)
-
-          comprobanteUrl = urlData.publicUrl
+        toast.info('Subiendo imagen original...')
+        comprobanteUrl = await subirACloudinaryOptimizado(imagen)
+        
+        if (!comprobanteUrl) {
+          throw new Error('Error al subir imagen original a Cloudinary')
         }
       }
 
-      // Como ya no procesamos imágenes, sólo guardamos la misma imagen en una carpeta separada
-      // para mantener la estructura de la aplicación
+      // Subir imagen procesada a Cloudinary
       if (imagenProcesada) {
-        // Usar el mismo nombre base pero añadiendo un sufijo
-        const extension = imagen?.name.split('.').pop() || 'jpg'
-        const nombreProcesado = `tarea${tareaId}_${timestamp}_procesado.${extension}`
-        const basePathProcesado = mode === 'extra_pdf' && facturaId ? `comprobantes_extras/factura_${facturaId}` : `comprobantes/tarea_${tareaId}`
-        const rutaProcesado = `${basePathProcesado}/procesados/${nombreProcesado}`
-
-        const { data: uploadResult, error: uploadError } = await supabase.storage
-          .from('comprobantes')
-          .upload(rutaProcesado, imagenProcesada, {
-            cacheControl: '3600',
-            upsert: false
-          })
-
-        if (uploadError) {
-          console.error('Error subiendo imagen procesada:', uploadError)
-          toast.error('Error al subir imagen procesada, intentando continuar...')
-        } else {
-          // Obtener URL pública
-          const { data: urlData } = supabase.storage
-            .from('comprobantes')
-            .getPublicUrl(rutaProcesado)
-
-          imagenProcesadaUrl = urlData.publicUrl
+        toast.info('Subiendo imagen procesada...')
+        imagenProcesadaUrl = await subirACloudinaryOptimizado(imagenProcesada)
+        
+        if (!imagenProcesadaUrl) {
+          throw new Error('Error al subir imagen procesada a Cloudinary')
         }
       }
 
@@ -722,7 +689,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
           id_factura: facturaId,
           id_tarea: tareaId,
           id_usuario: user?.id,
-          monto: parseFloat(formData.monto),
+          monto: Math.round(parseFloat(formData.monto)),
           descripcion: formData.descripcion,
           fecha: formData.fecha_gasto,
           comprobante_url: comprobanteUrl,
@@ -733,7 +700,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
         const { error } = await supabase.from('gastos_tarea').insert({
           id_tarea: tareaId,
           id_usuario: user?.id,
-          monto: parseFloat(formData.monto),
+          monto: Math.round(parseFloat(formData.monto)),
           descripcion: descripcionEnriquecida,
           fecha_gasto: formData.fecha_gasto,
           tipo_gasto: formData.tipo_gasto,
@@ -813,7 +780,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
             id_factura: facturaId,
             id_tarea: tareaId,
             id_usuario: user?.id,
-            monto: parseFloat(formData.monto),
+            monto: Math.round(parseFloat(formData.monto)),
             descripcion: formData.descripcion,
             fecha: formData.fecha_gasto,
             comprobante_url: null,
@@ -826,7 +793,7 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
           .insert({
             id_tarea: tareaId,
             id_usuario: user?.id,
-            monto: parseFloat(formData.monto),
+            monto: Math.round(parseFloat(formData.monto)),
             descripcion: formData.descripcion,
             fecha_gasto: formData.fecha_gasto,
             tipo_gasto: formData.tipo_gasto,
