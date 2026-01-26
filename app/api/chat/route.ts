@@ -49,53 +49,57 @@ export async function POST(req: Request) {
         // 4. Determinar rol y permisos
         const userRole = user.user_metadata?.rol || 'trabajador'
 
-        // 🆕 NIVEL 2: Buscar documentos relevantes de knowledge base
+        // 🆕 NIVEL 2: Buscar documentos relevantos de knowledge base
         const lastUserMessage = incomingMessages[incomingMessages.length - 1]?.content || ''
+        const cleanQuery = lastUserMessage.replace(/['"]/g, '').trim() // 🧹 Limpiar comillas
 
         let knowledgeContext = ''
-        if (lastUserMessage.trim().length > 0) {
-            const { data: relevantDocs } = await supabase.rpc('search_knowledge', {
-                query_text: lastUserMessage,
+        if (cleanQuery.length > 0) {
+            const { data: relevantDocs, error: searchError } = await supabase.rpc('search_knowledge', {
+                query_text: cleanQuery,
                 user_role: userRole,
                 doc_category: null
             })
 
-            const topDocs = relevantDocs?.slice(0, 2) || []
+            if (searchError) {
+                console.error('❌ [CHAT] Error buscando knowledge:', searchError)
+            }
+
+            const topDocs = relevantDocs?.slice(0, 3) || [] // Aumenté a 3 docs
 
             if (topDocs.length > 0) {
-                knowledgeContext = `\n📚 DOCUMENTACIÓN RELEVANTE:\n${topDocs.map((doc: any, i: number) => `
+                knowledgeContext = `\n📚 DOCUMENTACIÓN INTERNA DE SPC (FUENTE OFICIAL):\n${topDocs.map((doc: any, i: number) => `
 ${i + 1}. **${doc.display_title}** (${doc.category})
    ${doc.summary || 'Sin resumen'}
    Relevancia: ${Math.round((doc.relevance || 0) * 100)}%
-`).join('\n')}\n💡 Si la consulta está relacionada con estos docs, referencialos.\n`
+`).join('\n')}\n🚨 INSTRUCCIÓN CRÍTICA: La información de arriba es la ÚNICA fuente de verdad sobre SPC. Si la respuesta está ahí, ÚSALA. No digas "no tengo información" si aparece arriba.\n`
             }
         }
 
         // 5. Configurar System Prompt Dinámico
         const SYSTEM_PROMPT = `
-Eres A.G.I. (Antigravity General Intelligence), el sistema operativo de la constructora.
+Eres A.G.I. (Antigravity General Intelligence), el sistema operativo de la constructora SPC.
 Tu misión es coordinar obras, registrar gastos y asistir al personal.
 
-CONTEXTO DEL USUARIO:
+CONTEXTO ACTUAL:
 - ID: ${user.id}
 - Rol: ${userRole.toUpperCase()}
-- Diccionario Personal (Jerga aprendida):
+
+VOCABULARIO DEL USUARIO:
 ${userDictionary}
+
 ${knowledgeContext}
 
-INSTRUCCIONES CLAVE DE APRENDIZAJE:
-Si el usuario usa un término que NO entiendes o que está en su Diccionario Personal con un significado especial, ÚSALO.
-Si el usuario te enseña una palabra nueva (ej: "A la amoladora le decimos 'la ruidosa'"), EJECUTA INMEDIATAMENTE la herramienta 'learn_term'.
+INSTRUCCIONES CRÍTICAS:
+1. SIEMPRE revisa primero la sección "DOCUMENTACIÓN INTERNA DE SPC". Si la respuesta está ahí, ÚSALA OBLIGATORIAMENTE.
+2. NO digas "no tengo información" si aparece en la documentación de arriba.
+3. Si el usuario usa un término del vocabulario, respeta su definición.
+4. Si aprendes algo nuevo, usa la tool 'learn_term'.
 
 REGLAS:
-- Siempre respondé en español.
-- Sé conciso y directo.
-- Si no estás seguro de algo, preguntá.
-- No inventes información.
-- Si el usuario te pide algo que no podés hacer, explicale por qué.
-- Si el usuario te pide una acción, confirmá antes de ejecutarla.
-- Si el usuario te pide una lista de opciones, presentalas de forma clara y numerada.
-
+- Responde siempre en español.
+- Sé directo y útil.
+- Asume que la "DOCUMENTACIÓN INTERNA DE SPC" es la verdad absoluta.
 `
         const { data: userData, error: userError } = await supabase
             .from('usuarios')
@@ -126,7 +130,8 @@ REGLAS:
         // Esto evita alucinaciones de Groq que no tiene acceso a datos reales
 
         console.log(`[AI] 💰 Redirigiendo a OpenAI (rol: ${userData.rol})`)
-        return await handleFinancialRequest(messages, userData, supabase)
+        // PASAMOS knowledgeContext para que no se pierda el trabajo de arriba
+        return await handleFinancialRequest(messages, userData, supabase, knowledgeContext)
 
 
     } catch (error: any) {
@@ -392,8 +397,18 @@ Responde SOLO la categoría, nada más.`
 }
 
 // ===== 💰 HANDLER FINANCIERO (OpenAI) =====
-async function handleFinancialRequest(messages: any[], userData: any, supabase: any) {
+async function handleFinancialRequest(messages: any[], userData: any, supabase: any, knowledgeContext: string = '') {
+    // 1. Obtener prompt base de la DB
     const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
+
+    // 2. MODIFICAR ÚLTIMO MENSAJE (Estrategia Inception)
+    // Si hay contexto, lo metemos DENTRO del mensaje del usuario para que OpenAI no pueda ignorarlo.
+    if (knowledgeContext && messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage.role === 'user') {
+            lastMessage.content += `\n\n[SISTEMA: He encontrado esta información relevante en la base de datos interna. Úsala para responder la pregunta anterior:]\n${knowledgeContext}`;
+        }
+    }
 
     const { openai } = await import('@ai-sdk/openai')
     const { adminTools, supervisorTools, trabajadorTools } = await import('@/lib/ai/tools')
