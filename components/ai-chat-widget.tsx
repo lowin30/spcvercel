@@ -518,13 +518,15 @@ export function AiChatWidget() {
         setInput('')
 
         // 1. Mostrar optimísticamente
-        const userMsgObj = { id: Date.now().toString(), role: 'user' as const, content: userMsg }
+        // FIX: Agregar sufijo '-user' para asegurar unicidad y evitar colisión con ID del asistente
+        const userMsgObj = { id: Date.now().toString() + '-user', role: 'user' as const, content: userMsg }
         setMessages(prev => [...prev, userMsgObj])
         setIsLoading(true)
         setError(null)
 
         try {
-            const assistantId = Date.now().toString()
+            // FIX: Agregar sufijo '-ai' para evitar colisión con ID del usuario si se ejecutan en el mismo ms
+            const assistantId = Date.now().toString() + '-ai'
             let assistantContent = ''
 
             setMessages(prev => {
