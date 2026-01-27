@@ -223,15 +223,52 @@ export const calcularLiquidacionSemanal = tool({
 
 // Tool 4: Estimar presupuesto con histórico
 export const estimarPresupuestoConHistorico = tool({
-    description: 'Estima el presupuesto de un trabajo basado en trabajos similares del histórico. Usa embeddings de similitud.',
+    description: 'Estima el presupuesto de un trabajo basado en trabajos similares del histórico. Usa búsqueda por coincidencia de texto en título y descripción.',
     parameters: z.object({
         descripcion: z.string().describe('Descripción del trabajo a presupuestar'),
         tipo_trabajo: z.enum(['plomeria', 'gas', 'pintura', 'albanileria', 'herreria', 'destapacion', 'impermeabilizacion', 'otro']).default('otro').describe('Tipo de trabajo. Default: otro'),
     }),
     execute: async ({ descripcion, tipo_trabajo }) => {
-        // TODO: Implementar búsqueda con embeddings cuando esté configurado pgvector
-        // Por ahora, retornar estimación genérica basada en tipo
+        const cookieStore = await cookies()
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    get(name: string) {
+                        return cookieStore.get(name)?.value
+                    }
+                }
+            }
+        )
 
+        try {
+            // Intentar buscar en histórico
+            // console.log(`[AI-Estimate] Buscando histórico para: "${descripcion}"`)
+            const { data, error } = await supabase.rpc('estimar_costo_tarea', { termino: descripcion })
+
+            if (!error && data && data.length > 0 && data[0].count > 0) {
+                const historico = data[0]
+                // console.log('[AI-Estimate] Datos encontrados:', historico)
+
+                return {
+                    descripcion,
+                    tipo_trabajo: tipo_trabajo,
+                    materiales_estimados: Number(historico.avg_materiales),
+                    mano_obra_estimada: Number(historico.avg_mano_obra),
+                    presupuesto_base_total: Number(historico.avg_materiales) + Number(historico.avg_mano_obra),
+                    confianza: 'alta',
+                    nota: `Estimación basada en ${historico.count} trabajos similares encontrados en el historial. Rango: $${historico.min_total} - $${historico.max_total}`,
+                    proyectos_similares: Number(historico.count),
+                    source: 'historical_data'
+                }
+            }
+        } catch (e) {
+            console.error('[AI-Estimate] Error consultando histórico:', e)
+        }
+
+        // FALLBACK: Estimación genérica (Hardcoded)
+        // console.log('[AI-Estimate] Fallback a estimación genérica')
         const tipo = tipo_trabajo
 
         const estimaciones_base: Record<string, { materiales: number, mano_obra: number }> = {
@@ -254,8 +291,9 @@ export const estimarPresupuestoConHistorico = tool({
             mano_obra_estimada: base.mano_obra,
             presupuesto_base_total: base.materiales + base.mano_obra,
             confianza: tipo !== 'otro' ? 'media' : 'baja',
-            nota: 'Estimación basada en promedios históricos. Para precisión mayor, implementar búsqueda con embeddings.',
-            proyectos_similares: 0 // TODO: contar cuando tengamos embeddings
+            nota: 'Estimación basada en promedios genericos (no hay datos históricos suficientes).',
+            proyectos_similares: 0,
+            source: 'generic_fallback'
         }
     }
 })
