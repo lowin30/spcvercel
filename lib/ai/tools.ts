@@ -751,7 +751,8 @@ export const adminTools = {
     verMiEquipo,
     verLiquidacionEquipo,
     crearPresupuestoBase,
-    registrarParte
+    registrarParte,
+    learn_term // 🆕 Nivel 2: Capacidad de aprender
 }
 
 // SUPERVISOR: Solo gestión de SUS tareas
@@ -763,7 +764,8 @@ export const supervisorTools = {
     verMiEquipo,
     verLiquidacionEquipo,
     crearPresupuestoBase,
-    registrarParte
+    registrarParte,
+    learn_term // 🆕 Nivel 2: Capacidad de aprender
 }
 
 // TRABAJADOR: Solo consulta y registro de gastos
@@ -772,7 +774,8 @@ export const trabajadorTools = {
     obtenerContextoUsuario,
     registrarGasto,
     registrarParte,
-    verMisPagos
+    verMisPagos,
+    learn_term // 🆕 Nivel 2: Capacidad de aprender
 }
 
 // Legacy export para compatibilidad (mapea a adminTools)
