@@ -15,6 +15,7 @@ import dynamic from 'next/dynamic'
 const ProcesadorImagen = dynamic(() => import('./procesador-imagen').then(mod => mod.ProcesadorImagen), { ssr: false })
 const RegistroParteTrabajoForm = dynamic(() => import('./registro-parte-trabajo-form'), { ssr: false })
 const PresupuestoBaseForm = dynamic(() => import('./presupuesto-base-form'), { ssr: false })
+const TaskFormChatWrapper = dynamic(() => import('./task-form-chat-wrapper'), { ssr: false })
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
     loading: () => <span className="animate-pulse">...</span>,
     ssr: false
@@ -221,6 +222,7 @@ export function AiChatWidget() {
 
     const [showParteWizard, setShowParteWizard] = useState(false)
     const [showPresupuestoWizard, setShowPresupuestoWizard] = useState(false)
+    const [showTaskWizard, setShowTaskWizard] = useState(false)
     const [tareasForPresupuesto, setTareasForPresupuesto] = useState<any[]>([])
 
     const [wizardOptions, setWizardOptions] = useState<Array<{ label: string, value: string }>>([])
@@ -322,13 +324,8 @@ export function AiChatWidget() {
                 setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'Error cargando tareas.' }])
             }
         } else {
-            // Flujo Tarea (Placeholder por ahora)
-            setWizardState({ active: true, flow, step: 1, data: {} })
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'assistant',
-                content: '📝 Nueva Tarea. ¿Cuál es el título o descripción breve?'
-            }])
+            // Flujo Tarea: Abrir wizard visual
+            setShowTaskWizard(true)
             setIsOpen(true)
         }
     }
@@ -806,6 +803,27 @@ export function AiChatWidget() {
                                         setShowParteWizard(false)
                                         toast.success("Parte registrado correctamente")
                                     }}
+                                />
+                            </div>
+                        </div>
+                    ) : showTaskWizard ? (
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            {/* Header no necesario aqui pues ya lo tiene el wrapper, o podemos poner uno generico */}
+                            <div className="flex-1 overflow-y-auto w-full h-full">
+                                <TaskFormChatWrapper
+                                    onSuccess={(taskId, taskCode, taskTitle) => {
+                                        setShowTaskWizard(false)
+                                        // Priorizar Título, luego Código, luego ID
+                                        const displayMain = taskTitle || taskCode || `#${taskId}`
+                                        const displaySecondary = taskTitle && taskCode ? `(${taskCode})` : ''
+
+                                        setMessages(prev => [...prev, {
+                                            id: Date.now().toString(),
+                                            role: 'assistant',
+                                            content: `✅ **Tarea Creada Exitosamente**\n\n📌 **${displayMain}** ${displaySecondary}\n\n[📂 Abrir Tarea](/dashboard/tareas/${taskId})`
+                                        }])
+                                    }}
+                                    onCancel={() => setShowTaskWizard(false)}
                                 />
                             </div>
                         </div>

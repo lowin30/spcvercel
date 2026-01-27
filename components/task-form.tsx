@@ -82,6 +82,7 @@ type Props = {
   contactoId?: number | null
   isEditMode?: boolean // Indica si el formulario está en modo edición
   defaultSupervisorId?: string | null
+  onSuccess?: (taskId: number, code?: string, title?: string) => void
 }
 
 const taskStatuses = [
@@ -115,6 +116,7 @@ export function TaskForm({
   contactoId = null,
   isEditMode = false,
   defaultSupervisorId = null,
+  onSuccess,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -183,7 +185,6 @@ export function TaskForm({
       departamentos_ids: task?.departamentos_ids || [],
       id_supervisor: task?.id_supervisor || (defaultSupervisorId ?? ""),
       id_asignado: task?.id_asignado || "", // Valor por defecto vacío
-      id_contacto: task?.id_contacto || contactoId || null,
       fecha_visita: task?.fecha_visita ? new Date(task.fecha_visita) : null,
       prioridad: (task?.prioridad as "baja" | "media" | "alta") || "media",
       id_estado_nuevo: task?.id_estado_nuevo?.toString() || "1",
@@ -527,6 +528,8 @@ export function TaskForm({
       }
 
       let taskId: number;
+      let taskCode: string | undefined;
+      let taskTitle: string | undefined;
 
       if (task) {
         // Update existing task
@@ -534,11 +537,13 @@ export function TaskForm({
           .from("tareas")
           .update(taskDataPayload)
           .eq("id", task.id)
-          .select("id")
+          .select("id, code, title")
           .single();
 
         if (updateError) throw updateError;
         taskId = updatedTask.id;
+        taskCode = updatedTask.code;
+        taskTitle = updatedTask.title;
 
         // Solo actualizar supervisor/trabajador si NO estamos en modo edición (isEditMode)
         if (!isEditMode) {
@@ -562,7 +567,7 @@ export function TaskForm({
         }
       } else {
         // Crear nueva tarea mediante RPC transaccional para evitar SELECT de representación (RLS)
-        const { data: newTaskId, error: createError } = await supabase.rpc('crear_tarea_con_asignaciones', {
+        const { data: result, error: createError } = await supabase.rpc('crear_tarea_con_asignaciones', {
           p_titulo: taskDataPayload.titulo,
           p_descripcion: taskDataPayload.descripcion,
           p_id_administrador: taskDataPayload.id_administrador,
@@ -575,8 +580,25 @@ export function TaskForm({
           p_departamentos_ids: (departamentos_ids || []).map((d) => Number.parseInt(d))
         });
         if (createError) throw createError;
-        taskId = newTaskId as number;
+
+        // El RPC retorna un objeto JSON { id: number, code: string }
+        const createdTask = result as { id: number, code: string };
+        taskId = createdTask.id;
+        taskCode = createdTask.code;
+        taskTitle = taskDataPayload.titulo;
       }
+
+      // Actualizar departamentos usando upsert para evitar conflictos
+      if (task) {
+        // ... (existing departamento logic remains unchanged) we skip showing it in this replacement to avoid big context match
+        // Actually, I can't skip lines in replacement content easily without matching properly.
+        // I will use a different strategy: just replacing the onSuccess block and the variable assignment separaretly?
+        // No, I'll stick to the "end of function" replacement strategy for onSuccess.
+      }
+
+      // ... SKIPPING DEPARTAMENTOS LOGIC ...
+      // I will target the onSuccess block specifically.
+
 
       // Actualizar departamentos usando upsert para evitar conflictos
       if (task) {
@@ -622,12 +644,33 @@ export function TaskForm({
         console.log('Departamentos actualizados correctamente');
       }
 
-      toast.success(
-        task ? "La tarea ha sido actualizada correctamente." : "La tarea ha sido creada correctamente."
-      );
+      toast("Tarea guardada correctamente.");
 
-      router.push("/dashboard/tareas");
+
+      // Si recibimos onSuccess, lo ejecutamos y evitamos la navegación default
+      if (onSuccess) {
+        console.log("Calling onSuccess with:", { taskId, taskCode, taskTitle });
+
+        // Ensure taskId is a primitive number (Safety Check for [object Object] bug)
+        if (typeof taskId === 'object') {
+          console.error("CRITICAL: taskId is an object!", taskId);
+          const extractedId = (taskId as any).id || taskId;
+          onSuccess(Number(extractedId), taskCode, taskTitle);
+        } else {
+          onSuccess(taskId, taskCode, taskTitle);
+        }
+
+        setIsSubmitting(false);
+        return;
+      }
+
+
       router.refresh();
+      if (!isEditMode) {
+        router.push(`/dashboard/tareas/${taskId}`);
+      } else {
+        setIsSubmitting(false);
+      }
     } catch (error: any) {
       console.error("Error:", error);
       toast.error(
