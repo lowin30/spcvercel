@@ -31,7 +31,7 @@ import { Label } from "@/components/ui/label"
 
 // Define the form schema with validation
 const formSchema = z.object({
-  id_administrador: z.string().min(1, { 
+  id_administrador: z.string().min(1, {
     message: "Debes seleccionar un administrador.",
   }),
   titulo: z.string().min(2, {
@@ -125,7 +125,7 @@ export function TaskForm({
     task?.id_administrador?.toString() || null
   )
   const [edificiosList, setEdificiosList] = useState<{ id: number; nombre: string; direccion?: string }[]>([])
-  
+
   const [selectedEdificioId, setSelectedEdificioId] = useState<number | null>(task ? task.id_edificio : null)
   const [departamentosList, setDepartamentosList] = useState<{ id: string; codigo: string; propietario?: string }[]>([])
   const [selectedDepartamentosIds, setSelectedDepartamentosIds] = useState<string[]>(
@@ -137,7 +137,7 @@ export function TaskForm({
   const [selectedDepartamentoId, setSelectedDepartamentoId] = useState<string | null>(null)
   const [nuevoDepartamento, setNuevoDepartamento] = useState({ codigo: "", notas: "" })
   const [creandoDepartamento, setCreandoDepartamento] = useState(false)
-  
+
   // Estado para los teléfonos del nuevo departamento
   const [telefonosNuevos, setTelefonosNuevos] = useState<{
     nombre_contacto: string;
@@ -149,12 +149,12 @@ export function TaskForm({
 
   // Funciones para manejar teléfonos
   const agregarTelefonoNuevo = () => {
-    setTelefonosNuevos([...telefonosNuevos, { 
-      nombre_contacto: '', 
-      relacion: '', 
-      numero: '', 
-      es_principal: false, 
-      notas: '' 
+    setTelefonosNuevos([...telefonosNuevos, {
+      nombre_contacto: '',
+      relacion: '',
+      numero: '',
+      es_principal: false,
+      notas: ''
     }]);
   };
 
@@ -211,24 +211,24 @@ export function TaskForm({
     const autoAssignSupervisor = async () => {
       // Solo ejecutar si NO estamos en modo edición
       if (isEditMode) return;
-      
+
       // Tomar el valor actual (puede venir vacío o con el primer elemento por UI)
       const current = form.getValues('id_supervisor');
-      
+
       try {
         // Obtener usuario autenticado actual
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        
+
         // Obtener detalles del usuario desde la tabla usuarios
         const { data: userDetails, error } = await supabase
           .from('usuarios')
           .select('id, rol')
           .eq('id', user.id)
           .single();
-        
+
         if (error || !userDetails) return;
-        
+
         // Si el usuario es supervisor, autoasignarlo
         if (userDetails.rol === 'supervisor') {
           if (!current || current.trim() === '') {
@@ -250,7 +250,7 @@ export function TaskForm({
         console.error('Error al autoasignar supervisor:', error);
       }
     };
-    
+
     autoAssignSupervisor();
   }, [isEditMode, supabase, form, supervisores]);
 
@@ -297,26 +297,26 @@ export function TaskForm({
         // Solo resetear edificio si NO estamos en modo edición O si el admin cambió
         const isInitialLoad = task && selectedAdministradorId === task.id_administrador?.toString();
         if (!isInitialLoad) {
-          form.setValue("id_edificio", ""); 
+          form.setValue("id_edificio", "");
           setSelectedEdificioId(null);
           setSelectedDepartamentosIds([]);
           form.setValue("departamentos_ids", []);
         }
-        
+
         const { data, error } = await supabase
           .from("vista_edificios_completa")
           .select("id, nombre, direccion")
           .eq("id_administrador", Number.parseInt(selectedAdministradorId))
           .order("nombre");
-        
+
         if (error) {
           console.error("Error cargando edificios:", error);
           toast.error("No se pudieron cargar los edificios para el administrador.");
           setEdificiosList([]);
         } else {
           setEdificiosList(data || []);
-           // Si estamos editando y hay un id_edificio para el admin actual, lo preseleccionamos
-           if (task?.id_edificio && data && selectedAdministradorId === task.id_administrador?.toString()) {
+          // Si estamos editando y hay un id_edificio para el admin actual, lo preseleccionamos
+          if (task?.id_edificio && data && selectedAdministradorId === task.id_administrador?.toString()) {
             const edificioExists = data.some(ed => ed.id.toString() === task.id_edificio!.toString());
             if (edificioExists) {
               form.setValue("id_edificio", task.id_edificio!.toString());
@@ -338,15 +338,15 @@ export function TaskForm({
   // Función para ordenar departamentos según reglas específicas
   const ordenarDepartamentos = (departamentos: any[]) => {
     if (!departamentos) return [];
-    
+
     return [...departamentos].sort((a, b) => {
       const codigoA = a.codigo.toLowerCase();
       const codigoB = b.codigo.toLowerCase();
-      
+
       // Porterías primero
       if (codigoA.startsWith('port') && !codigoB.startsWith('port')) return -1;
       if (!codigoA.startsWith('port') && codigoB.startsWith('port')) return 1;
-      
+
       // Plantas bajas después de porterías
       const esPBA = codigoA.startsWith('pb');
       const esPBB = codigoB.startsWith('pb');
@@ -356,43 +356,43 @@ export function TaskForm({
         // Si ambos son PB, ordenar por la letra
         return codigoA.localeCompare(codigoB);
       }
-      
+
       // Extraer el número y la letra (si existe) de cada código
       const matchA = codigoA.match(/^(\d+)([a-z]*)$/);
       const matchB = codigoB.match(/^(\d+)([a-z]*)$/);
-      
+
       if (matchA && matchB) {
         const numA = parseInt(matchA[1]);
         const numB = parseInt(matchB[1]);
-        
+
         // Si los números son diferentes, ordenar por número
         if (numA !== numB) {
           return numA - numB;
         }
-        
+
         // Si los números son iguales, ordenar por letra
         const letraA = matchA[2] || '';
         const letraB = matchB[2] || '';
         return letraA.localeCompare(letraB);
       }
-      
+
       // Si no se puede aplicar lógica específica, usar orden alfabético
       return codigoA.localeCompare(codigoB);
     });
   };
-  
+
   // Función para cargar departamentos del edificio seleccionado
   const fetchDepartamentos = async () => {
     if (selectedEdificioId) {
       setSelectedDepartamentosIds([]);
       form.setValue("departamentos_ids", []);
-      
+
       const { data, error } = await supabase
         .from("departamentos")
         .select("id, codigo, propietario")
         .eq("edificio_id", selectedEdificioId)
         .order("codigo", { ascending: true });
-      
+
       if (error) {
         console.error("Error cargando departamentos:", error);
         toast.error("No se pudieron cargar los departamentos para el edificio.");
@@ -401,10 +401,10 @@ export function TaskForm({
         // Aplicar ordenamiento personalizado a los departamentos
         const departamentosConIds = data?.map(dep => ({ ...dep, id: dep.id.toString() })) || [];
         setDepartamentosList(ordenarDepartamentos(departamentosConIds));
-        
+
         // Si estamos editando y hay departamentos_ids para el edificio actual
         if (task?.departamentos_ids && task.departamentos_ids.length > 0 && data && selectedEdificioId === task.id_edificio) {
-          const validDepartamentosIds = task.departamentos_ids.filter(id => 
+          const validDepartamentosIds = task.departamentos_ids.filter(id =>
             data.some(dep => dep.id.toString() === id)
           );
           if (validDepartamentosIds.length > 0) {
@@ -419,7 +419,7 @@ export function TaskForm({
       form.setValue("departamentos_ids", []);
     }
   };
-  
+
   // Cargar departamentos cuando cambia el edificio seleccionado
   useEffect(() => {
     fetchDepartamentos();
@@ -434,7 +434,7 @@ export function TaskForm({
           .select("id, numero, nombre_contacto, departamento_id")
           .in("departamento_id", selectedDepartamentosIds)
           .order("nombre_contacto", { ascending: true });
-        
+
         if (error) {
           console.error("Error cargando teléfonos:", error);
           toast.error("No se pudieron cargar los teléfonos para los departamentos.");
@@ -479,21 +479,21 @@ export function TaskForm({
   const handleDepartamentosChange = (values: string[]) => {
     setSelectedDepartamentosIds(values);
     form.setValue("departamentos_ids", values);
-    
+
     // Actualizar el título automáticamente con el edificio y departamentos ordenados
     if (values.length > 0 && selectedEdificioId) {
       const selectedEdificio = edificiosList.find(ed => ed.id === selectedEdificioId);
-      
+
       if (selectedEdificio && selectedEdificio.nombre) {
         // Obtener códigos de departamentos ordenados de mayor a menor
         const departamentosCodigos = values.map(depId => {
           const dep = departamentosList.find(d => d.id === depId);
           return dep ? dep.codigo : "";
         }).filter(codigo => codigo !== "");
-        
+
         // Ordenar códigos (asumiendo formato como "4B", "3B", etc.)
         departamentosCodigos.sort((a, b) => b.localeCompare(a));
-        
+
         // Formato de título: "NombreEdificio DeptoCodigo1-DeptoCodigo2-..."
         const newTitle = `${selectedEdificio.nombre} ${departamentosCodigos.join("-")}`;
         form.setValue("titulo", newTitle);
@@ -520,7 +520,7 @@ export function TaskForm({
         prioridad: values.prioridad,
         id_estado_nuevo: Number.parseInt(id_estado_nuevo) // Usar directamente el valor del formulario
       };
-      
+
       // Solo incluir fecha_visita si NO estamos en modo edición
       if (!isEditMode) {
         taskDataPayload.fecha_visita = values.fecha_visita;
@@ -550,7 +550,7 @@ export function TaskForm({
               .insert({ id_tarea: taskId, id_supervisor: id_supervisor });
             if (supervisorError) throw supervisorError;
           }
-          
+
           // Update trabajador link (tabla relacional)
           await supabase.from("trabajadores_tareas").delete().eq("id_tarea", taskId);
           if (id_asignado && id_asignado.trim() !== "") {
@@ -577,7 +577,7 @@ export function TaskForm({
         if (createError) throw createError;
         taskId = newTaskId as number;
       }
-      
+
       // Actualizar departamentos usando upsert para evitar conflictos
       if (task) {
         // Primero eliminar todos los departamentos existentes
@@ -586,7 +586,7 @@ export function TaskForm({
           .from("departamentos_tareas")
           .delete()
           .eq("id_tarea", taskId);
-        
+
         if (deleteDeptoError) {
           console.error("Error al eliminar departamentos:", deleteDeptoError);
           // No lanzar error, intentar continuar con upsert
@@ -594,7 +594,7 @@ export function TaskForm({
           console.log('Departamentos eliminados correctamente');
         }
       }
-      
+
       // Insertar múltiples departamentos usando upsert SOLO en edición;
       // en creación la RPC ya crea las relaciones de departamentos
       if (task && departamentos_ids.length > 0) {
@@ -604,9 +604,9 @@ export function TaskForm({
           id_tarea: taskId,
           id_departamento: Number.parseInt(depId)
         }));
-        
+
         console.log('Upserting departamentos:', departamentosInserts);
-        
+
         // Usar upsert para evitar conflictos de clave duplicada
         const { error: departamentosError } = await supabase
           .from("departamentos_tareas")
@@ -614,7 +614,7 @@ export function TaskForm({
             onConflict: 'id_tarea,id_departamento',
             ignoreDuplicates: false
           });
-        
+
         if (departamentosError) {
           console.error('Error al upsert departamentos:', departamentosError);
           throw departamentosError;
@@ -655,18 +655,18 @@ export function TaskForm({
               <FormItem>
                 <div className="flex items-center justify-between w-full">
                   <FormLabel>Administrador</FormLabel>
-                  <Link href="/dashboard/administradores/nuevo" passHref legacyBehavior>
-                    <Button type="button" variant="ghost" size="sm" className="p-1 h-auto">
+                  <Button variant="ghost" size="sm" className="p-1 h-auto" asChild>
+                    <Link href="/dashboard/administradores/nuevo">
                       <Plus className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
                 <Select
                   onValueChange={(value) => {
-                    field.onChange(value); 
-                    handleAdministradorChange(value); 
+                    field.onChange(value);
+                    handleAdministradorChange(value);
                   }}
-                  value={field.value} 
+                  value={field.value}
                   disabled={isSubmitting}
                 >
                   <FormControl>
@@ -693,12 +693,11 @@ export function TaskForm({
             render={({ field }) => (
               <FormItem>
                 <div className="flex items-center justify-between w-full">
-                  <FormLabel>Edificio</FormLabel>
-                  <Link href="/dashboard/edificios/nuevo" passHref legacyBehavior>
-                    <Button type="button" variant="ghost" size="sm" className="p-1 h-auto">
+                  <Button variant="ghost" size="sm" className="p-1 h-auto" asChild>
+                    <Link href="/dashboard/edificios/nuevo">
                       <Plus className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
                 </div>
                 <Select
                   onValueChange={(value) => {
@@ -747,7 +746,7 @@ export function TaskForm({
                         Complete los datos para crear un nuevo departamento en el edificio
                       </DialogDescription>
                     </DialogHeader>
-                    
+
                     {!form.getValues('id_edificio') ? (
                       <div className="p-4 text-center text-muted-foreground">
                         Seleccione un edificio primero para crear un departamento
@@ -756,24 +755,24 @@ export function TaskForm({
                       <div className="space-y-4 py-2">
                         <div className="space-y-2">
                           <Label htmlFor="codigo">Código</Label>
-                          <Input 
-                            id="codigo" 
-                            value={nuevoDepartamento.codigo} 
-                            onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, codigo: e.target.value})}
+                          <Input
+                            id="codigo"
+                            value={nuevoDepartamento.codigo}
+                            onChange={(e) => setNuevoDepartamento({ ...nuevoDepartamento, codigo: e.target.value })}
                             placeholder="Ej: 1A, 2B, PB"
                           />
                         </div>
-                        
+
                         <div className="space-y-2">
                           <Label htmlFor="notas">Notas</Label>
-                          <Input 
-                            id="notas" 
-                            value={nuevoDepartamento.notas} 
-                            onChange={(e) => setNuevoDepartamento({...nuevoDepartamento, notas: e.target.value})}
+                          <Input
+                            id="notas"
+                            value={nuevoDepartamento.notas}
+                            onChange={(e) => setNuevoDepartamento({ ...nuevoDepartamento, notas: e.target.value })}
                             placeholder="Información adicional"
                           />
                         </div>
-                        
+
                         {/* Sección de teléfonos */}
                         <div className="space-y-4 border-t pt-4">
                           <div className="flex items-center justify-between">
@@ -781,9 +780,9 @@ export function TaskForm({
                               <Phone className="mr-2 h-4 w-4" />
                               Teléfonos de contacto
                             </Label>
-                            <Button 
-                              type="button" 
-                              variant="outline" 
+                            <Button
+                              type="button"
+                              variant="outline"
                               size="sm"
                               onClick={agregarTelefonoNuevo}
                             >
@@ -791,51 +790,51 @@ export function TaskForm({
                               Añadir teléfono
                             </Button>
                           </div>
-                          
+
                           {telefonosNuevos.map((telefono, index) => (
                             <div key={index} className="p-3 border rounded-md bg-muted/20 space-y-3">
                               <div className="grid grid-cols-1 gap-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div className="space-y-1">
                                     <Label htmlFor={`telefono-nombre-${index}`} className="text-sm">Nombre del contacto</Label>
-                                    <Input 
+                                    <Input
                                       id={`telefono-nombre-${index}`}
-                                      value={telefono.nombre_contacto} 
+                                      value={telefono.nombre_contacto}
                                       onChange={(e) => actualizarTelefonoNuevo(index, 'nombre_contacto', e.target.value)}
                                       placeholder="Ej: Juan Pérez"
                                       className="h-8"
                                     />
                                   </div>
-                                  
+
                                   <div className="space-y-1">
                                     <Label htmlFor={`telefono-relacion-${index}`} className="text-sm">Relación</Label>
-                                    <Input 
+                                    <Input
                                       id={`telefono-relacion-${index}`}
-                                      value={telefono.relacion} 
+                                      value={telefono.relacion}
                                       onChange={(e) => actualizarTelefonoNuevo(index, 'relacion', e.target.value)}
                                       placeholder="Ej: Propietario, Encargado"
                                       className="h-8"
                                     />
                                   </div>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div className="space-y-1">
                                     <Label htmlFor={`telefono-numero-${index}`} className="text-sm">Número</Label>
-                                    <Input 
+                                    <Input
                                       id={`telefono-numero-${index}`}
-                                      value={telefono.numero} 
+                                      value={telefono.numero}
                                       onChange={(e) => actualizarTelefonoNuevo(index, 'numero', e.target.value.replace(/\D/g, ''))}
                                       placeholder="Solo números (ej: 5491150055262)"
                                       className="h-8"
                                     />
                                   </div>
-                                  
+
                                   <div className="space-y-1">
                                     <Label htmlFor={`telefono-notas-${index}`} className="text-sm">Notas</Label>
-                                    <Input 
+                                    <Input
                                       id={`telefono-notas-${index}`}
-                                      value={telefono.notas} 
+                                      value={telefono.notas}
                                       onChange={(e) => actualizarTelefonoNuevo(index, 'notas', e.target.value)}
                                       placeholder="Información adicional"
                                       className="h-8"
@@ -843,7 +842,7 @@ export function TaskForm({
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-2">
                                   <input
@@ -869,11 +868,11 @@ export function TaskForm({
                                     Teléfono principal
                                   </Label>
                                 </div>
-                                
+
                                 {telefonosNuevos.length > 1 && (
-                                  <Button 
-                                    type="button" 
-                                    variant="destructive" 
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
                                     size="sm"
                                     onClick={() => eliminarTelefonoNuevo(index)}
                                   >
@@ -885,38 +884,38 @@ export function TaskForm({
                             </div>
                           ))}
                         </div>
-                        
+
                         <DialogFooter>
-                          <Button 
-                            type="button" 
-                            disabled={!nuevoDepartamento.codigo.trim() || creandoDepartamento} 
+                          <Button
+                            type="button"
+                            disabled={!nuevoDepartamento.codigo.trim() || creandoDepartamento}
                             onClick={async () => {
                               if (!nuevoDepartamento.codigo || !form.getValues('id_edificio')) return;
-                              
+
                               setCreandoDepartamento(true);
                               const supabase = createClient();
-                              
+
                               try {
                                 // Verificar si ya existe un departamento con el mismo código en este edificio (case-insensitive)
                                 const { data: existingDepts, error: checkError } = await supabase
                                   .from("departamentos")
                                   .select("id, codigo")
                                   .eq("edificio_id", parseInt(form.getValues('id_edificio')));
-                                
+
                                 if (checkError) throw checkError;
-                                
+
                                 // Comparar códigos en minúsculas para validación case-insensitive
                                 const codigoDuplicado = existingDepts?.find(
                                   dept => dept.codigo.toLowerCase() === nuevoDepartamento.codigo.toLowerCase()
                                 );
-                                
+
                                 if (codigoDuplicado) {
                                   console.log('Código duplicado detectado:', codigoDuplicado);
                                   toast.error(`Ya existe un departamento con el código "${codigoDuplicado.codigo}" en este edificio. Por favor, use otro código.`);
                                   setCreandoDepartamento(false);
                                   return;
                                 }
-                                
+
                                 const { data, error } = await supabase
                                   .from("departamentos")
                                   .insert({
@@ -926,14 +925,14 @@ export function TaskForm({
                                   })
                                   .select()
                                   .single();
-                                  
+
                                 if (error) throw error;
-                                
+
                                 // Crear teléfonos asociados (solo si tienen al menos número o nombre)
-                                const telefonosValidos = telefonosNuevos.filter(tel => 
+                                const telefonosValidos = telefonosNuevos.filter(tel =>
                                   tel.numero.trim() || tel.nombre_contacto.trim()
                                 );
-                                
+
                                 if (telefonosValidos.length > 0 && data) {
                                   const telefonosParaInsertar = telefonosValidos.map(tel => ({
                                     departamento_id: data.id,
@@ -943,24 +942,24 @@ export function TaskForm({
                                     es_principal: tel.es_principal,
                                     notas: tel.notas.trim() || ''
                                   }));
-                                  
+
                                   const { error: telefonosError } = await supabase
                                     .from("telefonos_departamento")
                                     .insert(telefonosParaInsertar);
-                                    
+
                                   if (telefonosError) throw telefonosError;
                                 }
-                                
+
                                 toast.success(`Departamento ${nuevoDepartamento.codigo} creado correctamente${telefonosValidos.length > 0 ? ` con ${telefonosValidos.length} teléfono(s)` : ''}`);
-                                
+
                                 // Actualizar lista de departamentos
                                 await fetchDepartamentos();
-                                
+
                                 // Resetear formulario y cerrar diálogo
                                 setNuevoDepartamento({ codigo: "", notas: "" });
                                 setTelefonosNuevos([{ nombre_contacto: '', relacion: '', numero: '', es_principal: true, notas: '' }]);
                                 setDepartamentosDialogOpen(false);
-                                
+
                               } catch (error: any) {
                                 console.error("Error al crear departamento:", error);
                                 toast.error(error.message || "Ha ocurrido un error al crear el departamento");
@@ -1061,9 +1060,8 @@ export function TaskForm({
                         }
                         return (
                           <div
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              statusStyles[selectedStatus.color] || 'bg-gray-200 text-gray-800'
-                            }`}>
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[selectedStatus.color] || 'bg-gray-200 text-gray-800'
+                              }`}>
                             {selectedStatus.nombre}
                           </div>
                         );
@@ -1143,7 +1141,7 @@ export function TaskForm({
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="fecha_visita"
