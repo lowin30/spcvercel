@@ -15,7 +15,9 @@ import dynamic from 'next/dynamic'
 const ProcesadorImagen = dynamic(() => import('./procesador-imagen').then(mod => mod.ProcesadorImagen), { ssr: false })
 const RegistroParteTrabajoForm = dynamic(() => import('./registro-parte-trabajo-form'), { ssr: false })
 const PresupuestoBaseForm = dynamic(() => import('./presupuesto-base-form'), { ssr: false })
+
 const TaskFormChatWrapper = dynamic(() => import('./task-form-chat-wrapper'), { ssr: false })
+const EstimationCard = dynamic(() => import('@/components/ai/estimation-card').then(mod => mod.EstimationCard), { ssr: false })
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
     loading: () => <span className="animate-pulse">...</span>,
     ssr: false
@@ -153,6 +155,18 @@ export function AiChatWidget() {
                     Ejecutando {toolName}...
                 </div>
             );
+        }
+
+        // Renderizado del componente visual de Estimación
+        if (toolName === 'estimarPresupuestoConHistorico' && state === 'result') {
+            return (
+                <div key={toolCallId} className="w-full flex justify-center my-2">
+                    <EstimationCard
+                        data={toolInvocation.result as any}
+                        onUseValues={handleUseEstimationValues}
+                    />
+                </div>
+            )
         }
 
         return null;
@@ -588,11 +602,22 @@ export function AiChatWidget() {
                 // Al terminar de streamear, guardar en DB
                 saveToHistory('assistant', assistantContent)
             }
+
         } catch (err) {
             setError(err instanceof Error ? err : new Error(String(err)))
         } finally {
             setIsLoading(false)
         }
+    }
+
+    // Handler para usar valores de estimación
+    const handleUseEstimationValues = (data: any) => {
+        // Construir un prompt detallado para que la AI use la herramienta crearTarea
+        const prompt = `Crear tarea basada en estimación: "${data.descripcion}" (Categoría: ${data.tipo_trabajo}). 
+        Presupuesto estimado: ${data.presupuesto_base_total} (Materiales: ${data.materiales_estimados}, Mano de Obra: ${data.mano_obra_estimada}).
+        Nota: ${data.nota}`
+
+        processSubmission(prompt)
     }
 
     // Manejar clicks en acciones rápidas
