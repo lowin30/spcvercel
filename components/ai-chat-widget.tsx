@@ -232,7 +232,9 @@ export function AiChatWidget() {
         flow: 'gasto' | 'parte' | 'tarea' | null
         step: number
         data: Record<string, any>
-    }>({ active: false, flow: null, step: 0, data: {} })
+        mode?: 'create' | 'edit'
+        taskId?: number
+    }>({ active: false, flow: null, step: 0, data: {}, mode: 'create' })
 
     const [showParteWizard, setShowParteWizard] = useState(false)
     const [showPresupuestoWizard, setShowPresupuestoWizard] = useState(false)
@@ -296,7 +298,7 @@ export function AiChatWidget() {
         saveToHistory('assistant', toolResult, { tool: toolCall.function.name })
     }
 
-    const startWizard = async (flow: 'gasto' | 'tarea') => {
+    const startWizard = async (flow: 'gasto' | 'tarea', initialData: any = {}, mode: 'create' | 'edit' = 'create', taskId?: number) => {
         if (flow === 'gasto') {
             // Paso 1: Cargar tareas para seleccionar
             setIsOpen(true)
@@ -339,6 +341,8 @@ export function AiChatWidget() {
             }
         } else {
             // Flujo Tarea: Abrir wizard visual
+            // Guardamos la data inicial en wizardState para pasarla al wrapper
+            setWizardState(prev => ({ ...prev, data: initialData, mode, taskId }))
             setShowTaskWizard(true)
             setIsOpen(true)
         }
@@ -580,8 +584,82 @@ export function AiChatWidget() {
                     if (toolCallMatch) {
                         try {
                             const toolCall = JSON.parse(toolCallMatch[1])
-                            const toolResult = await handleToolExecution(toolCall, "Exito")
-                            assistantContent += `\n[Herramienta Ejecutada: ${toolCall.function.name}]\n`
+
+                            // Interceptar herramientas visuales
+                            if (toolCall.function.name === 'crear_tarea') {
+                                const args = JSON.parse(toolCall.function.arguments || '{}')
+                                startWizard('tarea', args, 'create')
+                                assistantContent += `\n[Abriendo Asistente de Tareas...]\n`
+                            } else if (toolCall.function.name === 'editar_tarea') {
+                                const args = JSON.parse(toolCall.function.arguments || '{}')
+                                // Fetch task data first
+                                const supabase = (await import('@/lib/supabase-client')).createClient()
+                                const { data: task, error } = await supabase.from('tareas').select('*').eq('id', args.taskId).single()
+
+                                if (task) {
+                                    // Merge current data with AI suggestions
+                                    const mergedData = {
+                                        ...task,
+                                        ...args, // AI params override
+                                        departamentos_ids: [] // Need to fetch depts too if needed, or let wizard load basics
+                                    }
+
+                                    // Fetch associated data for complete hydration
+                                    const { data: depts } = await supabase.from('departamentos_tareas').select('id_departamento').eq('id_tarea', args.taskId)
+                                    if (depts) mergedData.departamentos_ids = depts.map(d => d.id_departamento.toString())
+
+                                    const { data: sup } = await supabase.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', args.taskId).single()
+                                    if (sup) mergedData.id_supervisor = sup.id_supervisor
+
+                                    const { data: worker } = await supabase.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', args.taskId).single()
+                                    if (worker) mergedData.id_asignado = worker.id_trabajador
+
+
+                                    startWizard('tarea', mergedData, 'edit', args.taskId)
+                                    // Human-Centric Message
+                                    assistantContent += `\nHe preparado el Wizard para editar la tarea **"${task.titulo}"** (#${args.taskId}).\n`
+                                } else {
+                                    assistantContent += `\nError: No encontré la tarea ${args.taskId}\n`
+                                }
+                            } else if (toolCall.function.name === 'clonar_tarea') {
+                                const args = JSON.parse(toolCall.function.arguments || '{}')
+                                const supabase = (await import('@/lib/supabase-client')).createClient()
+                                const { data: task } = await supabase.from('tareas').select('*').eq('id', args.taskId).single()
+
+                                if (task) {
+                                    // Prepare Clone Data
+                                    const mergedData = {
+                                        ...task,
+                                        titulo: `Copia de: ${task.titulo}`,
+                                        descripcion: task.descripcion || '',
+                                        id_estado_nuevo: 1, // Reset state to Organizar
+                                        departamentos_ids: []
+                                    }
+
+                                    // Fetch relations
+                                    const { data: depts } = await supabase.from('departamentos_tareas').select('id_departamento').eq('id_tarea', args.taskId)
+                                    if (depts) mergedData.departamentos_ids = depts.map(d => d.id_departamento.toString())
+
+                                    // Optional: Clone supervisor/worker? Usually cloning copies definition, not assignment. 
+                                    // But user might want to clone "everything". Protocol: "Clone Task" usually copies definition.
+                                    // Let's copy relations as defaults but allow user to change.
+                                    const { data: sup } = await supabase.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', args.taskId).single()
+                                    if (sup) mergedData.id_supervisor = sup.id_supervisor
+
+                                    const { data: worker } = await supabase.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', args.taskId).single()
+                                    if (worker) mergedData.id_asignado = worker.id_trabajador
+
+                                    startWizard('tarea', mergedData, 'create')
+
+                                    // Human-Centric Message
+                                    assistantContent += `\nHe preparado el Wizard para clonar la tarea **"${task.titulo}"** (#${args.taskId}).\n`
+                                } else {
+                                    assistantContent += `\nError: No encontré la tarea ${args.taskId} para clonar\n`
+                                }
+                            } else {
+                                const toolResult = await handleToolExecution(toolCall, "Exito")
+                                assistantContent += `\n[Herramienta Ejecutada: ${toolCall.function.name}]\n`
+                            }
                         } catch (e) {
                             console.error("Error parsing tool", e)
                         }
@@ -836,19 +914,26 @@ export function AiChatWidget() {
                             {/* Header no necesario aqui pues ya lo tiene el wrapper, o podemos poner uno generico */}
                             <div className="flex-1 overflow-y-auto w-full h-full">
                                 <TaskFormChatWrapper
-                                    onSuccess={(taskId, taskCode, taskTitle) => {
+                                    initialData={wizardState.data}
+                                    mode={wizardState.mode}
+                                    taskId={wizardState.taskId}
+                                    onSuccess={(taskId, taskCode) => {
                                         setShowTaskWizard(false)
-                                        // Priorizar Título, luego Código, luego ID
-                                        const displayMain = taskTitle || taskCode || `#${taskId}`
-                                        const displaySecondary = taskTitle && taskCode ? `(${taskCode})` : ''
+                                        setWizardState(prev => ({ ...prev, data: {}, mode: 'create', taskId: undefined })) // Limpiar data
+
+                                        // Priorizar Código visualmente
+                                        const displayMain = taskCode || `#${taskId}`
 
                                         setMessages(prev => [...prev, {
                                             id: Date.now().toString(),
                                             role: 'assistant',
-                                            content: `✅ **Tarea Creada Exitosamente**\n\n📌 **${displayMain}** ${displaySecondary}\n\n[📂 Abrir Tarea](/dashboard/tareas/${taskId})`
+                                            content: `✅ **Tarea Creada Exitosamente**\n\n📌 **${displayMain}**\n\n[📂 Abrir Tarea](/dashboard/tareas/${taskId})`
                                         }])
                                     }}
-                                    onCancel={() => setShowTaskWizard(false)}
+                                    onCancel={() => {
+                                        setShowTaskWizard(false)
+                                        setWizardState(prev => ({ ...prev, data: {} }))
+                                    }}
                                 />
                             </div>
                         </div>

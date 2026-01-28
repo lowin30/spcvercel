@@ -51,10 +51,11 @@ interface Task {
 interface TaskListProps {
   tasks: Task[]
   userRole: string
+  currentUserEmail?: string
   supervisoresMap?: Record<string, { nombre?: string; color_perfil?: string }>
 }
 
-export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
+export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }: TaskListProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [taskInAction, setTaskInAction] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -81,7 +82,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
     { id: 9, nombre: "Liquidada", color: "purple" },
     { id: 10, nombre: "Posible", color: "yellow" },
   ]
-  
+
   // Función para obtener el nombre y color del estado por id
   const getEstadoById = (id: number) => {
     const estado = estadosTarea.find(e => e.id === id)
@@ -104,7 +105,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
     if (idEstado === null || idEstado === undefined) {
       return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
     }
-    
+
     // Si es string (estado antiguo), usar compatibilidad
     if (typeof idEstado === 'string') {
       switch (idEstado.toLowerCase()) {
@@ -120,7 +121,7 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
           return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
       }
     }
-    
+
     // Si es número (nuevo sistema normalizado)
     const estado = getEstadoById(idEstado as number)
     switch (estado.color) {
@@ -144,16 +145,16 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
     }
   }
-  
+
   // Función para manejar eliminación de tarea
   const handleDeleteTask = async (taskId: number) => {
     if (!confirm("¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.")) {
       return
     }
-    
+
     setTaskInAction(taskId)
     setIsDeleting(true)
-    
+
     try {
       const result = await deleteTask(taskId)
       if (result.success) {
@@ -170,39 +171,12 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
       setTaskInAction(null)
     }
   }
-  
+
   // Función para manejar clonación de tarea
-  const handleCloneTask = async (taskId: number) => {
-    if (!taskId) {
-      toast.error("ID de tarea no válido")
-      return
-    }
-    
-    setTaskInAction(taskId)
-    setIsCloning(true)
-    
-    try {
-      // Llamar a la función del servidor
-      const result = await cloneTask(taskId)
-      
-      if (result.success) {
-        toast.success(result.message || "Tarea clonada con éxito")
-        
-        // Forzar refresco de la página para mostrar la nueva tarea
-        // Esto complementa el revalidatePath del servidor
-        setTimeout(() => {
-          window.location.reload()
-        }, 500)
-      } else {
-        toast.error(result.message || "Error al clonar la tarea")
-      }
-    } catch (error: any) {
-      toast.error("Ocurrió un error inesperado: " + (error?.message || ""))
-      console.error("Error al clonar tarea:", error)
-    } finally {
-      setIsCloning(false)
-      setTaskInAction(null)
-    }
+  // Función para manejar clonación de tarea (Redirección al Wizard)
+  const handleCloneTask = (taskId: number) => {
+    if (!taskId) return
+    window.location.href = `/dashboard/tareas/clonar/${taskId}`
   }
 
   // Función para obtener el color de la prioridad
@@ -235,96 +209,97 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
               // Obtener información del estado normalizado
               const estadoInfo = getEstadoById(task.id_estado_nuevo);
               const supervisorInfo = getSupervisorInfo(task);
-              
+
               return (
-              <div key={task.id} className="block relative">
-                <Card className="hover:bg-muted/50 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${getPrioridadColor(task.prioridad || "")}`} />
+                <div key={task.id} className="block relative">
+                  <Card className="hover:bg-muted/50 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${getPrioridadColor(task.prioridad || "")}`} />
+                          </div>
+                          <h3 className="font-medium mt-2">
+                            <Link href={`/dashboard/tareas/${task.id}`}>{task.titulo}</Link>
+                          </h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {task.descripcion || "Sin descripción"}
+                          </p>
+                          <div className="mt-2 text-sm flex items-center">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: supervisorInfo.color }} />
+                            <span className="truncate max-w-[180px]" style={{ color: supervisorInfo.color }}>{supervisorInfo.nombre || 'S/N'}</span>
+                          </div>
                         </div>
-                        <h3 className="font-medium mt-2">
-                          <Link href={`/dashboard/tareas/${task.id}`}>{task.titulo}</Link>
-                        </h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {task.descripcion || "Sin descripción"}
-                        </p>
-                        <div className="mt-2 text-sm flex items-center">
-                          <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: supervisorInfo.color }} />
-                          <span className="truncate max-w-[180px]" style={{ color: supervisorInfo.color }}>{supervisorInfo.nombre || 'S/N'}</span>
-                        </div>
+
+                        {/* Botones de acción para admin o supervisor asignado */}
+                        {(userRole === "admin" || (userRole === "supervisor" && currentUserEmail && task.supervisores_emails?.toLowerCase().includes(currentUserEmail.toLowerCase()))) && (
+                          <div className="flex items-center gap-1">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Llamada al manejador con confirmación
+                                    if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
+                                      handleCloneTask(task.id);
+                                    }
+                                  }}>
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Clonar tarea
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Redireccionar a la página de edición de tarea
+                                    window.location.href = `/dashboard/tareas/editar/${task.id}`;
+                                  }}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Editar tarea
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteTask(task.id);
+                                  }}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
                       </div>
-                      
-                      {/* Botones de acción para admin */}
-                      {userRole === "admin" && (
-                        <div className="flex items-center gap-1">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem 
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  // Llamada al manejador con confirmación
-                                  if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
-                                    handleCloneTask(task.id);
-                                  }
-                                }}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Clonar tarea
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  // Redireccionar a la página de edición de tarea
-                                  window.location.href = `/dashboard/tareas/editar/${task.id}`;
-                                }}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar tarea
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteTask(task.id);
-                                }}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge className={getEstadoColor(task.id_estado_nuevo)}>
+                            {estadoInfo.nombre}
+                          </Badge>
+                        </div>
+
+                      </div>
+
+                      {/* Indicador de acción en proceso */}
+                      {taskInAction === task.id && (isDeleting || isCloning) && (
+                        <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-md">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="animate-spin h-4 w-4" />
+                            <span>{isDeleting ? "Eliminando..." : "Clonando..."}</span>
+                          </div>
                         </div>
                       )}
-                    </div>
-                    <div className="flex justify-between items-center mt-4 pt-4 border-t text-sm">
-                      <div className="flex items-center gap-2">
-                        <Badge className={getEstadoColor(task.id_estado_nuevo)}>
-                          {estadoInfo.nombre}
-                        </Badge>
-                      </div>
-                      
-                    </div>
-                    
-                    {/* Indicador de acción en proceso */}
-                    {taskInAction === task.id && (isDeleting || isCloning) && (
-                      <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-md">
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="animate-spin h-4 w-4" />
-                          <span>{isDeleting ? "Eliminando..." : "Clonando..."}</span>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )})
+                    </CardContent>
+                  </Card>
+                </div>
+              )
+            })
           )}
         </div>
 
@@ -358,101 +333,101 @@ export function TaskList({ tasks, userRole, supervisoresMap }: TaskListProps) {
                 filteredTasks.map((task) => {
                   // Obtener información del estado normalizado
                   const estadoInfo = getEstadoById(task.id_estado_nuevo);
-                  
+
                   return (
-                  <TableRow key={task.id}>
-                    <TableCell className="px-3 py-3">
-                      <Link href={`/dashboard/tareas/${task.id}`} className="text-primary hover:underline">
-                        <div className="line-clamp-2 leading-snug">{task.titulo}</div>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="px-2 py-3 whitespace-nowrap">
-                      <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5` }>
-                        {estadoInfo.nombre}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-2 py-3 whitespace-nowrap">
-                      {task.fecha_visita ? (
-                        <div className="flex items-center whitespace-nowrap">
-                          <Calendar className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs">{formatDateTime(task.fecha_visita)}</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No programada</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-3">
-                      {(() => {
-                        const sup = getSupervisorInfo(task)
-                        return (
-                          <div className="flex items-center">
-                            <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: sup.color }} />
-                            <span className="truncate text-xs" style={{ color: sup.color }}>{sup.nombre || 'S/N'}</span>
-                          </div>
-                        )
-                      })()}
-                    </TableCell>
-                    {userRole === "admin" && (
-                      <TableCell className="px-2 py-3 whitespace-nowrap">
-                        <div className="flex items-center justify-center space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            title="Clonar tarea"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
-                                handleCloneTask(task.id);
-                              }
-                            }}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6">
-                                <MoreVertical className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleCloneTask(task.id);
-                                }}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Clonar tarea
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  window.location.href = `/dashboard/tareas/editar/${task.id}`;
-                                }}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar tarea
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteTask(task.id);
-                                }}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          {taskInAction === task.id && (isDeleting || isCloning) && (
-                            <Loader2 className="h-4 w-4 animate-spin ml-1" />
-                          )}
-                        </div>
+                    <TableRow key={task.id}>
+                      <TableCell className="px-3 py-3">
+                        <Link href={`/dashboard/tareas/${task.id}`} className="text-primary hover:underline">
+                          <div className="line-clamp-2 leading-snug">{task.titulo}</div>
+                        </Link>
                       </TableCell>
-                    )}
-                  </TableRow>
+                      <TableCell className="px-2 py-3 whitespace-nowrap">
+                        <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5`}>
+                          {estadoInfo.nombre}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-2 py-3 whitespace-nowrap">
+                        {task.fecha_visita ? (
+                          <div className="flex items-center whitespace-nowrap">
+                            <Calendar className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs">{formatDateTime(task.fecha_visita)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No programada</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-3 py-3">
+                        {(() => {
+                          const sup = getSupervisorInfo(task)
+                          return (
+                            <div className="flex items-center">
+                              <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: sup.color }} />
+                              <span className="truncate text-xs" style={{ color: sup.color }}>{sup.nombre || 'S/N'}</span>
+                            </div>
+                          )
+                        })()}
+                      </TableCell>
+                      {(userRole === "admin" || (userRole === "supervisor" && currentUserEmail && task.supervisores_emails?.toLowerCase().includes(currentUserEmail.toLowerCase()))) && (
+                        <TableCell className="px-2 py-3 whitespace-nowrap">
+                          <div className="flex items-center justify-center space-x-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              title="Clonar tarea"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
+                                  handleCloneTask(task.id);
+                                }
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6">
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleCloneTask(task.id);
+                                  }}>
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Clonar tarea
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    window.location.href = `/dashboard/tareas/editar/${task.id}`;
+                                  }}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Editar tarea
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteTask(task.id);
+                                  }}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            {taskInAction === task.id && (isDeleting || isCloning) && (
+                              <Loader2 className="h-4 w-4 animate-spin ml-1" />
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
                   );
                 })
               )}

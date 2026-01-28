@@ -29,23 +29,23 @@ export default function TareasPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const crearPresupuesto = searchParams.get('crear_presupuesto') === 'true'
-  
+
   // Estado para búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('')
-  const [activeFilters, setActiveFilters] = useState<{[key: string]: any}>({})
-  
+  const [activeFilters, setActiveFilters] = useState<{ [key: string]: any }>({})
+
   // Estado para datos de los filtros
-  const [administradores, setAdministradores] = useState<{id: string, nombre: string}[]>([])
-  const [edificios, setEdificios] = useState<{id: string, nombre: string}[]>([]) 
-  const [todosLosEdificios, setTodosLosEdificios] = useState<{id: string, nombre: string, id_administrador: string}[]>([]) 
-  const [supervisores, setSupervisores] = useState<{id: string, email: string}[]>([])
+  const [administradores, setAdministradores] = useState<{ id: string, nombre: string }[]>([])
+  const [edificios, setEdificios] = useState<{ id: string, nombre: string }[]>([])
+  const [todosLosEdificios, setTodosLosEdificios] = useState<{ id: string, nombre: string, id_administrador: string }[]>([])
+  const [supervisores, setSupervisores] = useState<{ id: string, email: string }[]>([])
   const [supervisoresMap, setSupervisoresMap] = useState<Record<string, { nombre?: string; color_perfil?: string }>>({})
-  
+
   // Edificios filtrados según el administrador seleccionado
   const edificiosFiltrados = activeFilters.administrador
     ? todosLosEdificios.filter(edificio => edificio.id_administrador === activeFilters.administrador)
     : todosLosEdificios
-  
+
   // Estados normalizados para las tareas
   const estadosTarea = [
     { id: 1, nombre: "Organizar", color: "gray", codigo: "organizar", descripcion: "Tarea en fase inicial de organización", orden: 1 },
@@ -122,13 +122,13 @@ export default function TareasPage() {
   estadosTarea.forEach(estado => {
     contadorTareasPorEstado[estado.id] = tareas?.filter((tarea) => tarea.id_estado_nuevo === estado.id).length || 0
   })
-  
+
   // Filtrar tareas por estado normalizado para las pestañas - creamos un array para cada estado
   const tareasPorEstado: Record<number, any[]> = {}
   estadosTarea.forEach(estado => {
     tareasPorEstado[estado.id] = tareas?.filter((tarea) => tarea.id_estado_nuevo === estado.id) || []
   })
-  
+
   // Función para aplicar filtros y búsqueda a las tareas
   const applyFilters = (tareasInput: any[], excludeFinalized = false) => {
     const normalize = (s: any) => {
@@ -298,36 +298,36 @@ export default function TareasPage() {
     // Fallback: ranking manual si Fuse no devuelve resultados
     return [...filtered].sort((a, b) => scoreTask(b, terms) - scoreTask(a, terms))
   }
-  
+
   // Efecto para limpiar el filtro de edificio cuando cambia el administrador
   useEffect(() => {
     // Si se selecciona un administrador y hay un edificio seleccionado que no pertenece a ese administrador
     if (activeFilters.administrador && activeFilters.edificio) {
       const edificioPertenece = todosLosEdificios.some(
-        edificio => edificio.id === activeFilters.edificio && 
-                  edificio.id_administrador === activeFilters.administrador
+        edificio => edificio.id === activeFilters.edificio &&
+          edificio.id_administrador === activeFilters.administrador
       )
-      
+
       if (!edificioPertenece) {
         // Limpiar la selección de edificio
         setActiveFilters(prev => ({ ...prev, edificio: undefined }))
       }
     }
   }, [activeFilters.administrador, todosLosEdificios])
-  
+
   // Aplicar filtros a todos los conjuntos de tareas
   // En la vista "Todas" excluimos las tareas finalizadas (finalizada = true)
   const tareasFiltradas = applyFilters(tareas || [], true)
-  
+
   // 🆕 Vista de tareas FINALIZADAS (finalizada = true)
   const tareasFinalizadas = applyFilters(
-    (tareas || []).filter(t => t.finalizada === true), 
+    (tareas || []).filter(t => t.finalizada === true),
     false // No excluir finalizadas porque ya están filtradas
   )
-  
+
   // Aplicar filtros a las tareas por estado normalizado
   const tareasPorEstadoFiltradas: Record<number, any[]> = {}
-  
+
   // Aplicamos filtros a cada estado
   estadosTarea.forEach(estado => {
     // No excluimos tareas finalizadas en la pestaña "Terminado" (id_estado_nuevo = 7)
@@ -367,9 +367,9 @@ export default function TareasPage() {
   // Continuar para crear el presupuesto con la tarea seleccionada
   const continuarCreacionPresupuesto = () => {
     if (!selectedTareaId) return
-    
+
     const presupuestoBase = presupuestosBase[selectedTareaId]
-    
+
     if (presupuestoBase) {
       // Si hay presupuesto base, redireccionar a la página de nuevo presupuesto final con los parámetros
       router.push(`/dashboard/presupuestos/nuevo?tipo=final&id_padre=${presupuestoBase.id}&id_tarea=${selectedTareaId}`)
@@ -378,7 +378,7 @@ export default function TareasPage() {
       router.push(`/dashboard/presupuestos/nuevo?tipo=final&id_tarea=${selectedTareaId}`)
     }
   }
-  
+
   // Función auxiliar para cargar administradores y edificios
   const cargarReferencias = async (supabase: any) => {
     try {
@@ -388,19 +388,19 @@ export default function TareasPage() {
         .select('id, nombre')
         .eq('estado', 'activo')
         .order('nombre')
-      
+
       if (adminsError) {
         console.error("Error al cargar administradores:", adminsError)
       } else if (adminsData) {
         setAdministradores(adminsData)
       }
-      
+
       // Cargar nombres de edificios con su relación de administrador
       const { data: edificiosData, error: edificiosError } = await supabase
         .from('vista_edificios_completa')
         .select('id, nombre, id_administrador')
         .order('nombre')
-      
+
       if (edificiosError) {
         console.error("Error al cargar edificios:", edificiosError)
       } else if (edificiosData) {
@@ -429,13 +429,13 @@ export default function TareasPage() {
       console.error("Error al cargar datos de referencia:", err)
     }
   }
-  
+
   useEffect(() => {
     async function cargarTareas() {
       try {
         setLoading(true)
         const supabase = createClient()
-        
+
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
           return
@@ -444,28 +444,28 @@ export default function TareasPage() {
         // Verificar sesión de usuario
         const sessionResponse = await supabase.auth.getSession()
         const session = sessionResponse.data.session
-        
+
         if (!session) {
           router.push("/login")
           return
         }
-        
+
         // Obtener detalles del usuario
         const userResponse = await supabase
           .from("usuarios")
           .select("*")
           .eq("id", session.user.id)
           .single()
-          
+
         const userData = userResponse.data
         const userError = userResponse.error
-          
+
         if (userError) {
           console.error("Error al obtener detalles del usuario:", userError)
           setError("Error al obtener detalles del usuario")
           return
         }
-        
+
         setUserDetails(userData)
 
         // Cargar recordatorios unificados según rol (admin/supervisor)
@@ -511,7 +511,7 @@ export default function TareasPage() {
         } finally {
           setLoadingRecordatorios(false)
         }
-        
+
         // Si estamos en modo de creación de presupuesto y el usuario es admin
         // cargar también los presupuestos base y finales asociados a las tareas
         if (crearPresupuesto && userData?.rol === "admin") {
@@ -519,7 +519,7 @@ export default function TareasPage() {
           const { data: presupuestosBaseData, error: presupuestosError } = await supabase
             .from("presupuestos_base")
             .select("*")
-          
+
           if (!presupuestosError && presupuestosBaseData) {
             // Organizar presupuestos base por id_tarea para fácil acceso
             const presupuestosMap: Record<string, any> = {}
@@ -528,27 +528,27 @@ export default function TareasPage() {
                 presupuestosMap[presupuesto.id_tarea] = presupuesto
               }
             })
-            
+
             setPresupuestosBase(presupuestosMap)
           }
-          
+
           // Cargar presupuestos finales para saber qué tareas ya tienen presupuesto final
           // Usamos una consulta más precisa que no devuelva nulls y agrupe por id_tarea
           const { data: presupuestosFinalesData, error: presupuestosFinalesError } = await supabase
             .from("presupuestos_finales")
             .select("id_tarea")
             .not("id_tarea", "is", null)
-            
+
           if (!presupuestosFinalesError && presupuestosFinalesData) {
             // Extraer IDs de tareas que ya tienen presupuesto final
             const tareasIds = presupuestosFinalesData
               .map((p: any) => p.id_tarea.toString()) // Convertir a string para comparación consistente
-            
+
             console.log("Tareas que ya tienen presupuesto final:", tareasIds)
             setTareasConPresupuestoFinal(tareasIds)
           }
         }
-        
+
         let tareasResponse;
 
         if (crearPresupuesto) {
@@ -592,15 +592,15 @@ export default function TareasPage() {
         }
         const tareasData = tareasResponse.data
         const tareasError = tareasResponse.error
-        
+
         if (tareasError) {
           console.error("Error al cargar tareas:", tareasError)
           setError("Error al cargar tareas")
           return
         }
-        
+
         setTareas(tareasData || [])
-        
+
         // Cargar datos para los filtros
         await cargarReferencias(supabase)
       } catch (err) {
@@ -610,7 +610,7 @@ export default function TareasPage() {
         setLoading(false)
       }
     }
-    
+
     cargarTareas()
   }, [router])
 
@@ -625,15 +625,15 @@ export default function TareasPage() {
       </div>
     )
   }
-  
+
   // Estado de error
   if (error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-red-800">Error</h2>
         <p className="mt-2 text-red-700">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
           Reintentar
@@ -647,16 +647,16 @@ export default function TareasPage() {
     // Debug: Mostrar los IDs con los que estamos comparando
     console.log("Tareas disponibles (todas):", tareas.map(t => ({ id: t.id, estado: t.estado })))
     console.log("IDs de tareas con presupuesto final:", tareasConPresupuestoFinal)
-    
+
     // La función RPC ya nos devuelve solo las tareas disponibles, no se necesita más filtrado aquí.
     const tareasDisponibles = tareas;
 
     return (
       <div className="space-y-6">
         <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="mr-2"
             onClick={() => router.push("/dashboard/presupuestos")}
           >
@@ -664,7 +664,7 @@ export default function TareasPage() {
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">Seleccionar Tarea para Presupuesto Final</h1>
         </div>
-        
+
         <Card>
           <CardHeader>
             <CardTitle>Seleccione una tarea para crear un presupuesto final</CardTitle>
@@ -684,7 +684,7 @@ export default function TareasPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             {tareasDisponibles.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-muted-foreground">
@@ -705,9 +705,9 @@ export default function TareasPage() {
                   const presupuesto = presupuestosBase[tarea.id]
                   const isSelected = selectedTareaId === tarea.id
                   const tienePresupuestoBase = !!presupuesto
-                  
+
                   return (
-                    <div 
+                    <div
                       key={tarea.id}
                       className={`border rounded-lg p-4 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-gray-200 hover:border-primary cursor-pointer"}`}
                       onClick={() => handleSelectTareaForPresupuesto(tarea.id)}
@@ -725,12 +725,12 @@ export default function TareasPage() {
                           </p>
                           <p className="text-sm mt-1 line-clamp-2">{tarea.descripcion}</p>
                         </div>
-                        
+
                         {isSelected && (
                           <Check className="h-5 w-5 text-primary" />
                         )}
                       </div>
-                      
+
                       {/* Mostrar información del presupuesto base si existe */}
                       {tienePresupuestoBase ? (
                         <div className="mt-3 pt-3 border-t border-gray-100">
@@ -773,7 +773,7 @@ export default function TareasPage() {
             <Button variant="outline" onClick={() => router.push("/dashboard/presupuestos")}>
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={continuarCreacionPresupuesto}
               disabled={!selectedTareaId}
             >
@@ -839,9 +839,9 @@ export default function TareasPage() {
                   const diasDesdeActividad = diffDiasDesde(fact)
                   const diasHastaVisita = fvis
                     ? Math.floor(
-                        (new Date(fvis.getFullYear(), fvis.getMonth(), fvis.getDate()).getTime() - inicioHoy.getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      )
+                      (new Date(fvis.getFullYear(), fvis.getMonth(), fvis.getDate()).getTime() - inicioHoy.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                    )
                     : null
 
                   let tipoLabel = 'Sin PB'
@@ -948,10 +948,10 @@ export default function TareasPage() {
               className="pl-8 w-full"
             />
             {searchTerm && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="absolute right-0 top-0 h-10 w-10" 
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-10 w-10"
                 onClick={() => setSearchTerm('')}
                 type="button"
               >
@@ -959,7 +959,7 @@ export default function TareasPage() {
               </Button>
             )}
           </div>
-          
+
           {/* Sección de filtros */}
           <div className="border-t pt-4">
             <h4 className="font-medium mb-3">Filtros avanzados</h4>
@@ -969,8 +969,8 @@ export default function TareasPage() {
                 <p className="text-sm">Estado</p>
                 <Select
                   value={activeFilters.estado || '_todos_'}
-                  onValueChange={(value) => 
-                    setActiveFilters(prev => value === '_todos_' ? {...prev, estado: undefined} : {...prev, estado: value})
+                  onValueChange={(value) =>
+                    setActiveFilters(prev => value === '_todos_' ? { ...prev, estado: undefined } : { ...prev, estado: value })
                   }
                 >
                   <SelectTrigger>
@@ -992,8 +992,8 @@ export default function TareasPage() {
                 <p className="text-sm">Administrador</p>
                 <Select
                   value={activeFilters.administrador || '_todos_'}
-                  onValueChange={(value) => 
-                    setActiveFilters(prev => value === '_todos_' ? {...prev, administrador: undefined} : {...prev, administrador: value})
+                  onValueChange={(value) =>
+                    setActiveFilters(prev => value === '_todos_' ? { ...prev, administrador: undefined } : { ...prev, administrador: value })
                   }
                 >
                   <SelectTrigger>
@@ -1013,14 +1013,14 @@ export default function TareasPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* Filtro por edificio */}
               <div className="space-y-2">
                 <p className="text-sm">Edificio</p>
                 <Select
                   value={activeFilters.edificio || '_todos_'}
-                  onValueChange={(value) => 
-                    setActiveFilters(prev => value === '_todos_' ? {...prev, edificio: undefined} : {...prev, edificio: value})
+                  onValueChange={(value) =>
+                    setActiveFilters(prev => value === '_todos_' ? { ...prev, edificio: undefined } : { ...prev, edificio: value })
                   }
                 >
                   <SelectTrigger>
@@ -1045,8 +1045,8 @@ export default function TareasPage() {
                 <p className="text-sm">Supervisor</p>
                 <Select
                   value={activeFilters.supervisorEmail || '_todos_'}
-                  onValueChange={(value) => 
-                    setActiveFilters(prev => value === '_todos_' ? {...prev, supervisorEmail: undefined} : {...prev, supervisorEmail: value})
+                  onValueChange={(value) =>
+                    setActiveFilters(prev => value === '_todos_' ? { ...prev, supervisorEmail: undefined } : { ...prev, supervisorEmail: value })
                   }
                 >
                   <SelectTrigger>
@@ -1066,22 +1066,22 @@ export default function TareasPage() {
                 </Select>
               </div>
             </div>
-            
+
             {/* Botón para limpiar filtros */}
             {Object.keys(activeFilters).some(k => activeFilters[k] !== undefined) && (
               <div className="mt-4 flex justify-end">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setActiveFilters({})}
                   className="flex items-center gap-2"
                 >
-                  <RefreshCw className="h-4 w-4" /> 
+                  <RefreshCw className="h-4 w-4" />
                   Limpiar filtros
                 </Button>
               </div>
             )}
-            
+
             {/* Mostrar filtros activos */}
             {Object.keys(activeFilters).some(k => activeFilters[k] !== undefined) && (
               <div className="flex flex-wrap gap-2 mt-4 border-t pt-4">
@@ -1090,15 +1090,15 @@ export default function TareasPage() {
                   value && (
                     <Badge key={key} variant="secondary" className="gap-1">
                       {key === 'administrador' ? 'Administrador:' : key === 'edificio' ? 'Edificio:' : key === 'supervisorEmail' ? 'Supervisor:' : 'Estado:'}
-                      {key === 'administrador' 
+                      {key === 'administrador'
                         ? administradores.find(a => a.id === value)?.nombre || value
                         : key === 'edificio'
-                        ? edificios.find(e => e.id === value)?.nombre || value
-                        : key === 'supervisorEmail'
-                        ? (value as string)
-                        : estadosTarea.find(e => e.id.toString() === value)?.nombre || value}
-                      <X 
-                        className="h-3 w-3 ml-1 cursor-pointer" 
+                          ? edificios.find(e => e.id === value)?.nombre || value
+                          : key === 'supervisorEmail'
+                            ? (value as string)
+                            : estadosTarea.find(e => e.id.toString() === value)?.nombre || value}
+                      <X
+                        className="h-3 w-3 ml-1 cursor-pointer"
                         onClick={() => setActiveFilters(prev => ({ ...prev, [key]: undefined }))}
                       />
                     </Badge>
@@ -1109,12 +1109,12 @@ export default function TareasPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       {/* Tabs de estados normalizados */}
       <Tabs defaultValue="todas" className="mt-5 pt-2">
         <TabsList className="grid grid-cols-3 md:flex md:flex-row w-full gap-1 md:gap-2 bg-transparent p-0">
-          <TabsTrigger 
-            value="todas" 
+          <TabsTrigger
+            value="todas"
             className="h-9 md:h-auto data-[state=active]:bg-blue-600 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Todas las tareas"
           >
@@ -1123,10 +1123,10 @@ export default function TareasPage() {
               {tareasFiltradas.length}
             </Badge>
           </TabsTrigger>
-          
+
           {/* Pestaña Organizar - gris */}
-          <TabsTrigger 
-            value="estado-1" 
+          <TabsTrigger
+            value="estado-1"
             className="h-9 md:h-auto data-[state=active]:bg-gray-500 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Tarea en fase inicial de organización"
           >
@@ -1135,10 +1135,10 @@ export default function TareasPage() {
               {tareasPorEstadoFiltradas[1]?.length || 0}
             </Badge>
           </TabsTrigger>
-          
+
           {/* Pestaña Aprobado - verde */}
-          <TabsTrigger 
-            value="estado-5" 
+          <TabsTrigger
+            value="estado-5"
             className="h-9 md:h-auto data-[state=active]:bg-green-600 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Presupuesto aprobado por el cliente"
           >
@@ -1147,10 +1147,10 @@ export default function TareasPage() {
               {tareasPorEstadoFiltradas[5]?.length || 0}
             </Badge>
           </TabsTrigger>
-          
+
           {/* Pestaña para el estado "Posible" - amarillo */}
-          <TabsTrigger 
-            value="estado-10" 
+          <TabsTrigger
+            value="estado-10"
             className="h-9 md:h-auto data-[state=active]:bg-yellow-500 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Son posibles trabajos a futuro"
           >
@@ -1159,10 +1159,10 @@ export default function TareasPage() {
               {tareasPorEstadoFiltradas[10]?.length || 0}
             </Badge>
           </TabsTrigger>
-          
+
           {/* 🆕 Pestaña Finalizadas - azul oscuro */}
-          <TabsTrigger 
-            value="finalizadas" 
+          <TabsTrigger
+            value="finalizadas"
             className="h-9 md:h-auto data-[state=active]:bg-slate-700 data-[state=active]:text-white text-[10px] md:text-sm py-1.5 md:py-2 px-1.5 md:px-2 justify-between flex items-center gap-1"
             title="Tareas marcadas como finalizadas"
           >
@@ -1172,7 +1172,7 @@ export default function TareasPage() {
             </Badge>
           </TabsTrigger>
         </TabsList>
-        
+
         {/* Contenido para "Todas" las tareas */}
         <TabsContent value="todas" className="mt-8 pt-2">
           <div className="mb-4">
@@ -1180,9 +1180,14 @@ export default function TareasPage() {
               Todas las tareas del sistema
             </Badge>
           </div>
-          <TaskList tasks={tareasFiltradas} userRole={userDetails?.rol || ""} supervisoresMap={supervisoresMap} />
+          <TaskList
+            tasks={tareasFiltradas}
+            userRole={userDetails?.rol || ""}
+            currentUserEmail={userDetails?.email}
+            supervisoresMap={supervisoresMap}
+          />
         </TabsContent>
-        
+
         {/* Contenido para estado "Organizar" */}
         <TabsContent value="estado-1" className="mt-8 pt-2">
           <div className="mb-4">
@@ -1190,9 +1195,14 @@ export default function TareasPage() {
               Tareas en estado "Organizar" - Fase inicial de organización
             </Badge>
           </div>
-          <TaskList tasks={tareasPorEstadoFiltradas[1] || []} userRole={userDetails?.rol || ""} supervisoresMap={supervisoresMap} />
+          <TaskList
+            tasks={tareasPorEstadoFiltradas[1] || []}
+            userRole={userDetails?.rol || ""}
+            currentUserEmail={userDetails?.email}
+            supervisoresMap={supervisoresMap}
+          />
         </TabsContent>
-        
+
         {/* Contenido para estado "Aprobado" */}
         <TabsContent value="estado-5" className="mt-8 pt-2">
           <div className="mb-4">
@@ -1200,9 +1210,14 @@ export default function TareasPage() {
               Tareas en estado "Aprobado" - Presupuesto aprobado por el cliente
             </Badge>
           </div>
-          <TaskList tasks={tareasPorEstadoFiltradas[5] || []} userRole={userDetails?.rol || ""} supervisoresMap={supervisoresMap} />
+          <TaskList
+            tasks={tareasPorEstadoFiltradas[5] || []}
+            userRole={userDetails?.rol || ""}
+            currentUserEmail={userDetails?.email}
+            supervisoresMap={supervisoresMap}
+          />
         </TabsContent>
-        
+
         {/* Contenido para estado Posible */}
         <TabsContent value="estado-10" className="mt-8 pt-2">
           <div className="mb-4">
@@ -1210,13 +1225,14 @@ export default function TareasPage() {
               Tareas en estado "Posible" - Son posibles trabajos a futuro
             </Badge>
           </div>
-          <TaskList 
-            tasks={tareasPorEstadoFiltradas[10] || []} 
+          <TaskList
+            tasks={tareasPorEstadoFiltradas[10] || []}
             userRole={userDetails?.rol || ""}
+            currentUserEmail={userDetails?.email}
             supervisoresMap={supervisoresMap}
           />
         </TabsContent>
-        
+
         {/* 🆕 Contenido para Finalizadas */}
         <TabsContent value="finalizadas" className="mt-8 pt-2">
           <div className="mb-4">
@@ -1224,9 +1240,10 @@ export default function TareasPage() {
               Tareas Finalizadas - Trabajos completados y archivados
             </Badge>
           </div>
-          <TaskList 
-            tasks={tareasFinalizadas} 
+          <TaskList
+            tasks={tareasFinalizadas}
             userRole={userDetails?.rol || ""}
+            currentUserEmail={userDetails?.email}
             supervisoresMap={supervisoresMap}
           />
         </TabsContent>

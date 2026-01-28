@@ -303,10 +303,11 @@ export const listarTareas = tool({
     description: 'Lista las tareas o proyectos del sistema, permitiendo filtrar por estado. Útil para responder preguntas como "¿Qué tareas están activas?" o "Listame las tareas aprobadas".',
     parameters: z.object({
         estado: z.string().default('todas').describe('Estado de las tareas a buscar (pendiente, en_progreso, aprobado, finalizado, cancelado, todas). Default: todas'),
+        termino_busqueda: z.string().optional().describe('Término de texto para buscar en título o descripción (ej: "baño", "5B", "plomería")'),
         limit: z.number().default(10).describe('Cantidad máxima de tareas a listar. Default: 10')
     }),
-    execute: async ({ estado, limit }) => {
-        console.error('[TOOL] 🚨 START listarTareas', { estado, limit })
+    execute: async ({ estado, termino_busqueda, limit }) => {
+        console.error('[TOOL] 🚨 START listarTareas', { estado, termino_busqueda, limit })
         try {
             const estado_filtro = estado
             const limit_filtro = limit
@@ -329,15 +330,21 @@ export const listarTareas = tool({
 
             // Construir query - USANDO COLUMNA CORRECTA: estado_tarea
             console.error('[TOOL] 🔍 Building query...')
-            // Construir query - USANDO VISTA CORRECTA
-            console.error('[TOOL] 🔍 Building query...')
             let query = supabase
                 .from('vista_tareas_completa')
                 .select('id, titulo, descripcion, estado_tarea, fecha_visita, nombre_edificio')
                 .order('created_at', { ascending: false })
                 .limit(limit_filtro)
 
-            // Aplicar filtro
+            // Aplicar búsqueda por texto si existe
+            if (termino_busqueda) {
+                // Buscamos en titulo OR descripcion OR nombre_edificio
+                // Sintaxis Supabase 'or': "col1.ilike.%term%,col2.ilike.%term%"
+                const term = `%${termino_busqueda}%`
+                query = query.or(`titulo.ilike.${term},descripcion.ilike.${term},nombre_edificio.ilike.${term}`)
+            }
+
+            // Aplicar filtro de estado
             if (estado_filtro === 'activas' || estado_filtro === 'activos' || estado_filtro === 'aprobado' || estado_filtro === 'en_progreso' || estado_filtro === 'pendientes') {
                 // 'en_progreso' u 'activas' ahora buscan TODO lo que no esté finalizado/cancelado
                 if (['activas', 'activos', 'en_progreso', 'pendientes'].includes(estado_filtro)) {
@@ -646,6 +653,45 @@ export const administrarPresupuesto = tool({
     }
 });
 
+// Tool: Editar Tarea (Activa Wizard en Mod Edit)
+export const editar_tarea = tool({
+    description: 'Abre el asistente de EDICIÓN de tarea en el chat. Usar cuando el usuario quiera modificar una tarea existente.',
+    parameters: z.object({
+        taskId: z.number().describe('ID de la tarea a editar'),
+        titulo: z.string().optional().describe('Nuevo título sugerido'),
+        descripcion: z.string().optional().describe('Nueva descripción sugerida'),
+        prioridad: z.enum(['baja', 'media', 'alta']).optional().describe('Nueva prioridad sugerida')
+    }),
+    execute: async ({ taskId, titulo, descripcion, prioridad }) => {
+        // Esta tool NO toca la DB. Retorna instrucciones para el ChatWidget.
+        return {
+            action: 'open_wizard',
+            mode: 'edit',
+            taskId,
+            initialData: {
+                titulo,
+                descripcion,
+                prioridad
+            }
+        }
+    }
+})
+
+// Tool: Clonar Tarea (Abre Wizard con datos precargados)
+export const clonar_tarea = tool({
+    description: 'Clona una tarea existente. Abre el asistente de CREACIÓN pre-llenado con los datos de la tarea original. Usar cuando el usuario quiera copiar o clonar.',
+    parameters: z.object({
+        taskId: z.number().describe('ID de la tarea a clonar'),
+    }),
+    execute: async ({ taskId }) => {
+        return {
+            action: 'open_wizard',
+            mode: 'clone', // Special mode to signal fetch & pre-fill
+            taskId
+        }
+    }
+})
+
 // Tool: Crear Tarea
 export const crearTarea = tool({
     description: 'Crea una nueva tarea usando el RPC crear_tarea_con_asignaciones. Permite asignar supervisor, trabajadores y múltiples departamentos.',
@@ -784,6 +830,8 @@ export const adminTools = {
     obtenerContextoUsuario,
     administrarPresupuesto,
     crearTarea,
+    editar_tarea,
+    clonar_tarea,
     registrarGasto,
     verAlertas,
     verMiEquipo,

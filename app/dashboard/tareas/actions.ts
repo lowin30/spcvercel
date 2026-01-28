@@ -27,18 +27,18 @@ export async function deleteTask(taskId: number) {
     }
 
     if (presupuestosData && presupuestosData.length > 0) {
-      return { 
-        success: false, 
-        message: 'No se puede eliminar la tarea porque tiene presupuestos finales asociados.' 
+      return {
+        success: false,
+        message: 'No se puede eliminar la tarea porque tiene presupuestos finales asociados.'
       }
     }
-    
+
     // 2. Eliminar presupuestos base asociados a la tarea
     const { error: presupuestosBaseError } = await supabase
       .from('presupuestos_base')
       .delete()
       .eq('id_tarea', taskId)
-    
+
     if (presupuestosBaseError) {
       console.error('Error al eliminar presupuestos base:', presupuestosBaseError)
       return { success: false, message: 'Error al eliminar los presupuestos base asociados.' }
@@ -169,14 +169,78 @@ export async function cloneTask(taskId: number) {
     // Usamos revalidatePath con la opción 'page' para forzar una revalidación completa
     revalidatePath('/dashboard/tareas', 'page')
 
-    return { 
-      success: true, 
-      message: 'Tarea clonada correctamente.', 
-      data: newTask?.[0] 
+    return {
+      success: true,
+      message: 'Tarea clonada correctamente.',
+      data: newTask?.[0]
     }
 
   } catch (error: any) {
     console.error('Error inesperado al clonar la tarea:', error)
     return { success: false, message: `Error inesperado: ${error.message}` }
+  }
+}
+
+/**
+ * Actualizar una tarea existente
+ */
+export async function updateTask(taskId: number, data: any) {
+  if (!taskId) return { success: false, message: 'ID requerido' }
+
+  const supabase = await createSsrServerClient()
+
+  try {
+    // 1. Update basic fields
+    const { error: updateError } = await supabase
+      .from('tareas')
+      .update({
+        titulo: data.titulo,
+        descripcion: data.descripcion,
+        prioridad: data.prioridad,
+        fecha_visita: data.fecha_visita,
+        id_edificio: data.id_edificio,
+        id_administrador: data.id_administrador
+      })
+      .eq('id', taskId)
+
+    if (updateError) throw updateError
+
+    // 2. Update Relationships
+    if (data.id_supervisor !== undefined) {
+      await supabase.from('supervisores_tareas').delete().eq('id_tarea', taskId)
+      if (data.id_supervisor) {
+        await supabase.from('supervisores_tareas').insert({
+          id_tarea: taskId,
+          id_supervisor: data.id_supervisor
+        })
+      }
+    }
+
+    if (data.id_asignado !== undefined) {
+      await supabase.from('trabajadores_tareas').delete().eq('id_tarea', taskId)
+      if (data.id_asignado) {
+        await supabase.from('trabajadores_tareas').insert({
+          id_tarea: taskId,
+          id_trabajador: data.id_asignado
+        })
+      }
+    }
+
+    if (data.departamentos_ids !== undefined) {
+      await supabase.from('departamentos_tareas').delete().eq('id_tarea', taskId)
+      if (data.departamentos_ids.length > 0) {
+        const depts = data.departamentos_ids.map((d: any) => ({
+          id_tarea: taskId,
+          id_departamento: d
+        }))
+        await supabase.from('departamentos_tareas').insert(depts)
+      }
+    }
+
+    revalidatePath('/dashboard/tareas')
+    return { success: true, message: 'Tarea actualizada' }
+  } catch (error: any) {
+    console.error('Update Task Error:', error)
+    return { success: false, message: error.message }
   }
 }

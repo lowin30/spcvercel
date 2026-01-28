@@ -21,6 +21,8 @@ import { DepartamentoForm, DepartamentoFormData } from "@/components/departament
 interface TaskWizardProps {
     onSuccess?: (taskId: number, code: string) => void
     defaultValues?: any
+    mode?: 'create' | 'edit'
+    taskId?: number
 }
 
 interface WizardState {
@@ -47,7 +49,7 @@ const STEPS = [
     { id: 3, title: "Confirmación", icon: Calendar },
 ]
 
-export function TaskWizard({ onSuccess, defaultValues }: TaskWizardProps) {
+export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }: TaskWizardProps) {
     const router = useRouter()
     const supabase = createClient()
     const titleInputRef = useRef<HTMLInputElement>(null)
@@ -275,31 +277,52 @@ export function TaskWizard({ onSuccess, defaultValues }: TaskWizardProps) {
     const handleSubmit = async () => {
         setIsSubmitting(true)
         try {
-            const payload = {
-                p_titulo: formData.titulo,
-                p_descripcion: formData.descripcion,
-                p_id_administrador: parseInt(formData.id_administrador),
-                p_id_edificio: parseInt(formData.id_edificio),
-                p_prioridad: formData.prioridad,
-                p_id_estado_nuevo: parseInt(formData.id_estado_nuevo),
-                p_fecha_visita: formData.fecha_visita,
-                p_id_supervisor: formData.id_supervisor || null,
-                p_id_trabajador: formData.id_asignado || null,
-                p_departamentos_ids: formData.departamentos_ids.map(Number)
-            }
+            if (mode === 'edit' && taskId) {
+                // UPDATE LOGIC
+                const { updateTask } = await import('@/app/dashboard/tareas/actions')
+                const res = await updateTask(taskId, {
+                    ...formData,
+                    // Transform fields as needed by action
+                    departamentos_ids: formData.departamentos_ids.map(Number)
+                })
 
-            const { data, error } = await supabase.rpc('crear_tarea_con_asignaciones', payload)
+                if (!res.success) throw new Error(res.message)
 
-            if (error) throw error
+                toast.success("Tarea actualizada exitosamente")
+                if (onSuccess) {
+                    onSuccess(taskId, "UPDATED")
+                } else {
+                    router.refresh()
+                }
 
-            toast.success("Tarea creada exitosamente")
-
-            if (onSuccess && data) {
-                // data is { id, code }
-                onSuccess(data.id, data.code)
             } else {
-                router.push(`/dashboard/tareas/${data?.id}`)
-                router.refresh()
+                // CREATE LOGIC
+                const payload = {
+                    p_titulo: formData.titulo,
+                    p_descripcion: formData.descripcion,
+                    p_id_administrador: parseInt(formData.id_administrador),
+                    p_id_edificio: parseInt(formData.id_edificio),
+                    p_prioridad: formData.prioridad,
+                    p_id_estado_nuevo: parseInt(formData.id_estado_nuevo),
+                    p_fecha_visita: formData.fecha_visita,
+                    p_id_supervisor: formData.id_supervisor || null,
+                    p_id_trabajador: formData.id_asignado || null,
+                    p_departamentos_ids: formData.departamentos_ids.map(Number)
+                }
+
+                const { data, error } = await supabase.rpc('crear_tarea_con_asignaciones', payload)
+
+                if (error) throw error
+
+                toast.success("Tarea creada exitosamente")
+
+                if (onSuccess && data) {
+                    // data is { id, code }
+                    onSuccess(data.id, data.code)
+                } else {
+                    router.push(`/dashboard/tareas/${data?.id}`)
+                    router.refresh()
+                }
             }
 
         } catch (e: any) {
@@ -548,7 +571,7 @@ export function TaskWizard({ onSuccess, defaultValues }: TaskWizardProps) {
                     ) : (
                         <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                            Confirmar y Crear
+                            {mode === 'edit' ? 'Guardar Cambios' : 'Confirmar y Crear'}
                         </Button>
                     )}
                 </CardFooter>
