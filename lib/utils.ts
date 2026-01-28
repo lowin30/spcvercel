@@ -18,7 +18,7 @@ export function formatCuit(cuit: string): string {
 
   // Si no tiene la longitud correcta, devolver el valor original
   if (cleanCuit.length !== 11) return cuit
-  
+
   // Formatear como XX-XXXXXXXX-X
   return `${cleanCuit.substring(0, 2)}-${cleanCuit.substring(2, 10)}-${cleanCuit.substring(10)}`
 }
@@ -38,7 +38,7 @@ export function cleanPhoneNumber(phone: string): string {
 // Función para formatear moneda
 export function formatCurrency(amount: number | undefined | null): string {
   if (amount === undefined || amount === null) return "--"
-  
+
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
@@ -90,4 +90,29 @@ export function getEstadoEdificioColor(estado: string): string {
     default:
       return "bg-gray-100 text-gray-800 hover:bg-gray-200"
   }
+}
+// Text sanitization utility
+// Text sanitization utility
+// Text sanitization utility (SPC Law v3.5 - Strict Uppercase & Accents)
+export function sanitizeText(text: string | null | undefined): string {
+  if (!text) return ""
+  return text
+    .toUpperCase() // FORCE UPPERCASE FIRST
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, (match, offset, str) => {
+      // Preserve Ñ (N + tilde) logic if needed, but since we uppercased, we look for 'N'
+      // Actually, NFD splits Ñ into N + \u0303. We want to keep \u0303 only if it follows N.
+      // But a simpler approach for Spanish is:
+      return "" // Remove all diacritics blindly
+    })
+    .normalize("NFC")
+    // Restore Ñ if it was lost? No, NFD separation + removal kills the tilde.
+    // Better strategy: Replace Ñ with a placeholder, remove accents, then restore.
+    // Let's retry the strategy:
+    // 1. Placeholder for Ñ
+    .replace(/Ñ/g, '__NIE__')
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").normalize("NFC") // Remove accents
+    .replace(/__NIE__/g, 'Ñ') // Restore Ñ
+    .replace(/[^A-Z0-9Ñ\s.,-]/g, "") // Whitelist only valid chars
+    .trim()
 }

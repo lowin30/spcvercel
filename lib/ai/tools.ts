@@ -10,6 +10,7 @@ import {
     verLiquidacionEquipo,
     crearPresupuestoBase
 } from './additional-tools'
+import { sanitizeText } from '@/lib/utils'
 
 /**
  * HERRAMIENTAS FINANCIERAS PARA IA
@@ -692,6 +693,36 @@ export const clonar_tarea = tool({
     }
 })
 
+// Tool: Crear Edificio (Abre BuildingWizard)
+export const crear_edificio = tool({
+    description: 'Abre el asistente para crear un NUEVO edificio. Si el usuario proporciona una URL de mapa, pásala.',
+    parameters: z.object({
+        mapa_url: z.string().optional().describe('URL de Google Maps si el usuario la proporciona'),
+    }),
+    execute: async ({ mapa_url }) => {
+        return {
+            action: 'open_building_wizard',
+            mode: 'create',
+            initialData: { mapa_url }
+        }
+    }
+})
+
+// Tool: Editar Edificio
+export const editar_edificio = tool({
+    description: 'Abre el asistente para EDITAR un edificio existente.',
+    parameters: z.object({
+        id: z.number().describe('ID del edificio a editar'),
+    }),
+    execute: async ({ id }) => {
+        return {
+            action: 'open_building_wizard',
+            mode: 'edit',
+            id
+        }
+    }
+})
+
 // Tool: Crear Tarea
 export const crearTarea = tool({
     description: 'Crea una nueva tarea usando el RPC crear_tarea_con_asignaciones. Permite asignar supervisor, trabajadores y múltiples departamentos.',
@@ -738,8 +769,8 @@ export const crearTarea = tool({
             }
 
             const { data: newTaskId, error } = await supabase.rpc('crear_tarea_con_asignaciones', {
-                p_titulo: params.titulo,
-                p_descripcion: params.descripcion,
+                p_titulo: sanitizeText(params.titulo),
+                p_descripcion: sanitizeText(params.descripcion),
                 p_id_edificio: params.id_edificio,
                 p_id_administrador: adminId,
                 p_prioridad: params.prioridad,
@@ -838,6 +869,7 @@ export const adminTools = {
     verLiquidacionEquipo,
     crearPresupuestoBase,
     registrarParte,
+    registrarParte,
     learn_term // 🆕 Nivel 2: Capacidad de aprender
 }
 
@@ -850,6 +882,7 @@ export const supervisorTools = {
     verMiEquipo,
     verLiquidacionEquipo,
     crearPresupuestoBase,
+    registrarParte,
     registrarParte,
     learn_term // 🆕 Nivel 2: Capacidad de aprender
 }

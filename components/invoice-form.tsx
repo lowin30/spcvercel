@@ -58,9 +58,15 @@ interface InvoiceFormProps {
     items: ItemFactura[],
     facturaIdToEdit?: number
   ) => Promise<{ success: boolean; message: string }>;
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean;
+  initialData?: Partial<InvoiceFormValues & { items?: ItemFactura[] }>;
+  onSuccess?: () => void;
 }
 
-export function InvoiceForm({ presupuestos, factura, items: initialItems = [], onSave }: InvoiceFormProps) {
+export function InvoiceForm({ presupuestos, factura, items: initialItems = [], onSave, isChatVariant = false, initialData, onSuccess }: InvoiceFormProps) {
+  // Merge initialData with factura
+  const mergedData = { ...factura, ...initialData }
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
@@ -126,21 +132,136 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
   // --- Enviar Formulario ---
   async function onSubmit(data: InvoiceFormValues) {
     setIsLoading(true);
-    
+
     // Llamamos a la Server Action a través de la prop onSave
     const result = await onSave(data, items, factura?.id);
 
     setIsLoading(false);
 
     if (result.success) {
-        toast.success(result.message);
+      toast.success(result.message);
+
+      // Chat variant: trigger success callback
+      if (isChatVariant && onSuccess) {
+        onSuccess();
+      } else {
+        // Normal web flow: redirect
         router.push('/dashboard/facturas');
-        router.refresh(); // Forzar la actualización de la cache del router
+        router.refresh();
+      }
     } else {
-        toast.error(result.message);
+      toast.error(result.message);
     }
   }
 
+  // Conditional rendering for chat variant
+  if (isChatVariant) {
+    return (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* Compact form without Card wrapper */}
+          <div className="space-y-4">
+            <div className="grid gap-4">
+              <FormField control={form.control} name="id_presupuesto" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Presupuesto Asociado</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isEditMode}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecciona un presupuesto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presupuestos.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.code} - {p.titulo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="total" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Total</FormLabel>
+                  <FormControl><Input type="number" placeholder="0.00" {...field} readOnly className="bg-gray-100 h-9" /></FormControl>
+                  <FormDescription className="text-[10px]">Calculado automáticamente</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
+            {/* Compact Items Table */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Ítems de la Factura</Label>
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Descripción</TableHead>
+                      <TableHead className="text-xs text-right">Cant.</TableHead>
+                      <TableHead className="text-xs text-right">P.Unit</TableHead>
+                      <TableHead className="text-xs text-right">Total</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="p-2">
+                          <textarea
+                            placeholder="Descripción"
+                            value={item.descripcion}
+                            onChange={(e) => handleItemChange(index, 'descripcion', e.target.value)}
+                            className="w-full text-xs rounded border px-2 py-1"
+                            rows={2}
+                          />
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Input
+                            type="number"
+                            value={item.cantidad}
+                            onChange={(e) => handleItemChange(index, 'cantidad', parseFloat(e.target.value) || 0)}
+                            className="text-xs h-8 w-16"
+                          />
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Input
+                            type="number"
+                            value={item.precio_unitario}
+                            onChange={(e) => handleItemChange(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
+                            className="text-xs h-8"
+                          />
+                        </TableCell>
+                        <TableCell className="p-2 text-right text-xs">
+                          ${item.subtotal_item.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="h-8 w-8">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="w-full h-8 text-xs" onClick={handleAddItem}>
+                <PlusCircle className="mr-1 h-3 w-3" />
+                Añadir Ítem
+              </Button>
+            </div>
+
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading ? "Guardando..." : isEditMode ? "Guardar Cambios" : "Crear Factura"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    )
+  }
+
+  // Normal web variant
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -204,7 +325,7 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
           </CardHeader>
           <CardContent className="p-0">
             <div className="rounded-md border overflow-hidden">
-              <Table style={{minWidth: '400px'}}>
+              <Table style={{ minWidth: '400px' }}>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50%]">Descripción</TableHead>
@@ -280,17 +401,17 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
         </Card>
 
         <div className="botones-responsive">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={() => router.back()} 
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
             disabled={isLoading}
             className="sm:w-auto w-full"
           >
             Cancelar
           </Button>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={isLoading}
             className="sm:w-auto w-full font-medium"
           >

@@ -22,12 +22,15 @@ interface AssignWorkersFormProps {
   taskId: string
   currentWorkerEmails: string[] // Cambiamos para usar emails en vez de IDs
   workers: Worker[]
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
+  onSuccess?: () => void
 }
 
-export function AssignWorkersForm({ taskId, currentWorkerEmails, workers }: AssignWorkersFormProps) {
+export function AssignWorkersForm({ taskId, currentWorkerEmails, workers, isChatVariant = false, onSuccess }: AssignWorkersFormProps) {
   console.log("AssignWorkersForm - Props recibidas:", { taskId, currentWorkerEmails, workersCount: workers.length })
   console.log("AssignWorkersForm - Workers disponibles:", workers)
-  
+
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(currentWorkerEmails)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -54,11 +57,11 @@ export function AssignWorkersForm({ taskId, currentWorkerEmails, workers }: Assi
       console.log("taskId original:", taskId, typeof taskId);
       console.log("Trabajadores seleccionados (emails):", selectedWorkers);
       console.log("Trabajadores disponibles:", workers);
-      
+
       // Convertir taskId a número
       const taskIdNum = parseInt(taskId, 10);
       console.log("taskId convertido:", taskIdNum);
-      
+
       if (isNaN(taskIdNum)) {
         throw new Error(`ID de tarea inválido: ${taskId}`);
       }
@@ -71,34 +74,34 @@ export function AssignWorkersForm({ taskId, currentWorkerEmails, workers }: Assi
       // Luego, crear las nuevas asignaciones
       if (selectedWorkers.length > 0) {
         // Ya tenemos taskIdNum convertido arriba
-        
+
         // Crear asignaciones directamente basadas en los IDs
         const newAssignments = [];
-        
+
         // Para cada trabajador seleccionado
         for (const workerEmail of selectedWorkers) {
           // Buscar el trabajador por email
           const worker = workers.find(w => w.email === workerEmail);
-          
+
           if (worker && worker.id) {
             console.log("Asignando trabajador:", worker.email, "con ID:", worker.id);
-            
+
             newAssignments.push({
               id_tarea: taskIdNum,
               id_trabajador: worker.id
             });
           }
         }
-        
+
         // Verificar si se crearon asignaciones
         if (newAssignments.length > 0) {
           console.log("Insertando asignaciones:", newAssignments);
-          
+
           // Insertar las asignaciones
           const insertResult = await supabase
             .from("trabajadores_tareas")
             .insert(newAssignments);
-            
+
           if (insertResult.error) {
             console.error("Error al insertar asignaciones:", insertResult.error);
             throw insertResult.error;
@@ -117,8 +120,13 @@ export function AssignWorkersForm({ taskId, currentWorkerEmails, workers }: Assi
         description: "Los trabajadores han sido asignados correctamente",
       })
 
-      router.push(`/dashboard/tareas/${taskId}`)
-      router.refresh()
+      // Chat variant: trigger callback
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        router.push(`/dashboard/tareas/${taskId}`)
+        router.refresh()
+      }
     } catch (error) {
       console.error("Error al asignar trabajadores:", error)
       toast({
@@ -140,7 +148,7 @@ export function AssignWorkersForm({ taskId, currentWorkerEmails, workers }: Assi
             <p className="text-muted-foreground text-sm">No hay trabajadores disponibles</p>
           ) : (
             // Imprimir información sobre trabajadores disponibles
-            console.log('Renderizando', workers.length, 'trabajadores') || 
+            console.log('Renderizando', workers.length, 'trabajadores') ||
             workers.map((worker) => (
               <div key={worker.id} className="flex items-center space-x-2">
                 <Checkbox

@@ -20,9 +20,12 @@ interface AssignSupervisorFormProps {
   taskId: string
   currentSupervisorId: string | null
   supervisors: Supervisor[]
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
+  onSuccess?: () => void
 }
 
-export function AssignSupervisorForm({ taskId, currentSupervisorId, supervisors }: AssignSupervisorFormProps) {
+export function AssignSupervisorForm({ taskId, currentSupervisorId, supervisors, isChatVariant = false, onSuccess }: AssignSupervisorFormProps) {
   const [supervisorId, setSupervisorId] = useState(currentSupervisorId || "unassigned")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -53,8 +56,13 @@ export function AssignSupervisorForm({ taskId, currentSupervisorId, supervisors 
         description: "El supervisor ha sido asignado correctamente",
       })
 
-      router.push(`/dashboard/tareas/${taskId}`)
-      router.refresh()
+      // Chat variant: trigger callback
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        router.push(`/dashboard/tareas/${taskId}`)
+        router.refresh()
+      }
     } catch (error) {
       console.error("Error al asignar supervisor:", error)
       toast({

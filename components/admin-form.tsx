@@ -12,11 +12,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Save } from "lucide-react"
+import { sanitizeText } from "@/lib/utils"
 
-export function AdminForm() {
-  const [nombre, setNombre] = useState("")
-  const [telefono, setTelefono] = useState("")
-  const [estado, setEstado] = useState("activo")
+interface AdminFormProps {
+  initialData?: { nombre?: string; telefono?: string; estado?: string }
+  isChatVariant?: boolean
+  onSuccess?: () => void
+}
+
+export function AdminForm({ initialData, isChatVariant = false, onSuccess }: AdminFormProps = {}) {
+  const [nombre, setNombre] = useState(initialData?.nombre || "")
+  const [telefono, setTelefono] = useState(initialData?.telefono || "")
+  const [estado, setEstado] = useState(initialData?.estado || "activo")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { supabase } = useSupabase()
@@ -67,7 +74,12 @@ export function AdminForm() {
         description: "El administrador ha sido creado correctamente",
       })
 
-      router.push(`/dashboard/administradores/${data.id}`)
+      // Chat variant: trigger success callback
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        router.push(`/dashboard/administradores/${data.id}`)
+      }
     } catch (error) {
       console.error("Error al crear administrador:", error)
       toast({
@@ -80,6 +92,62 @@ export function AdminForm() {
     }
   }
 
+  // Conditional rendering for chat variant
+  const FormContent = () => (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="nombre">Nombre *</Label>
+        <Input
+          id="nombre"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          onBlur={(e) => setNombre(sanitizeText(e.target.value))}
+          placeholder="NOMBRE DEL ADMINISTRADOR"
+          required
+          disabled={isSubmitting}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="telefono">Teléfono *</Label>
+        <Input
+          id="telefono"
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="1155667788"
+          required
+          disabled={isSubmitting}
+        />
+        <p className="text-xs text-muted-foreground">Ingresa solo números (entre 10 y 15 dígitos)</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="estado">Estado</Label>
+        <Select value={estado} onValueChange={setEstado} disabled={isSubmitting}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecciona el estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="activo">Activo</SelectItem>
+            <SelectItem value="inactivo">Inactivo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  )
+
+  if (isChatVariant) {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormContent />
+        <Button type="submit" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {isSubmitting ? "Guardando..." : "Crear Admin"}
+        </Button>
+      </form>
+    )
+  }
+
   return (
     <div className="pb-32">
       <form onSubmit={handleSubmit}>
@@ -88,43 +156,7 @@ export function AdminForm() {
             <CardTitle>Información del Administrador</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="nombre">Nombre *</Label>
-              <Input
-                id="nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Nombre del administrador o consorcio"
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="telefono">Teléfono *</Label>
-              <Input
-                id="telefono"
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="1155667788"
-                required
-                disabled={isSubmitting}
-              />
-              <p className="text-xs text-muted-foreground">Ingresa solo números (entre 10 y 15 dígitos)</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="estado">Estado</Label>
-              <Select value={estado} onValueChange={setEstado} disabled={isSubmitting}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona el estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="activo">Activo</SelectItem>
-                  <SelectItem value="inactivo">Inactivo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FormContent />
           </CardContent>
           <CardFooter className="flex justify-center">
             <Button type="submit" disabled={isSubmitting} size="lg" className="w-full max-w-md py-6 text-lg">

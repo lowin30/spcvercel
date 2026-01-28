@@ -12,10 +12,12 @@ import { Loader2, Upload } from "lucide-react"
 
 interface CommentFormProps {
   idTarea: number;
-  onComentarioCreado?: () => void;
+  onSuccess?: () => void; // Renamed from onComentarioCreado for consistency
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean;
 }
 
-export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
+export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: CommentFormProps) {
   const [contenido, setContenido] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -172,12 +174,14 @@ export function CommentForm({ idTarea, onComentarioCreado }: CommentFormProps) {
       setFiles([])
 
       // Llamar al callback si existe
-      if (onComentarioCreado) {
-        onComentarioCreado()
+      if (onSuccess) {
+        onSuccess()
       }
 
-      // Refrescar página
-      router.refresh()
+      // Refrescar página (solo si no es chat variant)
+      if (!isChatVariant) {
+        router.refresh()
+      }
     } catch (error: any) {
       console.error("Error al agregar comentario:", error)
       const message = error?.message || "No se pudo agregar el comentario"

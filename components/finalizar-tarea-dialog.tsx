@@ -23,6 +23,9 @@ interface FinalizarTareaDialogProps {
   onOpenChange: (open: boolean) => void
   tareaId: number
   onFinalizada: () => void
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
+  onSuccess?: () => void
 }
 
 interface Departamento {
@@ -36,7 +39,9 @@ export function FinalizarTareaDialog({
   open,
   onOpenChange,
   tareaId,
-  onFinalizada
+  onFinalizada,
+  isChatVariant = false,
+  onSuccess
 }: FinalizarTareaDialogProps) {
   const [resumen, setResumen] = useState("")
   const [huboTrabajo, setHuboTrabajo] = useState<boolean | null>(null)
@@ -53,16 +58,16 @@ export function FinalizarTareaDialog({
 
       try {
         const supabase = createClient()
-        
+
         // Verificar si existe PB
         const { data: pb } = await supabase
           .from("presupuestos_base")
           .select("id, aprobado")
           .eq("id_tarea", tareaId)
           .maybeSingle()
-        
+
         setTienePB(!!pb)
-        
+
         // Cargar departamentos
         const { data, error } = await supabase
           .from("departamentos_tareas")
@@ -103,7 +108,7 @@ export function FinalizarTareaDialog({
       toast.error("Debes indicar si se realizó trabajo en esta tarea")
       return
     }
-    
+
     // Validación 2: Resumen obligatorio
     if (!resumen.trim()) {
       toast.error("Debes escribir un resumen de lo realizado")
@@ -179,7 +184,7 @@ export function FinalizarTareaDialog({
       // SI NO HUBO TRABAJO → El trigger rechaza PF automáticamente
 
       // 4. Guardar comentario con contexto
-      const prefijoComentario = huboTrabajo 
+      const prefijoComentario = huboTrabajo
         ? "TAREA FINALIZADA"
         : "TAREA CERRADA SIN TRABAJO"
 
@@ -212,7 +217,7 @@ export function FinalizarTareaDialog({
           .single()
 
         // Concatenar con historial
-        const notasActualizadas = currentData?.notas 
+        const notasActualizadas = currentData?.notas
           ? `${currentData.notas}\n\n${nuevaNota}`
           : nuevaNota
 
@@ -232,12 +237,16 @@ export function FinalizarTareaDialog({
       setHuboTrabajo(null)
       setNotasDepartamentos({})
       setDepartamentos([])
-      
-      // Redirigir a la página de tareas después de un breve delay
-      setTimeout(() => {
-        router.push("/dashboard/tareas")
-      }, 1000)
 
+      // Chat variant: trigger success callback
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        // Redirigir a la página de tareas después de un breve delay
+        setTimeout(() => {
+          router.push("/dashboard/tareas")
+        }, 1000)
+      }
     } catch (error) {
       console.error("Error al finalizar tarea:", error)
       toast.error("Error al finalizar tarea")
@@ -270,8 +279,8 @@ export function FinalizarTareaDialog({
               <AlertCircle className="h-4 w-4 text-amber-600" />
               ¿Se realizó trabajo en esta tarea? *
             </Label>
-            <RadioGroup 
-              value={huboTrabajo?.toString()} 
+            <RadioGroup
+              value={huboTrabajo?.toString()}
               onValueChange={(v) => setHuboTrabajo(v === "true")}
             >
               <div className="flex items-start space-x-2 mb-2">
@@ -301,7 +310,7 @@ export function FinalizarTareaDialog({
             </Label>
             <Textarea
               id="resumen"
-              placeholder={huboTrabajo === false 
+              placeholder={huboTrabajo === false
                 ? "Ej: Cliente canceló el trabajo, no se pudo acceder al depto..."
                 : "Ej: Se realizó la reparación completa del sistema eléctrico..."}
               value={resumen}

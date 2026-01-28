@@ -504,178 +504,63 @@ export function TaskForm({
 
   // Handle form submission
   async function onSubmit(values: TaskFormValues) {
-    console.log("Form values on submit:", values); // DEBUGGING
-    console.log("Submitting task with supervisor ID:", values.id_supervisor);
-    console.log("Submitting id_estado_nuevo:", values.id_estado_nuevo);
     setIsSubmitting(true);
 
     try {
       const { id_supervisor, id_asignado, id_estado_nuevo, departamentos_ids, ...otherFormValues } = values;
 
-      // Construir el payload explícitamente
-      const taskDataPayload: any = {
-        titulo: otherFormValues.titulo,
-        descripcion: otherFormValues.descripcion,
-        id_administrador: Number.parseInt(values.id_administrador),
-        id_edificio: Number.parseInt(values.id_edificio),
+      // Importar acciones de servidor
+      const { createTask, updateTask } = await import('@/app/dashboard/tareas/actions');
+
+      // Preparar payload común
+      const payload = {
+        titulo: values.titulo,
+        descripcion: values.descripcion,
+        id_administrador: values.id_administrador,
+        id_edificio: values.id_edificio,
         prioridad: values.prioridad,
-        id_estado_nuevo: Number.parseInt(id_estado_nuevo) // Usar directamente el valor del formulario
+        id_estado_nuevo: values.id_estado_nuevo,
+        fecha_visita: values.fecha_visita,
+        id_supervisor: values.id_supervisor,
+        id_asignado: values.id_asignado, // action mapped to id_trabajador/id_asignado inside
+        departamentos_ids: values.departamentos_ids
       };
 
-      // Solo incluir fecha_visita si NO estamos en modo edición
-      if (!isEditMode) {
-        taskDataPayload.fecha_visita = values.fecha_visita;
-      }
-
-      let taskId: number;
-      let taskCode: string | undefined;
-      let taskTitle: string | undefined;
-
       if (task) {
-        // Update existing task
-        const { data: updatedTask, error: updateError } = await supabase
-          .from("tareas")
-          .update(taskDataPayload)
-          .eq("id", task.id)
-          .select("id, code, title")
-          .single();
+        // UPDATE
+        const res = await updateTask(task.id, payload);
+        if (!res.success) throw new Error(res.message);
 
-        if (updateError) throw updateError;
-        taskId = updatedTask.id;
-        taskCode = updatedTask.code;
-        taskTitle = updatedTask.title;
+        toast.success("Tarea actualizada correctamente.");
 
-        // Solo actualizar supervisor/trabajador si NO estamos en modo edición (isEditMode)
-        if (!isEditMode) {
-          // Update supervisor link
-          await supabase.from("supervisores_tareas").delete().eq("id_tarea", taskId);
-          if (id_supervisor && id_supervisor.trim() !== "") {
-            const { error: supervisorError } = await supabase
-              .from("supervisores_tareas")
-              .insert({ id_tarea: taskId, id_supervisor: id_supervisor });
-            if (supervisorError) throw supervisorError;
-          }
-
-          // Update trabajador link (tabla relacional)
-          await supabase.from("trabajadores_tareas").delete().eq("id_tarea", taskId);
-          if (id_asignado && id_asignado.trim() !== "") {
-            const { error: trabajadorError } = await supabase
-              .from("trabajadores_tareas")
-              .insert({ id_tarea: taskId, id_trabajador: id_asignado });
-            if (trabajadorError) throw trabajadorError;
+        if (onSuccess) {
+          onSuccess(task.id, task.code || "", task.titulo);
+        } else {
+          router.refresh();
+          if (!isEditMode) {
+            router.push(`/dashboard/tareas/${task.id}`);
           }
         }
+
       } else {
-        // Crear nueva tarea mediante RPC transaccional para evitar SELECT de representación (RLS)
-        const { data: result, error: createError } = await supabase.rpc('crear_tarea_con_asignaciones', {
-          p_titulo: taskDataPayload.titulo,
-          p_descripcion: taskDataPayload.descripcion,
-          p_id_administrador: taskDataPayload.id_administrador,
-          p_id_edificio: taskDataPayload.id_edificio,
-          p_prioridad: taskDataPayload.prioridad,
-          p_id_estado_nuevo: taskDataPayload.id_estado_nuevo,
-          p_fecha_visita: taskDataPayload.fecha_visita ?? null,
-          p_id_supervisor: (id_supervisor && id_supervisor.trim() !== '') ? id_supervisor : null,
-          p_id_trabajador: (id_asignado && id_asignado.trim() !== '') ? id_asignado : null,
-          p_departamentos_ids: (departamentos_ids || []).map((d) => Number.parseInt(d))
-        });
-        if (createError) throw createError;
+        // CREATE
+        const res = await createTask(payload);
+        if (!res.success) throw new Error(res.error);
 
-        // El RPC retorna un objeto JSON { id: number, code: string }
-        const createdTask = result as { id: number, code: string };
-        taskId = createdTask.id;
-        taskCode = createdTask.code;
-        taskTitle = taskDataPayload.titulo;
-      }
+        toast.success("Tarea creada correctamente.");
 
-      // Actualizar departamentos usando upsert para evitar conflictos
-      if (task) {
-        // ... (existing departamento logic remains unchanged) we skip showing it in this replacement to avoid big context match
-        // Actually, I can't skip lines in replacement content easily without matching properly.
-        // I will use a different strategy: just replacing the onSuccess block and the variable assignment separaretly?
-        // No, I'll stick to the "end of function" replacement strategy for onSuccess.
-      }
-
-      // ... SKIPPING DEPARTAMENTOS LOGIC ...
-      // I will target the onSuccess block specifically.
-
-
-      // Actualizar departamentos usando upsert para evitar conflictos
-      if (task) {
-        // Primero eliminar todos los departamentos existentes
-        console.log('Eliminando departamentos existentes para tarea:', taskId);
-        const { error: deleteDeptoError } = await supabase
-          .from("departamentos_tareas")
-          .delete()
-          .eq("id_tarea", taskId);
-
-        if (deleteDeptoError) {
-          console.error("Error al eliminar departamentos:", deleteDeptoError);
-          // No lanzar error, intentar continuar con upsert
+        const createdTask = res.task;
+        if (onSuccess && createdTask) {
+          onSuccess(createdTask.id, createdTask.code, values.titulo);
         } else {
-          console.log('Departamentos eliminados correctamente');
+          router.push(`/dashboard/tareas/${createdTask.id}`);
+          router.refresh();
         }
       }
 
-      // Insertar múltiples departamentos usando upsert SOLO en edición;
-      // en creación la RPC ya crea las relaciones de departamentos
-      if (task && departamentos_ids.length > 0) {
-        // Eliminar duplicados
-        const uniqueDepartamentos = [...new Set(departamentos_ids)];
-        const departamentosInserts = uniqueDepartamentos.map(depId => ({
-          id_tarea: taskId,
-          id_departamento: Number.parseInt(depId)
-        }));
-
-        console.log('Upserting departamentos:', departamentosInserts);
-
-        // Usar upsert para evitar conflictos de clave duplicada
-        const { error: departamentosError } = await supabase
-          .from("departamentos_tareas")
-          .upsert(departamentosInserts, {
-            onConflict: 'id_tarea,id_departamento',
-            ignoreDuplicates: false
-          });
-
-        if (departamentosError) {
-          console.error('Error al upsert departamentos:', departamentosError);
-          throw departamentosError;
-        }
-        console.log('Departamentos actualizados correctamente');
-      }
-
-      toast("Tarea guardada correctamente.");
-
-
-      // Si recibimos onSuccess, lo ejecutamos y evitamos la navegación default
-      if (onSuccess) {
-        console.log("Calling onSuccess with:", { taskId, taskCode, taskTitle });
-
-        // Ensure taskId is a primitive number (Safety Check for [object Object] bug)
-        if (typeof taskId === 'object') {
-          console.error("CRITICAL: taskId is an object!", taskId);
-          const extractedId = (taskId as any).id || taskId;
-          onSuccess(Number(extractedId), taskCode, taskTitle);
-        } else {
-          onSuccess(taskId, taskCode, taskTitle);
-        }
-
-        setIsSubmitting(false);
-        return;
-      }
-
-
-      router.refresh();
-      if (!isEditMode) {
-        router.push(`/dashboard/tareas/${taskId}`);
-      } else {
-        setIsSubmitting(false);
-      }
     } catch (error: any) {
       console.error("Error:", error);
-      toast.error(
-        error.message || "Ocurrió un error al guardar la tarea."
-      );
+      toast.error(error.message || "Ocurrió un error al guardar la tarea.");
     } finally {
       setIsSubmitting(false);
     }

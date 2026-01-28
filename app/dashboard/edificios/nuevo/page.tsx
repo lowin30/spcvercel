@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
-import { BuildingForm } from "@/components/building-form"
+import { BuildingWizard } from "@/components/buildings/building-wizard"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, Loader2 } from "lucide-react"
@@ -22,9 +22,9 @@ export default function NuevoEdificioPage() {
     async function loadData() {
       try {
         setLoading(true)
-        
+
         // 3. Inicialización del cliente Supabase
-        
+
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
           return
@@ -33,30 +33,30 @@ export default function NuevoEdificioPage() {
         // 4. Verificación de sesión
         const sessionResponse = await supabase.auth.getSession()
         const session = sessionResponse.data.session
-        
+
         if (!session) {
           router.push("/login")
           return
         }
-        
+
         // 5. Obtención de datos del usuario
         const userResponse = await supabase
           .from("usuarios")
           .select("*")
           .eq("id", session.user.id)
           .single()
-        
+
         const userData = userResponse.data
         const userError = userResponse.error
-        
+
         if (userError) {
           console.error("Error al obtener datos del usuario:", userError)
           setError("Error al obtener datos del usuario")
           return
         }
-        
+
         setUserDetails(userData)
-        
+
         // 6. Verificación de permisos
         if (userData?.rol !== "admin") {
           router.push("/dashboard")
@@ -68,13 +68,13 @@ export default function NuevoEdificioPage() {
           .from("administradores")
           .select("id, nombre")
           .order("nombre")
-        
+
         if (administradoresResponse.error) {
           console.error("Error al cargar administradores:", administradoresResponse.error)
           setError("Error al cargar datos de administradores")
           return
         }
-        
+
         setAdministradores(administradoresResponse.data || [])
         setLoading(false)
       } catch (err) {
@@ -83,7 +83,7 @@ export default function NuevoEdificioPage() {
         setLoading(false)
       }
     }
-    
+
     loadData()
   }, [router])
 
@@ -125,7 +125,7 @@ export default function NuevoEdificioPage() {
         </div>
       </div>
 
-      <BuildingForm administradores={administradores} supabase={supabase} />
+      <BuildingWizard administradores={administradores} mode="create" />
     </div>
   )
 }

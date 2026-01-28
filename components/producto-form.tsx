@@ -24,18 +24,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { sanitizeText } from "@/lib/utils"
 
 interface ProductoFormProps {
   producto?: Producto
   categorias: { id: string; nombre: string }[]
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
+  initialData?: Partial<Producto>
+  onSuccess?: () => void
 }
 
-export function ProductoForm({ producto, categorias }: ProductoFormProps) {
-  const [nombre, setNombre] = useState(producto?.nombre || "")
-  const [descripcion, setDescripcion] = useState(producto?.descripcion || "")
-  const [precio, setPrecio] = useState(producto?.precio?.toString() || "")
-  const [categoriaId, setCategoriaId] = useState(producto?.categoria_id || "")
-  const [activo, setActivo] = useState(producto?.activo !== false)
+export function ProductoForm({ producto, categorias, isChatVariant = false, initialData, onSuccess }: ProductoFormProps) {
+  // Merge initialData with producto for flexibility
+  const mergedData = { ...producto, ...initialData }
+
+  const [nombre, setNombre] = useState(mergedData?.nombre || "")
+  const [descripcion, setDescripcion] = useState(mergedData?.descripcion || "")
+  const [precio, setPrecio] = useState(mergedData?.precio?.toString() || "")
+  const [categoriaId, setCategoriaId] = useState(mergedData?.categoria_id || "")
+  const [activo, setActivo] = useState(mergedData?.activo !== false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [nuevaCategoria, setNuevaCategoria] = useState("")
   const [openDialog, setOpenDialog] = useState(false)
@@ -43,6 +51,9 @@ export function ProductoForm({ producto, categorias }: ProductoFormProps) {
   const { supabase } = useSupabase()
   const { toast } = useToast()
   const router = useRouter()
+
+  // SPC v3.5 Sanitization Handler
+  const handleSanitize = (value: string) => sanitizeText(value)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,9 +102,14 @@ export function ProductoForm({ producto, categorias }: ProductoFormProps) {
         })
       }
 
-      // Redirigir a la lista de productos
-      router.push("/dashboard/productos")
-      router.refresh()
+      // Chat variant: trigger success callback instead of redirect
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        // Normal web flow: redirect
+        router.push("/dashboard/productos")
+        router.refresh()
+      }
     } catch (error: any) {
       console.error("Error al guardar producto:", error)
       toast({
@@ -145,105 +161,104 @@ export function ProductoForm({ producto, categorias }: ProductoFormProps) {
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>{producto ? "Editar Producto" : "Nuevo Producto"}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="nombre">Nombre *</Label>
-            <Input
-              id="nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              disabled={isSubmitting}
-              required
-            />
-          </div>
+  // Conditional rendering based on chat variant
+  const FormContent = () => (
+    <>
+      <div className="space-y-2">
+        <Label htmlFor="nombre">Nombre *</Label>
+        <Input
+          id="nombre"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          onBlur={(e) => setNombre(handleSanitize(e.target.value))}
+          disabled={isSubmitting}
+          required
+          placeholder="Ej: CAÑO ESPAÑOL"
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="descripcion">Descripción</Label>
-            <Textarea
-              id="descripcion"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              disabled={isSubmitting}
-              rows={3}
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="descripcion">Descripción</Label>
+        <Textarea
+          id="descripcion"
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          disabled={isSubmitting}
+          rows={3}
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="precio">Precio (en pesos) *</Label>
-            <Input
-              id="precio"
-              type="number"
-              min="1"
-              step="1"
-              value={precio}
-              onChange={(e) => setPrecio(e.target.value)}
-              disabled={isSubmitting}
-              required
-            />
-            <p className="text-sm text-muted-foreground">Ingresa el precio en pesos, sin decimales.</p>
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="precio">Precio (en pesos) *</Label>
+        <Input
+          id="precio"
+          type="number"
+          min="1"
+          step="1"
+          value={precio}
+          onChange={(e) => setPrecio(e.target.value)}
+          disabled={isSubmitting}
+          required
+        />
+        <p className="text-sm text-muted-foreground">Ingresa el precio en pesos, sin decimales.</p>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="categoria">Categoría *</Label>
-            <div className="flex gap-2">
-              <Select value={categoriaId} onValueChange={setCategoriaId} disabled={isSubmitting} required>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona una categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categorias.map((categoria) => (
-                    <SelectItem key={categoria.id} value={categoria.id}>
-                      {categoria.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-                <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="icon">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Nueva Categoría</DialogTitle>
-                    <DialogDescription>Crea una nueva categoría para los productos.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nuevaCategoria">Nombre de la categoría</Label>
-                      <Input
-                        id="nuevaCategoria"
-                        value={nuevaCategoria}
-                        onChange={(e) => setNuevaCategoria(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="button" onClick={handleCrearCategoria}>
-                      Crear Categoría
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="categoria">Categoría *</Label>
+        <div className="flex gap-2">
+          <Select value={categoriaId} onValueChange={setCategoriaId} disabled={isSubmitting} required>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecciona una categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {categorias.map((categoria) => (
+                <SelectItem key={categoria.id} value={categoria.id}>
+                  {categoria.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="icon">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva Categoría</DialogTitle>
+                <DialogDescription>Crea una nueva categoría para los productos.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nuevaCategoria">Nombre de la categoría</Label>
+                  <Input
+                    id="nuevaCategoria"
+                    value={nuevaCategoria}
+                    onChange={(e) => setNuevaCategoria(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={handleCrearCategoria}>
+                  Crear Categoría
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch id="activo" checked={activo} onCheckedChange={setActivo} disabled={isSubmitting} />
-            <Label htmlFor="activo">Producto activo</Label>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
+      <div className="flex items-center space-x-2">
+        <Switch id="activo" checked={activo} onCheckedChange={setActivo} disabled={isSubmitting} />
+        <Label htmlFor="activo">Producto activo</Label>
+      </div>
+
+      {!isChatVariant && (
+        <div className="flex justify-between pt-4">
           <Button
             type="button"
             variant="outline"
@@ -254,9 +269,37 @@ export function ProductoForm({ producto, categorias }: ProductoFormProps) {
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {producto ? "Guardar Cambios" : "Crear Producto"}
+            {mergedData ? "Guardar Cambios" : "Crear Producto"}
           </Button>
-        </CardFooter>
+        </div>
+      )}
+
+      {isChatVariant && (
+        <Button type="submit" disabled={isSubmitting} className="w-full mt-4">
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {mergedData ? "Actualizar" : "Crear Producto"}
+        </Button>
+      )}
+    </>
+  )
+
+  if (isChatVariant) {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <FormContent />
+      </form>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Card>
+        <CardHeader>
+          <CardTitle>{mergedData ? "Editar Producto" : "Nuevo Producto"}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <FormContent />
+        </CardContent>
       </Card>
     </form>
   )

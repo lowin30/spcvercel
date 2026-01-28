@@ -20,12 +20,16 @@ interface Trabajador {
 
 interface ConfigurarTrabajadorFormProps {
   trabajadores: Trabajador[]
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
+  initialData?: { id_trabajador?: string; salario_diario?: number; activo?: boolean }
+  onSuccess?: () => void
 }
 
-export function ConfigurarTrabajadorForm({ trabajadores }: ConfigurarTrabajadorFormProps) {
-  const [selectedTrabajador, setSelectedTrabajador] = useState("")
-  const [salarioDiario, setSalarioDiario] = useState("")
-  const [activo, setActivo] = useState(true)
+export function ConfigurarTrabajadorForm({ trabajadores, isChatVariant = false, initialData, onSuccess }: ConfigurarTrabajadorFormProps) {
+  const [selectedTrabajador, setSelectedTrabajador] = useState(initialData?.id_trabajador || "")
+  const [salarioDiario, setSalarioDiario] = useState(initialData?.salario_diario?.toString() || "")
+  const [activo, setActivo] = useState(initialData?.activo ?? true)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
@@ -59,8 +63,13 @@ export function ConfigurarTrabajadorForm({ trabajadores }: ConfigurarTrabajadorF
         description: "Configuración de trabajador guardada correctamente",
       })
 
-      router.push("/dashboard/trabajadores")
-      router.refresh()
+      // Chat variant: trigger success callback
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        router.push("/dashboard/trabajadores")
+        router.refresh()
+      }
     } catch (error) {
       console.error("Error:", error)
       toast({
@@ -109,7 +118,7 @@ export function ConfigurarTrabajadorForm({ trabajadores }: ConfigurarTrabajadorF
         <Label htmlFor="activo">Trabajador activo</Label>
       </div>
 
-      <Button type="submit" disabled={isLoading}>
+      <Button type="submit" disabled={isLoading} className={isChatVariant ? "w-full" : ""}>
         {isLoading ? "Guardando..." : "Guardar Configuración"}
       </Button>
     </form>

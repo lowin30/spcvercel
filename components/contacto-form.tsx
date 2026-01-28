@@ -52,9 +52,12 @@ interface ContactoFormProps {
   administradores: { id: number; nombre: string }[]
   edificios: { id: number; nombre: string; id_administrador: number | null }[]
   departamentos: { id: number; nombre: string }[] // Se recibirá vacío
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
+  onSuccess?: () => void
 }
 
-export function ContactoForm({ contacto, supabaseClient, administradores, edificios, departamentos }: ContactoFormProps) {
+export function ContactoForm({ contacto, supabaseClient, administradores, edificios, departamentos, isChatVariant = false, onSuccess }: ContactoFormProps) {
   const router = useRouter()
   const supabase = supabaseClient // Usar el cliente Supabase de las props
   const { toast } = useToast()
@@ -227,9 +230,14 @@ export function ContactoForm({ contacto, supabaseClient, administradores, edific
           : `El contacto ${data.nombre} ha sido creado correctamente.`,
       })
 
-      // Redirigir a la lista de contactos
-      router.push("/dashboard/contactos")
-      router.refresh()
+      // Chat variant: trigger callback
+      if (isChatVariant && onSuccess) {
+        onSuccess()
+      } else {
+        // Redirigir a la lista de contactos
+        router.push("/dashboard/contactos")
+        router.refresh()
+      }
     } catch (error) {
       console.error("Error al guardar el contacto:", error)
       toast({

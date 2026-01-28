@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
+import { sanitizeText } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -297,27 +298,17 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
 
             } else {
                 // CREATE LOGIC
-                const payload = {
-                    p_titulo: formData.titulo,
-                    p_descripcion: formData.descripcion,
-                    p_id_administrador: parseInt(formData.id_administrador),
-                    p_id_edificio: parseInt(formData.id_edificio),
-                    p_prioridad: formData.prioridad,
-                    p_id_estado_nuevo: parseInt(formData.id_estado_nuevo),
-                    p_fecha_visita: formData.fecha_visita,
-                    p_id_supervisor: formData.id_supervisor || null,
-                    p_id_trabajador: formData.id_asignado || null,
-                    p_departamentos_ids: formData.departamentos_ids.map(Number)
-                }
+                // Importamos la acción de servidor para asegurar sanitización
+                const { createTask } = await import('@/app/dashboard/tareas/actions')
 
-                const { data, error } = await supabase.rpc('crear_tarea_con_asignaciones', payload)
+                const res = await createTask(formData)
 
-                if (error) throw error
+                if (!res.success) throw new Error(res.error)
 
                 toast.success("Tarea creada exitosamente")
 
+                const data = res.task
                 if (onSuccess && data) {
-                    // data is { id, code }
                     onSuccess(data.id, data.code)
                 } else {
                     router.push(`/dashboard/tareas/${data?.id}`)
@@ -421,6 +412,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                     ref={titleInputRef}
                     value={formData.titulo}
                     onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
+                    onBlur={(e) => setFormData(prev => ({ ...prev, titulo: sanitizeText(e.target.value) }))}
                     placeholder="Ej: Edificio Central 5B - Filtración"
                 />
             </div>
@@ -430,6 +422,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                 <Textarea
                     value={formData.descripcion}
                     onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
+                    onBlur={(e) => setFormData(prev => ({ ...prev, descripcion: sanitizeText(e.target.value) }))}
                     placeholder="Detalla el problema..."
                     rows={4}
                 />

@@ -26,6 +26,8 @@ interface CambiarEstadoProps {
   buttonText?: string
   buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
   onEstadoChange?: (nuevoEstadoId: number, esFinalizada: boolean) => void
+  // Chat Integration Props (SPC v9.5)
+  isChatVariant?: boolean
 }
 
 interface Estado {
@@ -78,11 +80,11 @@ export function CambiarEstado(props: CambiarEstadoProps) {
     buttonVariant = "default",
     onEstadoChange,
   } = props
-  
+
   const tipoEntidad = propsTipoEntidad || (idTarea ? "tarea" : "presupuesto")
   const entidadId = propsEntidadId || idTarea || 0
   const estadoActualId = propsEstadoActualId || estadoActual || null
-  
+
   const [estados, setEstados] = useState<Estado[]>([])
   const [selectedEstadoId, setSelectedEstadoId] = useState<number | null>(estadoActualId)
   const [isLoading, setIsLoading] = useState(false)
@@ -104,7 +106,7 @@ export function CambiarEstado(props: CambiarEstadoProps) {
       const timeoutId = setTimeout(() => {
         try {
           let estadosParaEntidad: Estado[] = [];
-          
+
           if (tipoEntidad === "tarea") {
             estadosParaEntidad = estadosMockeados.tarea;
           } else if (tipoEntidad === "presupuesto") {
@@ -112,7 +114,7 @@ export function CambiarEstado(props: CambiarEstadoProps) {
           } else if (tipoEntidad === "factura") {
             estadosParaEntidad = estadosMockeados.factura;
           }
-          
+
           console.log(`Estados cargados (${estadosParaEntidad.length}) para ${tipoEntidad}:`, estadosParaEntidad);
           setEstados(estadosParaEntidad);
         } catch (error) {
@@ -136,23 +138,23 @@ export function CambiarEstado(props: CambiarEstadoProps) {
   const handleEstadoChange = async (value: string) => {
     const nuevoEstadoId = Number(value);
     setSelectedEstadoId(nuevoEstadoId);
-    
+
     setIsLoading(true);
-    
+
     try {
       // Obtener información del estado seleccionado para mostrar mensaje de éxito
       const estadoSeleccionado = estados.find(e => e.id === nuevoEstadoId);
       if (!estadoSeleccionado) {
         throw new Error("Estado no encontrado");
       }
-      
+
       if (!entidadId) {
         throw new Error(`ID de entidad no proporcionado`);
       }
-      
+
       // Simular un tiempo de procesamiento breve
       await new Promise(resolve => setTimeout(resolve, 600));
-      
+
       // Log del cambio (para simular la operación)
       console.log('Simulando actualización de estado:', {
         tipoEntidad,
@@ -162,12 +164,12 @@ export function CambiarEstado(props: CambiarEstadoProps) {
         nuevoEstadoNombre: estadoSeleccionado.nombre,
         esTareaFinalizada
       });
-      
+
       // En una implementación real, aquí se realizarían las llamadas a la API
       // para actualizar el estado y el flag de finalización de la entidad
-      
+
       toast({
-        title: "Cambios guardados", 
+        title: "Cambios guardados",
         description: `La ${tipoEntidad} ha sido actualizada: ${estadoSeleccionado.nombre} ${esTareaFinalizada ? '(Finalizada)' : '(Activa)'}`,
       });
 
@@ -178,10 +180,10 @@ export function CambiarEstado(props: CambiarEstadoProps) {
 
       // Cerrar el diálogo automáticamente después de aplicar el cambio
       setIsOpen(false);
-      
+
       // Opcionalmente, podríamos emitir un evento para informar al componente padre
       // de que el estado ha cambiado y necesita actualizar su UI
-      
+
     } catch (err) {
       console.error(`Error al guardar cambios:`, err);
       toast({
@@ -193,7 +195,7 @@ export function CambiarEstado(props: CambiarEstadoProps) {
       setIsLoading(false);
     }
   }
-  
+
   // Función para manejar el cambio del switch finalizada/activa
   const handleFinalizadaChange = (checked: boolean) => {
     setEsTareaFinalizada(checked);
@@ -217,10 +219,10 @@ export function CambiarEstado(props: CambiarEstadoProps) {
       "yellow": "#FFC107",
       "red": "#F44336",
     };
-    
+
     return colorMap[colorName] || colorName; // Si no está en el mapa, usar el color directamente
   };
-  
+
   // Ya no filtramos estados, mostramos todos
   const estadosFiltrados = estados;
 
@@ -233,12 +235,12 @@ export function CambiarEstado(props: CambiarEstadoProps) {
         <DialogHeader>
           <DialogTitle>Cambiar estado</DialogTitle>
           <DialogDescription>
-            Selecciona el nuevo estado para {tipoEntidad === "tarea" ? "la tarea" : 
-                                           tipoEntidad === "presupuesto" ? "el presupuesto" : 
-                                           tipoEntidad === "factura" ? "la factura" : "la entidad"}
+            Selecciona el nuevo estado para {tipoEntidad === "tarea" ? "la tarea" :
+              tipoEntidad === "presupuesto" ? "el presupuesto" :
+                tipoEntidad === "factura" ? "la factura" : "la entidad"}
           </DialogDescription>
         </DialogHeader>
-        
+
         {/* Toggle para marcar la tarea como finalizada */}
         {tipoEntidad === "tarea" && (
           <div className="flex items-center justify-between border-b pb-3">
@@ -255,7 +257,7 @@ export function CambiarEstado(props: CambiarEstadoProps) {
             </div>
           </div>
         )}
-        
+
         <div className="space-y-4 py-4">
           {isLoadingEstados ? (
             <div className="text-center py-4 flex items-center justify-center">
@@ -272,14 +274,14 @@ export function CambiarEstado(props: CambiarEstadoProps) {
                   {estadosFiltrados.map((estado) => {
                     const colorStyle = getColorStyle(estado.color);
                     return (
-                      <div 
-                        key={estado.id} 
+                      <div
+                        key={estado.id}
                         className={`flex items-center space-x-2 p-2 rounded-md hover:bg-slate-100 ${estado.es_final ? 'opacity-90' : 'opacity-100'}`}
                       >
                         <RadioGroupItem value={estado.id.toString()} id={`estado-${estado.id}`} />
                         <Label htmlFor={`estado-${estado.id}`} className="flex-1 flex items-center cursor-pointer">
-                          <div 
-                            className="w-3 h-3 rounded-full mr-2" 
+                          <div
+                            className="w-3 h-3 rounded-full mr-2"
                             style={{ backgroundColor: colorStyle }}
                           />
                           <div>

@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBadges } from '@/hooks/use-badges'
+import { TOOL_REGISTRY } from '@/lib/tool-registry'
 
 interface QuickAction {
     icon: string
     label: string
     command: string
     variant?: 'default' | 'outline' | 'destructive' | 'secondary'
+    priority?: 'critical' | 'high' | 'medium' | 'low'
 }
 
 interface ChatQuickActionsProps {
@@ -18,34 +20,25 @@ interface ChatQuickActionsProps {
 }
 
 export function ChatQuickActions({ role, onActionClick }: ChatQuickActionsProps) {
-    const { badges } = useBadges() // Hook seguro para contadores
+    const { badges } = useBadges()
 
-    const actions: Record<string, QuickAction[]> = {
-        admin: [
-            { icon: '➕', label: 'Nueva Tarea', command: 'crear_tarea', variant: 'default' },
-            { icon: '✅', label: 'Aprobar Presup.', command: 'aprobar_presupuesto', variant: 'default' },
-            { icon: '📊', label: 'Ver KPIs', command: 'mostrar_kpis', variant: 'outline' },
-            { icon: '🔔', label: 'Alertas', command: 'ver_alertas', variant: 'destructive' },
-            { icon: '💰', label: 'Liquidación', command: 'crear_liquidacion', variant: 'outline' },
-            { icon: '📈', label: 'ROI', command: 'calcular_roi_tarea', variant: 'outline' },
-        ],
-        supervisor: [
-            { icon: '📋', label: 'Mis Tareas', command: 'listar_mis_tareas', variant: 'default' },
-            { icon: '✅', label: 'Aprobar Gasto', command: 'aprobar_gasto', variant: 'default' },
-            { icon: '➕', label: 'Nueva Tarea', command: 'crear_tarea', variant: 'outline' },
-            { icon: '💼', label: 'Presup. Base', command: 'crear_presupuesto_base', variant: 'outline' },
-            { icon: '👷', label: 'Mi Equipo', command: 'ver_mi_equipo', variant: 'outline' },
-            { icon: '📊', label: 'Liquidación', command: 'ver_liquidacion_equipo', variant: 'outline' },
-        ],
-        trabajador: [
-            { icon: '📋', label: 'Mis Tareas', command: 'listar_mis_tareas', variant: 'default' },
-            { icon: '⏱️', label: 'Registrar Día', command: 'registrar_parte', variant: 'default' },
-            { icon: '💰', label: 'Nuevo Gasto', command: 'registrar_gasto', variant: 'outline' },
-            { icon: '💵', label: 'Mis Pagos', command: 'ver_mis_pagos', variant: 'outline' },
-        ],
-    }
-
-    const roleActions = actions[role] || []
+    // Build actions dynamically from TOOL_REGISTRY filtered by role
+    const roleActions: QuickAction[] = Object.entries(TOOL_REGISTRY)
+        .filter(([_, config]) => config.roles.includes(role))
+        .map(([toolName, config]) => ({
+            icon: config.icon,
+            label: config.label,
+            command: toolName,
+            variant: config.priority === 'critical' ? 'default' : 'outline' as any,
+            priority: config.priority
+        }))
+        // Sort by priority (critical > high > medium > low)
+        .sort((a, b) => {
+            const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+            return (priorityOrder[a.priority || 'low'] || 3) - (priorityOrder[b.priority || 'low'] || 3)
+        })
+        // Limit to top 9 for UI cleanliness
+        .slice(0, 9)
 
     if (roleActions.length === 0) {
         return null
@@ -76,7 +69,7 @@ export function ChatQuickActions({ role, onActionClick }: ChatQuickActionsProps)
                             transition={{ delay: index * 0.05 }}
                         >
                             <Button
-                                type="button" // Important: Prevent form submit
+                                type="button"
                                 variant={action.variant || 'outline'}
                                 size="sm"
                                 className="w-full h-auto py-1.5 px-2 flex items-center justify-start gap-1.5 text-left hover:scale-105 transition-transform relative"
@@ -89,7 +82,6 @@ export function ChatQuickActions({ role, onActionClick }: ChatQuickActionsProps)
                                 <span className="text-sm">{action.icon}</span>
                                 <span className="text-[10px] font-medium leading-tight truncate flex-1">{action.label}</span>
 
-                                {/* Badge Dinámico */}
                                 {badges[action.command] && badges[action.command] > 0 && (
                                     <Badge
                                         variant="destructive"

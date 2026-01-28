@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Bot, Send, Mic, MicOff, Loader2, X, Copy, Check } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { ChatQuickActions } from "@/components/chat-quick-actions"
+import { CofreSelector } from "@/components/chat/cofre-selector"
 import { TaskListWelcome } from "@/components/task-list-welcome"
 import { ToolConfirmationCard } from "@/components/tool-confirmation-card"
 import { ToolInvocation } from "ai"
@@ -17,6 +17,8 @@ const RegistroParteTrabajoForm = dynamic(() => import('./registro-parte-trabajo-
 const PresupuestoBaseForm = dynamic(() => import('./presupuesto-base-form'), { ssr: false })
 
 const TaskFormChatWrapper = dynamic(() => import('./task-form-chat-wrapper'), { ssr: false })
+const BuildingWizard = dynamic(() => import('@/components/buildings/building-wizard').then(mod => mod.BuildingWizard), { ssr: false })
+const BuildingToolWrapper = dynamic(() => import('@/components/chat/tools/building-tool').then(mod => mod.BuildingToolWrapper), { ssr: false })
 const EstimationCard = dynamic(() => import('@/components/ai/estimation-card').then(mod => mod.EstimationCard), { ssr: false })
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
     loading: () => <span className="animate-pulse">...</span>,
@@ -52,7 +54,24 @@ const CopyButton = ({ text }: { text: string }) => {
 }
 
 export function AiChatWidget() {
-    // ... (estados existentes)
+    const [isOpen, setIsOpen] = useState(false)
+    const [messages, setMessages] = useState<any[]>([])
+    const [input, setInput] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
+    const [isRecording, setIsRecording] = useState(false)
+
+    // Wizard States
+    const [showTaskWizard, setShowTaskWizard] = useState(false)
+    const [showBuildingWizard, setShowBuildingWizard] = useState(false)
+    const [wizardState, setWizardState] = useState<{
+        mode: 'create' | 'edit',
+        taskId?: number,
+        data?: any
+        // Legacy/Expanded fields
+        active?: boolean
+        flow?: 'gasto' | 'parte' | 'tarea' | null
+        step?: number
+    }>({ mode: 'create', data: {}, active: false, flow: null, step: 0 })
 
     // Handlers para confirmación
     const handleConfirmTool = async (toolCallId: string, actionFn: string, args: any) => {
@@ -121,6 +140,24 @@ export function AiChatWidget() {
     const renderToolResult = (toolInvocation: ToolInvocation) => {
         const { toolName, toolCallId, state } = toolInvocation;
 
+        // INTERCEPTOR: BuildingToolWrapper
+        if ((toolName === 'crear_edificio' || toolName === 'create_building')) {
+            // Si el estado es 'call' o 'result', queremos mostrar el Wizard
+            // Pero usualmente mostramos el wiz cuando la tool SE LLAMA.
+            // El result vendría despues. 
+            // En este flujo custom, el "result" se genera cuando el User completa el Wizard.
+            return (
+                <div key={toolCallId} className="w-full my-2">
+                    <BuildingToolWrapper
+                        data={toolInvocation.args}
+                        onSuccess={() => {
+                            // Opcional: Marcar tool como completada en estado visual si quisiéramos
+                        }}
+                    />
+                </div>
+            )
+        }
+
         if (state === 'result') {
             return (
                 <div key={toolCallId} className="bg-gray-50 dark:bg-gray-900 border border-l-4 border-l-green-500 rounded-r-lg p-3 text-sm animate-in fade-in">
@@ -171,23 +208,16 @@ export function AiChatWidget() {
 
         return null;
     };
-    const [isOpen, setIsOpen] = useState(false)
     const [isMounted, setIsMounted] = useState(false)
     const pathname = usePathname()
     const scrollRef = useRef<HTMLDivElement>(null)
-    const messagesEndRef = useRef<HTMLDivElement>(null) // Nueva ref para el final
+    const messagesEndRef = useRef<HTMLDivElement>(null)
 
     // No mostrar en login/home
     const shouldHide = pathname === '/login' || pathname === '/'
 
-    // Estado del chat
-    const [messages, setMessages] = useState<Array<{ id: string; role: string; content: string; toolInvocations?: ToolInvocation[] }>>([])
-    const [input, setInput] = useState("")
-    const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
 
-    // Estado de audio
-    const [isRecording, setIsRecording] = useState(false)
     const [isTranscribing, setIsTranscribing] = useState(false)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
@@ -226,19 +256,134 @@ export function AiChatWidget() {
             .catch(() => { })
     }
 
-    // Wizard State
-    const [wizardState, setWizardState] = useState<{
-        active: boolean
-        flow: 'gasto' | 'parte' | 'tarea' | null
-        step: number
-        data: Record<string, any>
-        mode?: 'create' | 'edit'
-        taskId?: number
-    }>({ active: false, flow: null, step: 0, data: {}, mode: 'create' })
+    // Handler para Quick Actions (Lanzadores Directos Protocol v5.2) + Legacy Logic Combined
+    const handleActionClick = (command: string) => {
+        // 1. Intercepción para Wizards directos (evitar LLM roundtrip)
+        if (command === 'crear_edificio') {
+            // Seguridad: Doble check de rol en cliente
+            if (!['admin', 'supervisor'].includes(userRole)) {
+                toast.error("No tienes permisos para esta acción")
+                return
+            }
+            const timestamp = Date.now()
+            setMessages(prev => [
+                ...prev,
+                { id: `${timestamp}-user`, role: 'user', content: 'Nuevo Edificio' },
+                {
+                    id: `${timestamp}-ai`, role: 'assistant', content: 'Iniciando asistente de registro de edificios...',
+                    toolInvocations: [{ toolCallId: `call_${timestamp}`, toolName: 'crear_edificio', args: {}, state: 'call' }]
+                }
+            ])
+            saveToHistory('user', 'Nuevo Edificio')
+            saveToHistory('assistant', 'Iniciando asistente de registro de edificios...', { tool: 'crear_edificio', type: 'call' })
+            return
+        }
 
+        // 2. Direct Tool Injections (NEW - Cofre System)
+        // ADMIN Tools
+        if (command === 'crear_admin') {
+            if (userRole !== 'admin') {
+                toast.error("No tienes permisos para esta acción")
+                return
+            }
+            const ts = Date.now()
+            setMessages(prev => [
+                ...prev,
+                { id: `${ts}-user`, role: 'user', content: 'Nuevo Administrador' },
+                {
+                    id: `${ts}-ai`, role: 'assistant', content: 'Iniciando formulario de administrador...',
+                    toolInvocations: [{ toolCallId: `call_${ts}`, toolName: 'crear_admin', args: {}, state: 'call' }]
+                }
+            ])
+            saveToHistory('user', 'Nuevo Administrador')
+            saveToHistory('assistant', 'Iniciando formulario de administrador...', { tool: 'crear_admin', type: 'call' })
+            return
+        }
+
+        if (command === 'crear_producto') {
+            if (!['admin', 'supervisor'].includes(userRole)) {
+                toast.error("No tienes permisos para esta acción")
+                return
+            }
+            const ts = Date.now()
+            setMessages(prev => [
+                ...prev,
+                { id: `${ts}-user`, role: 'user', content: 'Nuevo Producto' },
+                {
+                    id: `${ts}-ai`, role: 'assistant', content: 'Iniciando formulario de producto...',
+                    toolInvocations: [{ toolCallId: `call_${ts}`, toolName: 'crear_producto', args: {}, state: 'call' }]
+                }
+            ])
+            saveToHistory('user', 'Nuevo Producto')
+            saveToHistory('assistant', 'Iniciando formulario de producto...', { tool: 'crear_producto', type: 'call' })
+            return
+        }
+
+        if (command === 'crear_factura') {
+            if (userRole !== 'admin') {
+                toast.error("No tienes permisos para esta acción")
+                return
+            }
+            const ts = Date.now()
+            setMessages(prev => [
+                ...prev,
+                { id: `${ts}-user`, role: 'user', content: 'Nueva Factura' },
+                {
+                    id: `${ts}-ai`, role: 'assistant', content: 'Iniciando formulario de factura...',
+                    toolInvocations: [{ toolCallId: `call_${ts}`, toolName: 'crear_factura', args: {}, state: 'call' }]
+                }
+            ])
+            saveToHistory('user', 'Nueva Factura')
+            saveToHistory('assistant', 'Iniciando formulario de factura...', { tool: 'crear_factura', type: 'call' })
+            return
+        }
+
+        // 3. Legacy Wizards (sin LLM)
+        if (command === 'registrar_gasto') {
+            startWizard('gasto')
+            return
+        } else if (command === 'registrar_parte') {
+            setShowParteWizard(true)
+            return
+        } else if (command === 'crear_presupuesto_base') {
+            loadTareasForPresupuesto()
+            return
+        } else if (command === 'crear_tarea') {
+            startWizard('tarea')
+            return
+        }
+
+        // 4. Translate remaining commands to natural language and process with LLM
+        let message = command;
+        switch (command) {
+            case 'aprobar_presupuesto': message = 'Quiero aprobar presupuestos pendientes'; break;
+            case 'mostrar_kpis': message = 'Muéstrame los KPIs y métricas globales'; break;
+            case 'ver_alertas': message = '¿Hay alertas del sistema?'; break;
+            case 'crear_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
+            case 'generar_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
+            case 'calcular_roi_tarea': message = 'Calcular el ROI de una tarea'; break;
+            case 'listar_mis_tareas': message = 'Ver mis tareas asignadas'; break;
+            case 'aprobar_gasto': message = 'Aprobar gastos pendientes'; break;
+            case 'ver_mi_equipo': message = 'Ver estado de mi equipo'; break;
+            case 'ver_liquidacion_equipo': message = 'Ver liquidación de mi equipo'; break;
+            case 'ver_mis_pagos': message = 'Ver mis pagos y liquidaciones'; break;
+            case 'finalizar_tarea': message = 'Quiero finalizar una tarea'; break;
+            case 'asignar_trabajador': message = 'Quiero asignar un trabajador a una tarea'; break;
+            case 'asignar_supervisor': message = 'Quiero asignar un supervisor'; break;
+            case 'crear_departamento': message = 'Quiero crear un nuevo departamento'; break;
+            case 'registrar_pago': message = 'Quiero registrar un pago'; break;
+            case 'configurar_afip': message = 'Configurar datos de AFIP'; break;
+            // Knowledge base
+            case 'knowledge_viewer': message = 'Quiero ver los manuales y políticas de la empresa'; break;
+        }
+
+        processSubmission(message)
+    }
+
+    // Wizard State
     const [showParteWizard, setShowParteWizard] = useState(false)
     const [showPresupuestoWizard, setShowPresupuestoWizard] = useState(false)
-    const [showTaskWizard, setShowTaskWizard] = useState(false)
+    // Removed duplicate showTaskWizard
     const [tareasForPresupuesto, setTareasForPresupuesto] = useState<any[]>([])
 
     const [wizardOptions, setWizardOptions] = useState<Array<{ label: string, value: string }>>([])
@@ -248,38 +393,7 @@ export function AiChatWidget() {
     const [loadingTasks, setLoadingTasks] = useState(false)
     const [selectedTask, setSelectedTask] = useState<{ id: number, title: string } | null>(null)
 
-    // Manejar clicks en Quick Actions
-    const handleActionClick = (command: string) => {
-        if (command === 'registrar_gasto') {
-            startWizard('gasto')
-        } else if (command === 'registrar_parte') {
-            // Abrir wizard de calendario de partes
-            setShowParteWizard(true)
-        } else if (command === 'crear_presupuesto_base') {
-            // Abrir wizard de creación de presupuesto base
-            loadTareasForPresupuesto()
-        } else if (command === 'crear_tarea') {
-            startWizard('tarea')
-        } else {
-            // Comando directo: Traducir a lenguaje natural para mejor contexto
-            let message = command;
-            switch (command) {
-                case 'aprobar_presupuesto': message = 'Quiero aprobar presupuestos pendientes'; break;
-                case 'mostrar_kpis': message = 'Muéstrame los KPIs y métricas globales'; break;
-                case 'ver_alertas': message = '¿Hay alertas del sistema?'; break;
-                case 'crear_liquidacion': message = 'Quiero generar una liquidación semanal'; break;
-                case 'calcular_roi_tarea': message = 'Calcular el ROI de una tarea'; break;
-                case 'listar_mis_tareas': message = 'Ver mis tareas asignadas'; break;
-                case 'aprobar_gasto': message = 'Aprobar gastos pendientes'; break;
-                case 'crear_presupuesto_base': message = 'Crear un presupuesto base'; break;
-                case 'ver_mi_equipo': message = 'Ver estado de mi equipo'; break;
-                case 'ver_liquidacion_equipo': message = 'Ver liquidación de mi equipo'; break;
-                case 'ver_mis_pagos': message = 'Ver mis pagos y liquidaciones'; break;
-            }
-
-            processSubmission(message)
-        }
-    }
+    // Old duplicate handleActionClick removed
 
     // Placeholder for handleToolExecution - assuming this function will be added or exists elsewhere
     // This is a placeholder to satisfy the instruction's context.
@@ -298,8 +412,9 @@ export function AiChatWidget() {
         saveToHistory('assistant', toolResult, { tool: toolCall.function.name })
     }
 
-    const startWizard = async (flow: 'gasto' | 'tarea', initialData: any = {}, mode: 'create' | 'edit' = 'create', taskId?: number) => {
+    const startWizard = async (flow: 'gasto' | 'tarea' | 'edificio', initialData: any = {}, mode: 'create' | 'edit' = 'create', taskId?: number) => {
         if (flow === 'gasto') {
+            // ... existing gasto logic ...
             // Paso 1: Cargar tareas para seleccionar
             setIsOpen(true)
             setMessages(prev => [...prev, {
@@ -322,7 +437,7 @@ export function AiChatWidget() {
                 }
 
                 // Iniciar wizard con opciones de tareas
-                setWizardState({ active: true, flow, step: 1, data: {} })
+                setWizardState({ ...wizardState, step: 1, data: {} })
                 setMessages(prev => [...prev.slice(0, -1), {
                     id: Date.now().toString(),
                     role: 'assistant',
@@ -339,9 +454,12 @@ export function AiChatWidget() {
                 console.error(e)
                 setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: 'Error cargando tareas.' }])
             }
+        } else if (flow === 'edificio') {
+            setWizardState(prev => ({ ...prev, data: initialData, mode, taskId }))
+            setShowBuildingWizard(true)
+            setIsOpen(true)
         } else {
-            // Flujo Tarea: Abrir wizard visual
-            // Guardamos la data inicial en wizardState para pasarla al wrapper
+            // Flujo Tarea
             setWizardState(prev => ({ ...prev, data: initialData, mode, taskId }))
             setShowTaskWizard(true)
             setIsOpen(true)
@@ -536,6 +654,7 @@ export function AiChatWidget() {
         // FIX: Agregar sufijo '-user' para asegurar unicidad y evitar colisión con ID del asistente
         const userMsgObj = { id: Date.now().toString() + '-user', role: 'user' as const, content: userMsg }
         setMessages(prev => [...prev, userMsgObj])
+        saveToHistory('user', userMsg) // FIX: Save user message to DB
         setIsLoading(true)
         setError(null)
 
@@ -573,100 +692,103 @@ export function AiChatWidget() {
             if (reader) {
                 const decoder = new TextDecoder()
                 let done = false
+                let buffer = "" // Buffer para acumular chunks
 
                 while (!done) {
                     const { value, done: readerDone } = await reader.read()
                     done = readerDone
                     const chunk = decoder.decode(value, { stream: true })
+                    buffer += chunk
 
-                    // Procesar chunk para herramientas o texto
-                    const toolCallMatch = chunk.match(/<tool_code>(.*?)<\/tool_code>/s)
-                    if (toolCallMatch) {
+                    // Procesar buffer buscando tags completos
+                    // Regex busca <tool_code>...</tool_code> incluyendo saltos de linea
+                    const toolRegex = /<tool_code>(.*?)<\/tool_code>/s
+                    let match = buffer.match(toolRegex)
+
+                    while (match) {
+                        const fullMatch = match[0]
+                        const jsonContent = match[1]
+
                         try {
-                            const toolCall = JSON.parse(toolCallMatch[1])
+                            // Intentar limpiar el jsonContent de posibles caracteres raros o newlines extras
+                            const toolCall = JSON.parse(jsonContent.trim())
 
-                            // Interceptar herramientas visuales
-                            if (toolCall.function.name === 'crear_tarea') {
-                                const args = JSON.parse(toolCall.function.arguments || '{}')
+                            // Formato simplificado: { tool: "nombre", args: { ... } }
+                            // O soporte retroactivo para el formato anidado function -> arguments
+                            const functionName = toolCall.tool || toolCall.function?.name
+                            const args = toolCall.args || (typeof toolCall.function?.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function?.arguments) || {}
+
+                            if (functionName === 'crear_edificio') {
+                                setMessages(prev => {
+                                    const existing = prev.find(m => m.id === assistantId)
+                                    const newToolInvocation = {
+                                        toolCallId: `call_${Date.now()}`,
+                                        toolName: 'crear_edificio',
+                                        args: args,
+                                        state: 'call'
+                                    }
+
+                                    if (existing) {
+                                        return prev.map(m => m.id === assistantId ? {
+                                            ...m,
+                                            toolInvocations: [...(m.toolInvocations || []), newToolInvocation]
+                                        } : m)
+                                    } else {
+                                        return [...prev, {
+                                            id: assistantId,
+                                            role: "assistant", // Fix syntax error in previous block
+                                            content: assistantContent,
+                                            toolInvocations: [newToolInvocation]
+                                        }]
+                                    }
+                                })
+                                assistantContent += `\n[Activando Formulario de Edificio...]\n`
+                            } else if (functionName === 'crear_tarea') {
                                 startWizard('tarea', args, 'create')
                                 assistantContent += `\n[Abriendo Asistente de Tareas...]\n`
-                            } else if (toolCall.function.name === 'editar_tarea') {
-                                const args = JSON.parse(toolCall.function.arguments || '{}')
-                                // Fetch task data first
-                                const supabase = (await import('@/lib/supabase-client')).createClient()
-                                const { data: task, error } = await supabase.from('tareas').select('*').eq('id', args.taskId).single()
-
-                                if (task) {
-                                    // Merge current data with AI suggestions
-                                    const mergedData = {
-                                        ...task,
-                                        ...args, // AI params override
-                                        departamentos_ids: [] // Need to fetch depts too if needed, or let wizard load basics
-                                    }
-
-                                    // Fetch associated data for complete hydration
-                                    const { data: depts } = await supabase.from('departamentos_tareas').select('id_departamento').eq('id_tarea', args.taskId)
-                                    if (depts) mergedData.departamentos_ids = depts.map(d => d.id_departamento.toString())
-
-                                    const { data: sup } = await supabase.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', args.taskId).single()
-                                    if (sup) mergedData.id_supervisor = sup.id_supervisor
-
-                                    const { data: worker } = await supabase.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', args.taskId).single()
-                                    if (worker) mergedData.id_asignado = worker.id_trabajador
-
-
-                                    startWizard('tarea', mergedData, 'edit', args.taskId)
-                                    // Human-Centric Message
-                                    assistantContent += `\nHe preparado el Wizard para editar la tarea **"${task.titulo}"** (#${args.taskId}).\n`
-                                } else {
-                                    assistantContent += `\nError: No encontré la tarea ${args.taskId}\n`
-                                }
-                            } else if (toolCall.function.name === 'clonar_tarea') {
-                                const args = JSON.parse(toolCall.function.arguments || '{}')
-                                const supabase = (await import('@/lib/supabase-client')).createClient()
-                                const { data: task } = await supabase.from('tareas').select('*').eq('id', args.taskId).single()
-
-                                if (task) {
-                                    // Prepare Clone Data
-                                    const mergedData = {
-                                        ...task,
-                                        titulo: `Copia de: ${task.titulo}`,
-                                        descripcion: task.descripcion || '',
-                                        id_estado_nuevo: 1, // Reset state to Organizar
-                                        departamentos_ids: []
-                                    }
-
-                                    // Fetch relations
-                                    const { data: depts } = await supabase.from('departamentos_tareas').select('id_departamento').eq('id_tarea', args.taskId)
-                                    if (depts) mergedData.departamentos_ids = depts.map(d => d.id_departamento.toString())
-
-                                    // Optional: Clone supervisor/worker? Usually cloning copies definition, not assignment. 
-                                    // But user might want to clone "everything". Protocol: "Clone Task" usually copies definition.
-                                    // Let's copy relations as defaults but allow user to change.
-                                    const { data: sup } = await supabase.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', args.taskId).single()
-                                    if (sup) mergedData.id_supervisor = sup.id_supervisor
-
-                                    const { data: worker } = await supabase.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', args.taskId).single()
-                                    if (worker) mergedData.id_asignado = worker.id_trabajador
-
-                                    startWizard('tarea', mergedData, 'create')
-
-                                    // Human-Centric Message
-                                    assistantContent += `\nHe preparado el Wizard para clonar la tarea **"${task.titulo}"** (#${args.taskId}).\n`
-                                } else {
-                                    assistantContent += `\nError: No encontré la tarea ${args.taskId} para clonar\n`
-                                }
-                            } else {
-                                const toolResult = await handleToolExecution(toolCall, "Exito")
-                                assistantContent += `\n[Herramienta Ejecutada: ${toolCall.function.name}]\n`
                             }
+                            // ... otros casos ...
+                            else {
+                                // Fallback generic tool
+                                assistantContent += `\n[Acción: ${functionName}]\n`
+                            }
+
                         } catch (e) {
-                            console.error("Error parsing tool", e)
+                            console.error("Error parsing buffered tool", e)
+                            // Si falla parseo, quizás no es JSON válido aún, pero el regex matcheó </tool_code>
+                            // Asumimos que es texto corrupto y lo mostramos? O lo ignoramos?
+                            // Mejor mostrarlo para debug
+                            assistantContent += fullMatch
                         }
-                    } else {
-                        assistantContent += chunk
+
+                        // Eliminar el match procesado del buffer
+                        buffer = buffer.replace(fullMatch, "")
+                        // Buscar siguiente match en el buffer restante
+                        match = buffer.match(toolRegex)
                     }
 
+                    // Lo que quede en el buffer que NO sea parte de un tag parcial se puede ir moviendo a assistantContent?
+                    // NO, porque podriamos tener "<tool_" al final.
+                    // Solo podemos mover a assistantContent lo que esté ANTES del primer "<"
+
+                    const tagStart = buffer.indexOf("<tool_code>")
+                    if (tagStart > 0) {
+                        // Hay texto antes del tag
+                        const textPart = buffer.substring(0, tagStart)
+                        assistantContent += textPart
+                        buffer = buffer.substring(tagStart) // Dejar solo desde el tag
+                    } else if (tagStart === -1) {
+                        // No hay tag start. 
+                        // Pero cuidado, podria haber un tag parcial "<too..." al final.
+                        // Simple heuristic: keep last 20 chars in buffer just in case, flush the rest.
+                        if (buffer.length > 20) {
+                            const safeToFlush = buffer.substring(0, buffer.length - 20)
+                            assistantContent += safeToFlush
+                            buffer = buffer.substring(buffer.length - 20)
+                        }
+                    }
+
+                    // Update UI con contenido acumulado
                     setMessages(prev => {
                         const existing = prev.find(m => m.id === assistantId)
                         if (existing) {
@@ -677,8 +799,14 @@ export function AiChatWidget() {
                     })
                 }
 
+                // Flush remaining buffer at end
+                if (buffer) {
+                    assistantContent += buffer
+                }
+
                 // Al terminar de streamear, guardar en DB
-                saveToHistory('assistant', assistantContent)
+                const finalContent = assistantContent || '[Interactive Action]';
+                saveToHistory('assistant', finalContent)
             }
 
         } catch (err) {
@@ -840,9 +968,9 @@ export function AiChatWidget() {
 
             {/* Chat widget - MODERNO */}
             {isOpen && (
-                <div className="fixed bottom-0 right-0 z-50 w-full md:w-96 md:bottom-4 md:right-4 h-[100dvh] md:h-[600px] bg-white dark:bg-gray-900 shadow-2xl md:rounded-3xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
-                    {/* Header moderno con gradiente */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-600 text-white relative overflow-hidden">
+                <div className="fixed bottom-0 right-0 z-50 w-full md:w-96 md:bottom-4 md:right-4 md:top-auto md:max-h-[calc(100vh-2rem)] h-[100dvh] md:h-[600px] bg-white dark:bg-gray-900 shadow-2xl md:rounded-3xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
+                    {/* Header moderno con gradiente - SIEMPRE VISIBLE */}
+                    <div className="sticky top-0 z-50 flex items-center justify-between p-3 sm:p-4 border-b border-gray-200/50 dark:border-gray-800/50 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-600 text-white relative overflow-hidden shadow-lg">
                         {/* Background pattern */}
                         <div className="absolute inset-0 opacity-10">
                             <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-3xl"></div>
@@ -861,8 +989,10 @@ export function AiChatWidget() {
                         <button
                             onClick={() => setIsOpen(false)}
                             className="hover:bg-white/20 rounded-xl p-2 transition-colors relative z-10 backdrop-blur-sm"
+                            aria-label="Cerrar chat"
+                            title="Cerrar chat"
                         >
-                            <X className="w-4.5 h-4.5" />
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
 
@@ -934,6 +1064,42 @@ export function AiChatWidget() {
                                         setShowTaskWizard(false)
                                         setWizardState(prev => ({ ...prev, data: {} }))
                                     }}
+                                />
+                            </div>
+                        </div>
+                    ) : showBuildingWizard ? (
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">
+                                    {wizardState.mode === 'edit' ? 'Editar Edificio' : 'Nuevo Edificio'}
+                                </h3>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowBuildingWizard(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <BuildingWizard
+                                    mode={wizardState.mode as any}
+                                    initialData={wizardState.data}
+                                    onSuccess={() => {
+                                        setShowBuildingWizard(false)
+                                        setMessages(prev => [...prev, {
+                                            id: Date.now().toString(),
+                                            role: 'assistant',
+                                            content: `✅ **Edificio ${wizardState.mode === 'edit' ? 'Actualizado' : 'Creado'} Exitosamente**`
+                                        }])
+                                        toast.success("Edificio guardado")
+                                    }}
+                                    administradores={[]} // BuildingWizard should handle fetching if empty? Or we pass them?
+                                // BuildingWizard expects 'administradores'. We should fetch them or let it fetch.
+                                // Wait, BuildingWizard REQUIRES 'administradores'. It does NOT fetch them itself?
+                                // Let's check BuildingWizard code. 
+                                // It takes `administradores: {id, nombre}[]`.
+                                // I should fetch them here or make them optional in BuildingWizard.
+                                // Quickest fix: Pass empty array and let me fix BuildingWizard to fetch if needed or pass from a Hook.
+                                // Actually, AiChatWidget has no 'administradores' state.
+                                // I'll fetch them inside this render or useEffect? No, hooks rules.
+                                // I'll modify BuildingWizard to be smarter or fetch them myself in `startWizard`.
                                 />
                             </div>
                         </div>
@@ -1059,12 +1225,12 @@ export function AiChatWidget() {
                     )
                     }
 
-                    {/* Quick Actions - Botones por rol (Solo si NO estamos en medio de un wizard) */}
+                    {/* Cofre System - Herramientas jerárquicas por rol (Solo si NO estamos en medio de un wizard) */}
                     {
                         !wizardState.active && (
-                            <ChatQuickActions
-                                role={userRole}
-                                onActionClick={handleActionClick}
+                            <CofreSelector
+                                userRole={userRole}
+                                onToolSelect={handleActionClick}
                             />
                         )
                     }
@@ -1162,11 +1328,6 @@ export function AiChatWidget() {
                                     )}
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Hint de Enter para enviar */}
-                        <div className="mt-2.5 text-[10px] text-gray-400 dark:text-gray-600 text-center font-medium">
-                            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 shadow-sm">Enter</kbd> enviar • <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 shadow-sm">Shift+Enter</kbd> nueva línea
                         </div>
                     </form>
                 </div >

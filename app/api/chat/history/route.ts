@@ -42,6 +42,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json()
+        console.log('[HISTORY API] Received body:', JSON.stringify(body))
         const { role, content, metadata } = body
 
         if (!role || !content) {

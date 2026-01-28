@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { EditBuildingForm } from "@/components/edit-building-form"
+import { BuildingWizard } from "@/components/buildings/building-wizard"
+import { DepartmentManager } from "@/components/buildings/department-manager"
 import { createClient } from "@/lib/supabase-client"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ export default function EditarEdificioPage() {
   const id = params.id as string;
   const router = useRouter()
   const supabase = createClient()
-  
+
   const [edificio, setEdificio] = useState<any>(null)
   const [administradores, setAdministradores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,7 +23,7 @@ export default function EditarEdificioPage() {
     const fetchData = async () => {
       try {
         setLoading(true)
-        
+
         // Verificar sesión del usuario
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
@@ -47,7 +48,7 @@ export default function EditarEdificioPage() {
           router.push("/dashboard/edificios")
           return
         }
-        
+
         setEdificio(edificioData)
 
         // Obtener los administradores
@@ -63,7 +64,7 @@ export default function EditarEdificioPage() {
         } else {
           setAdministradores(administradoresData || [])
         }
-        
+
       } catch (err) {
         console.error("Error inesperado:", err)
         setError("Ocurrió un error al cargar la información")
@@ -71,7 +72,7 @@ export default function EditarEdificioPage() {
         setLoading(false)
       }
     }
-    
+
     fetchData()
   }, [id, router, supabase])
 
@@ -85,7 +86,7 @@ export default function EditarEdificioPage() {
       </div>
     )
   }
-  
+
   if (error || !edificio) {
     return (
       <div className="container mx-auto p-4">
@@ -100,9 +101,19 @@ export default function EditarEdificioPage() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Editar Edificio</h1>
-      <EditBuildingForm edificio={edificio} administradores={administradores || []} />
+    <div className="container mx-auto p-4 space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold mb-6">Editar Edificio</h1>
+        <BuildingWizard
+          administradores={administradores || []}
+          mode="edit"
+          initialData={edificio}
+        />
+      </div>
+
+      <div>
+        <DepartmentManager buildingId={edificio.id} />
+      </div>
     </div>
   )
 }

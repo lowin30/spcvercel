@@ -2,6 +2,7 @@
 
 import { createSsrServerClient } from '@/lib/ssr-server'
 import { revalidatePath } from 'next/cache'
+import { sanitizeText } from '@/lib/utils'
 
 /**
  * Eliminar una tarea por su ID
@@ -117,7 +118,7 @@ export async function cloneTask(taskId: number) {
 
     // 3. Preparar los datos de la nueva tarea (clonada)
     const newTaskData = {
-      titulo: `Copia de: ${originalTask.titulo}`,
+      titulo: `Copia de: ${sanitizeText(originalTask.titulo)}`,
       descripcion: '', // Descripción vacía para que el usuario ingrese una nueva
       id_estado_nuevo: 10, // Posible (estado para trabajos futuros/potenciales)
       prioridad: originalTask.prioridad,
@@ -194,8 +195,8 @@ export async function updateTask(taskId: number, data: any) {
     const { error: updateError } = await supabase
       .from('tareas')
       .update({
-        titulo: data.titulo,
-        descripcion: data.descripcion,
+        titulo: sanitizeText(data.titulo),
+        descripcion: sanitizeText(data.descripcion),
         prioridad: data.prioridad,
         fecha_visita: data.fecha_visita,
         id_edificio: data.id_edificio,
@@ -242,5 +243,47 @@ export async function updateTask(taskId: number, data: any) {
   } catch (error: any) {
     console.error('Update Task Error:', error)
     return { success: false, message: error.message }
+  }
+}
+
+/**
+ * Crear una nueva tarea (invocando RPC o lógica directa)
+ */
+export async function createTask(data: any) {
+  const supabase = await createSsrServerClient()
+
+  try {
+    // 1. Sanitizar inputs
+    const p_titulo = sanitizeText(data.titulo)
+    const p_descripcion = sanitizeText(data.descripcion)
+
+    // 2. Preparar payload para RPC
+    // Mapeamos los campos del wizard/form a los parámetros del RPC
+    const rpcParams = {
+      p_titulo,
+      p_descripcion,
+      p_id_administrador: Number(data.id_administrador),
+      p_id_edificio: Number(data.id_edificio),
+      p_prioridad: data.prioridad,
+      p_id_estado_nuevo: Number(data.id_estado_nuevo || 1),
+      p_fecha_visita: data.fecha_visita || null,
+      p_id_supervisor: data.id_supervisor || null,
+      p_id_trabajador: data.id_asignado || null, // UI usa 'id_asignado' -> RPC usa 'id_trabajador'
+      p_departamentos_ids: data.departamentos_ids?.map(Number) || []
+    }
+
+    const { data: result, error } = await supabase.rpc('crear_tarea_con_asignaciones', rpcParams)
+
+    if (error) throw error
+
+    // Result es { id: ..., code: ... }
+    const created = result as { id: number, code: string }
+
+    revalidatePath('/dashboard/tareas')
+    return { success: true, task: created }
+
+  } catch (e: any) {
+    console.error("Error creating task:", e)
+    return { success: false, error: e.message }
   }
 }
