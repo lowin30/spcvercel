@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Bot, Send, Mic, MicOff, Loader2, X, Copy, Check } from "lucide-react"
 import { usePathname } from "next/navigation"
@@ -72,6 +73,12 @@ export function AiChatWidget() {
         flow?: 'gasto' | 'parte' | 'tarea' | null
         step?: number
     }>({ mode: 'create', data: {}, active: false, flow: null, step: 0 })
+
+    // Expense Tool States
+    const [showExpenseTaskSelector, setShowExpenseTaskSelector] = useState(false)
+    const [showExpenseForm, setShowExpenseForm] = useState(false)
+    const [expenseSelectedTask, setExpenseSelectedTask] = useState<{ id: number, code: string, titulo: string } | null>(null)
+    const [expenseAvailableTasks, setExpenseAvailableTasks] = useState<any[]>([])
 
     // Handlers para confirmación
     const handleConfirmTool = async (toolCallId: string, actionFn: string, args: any) => {
@@ -339,10 +346,12 @@ export function AiChatWidget() {
         }
 
         // 3. Legacy Wizards (sin LLM)
-        if (command === 'registrar_gasto') {
-            startWizard('gasto')
-            return
-        } else if (command === 'registrar_parte') {
+        // DISABLED: registrar_gasto now uses new flow in handleToolClick (línea ~571)
+        // if (command === 'registrar_gasto') {
+        //     startWizard('gasto')
+        //     return
+        // }
+        if (command === 'registrar_parte') {
             setShowParteWizard(true)
             return
         } else if (command === 'crear_presupuesto_base') {
@@ -507,6 +516,108 @@ export function AiChatWidget() {
         } finally {
             setLoadingTasks(false)
         }
+    }
+
+    // Helper function para cargar tareas con filtrado RBAC (expense tool)
+    const cargarTareasDisponibles = async (rol: string, userId: string) => {
+        const supabase = (await import('@/lib/supabase-client')).createClient()
+
+        if (rol === 'trabajador') {
+            const { data } = await supabase
+                .from('trabajadores_tareas')
+                .select('tareas(id, titulo, code, finalizada)')
+                .eq('id_trabajador', userId)
+
+            return data?.map((item: any) => item.tareas).filter((t: any) => !t.finalizada) || []
+        }
+
+        if (rol === 'supervisor') {
+            // Tareas supervisadas
+            const { data: supervisadas } = await supabase
+                .from('supervisores_tareas')
+                .select('tareas(id, titulo, code, finalizada)')
+                .eq('id_supervisor', userId)
+
+            // Tareas asignadas
+            const { data: asignadas } = await supabase
+                .from('trabajadores_tareas')
+                .select('tareas(id, titulo, code, finalizada)')
+                .eq('id_trabajador', userId)
+
+            const todas = [
+                ...(supervisadas?.map((item: any) => item.tareas) || []),
+                ...(asignadas?.map((item: any) => item.tareas) || [])
+            ].filter((t: any) => !t.finalizada)
+                .filter((t: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === t.id) === i) // Dedup
+
+            return todas
+        }
+
+        if (rol === 'admin') {
+            const { data } = await supabase
+                .from('tareas')
+                .select('id, titulo, code')
+                .eq('finalizada', false)
+
+            return data || []
+        }
+
+        return []
+    }
+
+    // Handler para clicks en herramientas del Cofre Selector
+    const handleToolClick = async (toolId: string) => {
+        console.log('Tool clicked:', toolId)
+
+        // EXPENSE TOOL: Registrar Gasto
+        if (toolId === 'registrar_gasto') {
+            try {
+                // Obtener user ID actual
+                const supabase = (await import('@/lib/supabase-client')).createClient()
+                const { data: { session } } = await supabase.auth.getSession()
+                if (!session) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: '⚠️ Sesión expirada. Por favor inicia sesión.'
+                    }])
+                    return
+                }
+
+                // Cargar tareas disponibles con RBAC
+                const tareas = await cargarTareasDisponibles(userRole, session.user.id)
+
+                if (tareas.length === 0) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: '⚠️ No tienes tareas activas asignadas para registrar gastos.'
+                    }])
+                    return
+                }
+
+                if (tareas.length === 1) {
+                    // Si solo hay 1 tarea, ir directo a ProcesadorImagen
+                    setExpenseSelectedTask(tareas[0])
+                    setShowExpenseForm(true)
+                } else {
+                    // Si hay múltiples, mostrar selector
+                    setExpenseAvailableTasks(tareas)
+                    setShowExpenseTaskSelector(true)
+                }
+            } catch (error) {
+                console.error('Error loading tasks for expense:', error)
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: '❌ Error al cargar tareas. Intenta nuevamente.'
+                }])
+            }
+            return
+        }
+
+        // TODO: Manejar otros tools aquí
+        console.log('Tool not handled yet:', toolId)
     }
 
     const loadTareasForPresupuesto = async () => {
@@ -997,7 +1108,66 @@ export function AiChatWidget() {
                     </div>
 
                     {/* Lógica de Contenido Principal (Wizards vs Chat) */}
-                    {wizardState.active && wizardState.step === 99 ? (
+                    {showExpenseTaskSelector ? (
+                        // EXPENSE TOOL: Selector de Tareas
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Seleccionar Tarea</h3>
+                                <Button variant="ghost" size="icon" onClick={() => setShowExpenseTaskSelector(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <div className="space-y-2">
+                                    {expenseAvailableTasks.map((tarea: any) => (
+                                        <Card
+                                            key={tarea.id}
+                                            className="cursor-pointer hover:bg-accent transition-colors"
+                                            onClick={() => {
+                                                setExpenseSelectedTask(tarea)
+                                                setShowExpenseTaskSelector(false)
+                                                setShowExpenseForm(true)
+                                            }}
+                                        >
+                                            <CardContent className="p-4">
+                                                <p className="font-medium text-sm">{tarea.code}</p>
+                                                <p className="text-xs text-muted-foreground">{tarea.titulo}</p>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : showExpenseForm && expenseSelectedTask ? (
+                        // EXPENSE TOOL: ProcesadorImagen
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Registrar Gasto - {expenseSelectedTask.code}</h3>
+                                <Button variant="ghost" size="icon" onClick={() => {
+                                    setShowExpenseForm(false)
+                                    setExpenseSelectedTask(null)
+                                }}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <ProcesadorImagen
+                                    tareaId={expenseSelectedTask.id}
+                                    tareaCodigo={expenseSelectedTask.code}
+                                    tareaTitulo={expenseSelectedTask.titulo}
+                                    onSuccess={() => {
+                                        setShowExpenseForm(false)
+                                        setExpenseSelectedTask(null)
+                                        setMessages(prev => [...prev, {
+                                            id: Date.now().toString(),
+                                            role: 'assistant',
+                                            content: `✅ Gasto registrado correctamente\n\n📌 Tarea: ${expenseSelectedTask.code} - ${expenseSelectedTask.titulo}`
+                                        }])
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ) : wizardState.active && wizardState.step === 99 ? (
                         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-2">
                             <div className="flex justify-end p-2">
                                 <Button
@@ -1230,7 +1400,7 @@ export function AiChatWidget() {
                         !wizardState.active && (
                             <CofreSelector
                                 userRole={userRole}
-                                onToolSelect={handleActionClick}
+                                onToolSelect={handleToolClick}
                             />
                         )
                     }

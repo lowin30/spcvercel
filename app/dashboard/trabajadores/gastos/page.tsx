@@ -6,16 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProcesadorImagen } from "@/components/procesador-imagen"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { HistorialGastos } from "@/components/historial-gastos"
-import { HistorialGastosOCR } from "@/components/historial-gastos-ocr"
-import { HistorialJornalesTarea } from "@/components/historial-jornales-tarea"
-import { ResumenLiquidaciones } from "@/components/resumen-liquidaciones"
-import { HistorialJornalesGlobal } from "@/components/historial-jornales-global"
-import { HistorialPagos } from "@/components/historial-pagos"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase-client"
-import { UserSessionData, GastoCompleto } from "@/lib/types"
-import { Plus, Receipt, DollarSign, Loader2, CheckCircle2, AlertCircle, Check, X, ArrowLeft, CalendarDays, TrendingUp } from "lucide-react"
+import { UserSessionData } from "@/lib/types"
+import { Plus, Loader2, X, ArrowLeft } from "lucide-react"
+import { toast } from "sonner"
 
 interface Tarea {
   id: number
@@ -144,8 +138,8 @@ export default function GastosPage() {
         userData.rol === 'trabajador' ?
           supabase.from('trabajadores_tareas').select('tareas(id, titulo, code, finalizada)').eq('id_trabajador', session.user.id) :
           userData.rol === 'supervisor' ?
-          supabase.from('supervisores_tareas').select('tareas(id, titulo, code, finalizada)').eq('id_supervisor', session.user.id) :
-          supabase.from('tareas').select('id, titulo, code').eq('finalizada', false).order('titulo'),
+            supabase.from('supervisores_tareas').select('tareas(id, titulo, code, finalizada)').eq('id_supervisor', session.user.id) :
+            supabase.from('tareas').select('id, titulo, code').eq('finalizada', false).order('titulo'),
         jornalesQuery.order('fecha', { ascending: false })
       ]);
 
@@ -318,14 +312,14 @@ export default function GastosPage() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{mostrarFormulario ? 'Registrar Nuevo Gasto' : 'Mi Centro de Liquidaciones'}</h1>
+          <h1 className="text-3xl font-bold">{mostrarFormulario ? 'Registrar Nuevo Gasto' : 'Gestión de Gastos'}</h1>
           {!mostrarFormulario && (
-            <p className="text-muted-foreground mt-1">Gestiona tus gastos, jornales y pagos en un solo lugar</p>
+            <p className="text-muted-foreground mt-1">Registra tus gastos con comprobantes</p>
           )}
         </div>
         {!mostrarFormulario && (
-          <Button 
-            onClick={() => setMostrarFormulario(true)} 
+          <Button
+            onClick={() => setMostrarFormulario(true)}
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -374,12 +368,9 @@ export default function GastosPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>
-                    {tareas.find(t => t.id === Number(tareaSeleccionada))?.code} - {tareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">Vista detallada de gastos y jornales</p>
-                </div>
+                <CardTitle className="text-lg font-medium">
+                  {tareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
+                </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -388,115 +379,35 @@ export default function GastosPage() {
                   }}
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver
+                  Cambiar
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="gastos" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="gastos" className="flex items-center gap-2">
-                    <Receipt className="h-4 w-4" />
-                    Gastos
-                  </TabsTrigger>
-                  <TabsTrigger value="jornales" className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    Jornales
-                  </TabsTrigger>
-                  <TabsTrigger value="registrar" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    Registrar
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="gastos" className="mt-4">
-                  <HistorialGastosOCR
-                    tareaId={Number(tareaSeleccionada)}
-                    userRole={usuario?.rol}
-                    userId={usuario?.id}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="jornales" className="mt-4">
-                  <HistorialJornalesTarea
-                    tareaId={Number(tareaSeleccionada)}
-                    userRole={usuario?.rol}
-                    userId={usuario?.id}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="registrar" className="mt-4">
-                  <ProcesadorImagen
-                    tareaId={Number(tareaSeleccionada)}
-                    tareaCodigo={tareas.find(t => t.id === Number(tareaSeleccionada))?.code}
-                    tareaTitulo={tareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
-                  />
-                </TabsContent>
-              </Tabs>
+              <ProcesadorImagen
+                tareaId={Number(tareaSeleccionada)}
+                tareaCodigo={tareas.find(t => t.id === Number(tareaSeleccionada))?.code}
+                tareaTitulo={tareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
+                onSuccess={() => {
+                  // Recargar datos para actualizar el resumen
+                  cargarDatos();
+                  toast.success("Gasto registrado correctamente");
+                }}
+              />
             </CardContent>
           </Card>
         )
       ) : (
-        <Tabs value={tabActual} onValueChange={setTabActual} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="resumen" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Resumen</span>
-            </TabsTrigger>
-            <TabsTrigger value="gastos" className="flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
-              <span className="hidden sm:inline">Gastos</span>
-            </TabsTrigger>
-            <TabsTrigger value="jornales" className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              <span className="hidden sm:inline">Jornales</span>
-            </TabsTrigger>
-            <TabsTrigger value="historial" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Pagos</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="resumen" className="mt-6">
-            <ResumenLiquidaciones
-              userId={usuario?.id || ''}
-              userRole={usuario?.rol || 'trabajador'}
-              gastosPendientes={{
-                total: allNonLiquidatedExpenses.reduce((sum, g) => sum + g.monto, 0),
-                count: allNonLiquidatedExpenses.length
-              }}
-              jornalesPendientes={{
-                total: totalJornales,
-                count: jornalesPendientes.length,
-                dias: totalDias
-              }}
-              ultimaLiquidacion={lastLiquidation ? {
-                monto: lastLiquidation.total_pagar,
-                fecha: lastLiquidation.created_at
-              } : null}
-              desglosePorTarea={desglosePorTarea}
-            />
-          </TabsContent>
-
-          <TabsContent value="gastos" className="mt-6">
-            <HistorialGastos gastos={filteredHistory} isLoading={loading} />
-          </TabsContent>
-
-          <TabsContent value="jornales" className="mt-6">
-            <HistorialJornalesGlobal
-              userId={usuario?.id || ''}
-              userRole={usuario?.rol || 'trabajador'}
-              showOnlyPending={true}
-            />
-          </TabsContent>
-
-          <TabsContent value="historial" className="mt-6">
-            <HistorialPagos
-              userId={usuario?.id || ''}
-              userRole={usuario?.rol || 'trabajador'}
-            />
-          </TabsContent>
-        </Tabs>
+        <Card>
+          <CardHeader>
+            <CardTitle>Bienvenido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Haz click en "Registrar Gasto" para comenzar.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
