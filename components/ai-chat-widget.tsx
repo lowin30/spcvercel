@@ -80,6 +80,9 @@ export function AiChatWidget() {
     const [expenseSelectedTask, setExpenseSelectedTask] = useState<{ id: number, code: string, titulo: string } | null>(null)
     const [expenseAvailableTasks, setExpenseAvailableTasks] = useState<any[]>([])
 
+    // Work Hours Tool State
+    const [showParteForm, setShowParteForm] = useState(false)
+
     // Handlers para confirmación
     const handleConfirmTool = async (toolCallId: string, actionFn: string, args: any) => {
         // 1. Ejecutar la acción real
@@ -351,10 +354,12 @@ export function AiChatWidget() {
         //     startWizard('gasto')
         //     return
         // }
-        if (command === 'registrar_parte') {
-            setShowParteWizard(true)
-            return
-        } else if (command === 'crear_presupuesto_base') {
+        // DISABLED: registrar_parte now uses new flow in handleToolClick
+        // if (command === 'registrar_parte') {
+        //     setShowParteWizard(true)
+        //     return
+        // }
+        if (command === 'crear_presupuesto_base') {
             loadTareasForPresupuesto()
             return
         } else if (command === 'crear_tarea') {
@@ -613,6 +618,14 @@ export function AiChatWidget() {
                     content: '❌ Error al cargar tareas. Intenta nuevamente.'
                 }])
             }
+            return
+        }
+
+        // WORK HOURS TOOL: Registrar Parte (Día de Trabajo)
+        if (toolId === 'registrar_parte') {
+            // Simplemente abrir el formulario
+            // RegistroParteTrabajoForm tiene RBAC integrado, maneja todo internamente
+            setShowParteForm(true)
             return
         }
 
@@ -1162,6 +1175,30 @@ export function AiChatWidget() {
                                             id: Date.now().toString(),
                                             role: 'assistant',
                                             content: `✅ Gasto registrado correctamente\n\n📌 Tarea: ${expenseSelectedTask.code} - ${expenseSelectedTask.titulo}`
+                                        }])
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ) : showParteForm && currentUser ? (
+                        // WORK HOURS TOOL: RegistroParteTrabajoForm
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Registrar Parte de Trabajo</h3>
+                                <Button variant="ghost" size="icon" onClick={() => setShowParteForm(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <RegistroParteTrabajoForm
+                                    usuarioActual={currentUser}
+                                    onParteRegistrado={() => {
+                                        setShowParteForm(false)
+                                        toast.success("Parte registrado correctamente")
+                                        setMessages(prev => [...prev, {
+                                            id: Date.now().toString(),
+                                            role: 'assistant',
+                                            content: '✅ Parte de trabajo registrado correctamente'
                                         }])
                                     }}
                                 />
