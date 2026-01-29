@@ -413,7 +413,6 @@ export function AiChatWidget() {
     // Wizard State
     const [showParteWizard, setShowParteWizard] = useState(false)
     const [showPresupuestoWizard, setShowPresupuestoWizard] = useState(false)
-    // Removed duplicate showTaskWizard
     const [tareasForPresupuesto, setTareasForPresupuesto] = useState<any[]>([])
 
     const [wizardOptions, setWizardOptions] = useState<Array<{ label: string, value: string }>>([])
@@ -658,36 +657,9 @@ export function AiChatWidget() {
             return
         }
 
-        // MY TASKS LIST: Listar Mis Tareas
-        if (toolId === 'listar_mis_tareas') {
-            await loadMyTasks()
-            setShowTaskList(true)
-            return
-        }
-
-        // MY TASKS LIST: Listar Mis Tareas
-        if (toolId === 'listar_mis_tareas') {
-            await loadMyTasks()
-            setShowTaskList(true)
-            return
-        }
-
-        // MY TASKS LIST: Listar Mis Tareas
-        if (toolId === 'listar_mis_tareas') {
-            await loadMyTasks()
-            setShowTaskList(true)
-            return
-        }
-
-        // MY TASKS LIST: Listar Mis Tareas
-        if (toolId === 'listar_mis_tareas') {
-            await loadMyTasks()
-            setShowTaskList(true)
-            return
-        }
-
-        // MY TASKS LIST: Listar Mis Tareas
-        if (toolId === 'listar_mis_tareas') {
+        // FINISH TASK TOOL: Finalizar Tarea
+        if (toolId === 'finalizar_tarea') {
+            setFinalizeMode(true)
             await loadMyTasks()
             setShowTaskList(true)
             return
