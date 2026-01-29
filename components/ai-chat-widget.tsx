@@ -3,6 +3,7 @@
 import { FinalizarTareaDialog } from '@/components/finalizar-tarea-dialog'
 
 import { useState, useRef, useEffect } from "react"
+import { useSupabase } from "@/lib/supabase-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -58,6 +59,7 @@ const CopyButton = ({ text }: { text: string }) => {
 }
 
 export function AiChatWidget() {
+    const { user } = useSupabase()
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<any[]>([])
     const [input, setInput] = useState('')
@@ -257,15 +259,17 @@ export function AiChatWidget() {
         setIsMounted(true)
 
         // Fetch user role on mount (solo si está autenticado)
-        fetchUserRole()
-    }, [])
+        if (user) {
+            fetchUserRole()
+        }
+    }, [user])
 
     // Volver a cargar rol cuando cambie la ruta (ej: después de login)
     useEffect(() => {
-        if (isMounted && pathname && !pathname.includes('/login')) {
+        if (isMounted && pathname && !pathname.includes('/login') && user) {
             fetchUserRole()
         }
-    }, [pathname, isMounted])
+    }, [pathname, isMounted, user])
 
     const fetchUserRole = () => {
         fetch('/api/user')
@@ -748,7 +752,7 @@ export function AiChatWidget() {
 
     // Cargar Historial al inicio
     useEffect(() => {
-        if (isMounted && userRole) {
+        if (isMounted && userRole && user) {
             const fetchHistory = async () => {
                 try {
                     const res = await fetch('/api/chat/history')
@@ -785,7 +789,7 @@ export function AiChatWidget() {
             }
             fetchHistory()
         }
-    }, [isMounted, userRole])
+    }, [isMounted, userRole, user])
 
 
     const toggleChat = () => setIsOpen(!isOpen)
@@ -1594,15 +1598,16 @@ export function AiChatWidget() {
                                         {/* Copy Button for Assistant */}
                                         {message.role !== 'user' && <CopyButton text={message.content} />}
 
-                                        <div className={`text-[11px] leading-3 whitespace-pre-wrap ${message.role !== 'user' ? 'pr-5' : ''}`}>
+                                        <div className={`text-[11px] leading-3 w-full min-w-0 ${message.role !== 'user' ? 'pr-5' : ''}`}>
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 components={{
-                                                    p: ({ node, ...props }: any) => <p className="mb-1 last:mb-0" {...props} />,
-                                                    ul: ({ node, ...props }: any) => <ul className="list-disc pl-3 mb-1" {...props} />,
-                                                    ol: ({ node, ...props }: any) => <ol className="list-decimal pl-3 mb-1" {...props} />,
-                                                    li: ({ node, ...props }: any) => <li className="mb-0" {...props} />,
-                                                    code: ({ node, ...props }: any) => <code className="bg-gray-100 text-gray-800 px-1 py-0 rounded text-[10px] font-mono" {...props} />,
+                                                    p: ({ node, ...props }: any) => <p className="mb-1 last:mb-0 break-all whitespace-pre-wrap" {...props} />,
+                                                    ul: ({ node, ...props }: any) => <ul className="list-disc pl-3 mb-1 break-all whitespace-pre-wrap" {...props} />,
+                                                    ol: ({ node, ...props }: any) => <ol className="list-decimal pl-3 mb-1 break-all whitespace-pre-wrap" {...props} />,
+                                                    li: ({ node, ...props }: any) => <li className="mb-0 break-all whitespace-pre-wrap" {...props} />,
+                                                    code: ({ node, ...props }: any) => <code className="bg-gray-100 text-gray-800 px-1 py-0 rounded text-[10px] font-mono break-all inline-block max-w-full whitespace-pre-wrap" {...props} />,
+                                                    pre: ({ node, ...props }: any) => <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded mb-1 overflow-x-auto max-w-full" {...props} />,
                                                 }}
                                             >
                                                 {message.content}

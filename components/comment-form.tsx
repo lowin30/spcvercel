@@ -84,7 +84,6 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
           signature: string
           cloudName: string
           apiKey: string
-          uploadPreset: string
           transformation: string
           thumbnailTransformation: string
           resourceType: "image" | "video"
@@ -118,7 +117,7 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
 
         for (const file of files) {
           const assetType = getAssetType(file)
-          const { timestamp, signature, cloudName, apiKey, uploadPreset, transformation, thumbnailTransformation, resourceType } =
+          const { timestamp, signature, cloudName, apiKey, transformation, thumbnailTransformation, resourceType } =
             await getSignature(assetType)
 
           const formData = new FormData()
@@ -127,7 +126,6 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
           formData.append("timestamp", String(timestamp))
           formData.append("signature", signature)
           formData.append("folder", folder)
-          formData.append("upload_preset", uploadPreset)
           formData.append("transformation", transformation)
 
           const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, {

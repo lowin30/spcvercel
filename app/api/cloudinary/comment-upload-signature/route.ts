@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
   const paramsToSign: Record<string, string | number> = {
     folder,
     timestamp,
-    upload_preset: UPLOAD_PRESET,
     transformation,
   }
 
@@ -68,7 +67,6 @@ export async function POST(request: NextRequest) {
     folder,
     apiKey: API_KEY,
     cloudName: CLOUD_NAME,
-    uploadPreset: UPLOAD_PRESET,
     transformation,
     thumbnailTransformation: THUMBNAIL_TRANSFORMATIONS[assetType],
     resourceType: assetType,

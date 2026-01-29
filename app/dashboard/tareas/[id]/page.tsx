@@ -1301,7 +1301,7 @@ export default function TaskPage({ params: paramsPromise }: TaskPageProps) {
             <h3 className="text-lg font-semibold">Comentarios</h3>
             <ErrorBoundary fallback={<p>Error al cargar los comentarios</p>}>
               <CommentList comments={comentarios} />
-              <CommentForm idTarea={tarea.id} onComentarioCreado={() => cargarDatosTarea()} />
+              <CommentForm idTarea={tarea.id} onSuccess={() => cargarDatosTarea()} />
             </ErrorBoundary>
           </div>
         </CardContent>
