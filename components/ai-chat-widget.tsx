@@ -665,8 +665,19 @@ export function AiChatWidget() {
             return
         }
 
+        // CREATE TASK TOOL: Crear Tarea
+        if (toolId === 'crear_tarea') {
+            if (!['admin', 'supervisor'].includes(userRole)) {
+                toast.error("No tienes permisos para esta acción")
+                return
+            }
+            startWizard('tarea')
+            return
+        }
+
         // TODO: Manejar otros tools aquí
-        console.log('Tool not handled yet:', toolId)
+        console.log('Tool passing to handleActionClick:', toolId)
+        handleActionClick(toolId)
     }
 
     const loadTareasForPresupuesto = async () => {
