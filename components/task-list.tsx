@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -17,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ClonarTareaDialog } from "@/components/clonar-tarea-dialog"
 
 interface Task {
   id: number
@@ -56,10 +58,15 @@ interface TaskListProps {
 }
 
 export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }: TaskListProps) {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [taskInAction, setTaskInAction] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCloning, setIsCloning] = useState(false)
+
+  // Estado para el diálogo de clonado rápido
+  const [clonarDialogOpen, setClonarDialogOpen] = useState(false)
+  const [selectedTaskIdForClone, setSelectedTaskIdForClone] = useState<number | null>(null)
 
   const filteredTasks = tasks.filter(
     (task) =>
@@ -172,11 +179,16 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
     }
   }
 
-  // Función para manejar clonación de tarea
-  // Función para manejar clonación de tarea (Redirección al Wizard)
+  // Función para manejar clonación de tarea (Abre diálogo de clonado rápido)
   const handleCloneTask = (taskId: number) => {
     if (!taskId) return
-    window.location.href = `/dashboard/tareas/clonar/${taskId}`
+    setSelectedTaskIdForClone(taskId)
+    setClonarDialogOpen(true)
+  }
+
+  // Callback para refrescar la lista después de clonar
+  const handleCloneSuccess = () => {
+    window.location.reload()
   }
 
   // Función para obtener el color de la prioridad
@@ -245,10 +257,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    // Llamada al manejador con confirmación
-                                    if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
-                                      handleCloneTask(task.id);
-                                    }
+                                    handleCloneTask(task.id);
                                   }}>
                                   <Copy className="mr-2 h-4 w-4" />
                                   Clonar tarea
@@ -378,9 +387,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (confirm('¿Confirmas que deseas clonar esta tarea?')) {
-                                  handleCloneTask(task.id);
-                                }
+                                handleCloneTask(task.id);
                               }}
                             >
                               <Copy className="h-3 w-3" />
@@ -435,6 +442,14 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
           </Table>
         </div>
       </CardContent>
+
+      {/* Diálogo de Clonado Rápido */}
+      <ClonarTareaDialog
+        tareaId={selectedTaskIdForClone}
+        open={clonarDialogOpen}
+        onOpenChange={setClonarDialogOpen}
+        onSuccess={handleCloneSuccess}
+      />
     </Card>
   )
 }

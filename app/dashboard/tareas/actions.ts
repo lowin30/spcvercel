@@ -287,3 +287,154 @@ export async function createTask(data: any) {
     return { success: false, error: e.message }
   }
 }
+
+/**
+ * Clonado Rápido Automático (Server Action)
+ * Maneja la lógica de negocio completa: Fetches, Title Mutation, Inserts & Relations
+ * 
+ * SEGURIDAD:
+ * Utiliza la sesión del usuario (createSsrServerClient) respetando todas las políticas RLS existentes.
+ * No se usa Service Role Key para bypasear permisos.
+ */
+export async function quickCloneTask(taskId: number, rubros: string[]) {
+  // 1. Cliente Standard para Auth (contexto usuario)
+  const supabase = await createSsrServerClient()
+
+  try {
+    // 1.1 Verificar Usuario y Rol
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) throw new Error("No autenticado")
+
+    // Optional: Verificar Rol si es crítico (aunque estar en dashboard ya implica cierto acceso)
+    // const { data: profile } = await supabase.from('usuarios').select('rol').eq('id', user.id).single()
+    // if (!['admin', 'supervisor', 'trabajador'].includes(profile?.rol)) throw new Error("No autorizado")
+
+    // 2. Fetch Parent Task
+    const { data: tareaPadre, error: fetchError } = await supabase
+      .from("tareas")
+      .select("*")
+      .eq("id", taskId)
+      .single()
+
+    if (fetchError || !tareaPadre) {
+      throw new Error("No se pudo obtener la tarea original")
+    }
+
+    // 2.1 Fetch Relations Explicitly (Much more robust than joins)
+    const [superRel, workRel, deptRel] = await Promise.all([
+      supabase.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', taskId).maybeSingle(),
+      supabase.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', taskId).maybeSingle(),
+      supabase.from('departamentos_tareas').select('id_departamento').eq('id_tarea', taskId)
+    ])
+
+    // 3. Prepare Data
+    const parentSupervisorId = superRel.data?.id_supervisor
+    const parentTrabajadorId = workRel.data?.id_trabajador
+    const deptosIds = (deptRel.data || []).map((d: any) => Number(d.id_departamento)).filter(id => !isNaN(id))
+
+    // 4. Robust Title Mutation Logic
+    const oficiosParaRemover = [
+      "Pintura", "Albañilería", "Plomería", "Electricidad", "Gas",
+      "Herrería", "Herreria", "Aire Acondicionado", "Carpintería", "Carpinteria", "Varios",
+      "Impermeabilización", "Impermeabilizacion", "Destapación", "Destapacion"
+    ]
+
+    // Helper: Normalizar para búsqueda (mantiene ñ, quita acentos)
+    const normalizeForSearch = (str: string) => {
+      return str.normalize("NFD")
+        .replace(/[\u0300-\u0302\u0304-\u036f]/g, "") // Quitar acentos pero dejar tilde de la ñ
+        .normalize("NFC")
+        .toLowerCase()
+    }
+
+    let nuevoTitulo = tareaPadre.titulo || ""
+
+    // Limpieza de oficios existentes
+    oficiosParaRemover.forEach(oficio => {
+      const base = normalizeForSearch(oficio)
+
+      // Creamos un patrón que acepte vocales con y sin acento
+      const pattern = base
+        .replace(/a/g, '[aá]')
+        .replace(/e/g, '[eé]')
+        .replace(/i/g, '[ií]')
+        .replace(/o/g, '[oó]')
+        .replace(/u/g, '[uú]')
+
+      const regex = new RegExp(`\\b${pattern}\\b`, 'gi')
+      nuevoTitulo = nuevoTitulo.replace(regex, '')
+    })
+    nuevoTitulo = nuevoTitulo.replace(/\s+/g, ' ').trim()
+    // Agregar nuevos rubros (Capitalizados y Sin Acentos)
+    if (rubros && rubros.length > 0) {
+      const nuevosOficios = rubros
+        .map(r => {
+          const clean = r.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase()
+        })
+        .join(' ')
+
+      nuevoTitulo = `${nuevoTitulo} ${nuevosOficios}`.trim()
+    }
+
+    // 5. Insert New Task (Usando Cliente Standard - Respetando RLS)
+    // Incluimos id_departamento para compatibilidad con el sistema anterior
+    const { data: nuevaTarea, error: createError } = await supabase
+      .from("tareas")
+      .insert({
+        id_edificio: tareaPadre.id_edificio,
+        id_administrador: tareaPadre.id_administrador,
+        id_departamento: tareaPadre.id_departamento, // Clonamos el dpto principal
+        titulo: nuevoTitulo,
+        descripcion: `Continuación de la tarea #${tareaPadre.id} (${tareaPadre.code || ''}): ${tareaPadre.titulo}\n\n${tareaPadre.descripcion || ''}`,
+        id_estado_nuevo: 1, // Pendiente
+        prioridad: tareaPadre.prioridad || 'media',
+        finalizada: false
+      })
+      .select()
+      .single()
+
+    if (createError || !nuevaTarea) {
+      throw new Error(createError?.message || "Error al crear la tarea clonada")
+    }
+
+    // 6. Insert Relations (Standard Client)
+
+    // Supervisor
+    if (parentSupervisorId) {
+      const { error: supError } = await supabase.from("supervisores_tareas").insert({
+        id_tarea: nuevaTarea.id,
+        id_supervisor: parentSupervisorId
+      })
+      if (supError) console.error("Error linking supervisor:", supError)
+    }
+
+    // Trabajador (Asignado)
+    if (parentTrabajadorId) {
+      const { error: workError } = await supabase.from("trabajadores_tareas").insert({
+        id_tarea: nuevaTarea.id,
+        id_trabajador: parentTrabajadorId
+      })
+      if (workError) console.error("Error linking worker:", workError)
+    }
+
+    // Departamentos
+    if (deptosIds.length > 0) {
+      const deptoRelations = deptosIds.map((idDep: number) => ({
+        id_tarea: nuevaTarea.id,
+        id_departamento: idDep
+      }))
+      const { error: deptError } = await supabase.from("departamentos_tareas").insert(deptoRelations)
+      if (deptError) {
+        console.error("Error linking departments:", deptError)
+      }
+    }
+
+    revalidatePath('/dashboard/tareas')
+    return { success: true, task: nuevaTarea }
+
+  } catch (error: any) {
+    console.error("Quick Clone Error:", error)
+    return { success: false, message: error.message }
+  }
+}

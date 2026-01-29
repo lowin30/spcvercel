@@ -236,14 +236,58 @@ export function FinalizarTareaDialog({
       setResumen("")
       setHuboTrabajo(null)
       setNotasDepartamentos({})
-      setDepartamentos([])
 
-      // Chat variant: trigger success callback
+      // NUEVA LÓGICA DE CONTINUIDAD (CLONADO DIRECTO - AUTO SAVE)
+      if (continuarTarea && rubrosContinuidad.length > 0) {
+        toast.loading("Creando tarea de seguimiento...")
+
+        // Importación dinámica para evitar problemas de SSR si no se usara
+        const { quickCloneTask } = await import('@/app/dashboard/tareas/actions')
+
+        const res = await quickCloneTask(tareaId, rubrosContinuidad)
+
+        if (!res.success) {
+          toast.error(res.message || "Error al clonar tarea")
+          return
+        }
+
+        const nuevaTarea = res.task
+
+        // ÉXITO FINAL
+        toast.dismiss() // Quitar loading
+        toast.success(`✅ Tarea Finalizada.\n✨ Nueva tarea iniciada: ${nuevaTarea.titulo}`, {
+          duration: 5000
+        })
+
+        // Limpiar estados local
+        setDepartamentos([])
+        setRubrosContinuidad([])
+        setContinuarTarea(false)
+
+        onFinalizada()
+        onOpenChange(false)
+        setResumen("")
+        setHuboTrabajo(null)
+        setNotasDepartamentos({})
+
+        // Callback para Chat o Refresh
+        if (onSuccess) onSuccess()
+
+        return
+      }
+
+      setDepartamentos([])
+      setRubrosContinuidad([])
+      setContinuarTarea(false)
+
+      // Chat variant: trigger success callback (solo si NO hay continuidad)
       if (isChatVariant && onSuccess) {
         onSuccess()
       } else {
         // Redirigir a la página de tareas después de un breve delay
         setTimeout(() => {
+          // Forzar refresh router para ver la nueva tarea si es necesario
+          router.refresh()
           router.push("/dashboard/tareas")
         }, 1000)
       }
@@ -259,8 +303,24 @@ export function FinalizarTareaDialog({
     setResumen("")
     setHuboTrabajo(null)
     setNotasDepartamentos({})
+    setContinuarTarea(false)
+    setRubrosContinuidad([])
     onOpenChange(false)
   }
+
+  // Estado para continuidad
+  const [continuarTarea, setContinuarTarea] = useState(false)
+  const [rubrosContinuidad, setRubrosContinuidad] = useState<string[]>([])
+
+  const toggleRubro = (rubro: string) => {
+    setRubrosContinuidad(prev =>
+      prev.includes(rubro)
+        ? prev.filter(r => r !== rubro)
+        : [...prev, rubro]
+    )
+  }
+
+  const RubrosList = ["Pintura", "Albañilería", "Plomería", "Electricidad", "Gas", "Herrería", "Impermeabilización", "Destapación"]
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -364,6 +424,55 @@ export function FinalizarTareaDialog({
               </div>
             </div>
           )}
+
+          {/* SECCIÓN CONTINUIDAD (Web & Mobile Friendly) - REFINADO */}
+          <div className={`border-t pt-4 mt-4 transition-all duration-300 ${continuarTarea ? 'bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900 mx-[-1rem] px-6' : ''}`}>
+            <div className="flex items-start space-x-3">
+              {/* Checkbox "manual" mejorado visualmente */}
+              <div
+                className={`w-6 h-6 min-w-[1.5rem] rounded-md border-2 flex items-center justify-center cursor-pointer mt-0.5 transition-all duration-200 ${continuarTarea ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm scale-110' : 'border-muted-foreground/30 hover:border-indigo-400 bg-white dark:bg-gray-950'}`}
+                onClick={() => setContinuarTarea(!continuarTarea)}
+              >
+                {continuarTarea && <span className="text-sm font-bold leading-none">✓</span>}
+              </div>
+
+              <div className="grid gap-1.5 leading-none flex-1">
+                <Label
+                  className={`text-base font-semibold leading-none cursor-pointer transition-colors ${continuarTarea ? 'text-indigo-700 dark:text-indigo-300' : 'text-foreground'}`}
+                  onClick={() => setContinuarTarea(!continuarTarea)}
+                >
+                  ¿Quedan trabajos pendientes?
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Al finalizar, se abrirá la pantalla para crear una tarea de seguimiento.
+                </p>
+              </div>
+            </div>
+
+            {continuarTarea && (
+              <div className="mt-4 pl-0 sm:pl-9 grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2">
+                {RubrosList.map((rubro) => (
+                  <div
+                    key={rubro}
+                    className={`flex items-center space-x-2 p-2 rounded-lg transition-colors cursor-pointer border ${rubrosContinuidad.includes(rubro) ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-200 dark:border-indigo-800' : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5'}`}
+                    onClick={() => toggleRubro(rubro)}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center ${rubrosContinuidad.includes(rubro) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-400'}`}
+                    >
+                      {rubrosContinuidad.includes(rubro) && <span className="text-[10px] font-bold">✓</span>}
+                    </div>
+                    <span
+                      className={`text-sm font-medium ${rubrosContinuidad.includes(rubro) ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-700 dark:text-gray-300'}`}
+                    >
+                      {rubro === "Impermeabilización" ? "Impermea..." : rubro}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
         <DialogFooter>

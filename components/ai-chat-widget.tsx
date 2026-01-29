@@ -1,5 +1,7 @@
 "use client"
 
+import { FinalizarTareaDialog } from '@/components/finalizar-tarea-dialog'
+
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,6 +23,7 @@ const TaskFormChatWrapper = dynamic(() => import('./task-form-chat-wrapper'), { 
 const BuildingWizard = dynamic(() => import('@/components/buildings/building-wizard').then(mod => mod.BuildingWizard), { ssr: false })
 const BuildingToolWrapper = dynamic(() => import('@/components/chat/tools/building-tool').then(mod => mod.BuildingToolWrapper), { ssr: false })
 const EstimationCard = dynamic(() => import('@/components/ai/estimation-card').then(mod => mod.EstimationCard), { ssr: false })
+const KnowledgeBaseManager = dynamic(() => import('@/components/knowledge-base-manager').then(mod => mod.KnowledgeBaseManager), { ssr: false })
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
     loading: () => <span className="animate-pulse">...</span>,
     ssr: false
@@ -64,6 +67,11 @@ export function AiChatWidget() {
     // Wizard States
     const [showTaskWizard, setShowTaskWizard] = useState(false)
     const [showBuildingWizard, setShowBuildingWizard] = useState(false)
+    // Estado para Finalizar Tarea
+    const [showFinalizarDialog, setShowFinalizarDialog] = useState(false)
+    const [finalizarSelectedTask, setFinalizarSelectedTask] = useState<number | null>(null)
+    const [finalizeMode, setFinalizeMode] = useState(false)
+
     const [wizardState, setWizardState] = useState<{
         mode: 'create' | 'edit',
         taskId?: number,
@@ -82,6 +90,14 @@ export function AiChatWidget() {
 
     // Work Hours Tool State
     const [showParteForm, setShowParteForm] = useState(false)
+
+    // Knowledge Base Tool State
+    const [showKnowledgeBase, setShowKnowledgeBase] = useState(false)
+
+    // My Tasks Tool State
+    const [showTaskList, setShowTaskList] = useState(false)
+    const [myTasks, setMyTasks] = useState<any[]>([])
+
 
     // Handlers para confirmación
     const handleConfirmTool = async (toolCallId: string, actionFn: string, args: any) => {
@@ -629,6 +645,54 @@ export function AiChatWidget() {
             return
         }
 
+        // KNOWLEDGE VIEWER: Manuales y Políticas
+        if (toolId === 'knowledge_viewer') {
+            setShowKnowledgeBase(true)
+            return
+        }
+
+        // MY TASKS LIST: Listar Mis Tareas
+        if (toolId === 'listar_mis_tareas') {
+            await loadMyTasks()
+            setShowTaskList(true)
+            return
+        }
+
+        // MY TASKS LIST: Listar Mis Tareas
+        if (toolId === 'listar_mis_tareas') {
+            await loadMyTasks()
+            setShowTaskList(true)
+            return
+        }
+
+        // MY TASKS LIST: Listar Mis Tareas
+        if (toolId === 'listar_mis_tareas') {
+            await loadMyTasks()
+            setShowTaskList(true)
+            return
+        }
+
+        // MY TASKS LIST: Listar Mis Tareas
+        if (toolId === 'listar_mis_tareas') {
+            await loadMyTasks()
+            setShowTaskList(true)
+            return
+        }
+
+        // MY TASKS LIST: Listar Mis Tareas
+        if (toolId === 'listar_mis_tareas') {
+            await loadMyTasks()
+            setShowTaskList(true)
+            return
+        }
+
+        // MY TASKS LIST: Listar Mis Tareas
+        if (toolId === 'listar_mis_tareas') {
+            await loadMyTasks()
+            setShowTaskList(true)
+            return
+        }
+
         // TODO: Manejar otros tools aquí
         console.log('Tool not handled yet:', toolId)
     }
@@ -870,9 +934,16 @@ export function AiChatWidget() {
                             } else if (functionName === 'crear_tarea') {
                                 startWizard('tarea', args, 'create')
                                 assistantContent += `\n[Abriendo Asistente de Tareas...]\n`
-                            }
-                            // ... otros casos ...
-                            else {
+
+                            } else if (functionName === 'finalizar_tarea') {
+                                setFinalizeMode(true)
+                                setShowTaskList(true)
+                                // Esto disparará la carga de tareas si el useEffect de showTaskList lo hace, 
+                                // pero loadMyTasks es un helper. 
+                                // El useEffect que carga tareas está en la línea 1139.
+                                loadMyTasks()
+                                assistantContent += `\n[Abriendo selector para Finalizar Tarea...]\n`
+                            } else {
                                 // Fallback generic tool
                                 assistantContent += `\n[Acción: ${functionName}]\n`
                             }
@@ -1077,9 +1148,102 @@ export function AiChatWidget() {
     // No renderizar hasta que esté montado en el cliente (fix hydration)
     if (!isMounted || shouldHide) return null
 
+    // Cargar mis tareas para la herramienta "Mis Tareas"
+    const loadMyTasks = async () => {
+        try {
+            const supabase = (await import('@/lib/supabase-client')).createClient()
+
+            // Verificar sesión
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) return
+
+            // Obtener rol
+            const { data: userData } = await supabase
+                .from('usuarios')
+                .select('rol')
+                .eq('id', session.user.id)
+                .single()
+
+            const userRole = userData?.rol?.toLowerCase()?.trim() || 'trabajador'
+            let tasksData: any[] = []
+            let taskIds: number[] = []
+
+            console.log('DEBUG: loadMyTasks Rol detected:', userRole)
+            // DEBUG: Toast temporal
+            toast.info(`Rol detectado en Chat: ${userRole}`)
+
+            // Lógica replicada de /dashboard/tareas/page.tsx
+            // AUDIT REVIEW: El dashboard filtra "finalizada" en el CLIENTE (JS), no en SQL.
+
+            if (userRole === 'trabajador') {
+                // TRABAJADOR: Usar tabla 'trabajadores_tareas'
+                const { data: asignaciones } = await supabase
+                    .from('trabajadores_tareas')
+                    .select('id_tarea')
+                    .eq('id_trabajador', session.user.id)
+
+                if (asignaciones && asignaciones.length > 0) {
+                    taskIds = asignaciones.map(a => a.id_tarea).filter(id => id != null)
+                }
+            }
+            else if (userRole === 'supervisor') {
+                // SUPERVISOR: Usar tabla 'supervisores_tareas'
+                const { data: supervisiones } = await supabase
+                    .from('supervisores_tareas')
+                    .select('id_tarea')
+                    .eq('id_supervisor', session.user.id)
+
+                if (supervisiones && supervisiones.length > 0) {
+                    taskIds = supervisiones.map(s => s.id_tarea).filter(id => id != null)
+                }
+            }
+            else {
+                // ADMIN: Acceso total a la vista
+                const { data: todas } = await supabase
+                    .from('vista_tareas_completa')
+                    .select('id, titulo, estado_tarea, nombre_edificio, finalizada, id_estado_nuevo') // Incluimos campos para filtrar
+                    .order('created_at', { ascending: false })
+
+                // Filtrado CLIENT-SIDE como en el dashboard (page.tsxapplyFilters)
+                // Excluimos finalizadas y estado Enviado (4)
+                tasksData = (todas || []).filter((t: any) =>
+                    t.finalizada !== true && t.id_estado_nuevo !== 4
+                )
+
+                setMyTasks(tasksData)
+                console.log('DEBUG: Admin tasks loaded:', tasksData.length)
+                return
+            }
+
+            // Si hay IDs para filtrar (Trabajador o Supervisor)
+            if (taskIds.length > 0) {
+                // Fetch sin filtrar finalizada en SQL
+                const { data: tareas } = await supabase
+                    .from('vista_tareas_completa')
+                    .select('id, titulo, estado_tarea, nombre_edificio, finalizada, id_estado_nuevo')
+                    .in('id', taskIds)
+                    .order('created_at', { ascending: false })
+
+                // Filtrado CLIENT-SIDE Estricto
+                tasksData = (tareas || []).filter((t: any) =>
+                    t.finalizada !== true && t.id_estado_nuevo !== 4
+                )
+            } else {
+                // Lista vacía explícita si no hay asignaciones
+                tasksData = []
+            }
+
+            console.log('DEBUG: User tasks loaded:', tasksData.length)
+            setMyTasks(tasksData)
+        } catch (error) {
+            console.error('Error loading my tasks:', error)
+            toast.error('Error al cargar tareas')
+        }
+    }
+
     return (
         <>
-            {/* Botón flotante */}
+            {/* Botón flotante para abrir chat */}
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
@@ -1204,6 +1368,45 @@ export function AiChatWidget() {
                                 />
                             </div>
                         </div>
+                    ) : showKnowledgeBase && currentUser ? (
+                        // KNOWLEDGE VIEWER TOOL
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Manuales y Políticas</h3>
+                                <Button variant="ghost" size="icon" onClick={() => setShowKnowledgeBase(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <KnowledgeBaseManager />
+                            </div>
+                        </div>
+                    ) : showTaskList && currentUser ? (
+                        // MY TASKS LIST TOOL
+                        <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
+                            <div className="flex items-center justify-between p-4 border-b bg-muted/20">
+                                <h3 className="font-semibold text-sm">Mis Tareas Activas</h3>
+                                <Button variant="ghost" size="icon" onClick={() => setShowTaskList(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4">
+                                <TaskListWelcome
+                                    tasks={myTasks}
+                                    onTaskSelect={(taskId, taskTitle) => {
+                                        if (finalizeMode) {
+                                            setFinalizarSelectedTask(taskId)
+                                            setShowFinalizarDialog(true)
+                                            setShowTaskList(false)
+                                            setFinalizeMode(false) // Reset mode
+                                        } else {
+                                            window.location.href = `/dashboard/tareas/${taskId}`
+                                        }
+                                    }}
+                                    userRole={currentUser?.app_metadata?.role || 'trabajador'}
+                                />
+                            </div>
+                        </div>
                     ) : wizardState.active && wizardState.step === 99 ? (
                         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-2">
                             <div className="flex justify-end p-2">
@@ -1255,12 +1458,6 @@ export function AiChatWidget() {
                                     mode={wizardState.mode}
                                     taskId={wizardState.taskId}
                                     onSuccess={(taskId, taskCode) => {
-                                        setShowTaskWizard(false)
-                                        setWizardState(prev => ({ ...prev, data: {}, mode: 'create', taskId: undefined })) // Limpiar data
-
-                                        // Priorizar Código visualmente
-                                        const displayMain = taskCode || `#${taskId}`
-
                                         setMessages(prev => [...prev, {
                                             id: Date.now().toString(),
                                             role: 'assistant',
@@ -1274,6 +1471,35 @@ export function AiChatWidget() {
                                 />
                             </div>
                         </div>
+                    ) : showFinalizarDialog ? (
+                        // RENDERIZADO DEL DIÁLOGO DE FINALIZAR TAREA (Sobrepuesto o Intercalado)
+                        // Nota: El Dialog usa Portal por defecto, así que no es estrictamente necesario envolverlo en un div posicionado,
+                        // pero si queremos que parezca parte del chat, podemos controlarlo.
+                        // Sin embargo, FinalizarTareaDialog es un Dialog de UI shadcn, se renderiza en el root.
+                        // Aquí solo necesitamos renderizar el componente.
+                        <FinalizarTareaDialog
+                            open={showFinalizarDialog}
+                            onOpenChange={(open) => {
+                                setShowFinalizarDialog(open)
+                                if (!open) {
+                                    setFinalizarSelectedTask(null)
+                                    // Restaurar vista de chat
+                                    setIsComponentVisible(false)
+                                }
+                            }}
+                            tareaId={finalizarSelectedTask!}
+                            onFinalizada={() => {
+                                loadMyTasks() // Recargar lista de tareas
+                                // El toast de éxito ya lo maneja el dialog
+                                // Agregar mensaje al chat
+                                setMessages(prev => [...prev, {
+                                    id: Date.now().toString(),
+                                    role: 'assistant',
+                                    content: `✅ **Tarea #${finalizarSelectedTask} Finalizada**\n\nEl estado se ha actualizado correctamente.`
+                                }])
+                            }}
+                            isChatVariant={true}
+                        />
                     ) : showBuildingWizard ? (
                         <div className="flex-1 overflow-hidden bg-white dark:bg-gray-950 flex flex-col absolute inset-0 z-50">
                             <div className="flex items-center justify-between p-4 border-b bg-muted/20">

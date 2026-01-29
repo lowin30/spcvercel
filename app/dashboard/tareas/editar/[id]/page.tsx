@@ -4,11 +4,11 @@ import { useState, useEffect } from "react"
 import React from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase-client"
-import { TaskForm } from "@/components/task-form"
+import { TaskWizard } from "@/components/tasks/task-wizard"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft, Loader2 } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "@/hooks/use-toast"
 
 interface EditarTareaPageProps {
   params: Promise<{ id: string }>
@@ -19,13 +19,11 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
   const { id } = React.use(paramsPromise);
   const router = useRouter()
   const supabase = createClient()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userDetails, setUserDetails] = useState<any>(null)
   const [task, setTask] = useState<any>(null)
-  const [supervisores, setSupervisores] = useState<any[]>([])
-  const [trabajadores, setTrabajadores] = useState<any[]>([])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,8 +58,8 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
           return;
         }
 
-        // Verificar si el usuario tiene permisos para editar tareas (solo admin)
-        if (userData.rol !== 'admin') {
+        // Verificar si el usuario tiene permisos para editar tareas (admin o supervisor)
+        if (userData.rol !== 'admin' && userData.rol !== 'supervisor') {
           toast({
             title: 'Error de permisos',
             description: 'No tienes permisos para editar tareas.',
@@ -74,9 +72,9 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
 
         setUserDetails(userData);
 
-        // 3. Obtener datos de la tarea a editar usando la vista optimizada
+        // 3. Obtener datos de la tarea a editar usando tabla base
         const { data: taskData, error: taskError } = await supabase
-          .from('vista_tareas_completa')
+          .from('tareas')
           .select('*')
           .eq('id', id)
           .single();
@@ -93,58 +91,30 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
           return;
         }
 
-        // Obtener departamentos asociados a la tarea
-        // Los demás datos (edificio, administrador, supervisor, trabajador) ya vienen de vista_tareas_completa
-        const { data: departamentosData, error: departamentosError } = await supabase
-          .from('departamentos_tareas')
-          .select('id_departamento')
-          .eq('id_tarea', id);
-
-        if (!departamentosError && departamentosData) {
-          // Convertir a array de strings para el formulario
-          taskData.departamentos_ids = departamentosData.map(dept => dept.id_departamento.toString());
-        } else {
-          taskData.departamentos_ids = [];
-        }
-
-        console.log('Datos de la tarea cargados:', taskData);
-        console.log('Departamentos cargados:', taskData.departamentos_ids);
-        setTask(taskData);
-
-        // 5. Cargar supervisores y trabajadores para el formulario
-        const [supervisoresResult, trabajadoresResult] = await Promise.all([
-          supabase
-            .from('usuarios')
-            .select('id, email, code, color_perfil, rol')
-            .eq('rol', 'supervisor'),
-          supabase
-            .from('usuarios')
-            .select('id, email, code, color_perfil, rol')
-            .eq('rol', 'trabajador')
+        // 4. Obtener relaciones de forma explícita y separada para máxima fiabilidad
+        const [superRel, workRel, deptRel] = await Promise.all([
+          supabase.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', id).maybeSingle(),
+          supabase.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', id).maybeSingle(),
+          supabase.from('departamentos_tareas').select('id_departamento').eq('id_tarea', id)
         ]);
 
-        if (supervisoresResult.error) {
-          console.error('Error al cargar supervisores:', supervisoresResult.error);
-          toast({
-            title: 'Error',
-            description: 'No se pudieron cargar los supervisores',
-            variant: 'destructive'
-          });
-        } else {
-          setSupervisores(supervisoresResult.data || []);
-        }
+        // Mapear IDs para el Wizard de forma ultra-segura
+        const mappedTask = {
+          ...taskData,
+          id_administrador: taskData.id_administrador?.toString() || "",
+          id_edificio: taskData.id_edificio?.toString() || "",
+          // Extraer IDs de departamentos
+          departamentos_ids: (deptRel.data || [])
+            .map((d: any) => d.id_departamento.toString())
+            .filter(Boolean),
+          id_supervisor: superRel.data?.id_supervisor || "",
+          id_asignado: workRel.data?.id_trabajador || "",
+          id_estado_nuevo: taskData.id_estado_nuevo?.toString() || "1",
+          fecha_visita: taskData.fecha_visita ? new Date(taskData.fecha_visita) : null
+        };
 
-        if (trabajadoresResult.error) {
-          console.error('Error al cargar trabajadores:', trabajadoresResult.error);
-          toast({
-            title: 'Error',
-            description: 'No se pudieron cargar los trabajadores',
-            variant: 'destructive'
-          });
-        } else {
-          setTrabajadores(trabajadoresResult.data || []);
-        }
-
+        console.log("Wizard Debug - Departments found:", mappedTask.departamentos_ids.length);
+        setTask(mappedTask);
         setLoading(false);
       } catch (error: any) {
         console.error('Error al cargar datos:', error);
@@ -190,16 +160,15 @@ export default function EditarTareaPage({ params: paramsPromise }: EditarTareaPa
         </div>
       </div>
 
-      {task && supervisores && trabajadores && (
-        <TaskForm
-          key={task.id} // Añadir key para forzar re-render cuando cambian los datos
-          task={{
-            ...task,
-            id_estado_nuevo: task.id_estado_nuevo || 1 // Asegurar que siempre tenga un valor numérico
+      {task && (
+        <TaskWizard
+          mode="edit"
+          taskId={Number(id)}
+          defaultValues={task}
+          onSuccess={() => {
+            toast({ title: "Éxito", description: "Tarea actualizada correctamente" });
+            router.push(`/dashboard/tareas/${id}`);
           }}
-          supervisores={supervisores}
-          trabajadores={trabajadores}
-          isEditMode={true}
         />
       )}
     </div>

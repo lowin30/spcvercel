@@ -104,7 +104,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                 setCurrentUserRole(profile?.rol || null)
 
                 // Auto-asignar supervisor si es el rol
-                if (profile?.rol === 'supervisor') {
+                if (profile?.rol === 'supervisor' && mode === 'create') {
                     setFormData(prev => ({ ...prev, id_supervisor: user.id }))
                 }
             }
@@ -118,20 +118,30 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
             const { data: works } = await supabase.from("usuarios").select("id, email").eq("rol", "trabajador")
             if (supers) setSupervisores(supers)
             if (works) setTrabajadores(works)
+
+            // 4. Si es modo edición, forzar carga de edificios y departamentos iniciales
+            if (mode === 'edit' && defaultValues) {
+                setFormData(prev => ({ ...prev, ...defaultValues }))
+            }
         }
         init()
     }, [])
 
     // --- Lógica de Cascada (Step 1) ---
-
-    // Cargar departementos helper
     const fetchDepartamentos = async (edificioId: string) => {
+        if (!edificioId) return
+        console.log("Wizard: Fetching departments for edificio", edificioId)
         const { data } = await supabase
             .from("departamentos")
             .select("id, codigo, propietario")
-            .eq("edificio_id", edificioId)
+            .eq("edificio_id", parseInt(edificioId))
             .order("codigo")
-        if (data) setDepartamentos(data.map(d => ({ ...d, id: d.id.toString() })))
+
+        if (data) {
+            const mapped = data.map(d => ({ ...d, id: d.id.toString() }))
+            console.log("Wizard: Departments loaded", mapped.length)
+            setDepartamentos(mapped)
+        }
     }
 
     // Cargar Edificios al cambiar Admin
@@ -140,28 +150,66 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
             setEdificios([])
             return
         }
+
         const fetchEdificios = async () => {
+            console.log("Wizard: Fetching buildings for admin", formData.id_administrador)
             const { data } = await supabase
                 .from("edificios")
                 .select("id, nombre")
-                .eq("id_administrador", formData.id_administrador)
+                .eq("id_administrador", parseInt(formData.id_administrador))
                 .order("nombre")
-            if (data) setEdificios(data.map(e => ({ ...e, id: e.id.toString() })))
+
+            if (data) {
+                const mapped = data.map(e => ({ ...e, id: e.id.toString() }))
+                console.log("Wizard: Buildings loaded", mapped.length)
+                setEdificios(mapped)
+            }
         }
         fetchEdificios()
     }, [formData.id_administrador])
 
     // Cargar Departamentos al cambiar Edificio
     useEffect(() => {
-        if (!formData.id_edificio) {
+        if (formData.id_edificio) {
+            fetchDepartamentos(formData.id_edificio)
+        } else {
             setDepartamentos([])
-            return
         }
-        fetchDepartamentos(formData.id_edificio)
     }, [formData.id_edificio])
+
+    // Sincronización extra para modo edición: asegurar que los IDs precargados se mantengan
+    useEffect(() => {
+        if (mode === 'edit' && departamentos.length > 0 && formData.departamentos_ids.length > 0) {
+            console.log("Wizard Edit: Verificando consistencia de departamentos seleccionados")
+            // Esto asegura que el MultiSelect vea los datos frescos
+        }
+    }, [departamentos, mode])
+
+    // --- Funciones de cambio seguras (evitan resetear en el primer render de edición) ---
+    const handleAdminChange = (v: string) => {
+        if (v === formData.id_administrador) return
+        setFormData(prev => ({
+            ...prev,
+            id_administrador: v,
+            id_edificio: "",
+            departamentos_ids: []
+        }))
+    }
+
+    const handleEdificioChange = (v: string) => {
+        if (v === formData.id_edificio) return
+        setFormData(prev => ({
+            ...prev,
+            id_edificio: v,
+            departamentos_ids: []
+        }))
+    }
 
     // --- Auto-Title Logic ---
     useEffect(() => {
+        // En modo edición, no autogenerar el título si ya existe uno (respetar lo que viene de DB)
+        if (mode === 'edit') return
+
         if (formData.id_edificio && edificios.length > 0) {
             const edificio = edificios.find(e => e.id === formData.id_edificio)
             let newTitle = edificio?.nombre || ""
@@ -179,12 +227,13 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
             // Solo actualizar si el título está vacío o empieza con el nombre del edificio (para no borrar ediciones manuales completas)
             setFormData(prev => {
                 if (!prev.titulo || prev.titulo.startsWith(edificio?.nombre || '')) {
+                    if (prev.titulo === newTitle) return prev
                     return { ...prev, titulo: newTitle }
                 }
                 return prev
             })
         }
-    }, [formData.id_edificio, formData.departamentos_ids, edificios, departamentos])
+    }, [formData.id_edificio, formData.departamentos_ids, edificios, departamentos, mode])
 
     // --- Sub-Dialog Helper: Create Department ---
     const handleCreateDepartamento = async () => {
@@ -332,7 +381,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                 <Label>Administrador</Label>
                 <Select
                     value={formData.id_administrador}
-                    onValueChange={(v) => setFormData(prev => ({ ...prev, id_administrador: v, id_edificio: "", departamentos_ids: [] }))}
+                    onValueChange={handleAdminChange}
                 >
                     <SelectTrigger>
                         <SelectValue placeholder="Selecciona un administrador" />
@@ -347,7 +396,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                 <Label>Edificio</Label>
                 <Select
                     value={formData.id_edificio}
-                    onValueChange={(v) => setFormData(prev => ({ ...prev, id_edificio: v, departamentos_ids: [] }))}
+                    onValueChange={handleEdificioChange}
                     disabled={!formData.id_administrador}
                 >
                     <SelectTrigger>
@@ -363,11 +412,23 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                 <Label>Departamentos</Label>
                 <div className="flex gap-2 items-start">
                     <MultiSelect
+                        key={`dept-select-${formData.id_edificio}-${departamentos.length}`}
                         className="flex-grow"
                         options={departamentos.map(d => ({ value: d.id, label: `${d.codigo} ${d.propietario ? `(${d.propietario})` : ''}` }))}
                         selected={formData.departamentos_ids}
-                        onChange={(v) => setFormData(prev => ({ ...prev, departamentos_ids: v }))}
-                        placeholder="Selecciona departamentos (opcional)"
+                        onChange={(v) => {
+                            // Protección crítica: No dejar que el MultiSelect limpie la selección 
+                            // si todavía no se han cargado las opciones (options.length === 0) 
+                            // y estamos en modo edición (donde ya traemos IDs).
+                            if (mode === 'edit' && departamentos.length === 0 && v.length === 0) {
+                                console.log("Wizard: Ignorando intento de limpieza de departamentos (opciones no cargadas aún)")
+                                return
+                            }
+
+                            console.log("Wizard: Departments changed to", v)
+                            setFormData(prev => ({ ...prev, departamentos_ids: v }))
+                        }}
+                        placeholder={departamentos.length > 0 ? "Selecciona departamentos (opcional)" : "Cargando departamentos..."}
                         disabled={!formData.id_edificio}
                     />
 
@@ -490,7 +551,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                 <CardHeader className="pb-2">
                     <CardTitle className="text-base font-medium flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-primary" />
-                        Resumen de Creación
+                        {mode === 'edit' ? "Resumen de Edición" : "Resumen de Creación"}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm space-y-1 pb-4">

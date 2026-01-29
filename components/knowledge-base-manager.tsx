@@ -34,6 +34,8 @@ export function KnowledgeBaseManager() {
     const [loading, setLoading] = useState(true)
     const [uploading, setUploading] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+    const [currentUser, setCurrentUser] = useState<any>(null)
+    const [isAdmin, setIsAdmin] = useState(false)
 
     // Form state para nuevo documento
     const [newDoc, setNewDoc] = useState({
@@ -54,6 +56,22 @@ export function KnowledgeBaseManager() {
 
     async function loadData() {
         setLoading(true)
+
+        // Obtener usuario actual y rol
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            setCurrentUser(user)
+            // Consultar rol en tabla usuarios
+            const { data: userData } = await supabase
+                .from('usuarios')
+                .select('rol')
+                .eq('id', user.id)
+                .single()
+
+            if (userData && (userData.rol === 'admin' || userData.rol === 'administrador')) {
+                setIsAdmin(true)
+            }
+        }
 
         const { data: docsData } = await supabase
             .from('ai_knowledge_docs')
@@ -279,124 +297,126 @@ export function KnowledgeBaseManager() {
                 </Card>
             </div>
 
-            {/* Upload de nuevo documento */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Upload className="h-5 w-5" />
-                        Subir Nuevo Documento
-                    </CardTitle>
-                    <CardDescription>
-                        Sube archivos para indexar en la knowledge base. Almacenamiento permanente en Cloudinary.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Archivo (cualquier tipo)</Label>
-                        <Input
-                            type="file"
-                            onChange={handleFileUpload}
-                            disabled={uploading}
-                        />
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
+            {/* Upload de nuevo documento - SOLO ADMIN */}
+            {isAdmin && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Upload className="h-5 w-5" />
+                            Subir Nuevo Documento
+                        </CardTitle>
+                        <CardDescription>
+                            Sube archivos para indexar en la knowledge base. Almacenamiento permanente en Cloudinary.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label>Título del Documento</Label>
+                            <Label>Archivo (cualquier tipo)</Label>
                             <Input
-                                value={newDoc.title}
-                                onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
-                                placeholder="Carta de Presentación SPC"
+                                type="file"
+                                onChange={handleFileUpload}
+                                disabled={uploading}
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Categoría</Label>
-                            <Select
-                                value={newDoc.category}
-                                onValueChange={(value) => setNewDoc({ ...newDoc, category: value })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="manual">Manual</SelectItem>
-                                    <SelectItem value="protocolo">Protocolo</SelectItem>
-                                    <SelectItem value="normativa">Normativa</SelectItem>
-                                    <SelectItem value="guia">Guía</SelectItem>
-                                    <SelectItem value="faq">FAQ</SelectItem>
-                                    <SelectItem value="politica">Política</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Título del Documento</Label>
+                                <Input
+                                    value={newDoc.title}
+                                    onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
+                                    placeholder="Carta de Presentación SPC"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Categoría</Label>
+                                <Select
+                                    value={newDoc.category}
+                                    onValueChange={(value) => setNewDoc({ ...newDoc, category: value })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="manual">Manual</SelectItem>
+                                        <SelectItem value="protocolo">Protocolo</SelectItem>
+                                        <SelectItem value="normativa">Normativa</SelectItem>
+                                        <SelectItem value="guia">Guía</SelectItem>
+                                        <SelectItem value="faq">FAQ</SelectItem>
+                                        <SelectItem value="politica">Política</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="space-y-2">
-                        <Label>Resumen (opcional)</Label>
-                        <Textarea
-                            value={newDoc.summary}
-                            onChange={(e) => setNewDoc({ ...newDoc, summary: e.target.value })}
-                            placeholder="Breve descripción de qué contiene este documento..."
-                            rows={2}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Tags (separados por coma)</Label>
-                        <Input
-                            value={newDoc.tags}
-                            onChange={(e) => setNewDoc({ ...newDoc, tags: e.target.value })}
-                            placeholder="presentacion, institucional, servicios, empresa"
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Roles con Acceso</Label>
-                        <div className="flex gap-2">
-                            {['trabajador', 'supervisor', 'admin'].map(role => (
-                                <label key={role} className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={newDoc.roles.includes(role)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setNewDoc({ ...newDoc, roles: [...newDoc.roles, role] })
-                                            } else {
-                                                setNewDoc({ ...newDoc, roles: newDoc.roles.filter(r => r !== role) })
-                                            }
-                                        }}
-                                        className="rounded"
-                                    />
-                                    <span className="text-sm capitalize">{role}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-
-                    {newDoc.content && (
                         <div className="space-y-2">
-                            <Label>Vista Previa del Contenido</Label>
+                            <Label>Resumen (opcional)</Label>
                             <Textarea
-                                value={newDoc.content}
-                                onChange={(e) => setNewDoc({ ...newDoc, content: e.target.value })}
-                                rows={4}
-                                className="font-mono text-xs"
+                                value={newDoc.summary}
+                                onChange={(e) => setNewDoc({ ...newDoc, summary: e.target.value })}
+                                placeholder="Breve descripción de qué contiene este documento..."
+                                rows={2}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                {newDoc.content.length} caracteres
-                            </p>
                         </div>
-                    )}
 
-                    <Button
-                        onClick={handleSaveDoc}
-                        disabled={uploading || !newDoc.title}
-                        className="w-full"
-                    >
-                        {uploading ? 'Guardando...' : 'Guardar Documento'}
-                    </Button>
-                </CardContent>
-            </Card>
+                        <div className="space-y-2">
+                            <Label>Tags (separados por coma)</Label>
+                            <Input
+                                value={newDoc.tags}
+                                onChange={(e) => setNewDoc({ ...newDoc, tags: e.target.value })}
+                                placeholder="presentacion, institucional, servicios, empresa"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Roles con Acceso</Label>
+                            <div className="flex gap-2">
+                                {['trabajador', 'supervisor', 'admin'].map(role => (
+                                    <label key={role} className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={newDoc.roles.includes(role)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setNewDoc({ ...newDoc, roles: [...newDoc.roles, role] })
+                                                } else {
+                                                    setNewDoc({ ...newDoc, roles: newDoc.roles.filter(r => r !== role) })
+                                                }
+                                            }}
+                                            className="rounded"
+                                        />
+                                        <span className="text-sm capitalize">{role}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {newDoc.content && (
+                            <div className="space-y-2">
+                                <Label>Vista Previa del Contenido</Label>
+                                <Textarea
+                                    value={newDoc.content}
+                                    onChange={(e) => setNewDoc({ ...newDoc, content: e.target.value })}
+                                    rows={4}
+                                    className="font-mono text-xs"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    {newDoc.content.length} caracteres
+                                </p>
+                            </div>
+                        )}
+
+                        <Button
+                            onClick={handleSaveDoc}
+                            disabled={uploading || !newDoc.title}
+                            className="w-full"
+                        >
+                            {uploading ? 'Guardando...' : 'Guardar Documento'}
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Buscador y lista de documentos */}
             <Card>
@@ -447,13 +467,15 @@ export function KnowledgeBaseManager() {
                                                     {doc.summary || 'Sin resumen'}
                                                 </CardDescription>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleDeleteDoc(doc.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
+                                            {isAdmin && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() => handleDeleteDoc(doc.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            )}
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-2">
