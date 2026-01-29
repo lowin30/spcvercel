@@ -1130,7 +1130,7 @@ export function AiChatWidget() {
         if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ block: "end", behavior: "smooth" });
         }
-    }, [messages, wizardState, isLoading]) // Agregamos dependencias clave
+    }, [messages, wizardState, isLoading, isOpen]) // Agregamos dependencias clave
 
     // No renderizar hasta que esté montado en el cliente (fix hydration)
     if (!isMounted || shouldHide) return null
