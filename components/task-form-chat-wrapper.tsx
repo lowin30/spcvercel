@@ -13,7 +13,7 @@ interface TaskFormChatWrapperProps {
 
 export default function TaskFormChatWrapper({ onSuccess, onCancel, initialData, mode, taskId }: TaskFormChatWrapperProps) {
     return (
-        <div className="w-full bg-white dark:bg-gray-900 rounded-lg border shadow-sm overflow-hidden flex flex-col">
+        <div className="w-full h-full bg-white dark:bg-gray-900 rounded-lg border shadow-sm overflow-hidden flex flex-col">
             {/* Header Miniatura */}
             <div className="p-3 bg-gray-50 dark:bg-gray-800 border-b flex justify-between items-center shrink-0">
                 <h3 className="font-medium text-sm flex items-center gap-2">
@@ -28,7 +28,7 @@ export default function TaskFormChatWrapper({ onSuccess, onCancel, initialData, 
             </div>
 
             {/* Wizard Container - Scrollable */}
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
+            <div className="p-4 flex-1 overflow-y-auto">
                 <TaskWizard
                     defaultValues={initialData}
                     mode={mode}
