@@ -35,6 +35,7 @@ interface DepartamentoFormProps {
   // Chat Integration Props (SPC v9.5)
   isChatVariant?: boolean
   onSuccess?: () => void
+  hidePhones?: boolean
 }
 
 export function DepartamentoForm({
@@ -45,7 +46,8 @@ export function DepartamentoForm({
   isLoading = false,
   submitLabel = "Guardar Departamento",
   isChatVariant = false,
-  onSuccess
+  onSuccess,
+  hidePhones = false
 }: DepartamentoFormProps) {
 
   const agregarTelefono = () => {
@@ -91,22 +93,16 @@ export function DepartamentoForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!formData.codigo.trim()) {
-      toast.error('El código del departamento es obligatorio')
+    if (!formData.codigo) {
+      toast.error('El código es requerido')
       return
     }
-
     await onSubmit()
-
-    // Chat variant: trigger success callback
-    if (isChatVariant && onSuccess) {
-      onSuccess()
-    }
   }
 
   return (
     <form onSubmit={handleSubmit} className={isChatVariant ? "space-y-3" : "space-y-4"}>
+      {/* ... inputs ... */}
       <div className="space-y-2">
         <Label htmlFor="codigo" className={isChatVariant ? "text-xs font-medium" : "text-sm font-medium"}>
           Código <span className="text-destructive">*</span>
@@ -146,133 +142,140 @@ export function DepartamentoForm({
         />
       </div>
 
-      {/* Sección de teléfonos */}
-      <div className="space-y-4 border-t border-border pt-4">
-        <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold flex items-center">
-            <Phone className="mr-2 h-4 w-4" />
-            Teléfonos de contacto
-          </Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={agregarTelefono}
-            disabled={isLoading}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Añadir
-          </Button>
+      {/* Sección de teléfonos - CONDITIONAL */}
+      {hidePhones ? (
+        <div className="p-3 bg-blue-50 text-blue-700 text-sm rounded-md border border-builder-200 flex items-center">
+          <Phone className="w-4 h-4 mr-2" />
+          <span>Los contactos se podrán agregar en el siguiente paso.</span>
         </div>
-
-        {formData.telefonos.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No hay teléfonos agregados
-          </p>
-        )}
-
-        {formData.telefonos.map((telefono, index) => (
-          <div
-            key={index}
-            className="p-3 border border-border rounded-lg bg-muted/20 dark:bg-muted/10 space-y-3"
-          >
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor={`telefono-nombre-${index}`} className="text-xs">
-                    Nombre del contacto
-                  </Label>
-                  <Input
-                    id={`telefono-nombre-${index}`}
-                    value={telefono.nombre_contacto}
-                    onChange={(e) => actualizarTelefono(index, 'nombre_contacto', e.target.value)}
-                    placeholder="Ej: Juan Pérez"
-                    className="h-9"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor={`telefono-relacion-${index}`} className="text-xs">
-                    Relación
-                  </Label>
-                  <Input
-                    id={`telefono-relacion-${index}`}
-                    value={telefono.relacion}
-                    onChange={(e) => actualizarTelefono(index, 'relacion', e.target.value)}
-                    placeholder="Ej: Propietario, Encargado"
-                    className="h-9"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor={`telefono-numero-${index}`} className="text-xs">
-                    Número
-                  </Label>
-                  <Input
-                    id={`telefono-numero-${index}`}
-                    value={telefono.numero}
-                    onChange={(e) => actualizarTelefono(index, 'numero', e.target.value.replace(/\D/g, ''))}
-                    placeholder="Solo números (ej: 5491150055262)"
-                    className="h-9"
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor={`telefono-notas-${index}`} className="text-xs">
-                    Notas
-                  </Label>
-                  <Input
-                    id={`telefono-notas-${index}`}
-                    value={telefono.notas}
-                    onChange={(e) => actualizarTelefono(index, 'notas', e.target.value)}
-                    placeholder="Información adicional"
-                    className="h-9"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id={`telefono-principal-${index}`}
-                  checked={telefono.es_principal}
-                  onChange={() => marcarTelefonoPrincipal(index)}
-                  className="rounded"
-                  disabled={isLoading}
-                />
-                <Label
-                  htmlFor={`telefono-principal-${index}`}
-                  className="text-sm flex items-center cursor-pointer"
-                >
-                  <Star className="h-3 w-3 mr-1 text-amber-500" />
-                  Teléfono principal
-                </Label>
-              </div>
-
-              {formData.telefonos.length > 1 && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => eliminarTelefono(index)}
-                  disabled={isLoading}
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Eliminar
-                </Button>
-              )}
-            </div>
+      ) : (
+        <div className="space-y-4 border-t border-border pt-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold flex items-center">
+              <Phone className="mr-2 h-4 w-4" />
+              Teléfonos de contacto
+            </Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={agregarTelefono}
+              disabled={isLoading}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Añadir
+            </Button>
           </div>
-        ))}
-      </div>
+
+          {formData.telefonos.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No hay teléfonos agregados
+            </p>
+          )}
+
+          {formData.telefonos.map((telefono, index) => (
+            <div
+              key={index}
+              className="p-3 border border-border rounded-lg bg-muted/20 dark:bg-muted/10 space-y-3"
+            >
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`telefono-nombre-${index}`} className="text-xs">
+                      Nombre del contacto
+                    </Label>
+                    <Input
+                      id={`telefono-nombre-${index}`}
+                      value={telefono.nombre_contacto}
+                      onChange={(e) => actualizarTelefono(index, 'nombre_contacto', e.target.value)}
+                      placeholder="Ej: Juan Pérez"
+                      className="h-9"
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor={`telefono-relacion-${index}`} className="text-xs">
+                      Relación
+                    </Label>
+                    <Input
+                      id={`telefono-relacion-${index}`}
+                      value={telefono.relacion}
+                      onChange={(e) => actualizarTelefono(index, 'relacion', e.target.value)}
+                      placeholder="Ej: Propietario, Encargado"
+                      className="h-9"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`telefono-numero-${index}`} className="text-xs">
+                      Número
+                    </Label>
+                    <Input
+                      id={`telefono-numero-${index}`}
+                      value={telefono.numero}
+                      onChange={(e) => actualizarTelefono(index, 'numero', e.target.value.replace(/\D/g, ''))}
+                      placeholder="Solo números (ej: 5491150055262)"
+                      className="h-9"
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor={`telefono-notas-${index}`} className="text-xs">
+                      Notas
+                    </Label>
+                    <Input
+                      id={`telefono-notas-${index}`}
+                      value={telefono.notas}
+                      onChange={(e) => actualizarTelefono(index, 'notas', e.target.value)}
+                      placeholder="Información adicional"
+                      className="h-9"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`telefono-principal-${index}`}
+                    checked={telefono.es_principal}
+                    onChange={() => marcarTelefonoPrincipal(index)}
+                    className="rounded"
+                    disabled={isLoading}
+                  />
+                  <Label
+                    htmlFor={`telefono-principal-${index}`}
+                    className="text-sm flex items-center cursor-pointer"
+                  >
+                    <Star className="h-3 w-3 mr-1 text-amber-500" />
+                    Teléfono principal
+                  </Label>
+                </div>
+
+                {formData.telefonos.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => eliminarTelefono(index)}
+                    disabled={isLoading}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Eliminar
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2 pt-4">
         {onCancel && (

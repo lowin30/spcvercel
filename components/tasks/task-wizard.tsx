@@ -17,6 +17,7 @@ import { toast } from "sonner"
 import { Loader2, ArrowRight, ArrowLeft, CheckCircle, Building2, User, FileText, Calendar, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DepartamentoForm, DepartamentoFormData } from "@/components/departamento-form"
+import { UnifiedDeptContactForm } from "@/components/unified-dept-contact-form"
 
 // --- Tipos ---
 interface TaskWizardProps {
@@ -92,6 +93,8 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
         telefonos: []
     })
     const [isCreatingDept, setIsCreatingDept] = useState(false)
+    const [createdDeptId, setCreatedDeptId] = useState<number | null>(null)
+    const [createdDeptCode, setCreatedDeptCode] = useState<string>("")
 
     // --- Efectos de Carga Inicial ---
     useEffect(() => {
@@ -277,14 +280,18 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
 
             toast.success("Departamento creado correctamente")
 
-            // 3. Refrescar lista y seleccionar
+            // 3. Refrescar lista y transicionar a contactos
             await fetchDepartamentos(formData.id_edificio)
             setFormData(prev => ({
                 ...prev,
                 departamentos_ids: [...prev.departamentos_ids, depto.id.toString()]
             }))
-            setIsDeptDialogOpen(false)
-            setNewDeptData({ codigo: "", propietario: "", notas: "", telefonos: [] }) // Reset form
+
+            // SPC v18.2: 2-Step Flow
+            setCreatedDeptId(depto.id)
+            setCreatedDeptCode(depto.codigo)
+            // setIsDeptDialogOpen(false) // Don't close yet
+            setNewDeptData({ codigo: "", propietario: "", notas: "", telefonos: [] }) // Reset form for next usage (or irrelevant now)
 
         } catch (e: any) {
             console.error("Error creating department:", e)
@@ -445,19 +452,52 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                         </DialogTrigger>
                         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
-                                <DialogTitle>Nuevo Departamento</DialogTitle>
+                                <DialogTitle>
+                                    {createdDeptId ? `Contactos: Depto ${createdDeptCode}` : "Nuevo Departamento"}
+                                </DialogTitle>
                                 <DialogDescription>
-                                    Agrega un departamento al edificio seleccionado.
+                                    {createdDeptId
+                                        ? "Agregue los contactos del departamento recién creado."
+                                        : "Agrega un departamento al edificio seleccionado."}
                                 </DialogDescription>
                             </DialogHeader>
-                            <DepartamentoForm
-                                formData={newDeptData}
-                                onChange={setNewDeptData}
-                                onSubmit={handleCreateDepartamento}
-                                onCancel={() => setIsDeptDialogOpen(false)}
-                                isLoading={isCreatingDept}
-                                submitLabel="Crear Departamento"
-                            />
+
+                            {!createdDeptId ? (
+                                <DepartamentoForm
+                                    formData={newDeptData}
+                                    onChange={setNewDeptData}
+                                    onSubmit={handleCreateDepartamento}
+                                    onCancel={() => setIsDeptDialogOpen(false)}
+                                    isLoading={isCreatingDept}
+                                    submitLabel="Crear y Continuar"
+                                    hidePhones={true} // Hide legacy phones
+                                />
+                            ) : (
+                                <div className="space-y-4">
+                                    <UnifiedDeptContactForm
+                                        edificioId={parseInt(formData.id_edificio)}
+                                        departamentoId={createdDeptId}
+                                        departamentoCodigo={createdDeptCode}
+                                        onSuccess={() => {
+                                            // Optional: Show checkmark or refresh list
+                                            // We could stay here to add more contacts
+                                            fetchDepartamentos(formData.id_edificio) // Ensure contact counts update if displayed
+                                        }}
+                                    />
+                                    <div className="flex justify-end pt-4 border-t">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => {
+                                                setIsDeptDialogOpen(false)
+                                                setCreatedDeptId(null)
+                                                setCreatedDeptCode("")
+                                            }}
+                                        >
+                                            <CheckCircle className="mr-2 h-4 w-4" /> Finalizar
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </DialogContent>
                     </Dialog>
                 </div>

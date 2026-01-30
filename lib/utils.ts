@@ -94,25 +94,32 @@ export function getEstadoEdificioColor(estado: string): string {
 // Text sanitization utility
 // Text sanitization utility
 // Text sanitization utility (SPC Law v3.5 - Strict Uppercase & Accents)
+// Text sanitization utility (SPC Protocol v18.1 - Ñ-Compatible)
 export function sanitizeText(text: string | null | undefined): string {
   if (!text) return ""
-  return text
-    .toUpperCase() // FORCE UPPERCASE FIRST
+
+  let result = text;
+
+  // 1. Manual replacements for standard vowels (Fast Path)
+  const map: { [key: string]: string } = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+    'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+    'ü': 'u', 'Ü': 'U'
+  };
+  result = result.replace(/[áéíóúÁÉÍÓÚüÜ]/g, char => map[char] || char);
+
+  // 2. Strict Diacritic Removal (Preserving Ñ)
+  // Strategy: Hide Ñ -> Remove Diacritics -> Restore Ñ
+  result = result
+    .replace(/ñ/g, '__n_placeholder__')
+    .replace(/Ñ/g, '__N_placeholder__')
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, (match, offset, str) => {
-      // Preserve Ñ (N + tilde) logic if needed, but since we uppercased, we look for 'N'
-      // Actually, NFD splits Ñ into N + \u0303. We want to keep \u0303 only if it follows N.
-      // But a simpler approach for Spanish is:
-      return "" // Remove all diacritics blindly
-    })
+    .replace(/[\u0300-\u036f]/g, "") // Kill all accents
     .normalize("NFC")
-    // Restore Ñ if it was lost? No, NFD separation + removal kills the tilde.
-    // Better strategy: Replace Ñ with a placeholder, remove accents, then restore.
-    // Let's retry the strategy:
-    // 1. Placeholder for Ñ
-    .replace(/Ñ/g, '__NIE__')
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").normalize("NFC") // Remove accents
-    .replace(/__NIE__/g, 'Ñ') // Restore Ñ
-    .replace(/[^A-Z0-9Ñ\s.,-]/g, "") // Whitelist only valid chars
-    .trim()
+    .replace(/__n_placeholder__/g, 'ñ')
+    .replace(/__N_placeholder__/g, 'Ñ');
+
+  // 3. Final Cleanup (Whitelist: Alphanumeric, spaces, dots, commas, hyphens)
+  // We allow [a-zA-Z0-9 ñÑ .,-] 
+  return result.replace(/[^a-zA-Z0-9ñÑ\s.,-]/g, "").trim();
 }

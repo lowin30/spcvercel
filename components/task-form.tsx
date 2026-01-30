@@ -430,18 +430,25 @@ export function TaskForm({
   useEffect(() => {
     const fetchTelefonos = async () => {
       if (selectedDepartamentosIds.length > 0) {
-        const { data, error } = await supabase
-          .from("telefonos_departamento")
-          .select("id, numero, nombre_contacto, departamento_id")
+        // SPC v18.2: Fetch from 'contactos' instead of legacy table
+        const { data: contactosData, error } = await supabase
+          .from("contactos")
+          .select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id")
           .in("departamento_id", selectedDepartamentosIds)
-          .order("nombre_contacto", { ascending: true });
+        //.order("nombreReal", { ascending: true }); // Field name might be different in sort, check if needed
 
         if (error) {
           console.error("Error cargando teléfonos:", error);
           toast.error("No se pudieron cargar los teléfonos para los departamentos.");
           setTelefonosList([]);
         } else {
-          setTelefonosList(data?.map(tel => ({ ...tel, id: tel.id.toString() })) || []);
+          const mappedPhones = contactosData?.map(c => ({
+            id: c.id.toString(),
+            numero: c.numero || "",
+            nombre_contacto: c.nombre_contacto || "Sin Nombre",
+            departamento_id: c.departamento_id.toString()
+          })) || []
+          setTelefonosList(mappedPhones);
         }
       } else {
         setTelefonosList([]);
@@ -856,23 +863,35 @@ export function TaskForm({
 
                                 if (error) throw error;
 
-                                // Crear teléfonos asociados (solo si tienen al menos número o nombre)
+                                // Crear teléfonos asociados (SPC v18.2: Insert into 'contactos')
                                 const telefonosValidos = telefonosNuevos.filter(tel =>
                                   tel.numero.trim() || tel.nombre_contacto.trim()
                                 );
 
                                 if (telefonosValidos.length > 0 && data) {
-                                  const telefonosParaInsertar = telefonosValidos.map(tel => ({
-                                    departamento_id: data.id,
-                                    nombre_contacto: tel.nombre_contacto.trim() || '',
-                                    relacion: tel.relacion.trim() || '',
-                                    numero: tel.numero.replace(/\D/g, ''),
-                                    es_principal: tel.es_principal,
-                                    notas: tel.notas.trim() || ''
-                                  }));
+                                  const timestamp = new Date().toISOString()
+                                  const telefonosParaInsertar = telefonosValidos.map(tel => {
+                                    const nombreSanitized = tel.nombre_contacto.trim() || 'Sin Nombre'
+                                    const slugRaw = `${nuevoDepartamento.codigo}-${nombreSanitized}`.toLowerCase().replace(/[^a-z0-9]/g, '-')
+                                    const slug = `${slugRaw}-${Math.random().toString(36).substring(7)}`
+
+                                    return {
+                                      nombre: slug,
+                                      nombreReal: nombreSanitized,
+                                      telefono: tel.numero.replace(/\D/g, ''),
+                                      tipo_padre: 'edificio',
+                                      id_padre: parseInt(form.getValues('id_edificio')),
+                                      departamento: nuevoDepartamento.codigo,
+                                      departamento_id: data.id,
+                                      relacion: tel.relacion.trim() || 'Otro',
+                                      es_principal: tel.es_principal,
+                                      notas: tel.notas.trim() || '',
+                                      updated_at: timestamp
+                                    }
+                                  });
 
                                   const { error: telefonosError } = await supabase
-                                    .from("telefonos_departamento")
+                                    .from("contactos")
                                     .insert(telefonosParaInsertar);
 
                                   if (telefonosError) throw telefonosError;

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Building2, Phone, Edit2, Loader2, Star } from "lucide-react"
 import { createClient } from "@/lib/supabase-client"
 import { DepartamentoForm, DepartamentoFormData, TelefonoData } from "@/components/departamento-form"
+import { UnifiedDeptContactForm } from "@/components/unified-dept-contact-form"
 import { toast } from "sonner"
 
 interface Departamento {
@@ -32,12 +33,12 @@ export function DepartamentosDialog({
   onDepartamentosUpdated
 }: DepartamentosDialogProps) {
   const supabase = createClient()
-  
+
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editandoId, setEditandoId] = useState<number | null>(null)
-  
+
   const [formData, setFormData] = useState<DepartamentoFormData>({
     codigo: '',
     propietario: '',
@@ -57,21 +58,33 @@ export function DepartamentosDialog({
       if (deptosError) throw deptosError
 
       if (deptosData) {
+        // SPC v18.2: Fetch from 'contactos'
         const deptosConTelefonos = await Promise.all(
           deptosData.map(async (depto) => {
-            const { data: telefonosData } = await supabase
-              .from('telefonos_departamento')
-              .select('id, numero, nombre_contacto, relacion, es_principal, notas')
+            const { data: contactosData } = await supabase
+              .from('contactos')
+              .select('*')
               .eq('departamento_id', depto.id)
-              .order('es_principal', { ascending: false })
+
+            // Map to legacy TelefonoData for compatibility with UI display if needed, 
+            // though display logic should also arguably change. 
+            // For now, mapping 'contactos' -> 'telefonos' array.
+            const mappedPhones = contactosData?.map(c => ({
+              id: c.id,
+              numero: c.telefono || "",
+              nombre_contacto: c["nombreReal"] || c.nombre || "Sin Nombre",
+              relacion: c.relacion || "",
+              es_principal: c.es_principal || false,
+              notas: c.notas || ""
+            })) || []
 
             return {
               ...depto,
-              telefonos: telefonosData || []
+              telefonos: mappedPhones
             }
           })
         )
-        
+
         setDepartamentos(deptosConTelefonos)
       }
     } catch (error: any) {
@@ -110,7 +123,7 @@ export function DepartamentosDialog({
       telefonos: depto.telefonos
     })
     setEditandoId(depto.id)
-    
+
     const formElement = document.getElementById('departamento-form-section')
     if (formElement) {
       formElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -132,29 +145,11 @@ export function DepartamentosDialog({
 
         if (updateError) throw updateError
 
-        const { error: deleteTelError } = await supabase
-          .from('telefonos_departamento')
-          .delete()
-          .eq('departamento_id', editandoId)
+        // Legacy phone cleanup removed (telefonos_departamento is deprecated)
+        // Phones are now managed via UnifiedDeptContactForm
+        // No delete/insert here.
 
-        if (deleteTelError) throw deleteTelError
-
-        if (formData.telefonos.length > 0) {
-          const telefonosInsert = formData.telefonos.map(tel => ({
-            departamento_id: editandoId,
-            numero: tel.numero,
-            nombre_contacto: tel.nombre_contacto || null,
-            relacion: tel.relacion || null,
-            es_principal: tel.es_principal,
-            notas: tel.notas || null
-          }))
-
-          const { error: insertTelError } = await supabase
-            .from('telefonos_departamento')
-            .insert(telefonosInsert)
-
-          if (insertTelError) throw insertTelError
-        }
+        // No phone insert here
 
         toast.success('Departamento actualizado correctamente')
       } else {
@@ -171,31 +166,32 @@ export function DepartamentosDialog({
 
         if (insertError) throw insertError
 
-        if (formData.telefonos.length > 0 && newDepto) {
-          const telefonosInsert = formData.telefonos.map(tel => ({
-            departamento_id: newDepto.id,
-            numero: tel.numero,
-            nombre_contacto: tel.nombre_contacto || null,
-            relacion: tel.relacion || null,
-            es_principal: tel.es_principal,
-            notas: tel.notas || null
-          }))
+        // No phone insert here for new dept either. User must add them after creation.
+        // We could auto-open the edit mode for the new dept if we wanted.
 
-          const { error: insertTelError } = await supabase
-            .from('telefonos_departamento')
-            .insert(telefonosInsert)
+        toast.success('Departamento creado. Ahora agregue los contactos.')
 
-          if (insertTelError) throw insertTelError
-        }
-
-        toast.success('Departamento creado correctamente')
+        // SPC v18.2: Auto-switch to Edit Mode to allow adding contacts immediately
+        setEditandoId(newDepto.id)
+        setFormData({
+          ...formData,
+          id: newDepto.id,
+          // Ensure fields match the created dept
+          codigo: newDepto.codigo,
+          propietario: newDepto.propietario || '',
+          notas: newDepto.notas || '',
+          telefonos: []
+        })
+        fetchDepartamentos()
+        // Do not clean form here, let the user add contacts
+        // Trigger update callback if exists
+        if (onDepartamentosUpdated) onDepartamentosUpdated()
+        return
       }
 
       limpiarFormulario()
       fetchDepartamentos()
-      if (onDepartamentosUpdated) {
-        onDepartamentosUpdated()
-      }
+      if (onDepartamentosUpdated) onDepartamentosUpdated()
     } catch (error: any) {
       console.error('Error guardando departamento:', error)
       toast.error('Error al guardar el departamento')
@@ -252,19 +248,19 @@ export function DepartamentosDialog({
                         <Building2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                         <span className="font-semibold text-base">{depto.codigo}</span>
                       </div>
-                      
+
                       {depto.propietario && (
                         <p className="text-sm text-muted-foreground pl-6">
                           Propietario: {depto.propietario}
                         </p>
                       )}
-                      
+
                       {depto.notas && (
                         <p className="text-xs text-muted-foreground pl-6 italic">
                           {depto.notas}
                         </p>
                       )}
-                      
+
                       {depto.telefonos.length > 0 && (
                         <div className="space-y-1 pl-6 pt-1">
                           {depto.telefonos.map((tel) => (
@@ -288,7 +284,7 @@ export function DepartamentosDialog({
                         </div>
                       )}
                     </div>
-                    
+
                     <Button
                       variant="ghost"
                       size="icon"
@@ -309,15 +305,33 @@ export function DepartamentosDialog({
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
             {editandoId ? '✏️ EDITAR DEPARTAMENTO' : '➕ AGREGAR NUEVO DEPARTAMENTO'}
           </h3>
-          
+
           <DepartamentoForm
             formData={formData}
             onChange={setFormData}
             onSubmit={handleGuardarDepartamento}
             onCancel={editandoId ? limpiarFormulario : undefined}
             isLoading={saving}
-            submitLabel={editandoId ? 'Actualizar Departamento' : 'Crear Departamento'}
+            submitLabel={editandoId ? 'Actualizar Datos Departamento' : 'Crear Departamento'}
+            hidePhones={true} // SPC v18.2: Use Unified Form
           />
+
+          {editandoId && (
+            <div className="mt-8 border-t pt-4">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                📞 GESTIONAR CONTACTOS
+              </h4>
+              <UnifiedDeptContactForm
+                edificioId={edificioId}
+                edificioNombre={edificioNombre}
+                departamentoId={editandoId!}
+                departamentoCodigo={formData.codigo}
+                onSuccess={() => {
+                  fetchDepartamentos() // Refresh list
+                }}
+              />
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
