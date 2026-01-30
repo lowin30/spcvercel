@@ -21,7 +21,7 @@ export async function POST() {
             emails: ["test@demo.com"]
         }
 
-        const result = await syncGoogleContact(session.user.id, testData)
+        const result = await syncGoogleContact(session.user.id, testData, supabase)
 
         if (!result.success) {
             return NextResponse.json({ error: result.error }, { status: 500 })

@@ -84,8 +84,7 @@ export async function refreshAccessToken(refreshToken: string) {
  * MOTOR AUTO-HEALING
  * Obtiene un token válido para el usuario. Si expiró, lo refresca y actualiza la DB.
  */
-export async function getValidAccessToken(userId: string): Promise<string | null> {
-    const supabase = createClient()
+export async function getValidAccessToken(userId: string, supabase: any): Promise<string | null> {
 
     // 1. Obtener tokens actuales
     const { data: user, error } = await supabase

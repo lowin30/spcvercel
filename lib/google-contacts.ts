@@ -84,11 +84,11 @@ async function getOrCreateLabel(accessToken: string, labelName: string): Promise
 /**
  * Sincroniza un contacto con Google People API siguiendo v16.0
  */
-export async function syncGoogleContact(userId: string, data: ContactData) {
+export async function syncGoogleContact(userId: string, data: ContactData, supabase: any) {
     console.log("🔄 Starting SPC v16.0 Contact Sync...")
 
     // 1. Auto-Healing Auth
-    const accessToken = await getValidAccessToken(userId)
+    const accessToken = await getValidAccessToken(userId, supabase)
 
     if (!accessToken) {
         console.warn("⚠️ No valid Google Token for user. Skipping sync.")
