@@ -113,8 +113,8 @@ export async function syncGoogleContact(userId: string, data: ContactData, supab
     const buildingLabelResource = await getOrCreateLabel(accessToken, data.edificio)
 
     const membershipBodies = []
-    if (spcLabelResource) membershipBodies.push({ contactGroupResourceName: spcLabelResource })
-    if (buildingLabelResource) membershipBodies.push({ contactGroupResourceName: buildingLabelResource })
+    if (spcLabelResource) membershipBodies.push({ contactGroupMembership: { contactGroupResourceName: spcLabelResource } })
+    if (buildingLabelResource) membershipBodies.push({ contactGroupMembership: { contactGroupResourceName: buildingLabelResource } })
 
     // 4. Create Contact Payload
     const contactPayload = {
