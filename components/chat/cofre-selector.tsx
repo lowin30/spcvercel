@@ -211,10 +211,25 @@ export function CofreSelector({ userRole, onToolSelect }: CofreSelectorProps) {
                                         <DropdownMenuSeparator />
                                         <div className="px-2 py-1.5">
                                             {googleConnected ? (
-                                                <div className="text-[10px] text-green-600 font-medium flex items-center gap-1.5 bg-green-50 p-1.5 rounded border border-green-100">
-                                                    <CheckCircle className="h-3 w-3" />
-                                                    Sincronización activa (spc + edificio)
-                                                </div>
+                                                <>
+                                                    <div className="text-[10px] text-green-600 font-medium flex items-center gap-1.5 bg-green-50 p-1.5 rounded border border-green-100">
+                                                        <CheckCircle className="h-3 w-3" />
+                                                        Sincronización activa (spc + edificio)
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="w-full text-[10px] h-6 mt-1 text-gray-500 hover:text-gray-900"
+                                                        onClick={async () => {
+                                                            const res = await fetch('/api/auth/google/test-create', { method: 'POST' })
+                                                            const data = await res.json()
+                                                            if (data.success) alert("✅ Contacto de prueba creado en Google!")
+                                                            else alert("❌ Error: " + data.error)
+                                                        }}
+                                                    >
+                                                        🛠️ Probar Creación
+                                                    </Button>
+                                                </>
                                             ) : (
                                                 <Button
                                                     variant="outline"

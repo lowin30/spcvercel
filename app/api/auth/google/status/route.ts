@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase-client" // Server client
+import { createServerClient } from "@/lib/supabase-server" // Server client
 import { NextResponse } from "next/server"
 
 export async function GET() {
-    const supabase = createClient()
+    const supabase = await createServerClient()
     const { data: { session } } = await supabase.auth.getSession()
 
     if (!session) {
