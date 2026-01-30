@@ -13,6 +13,25 @@ import {
 import { ChevronDown, Lock, BookOpen } from "lucide-react"
 
 // SPC Protocol v9.5: Triple Cofre System - MOBILE OPTIMIZED - RBAC FIXED
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown, Lock, BookOpen, CheckCircle, Smartphone } from "lucide-react"
+
+// ... (COFRE_DEFINITIONS remains the same, assuming it's imported or defined above unchanged)
+// We need to keep COFRE_DEFINITIONS in the file. Since I'm replacing the whole component logic, I should provide the full block if possible or use careful replace.
+// But wait, replace_file_content replaces a block. I will use a larger block or multiple edits?
+// No, I'll use replace_file_content for the component only.
+
+// ... COFRE_DEFINITIONS definition ...
 const COFRE_DEFINITIONS = {
     operations: {
         name: "OPERACIONES",
@@ -91,6 +110,30 @@ interface CofreSelectorProps {
 }
 
 export function CofreSelector({ userRole, onToolSelect }: CofreSelectorProps) {
+    const [googleConnected, setGoogleConnected] = useState<boolean | null>(null)
+
+    // Check Google Status for Admin
+    useEffect(() => {
+        if (userRole === 'admin') {
+            fetch('/api/auth/google/status')
+                .then(res => res.json())
+                .then(data => setGoogleConnected(data.connected))
+                .catch(err => console.error("Error checking google status:", err))
+        }
+    }, [userRole])
+
+    const handleGoogleConnect = async () => {
+        try {
+            const res = await fetch('/api/auth/google/url')
+            const data = await res.json()
+            if (data.url) {
+                window.location.href = data.url
+            }
+        } catch (e) {
+            console.error("Failed to start google auth", e)
+        }
+    }
+
     // Filter cofres by user role
     const availableCofres = Object.entries(COFRE_DEFINITIONS).filter(
         ([_, config]) => config.roles.includes(userRole)
@@ -167,6 +210,31 @@ export function CofreSelector({ userRole, onToolSelect }: CofreSelectorProps) {
                                             <BookOpen className="h-3 w-3" />
                                             Manuales y Políticas
                                         </DropdownMenuItem>
+                                    </>
+                                )}
+
+                                {/* Integración Google Contacts para Admin en CONTROL */}
+                                {cofreId === 'control' && userRole === 'admin' && (
+                                    <>
+                                        <DropdownMenuSeparator />
+                                        <div className="px-2 py-1.5">
+                                            {googleConnected ? (
+                                                <div className="text-[10px] text-green-600 font-medium flex items-center gap-1.5 bg-green-50 p-1.5 rounded border border-green-100">
+                                                    <CheckCircle className="h-3 w-3" />
+                                                    Sincronización activa (spc + edificio)
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="w-full text-[10px] h-7 justify-start gap-2 border-blue-200 hover:bg-blue-50 text-blue-700"
+                                                    onClick={handleGoogleConnect}
+                                                >
+                                                    <Smartphone className="h-3 w-3" />
+                                                    Conectar Cuenta Google
+                                                </Button>
+                                            )}
+                                        </div>
                                     </>
                                 )}
                             </DropdownMenuContent>
