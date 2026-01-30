@@ -1,16 +1,6 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { ChevronDown, Lock, BookOpen } from "lucide-react"
+
 
 // SPC Protocol v9.5: Triple Cofre System - MOBILE OPTIMIZED - RBAC FIXED
 import { useState, useEffect } from "react"
@@ -81,6 +71,7 @@ const COFRE_DEFINITIONS = {
                 "crear_presupuesto_base",
             ]
         },
+        features: [] as string[],
         color: "bg-amber-500 hover:bg-amber-600"
     },
     control: {
@@ -100,6 +91,7 @@ const COFRE_DEFINITIONS = {
                 "aprobar_presupuesto",
             ]
         },
+        features: [] as string[],
         color: "bg-purple-500 hover:bg-purple-600"
     }
 }
