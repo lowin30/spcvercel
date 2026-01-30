@@ -1,5 +1,5 @@
 import { exchangeCodeForTokens } from "@/lib/google-auth"
-import { createClient } from "@/lib/supabase-client" // Server client
+import { createServerClient } from "@/lib/supabase-server" // Correct Server client
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
         // 2. Obtener usuario actual con Supabase Auth (Cookie)
         // NOTA: Necesitamos el cliente de servidor que lea cookies para saber quién es el usuario
-        const supabase = createClient()
+        const supabase = await createServerClient()
         const { data: { session } } = await supabase.auth.getSession()
 
         if (!session) {
