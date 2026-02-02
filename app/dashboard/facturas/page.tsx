@@ -51,9 +51,9 @@ export default function FacturasPage({
   const [userDetails, setUserDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [administradores, setAdministradores] = useState<{id: number, nombre: string}[]>([])
-  const [edificios, setEdificios] = useState<{id: number, nombre: string, id_administrador: number}[]>([])
-  const [estados, setEstados] = useState<{id: number, nombre: string, color: string}[]>([])
+  const [administradores, setAdministradores] = useState<{ id: number, nombre: string }[]>([])
+  const [edificios, setEdificios] = useState<{ id: number, nombre: string, id_administrador: number }[]>([])
+  const [estados, setEstados] = useState<{ id: number, nombre: string, color: string }[]>([])
   const [filtroAdmin, setFiltroAdmin] = useState<number | null>(null)
   const [filtroEdificio, setFiltroEdificio] = useState<number | null>(null)
   const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
@@ -69,7 +69,7 @@ export default function FacturasPage({
   const [detallePbFinalizadaSinPF, setDetallePbFinalizadaSinPF] = useState<any[]>([])
   const [detallePfBorradorAntiguo, setDetallePfBorradorAntiguo] = useState<any[]>([])
   const [detallePfEnviadoSinAprobar, setDetallePfEnviadoSinAprobar] = useState<any[]>([])
-  
+
   // Inicializar el valor de búsqueda desde la URL al cargar la página
   useEffect(() => {
     setSearchQuery(params.get("q") || "")
@@ -92,7 +92,7 @@ export default function FacturasPage({
       }
     }
   }, [])
-  
+
   // Guardar filtros en localStorage cuando cambien
   useEffect(() => {
     if (isMounted) {
@@ -138,7 +138,7 @@ export default function FacturasPage({
           router.push("/dashboard")
           return
         }
-        
+
         // Restricción estricta: solo admins pueden ver esta página
         if (userData.rol !== "admin") {
           console.log("Acceso denegado: rol requerido 'admin', rol actual:", userData.rol)
@@ -151,17 +151,17 @@ export default function FacturasPage({
           .from("administradores")
           .select("id, nombre")
           .eq('estado', 'activo');
-        
+
         // Cargar edificios con su administrador
         const { data: edificiosData, error: edificiosError } = await supabase
           .from("edificios")
           .select("id, nombre, id_administrador")
           .order('nombre');
-        
+
         if (administradoresError) {
           console.error("Error al cargar administradores:", administradoresError);
         }
-        
+
         // Cargar estados de facturas para los filtros (nombre correcto de la tabla)
         const { data: estadosData } = await supabase
           .from("estados_facturas")
@@ -175,7 +175,7 @@ export default function FacturasPage({
             .select('*')
             .single()
           setKpisAdmin(kpiData || null)
-        } catch {}
+        } catch { }
 
         try {
           const { data: liqSinPf } = await supabase
@@ -184,7 +184,7 @@ export default function FacturasPage({
             .order('created_at', { ascending: false })
             .limit(5)
           setDetalleLiqSinPF(liqSinPf || [])
-        } catch {}
+        } catch { }
 
         try {
           const { data: pfSinFac } = await supabase
@@ -193,7 +193,7 @@ export default function FacturasPage({
             .order('created_at', { ascending: false })
             .limit(5)
           setDetallePfAprobSinFactura(pfSinFac || [])
-        } catch {}
+        } catch { }
 
         try {
           const { data: pbSinPf } = await supabase
@@ -201,7 +201,7 @@ export default function FacturasPage({
             .select('*')
             .limit(5)
           setDetallePbFinalizadaSinPF(pbSinPf || [])
-        } catch {}
+        } catch { }
 
         try {
           const { data: pfBorrador } = await supabase
@@ -210,7 +210,7 @@ export default function FacturasPage({
             .order('created_at', { ascending: true })
             .limit(5)
           setDetallePfBorradorAntiguo(pfBorrador || [])
-        } catch {}
+        } catch { }
 
         try {
           const { data: pfEnviado } = await supabase
@@ -219,21 +219,24 @@ export default function FacturasPage({
             .order('updated_at', { ascending: true })
             .limit(5)
           setDetallePfEnviadoSinAprobar(pfEnviado || [])
-        } catch {}
+        } catch { }
 
         // Consulta usando la vista completa de facturas
         const { data: facturasData, error: facturasError } = await supabase
           .from("vista_facturas_completa")
           .select('*')
+          // Orden solicitado: Edificio -> Tarea -> Fecha
+          .order("nombre_edificio", { ascending: true })
+          .order("titulo_tarea", { ascending: true })
           .order("created_at", { ascending: false });
-          
+
         // Log para depuración
         console.log('Consulta a vista_facturas_completa completada');
         if (facturasError) console.error('Error en la consulta:', facturasError);
-        
+
         // La vista ya incluye el campo pagada y todas las relaciones en campos planos
         const facturas = facturasData || [];
-        
+
         // Debug: Mostrar la primera factura con los campos reales de la vista
         if (facturas.length > 0) {
           console.log('Primera factura de vista_facturas_completa:', {
@@ -249,7 +252,7 @@ export default function FacturasPage({
             pagada: facturas[0].pagada
           });
         }
-        
+
         console.log('Facturas cargadas:', facturas.length);
         console.log('Administradores cargados:', administradoresData?.length || 0);
         console.log('Estados cargados:', estadosData?.length || 0);
@@ -257,7 +260,7 @@ export default function FacturasPage({
         if (facturasError) {
           throw new Error(`Error al cargar facturas: ${facturasError.message}`)
         }
-        
+
         // Guardar los administradores, edificios y estados para los filtros
         setAdministradores(administradoresData || []);
         setEdificios(edificiosData || []);
@@ -297,7 +300,7 @@ export default function FacturasPage({
               })
             }
           }
-        } catch {}
+        } catch { }
 
         // Enriquecer con gastos reales de la tarea, igual que el PDF:
         // sumar montos de gastos_tarea con imagen (imagen_procesada_url o comprobante_url)
@@ -388,7 +391,7 @@ export default function FacturasPage({
               gastos_sum_incl_extras: reales + extras,
             }
           })
-        } catch {}
+        } catch { }
         setFacturas(facturasConExtras as Invoice[])
       } catch (err: any) {
         setError(err.message || "Ocurrió un error inesperado")
@@ -416,9 +419,19 @@ export default function FacturasPage({
   // Filtrar facturas según la vista actual (tabs), búsqueda, administrador y estado
   const filteredFacturas = facturas.filter((invoice) => {
     // Filtro por vista actual (tabs)
-    if (vistaActual === 'pendientes' && invoice.pagada) {
-      return false; // Ocultar pagadas en vista pendientes
+    if (vistaActual === 'pendientes') {
+      // 1. Ocultar si está marcada como pagada
+      if (invoice.pagada) return false;
+
+      // 2. Ocultar si el saldo es 0 o menor (aunque no esté marcada como pagada)
+      //    Esto corrige el error de facturas pagadas que aparecían como pendientes
+      const saldo = (invoice as any).saldo_pendiente ?? 0;
+      if (saldo <= 0) return false;
+
+      // 3. Filtro inteligente: excluir estado "Pagado" (id 5) si no hay filtro explícito
+      if (!filtroEstado && invoice.id_estado_nuevo === 5) return false;
     }
+
     if (vistaActual === 'pagadas' && !invoice.pagada) {
       return false; // Solo mostrar pagadas en vista pagadas
     }
@@ -426,53 +439,49 @@ export default function FacturasPage({
       return false; // Solo mostrar vencidas (estado 4) en vista vencidas
     }
     // vistaActual === 'todas' no filtra nada
-    
-    // Filtro inteligente: En vista "pendientes" con filtro de estado en "todos",
-    // excluir automáticamente el estado "Pagado" (id 5)
-    if (vistaActual === 'pendientes' && !filtroEstado && invoice.id_estado_nuevo === 5) {
-      return false; // Ocultar facturas con estado "Pagado" cuando no hay filtro específico
-    }
-    
+
+    // (Bloque 3 movido arriba dentro del if 'pendientes' para optimización)
+
     // 🔍 BÚSQUEDA AVANZADA EN TODOS LOS CAMPOS RELEVANTES
     if (searchQuery) {
       const searchLower = searchQuery.toLowerCase();
-      
+
       // Acceder directamente a los campos planos de la vista (no anidados)
       const factura = invoice as any; // Casting para acceder a campos de la vista
-      
-      const matchesSearch = 
+
+      const matchesSearch =
         // 📄 Datos de la factura
         factura.code?.toLowerCase().includes(searchLower) ||
         factura.nombre?.toLowerCase().includes(searchLower) ||
         factura.datos_afip?.toString().toLowerCase().includes(searchLower) ||
-        
+
         // 🏢 Datos del edificio (cliente)
         factura.nombre_edificio?.toLowerCase().includes(searchLower) ||
         factura.direccion_edificio?.toLowerCase().includes(searchLower) ||
         factura.cuit_edificio?.toLowerCase().includes(searchLower) ||
-        
+
         // 📝 Datos de la tarea
         factura.titulo_tarea?.toLowerCase().includes(searchLower) ||
         factura.code_tarea?.toLowerCase().includes(searchLower) ||
         factura.descripcion_tarea?.toLowerCase().includes(searchLower) ||
-        
+
         // 🔧 Datos del presupuesto
         factura.presupuesto_final_code?.toLowerCase().includes(searchLower) ||
-        
+
         // 👤 Administrador y estado
         getNombreAdministrador(invoice.id_administrador).toLowerCase().includes(searchLower) ||
         getNombreEstado(invoice.id_estado_nuevo).toLowerCase().includes(searchLower);
-      
+
       if (!matchesSearch) {
         return false;
       }
     }
-    
+
     // Filtro por administrador
     if (filtroAdmin && invoice.id_administrador !== filtroAdmin) {
       return false;
     }
-    
+
     // Filtro por edificio
     if (filtroEdificio) {
       const factura = invoice as any;
@@ -480,12 +489,12 @@ export default function FacturasPage({
         return false;
       }
     }
-    
+
     // Filtro por estado
     if (filtroEstado && invoice.id_estado_nuevo !== filtroEstado) {
       return false;
     }
-    
+
     return true;
   })
 
@@ -517,15 +526,15 @@ export default function FacturasPage({
       </div>
     )
   }
-  
+
   // Estado de error
   if (error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-red-800">Error</h2>
         <p className="mt-2 text-red-700">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
           Reintentar
@@ -540,11 +549,11 @@ export default function FacturasPage({
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Facturas</h1>
         <div className="flex gap-2">
           {/* Botón Exportar PDF */}
-          <ExportFacturasButton 
+          <ExportFacturasButton
             facturas={facturasExport}
             nombreAdministrador={administradores.find(a => a.id === filtroAdmin)?.nombre}
           />
-          
+
           {/* Botón Nueva Factura */}
           <Button asChild>
             <Link href="/dashboard/facturas/nueva">
@@ -565,16 +574,16 @@ export default function FacturasPage({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              
+
               {/* NIVEL 1: Falta crear PF */}
               <div className="border-l-4 border-blue-500 pl-3">
                 <div className="text-xs text-muted-foreground">📝 Falta crear PF</div>
                 <div className="text-2xl font-bold text-blue-700">{kpisAdmin.pb_finalizada_sin_pf_count ?? 0}</div>
                 <div className="mt-2 space-y-1.5">
-                  {detallePbFinalizadaSinPF.slice(0,3).map((it: any) => (
-                    <Link 
-                      key={it.id_tarea} 
-                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                  {detallePbFinalizadaSinPF.slice(0, 3).map((it: any) => (
+                    <Link
+                      key={it.id_tarea}
+                      href={`/dashboard/tareas/${it.id_tarea}`}
                       className="block text-xs text-primary hover:underline"
                     >
                       <div className="line-clamp-2 leading-snug">
@@ -593,10 +602,10 @@ export default function FacturasPage({
                 <div className="text-xs text-muted-foreground">⏱️ PF Borrador antiguo</div>
                 <div className="text-2xl font-bold text-yellow-700">{detallePfBorradorAntiguo.length}</div>
                 <div className="mt-2 space-y-1.5">
-                  {detallePfBorradorAntiguo.slice(0,3).map((it: any) => (
-                    <Link 
-                      key={it.id_presupuesto_final} 
-                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                  {detallePfBorradorAntiguo.slice(0, 3).map((it: any) => (
+                    <Link
+                      key={it.id_presupuesto_final}
+                      href={`/dashboard/tareas/${it.id_tarea}`}
                       className="block text-xs text-primary hover:underline"
                     >
                       <div className="flex items-start justify-between gap-1">
@@ -618,23 +627,22 @@ export default function FacturasPage({
                 <div className="text-xs text-muted-foreground">🔴 PF Enviado sin respuesta</div>
                 <div className="text-2xl font-bold text-red-700">{detallePfEnviadoSinAprobar.length}</div>
                 <div className="mt-2 space-y-1.5">
-                  {detallePfEnviadoSinAprobar.slice(0,3).map((it: any) => (
-                    <Link 
-                      key={it.id_presupuesto_final} 
-                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                  {detallePfEnviadoSinAprobar.slice(0, 3).map((it: any) => (
+                    <Link
+                      key={it.id_presupuesto_final}
+                      href={`/dashboard/tareas/${it.id_tarea}`}
                       className="block text-xs text-primary hover:underline"
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span className="line-clamp-2 leading-snug flex-1">
                           {it.titulo_tarea || it.code_tarea || `Tarea #${it.id_tarea}`}
                         </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
-                          it.prioridad === 'critico' 
-                            ? 'bg-red-100 text-red-800' 
-                            : it.prioridad === 'urgente' 
-                            ? 'bg-orange-100 text-orange-800' 
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${it.prioridad === 'critico'
+                          ? 'bg-red-100 text-red-800'
+                          : it.prioridad === 'urgente'
+                            ? 'bg-orange-100 text-orange-800'
                             : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                          }`}>
                           {it.dias_sin_respuesta}d
                         </span>
                       </div>
@@ -649,10 +657,10 @@ export default function FacturasPage({
                 <div className="text-xs text-muted-foreground">💰 PF Aprobado sin factura</div>
                 <div className="text-2xl font-bold text-green-700">{kpisAdmin.pf_aprobado_sin_factura_count ?? 0}</div>
                 <div className="mt-2 space-y-1.5">
-                  {detallePfAprobSinFactura.slice(0,3).map((it: any) => (
-                    <Link 
-                      key={it.id_presupuesto_final} 
-                      href={`/dashboard/tareas/${it.id_tarea}`} 
+                  {detallePfAprobSinFactura.slice(0, 3).map((it: any) => (
+                    <Link
+                      key={it.id_presupuesto_final}
+                      href={`/dashboard/tareas/${it.id_tarea}`}
                       className="block text-xs text-primary hover:underline"
                     >
                       <div className="line-clamp-2 leading-snug">
@@ -719,7 +727,7 @@ export default function FacturasPage({
         </TabsList>
       </Tabs>
 
-      
+
 
       <Card>
         <CardHeader>
@@ -734,11 +742,11 @@ export default function FacturasPage({
               <label className="text-sm font-medium mb-1 block">Buscar</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  type="search" 
-                  placeholder="Código, edificio, tarea, CUIT, dirección..." 
-                  className="pl-8 w-full" 
-                  value={searchQuery} 
+                <Input
+                  type="search"
+                  placeholder="Código, edificio, tarea, CUIT, dirección..."
+                  className="pl-8 w-full"
+                  value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   title="Busca en: factura, edificio, tarea, presupuesto, CUIT, dirección, datos AFIP, administrador, estado"
                 />
@@ -748,8 +756,8 @@ export default function FacturasPage({
             {/* Filtro por administrador */}
             <div>
               <label className="text-sm font-medium mb-1 block">Administrador</label>
-              <Select 
-                value={filtroAdmin?.toString() || 'todos'} 
+              <Select
+                value={filtroAdmin?.toString() || 'todos'}
                 onValueChange={(value) => {
                   const newAdmin = value !== 'todos' ? parseInt(value) : null;
                   setFiltroAdmin(newAdmin);
@@ -774,8 +782,8 @@ export default function FacturasPage({
             {/* Filtro por edificio (en cascada) */}
             <div>
               <label className="text-sm font-medium mb-1 block">Edificio</label>
-              <Select 
-                value={filtroEdificio?.toString() || 'todos'} 
+              <Select
+                value={filtroEdificio?.toString() || 'todos'}
                 onValueChange={(value) => setFiltroEdificio(value !== 'todos' ? parseInt(value) : null)}
                 disabled={!filtroAdmin && edificios.length > 50} // Opcional: deshabilitar si hay muchos edificios y no hay admin seleccionado
               >
