@@ -16,8 +16,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import { Loader2, ArrowRight, ArrowLeft, CheckCircle, Building2, User, FileText, Calendar, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { DepartamentoForm, DepartamentoFormData } from "@/components/departamento-form"
-import { UnifiedDeptContactForm } from "@/components/unified-dept-contact-form"
+// import { DepartamentoForm } from "@/components/departamento-form" // Replaced
+// import { UnifiedDeptContactForm } from "@/components/unified-dept-contact-form" // Replaced
+import { QuickDeptCreateForm } from "@/components/quick-dept-create-form"
 
 // --- Tipos ---
 interface TaskWizardProps {
@@ -86,15 +87,6 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
 
     // --- Estado Sub-Dialogo Departamento ---
     const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false)
-    const [newDeptData, setNewDeptData] = useState<DepartamentoFormData>({
-        codigo: "",
-        propietario: "",
-        notas: "",
-        telefonos: []
-    })
-    const [isCreatingDept, setIsCreatingDept] = useState(false)
-    const [createdDeptId, setCreatedDeptId] = useState<number | null>(null)
-    const [createdDeptCode, setCreatedDeptCode] = useState<string>("")
 
     // --- Efectos de Carga Inicial ---
     useEffect(() => {
@@ -238,68 +230,7 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
         }
     }, [formData.id_edificio, formData.departamentos_ids, edificios, departamentos, mode])
 
-    // --- Sub-Dialog Helper: Create Department ---
-    const handleCreateDepartamento = async () => {
-        if (!formData.id_edificio) {
-            toast.error("Error interon: No hay edificio seleccionado")
-            return
-        }
-        setIsCreatingDept(true)
-        try {
-            // 1. Insertar Departamento
-            const { data: depto, error: deptoError } = await supabase
-                .from("departamentos")
-                .insert({
-                    edificio_id: parseInt(formData.id_edificio),
-                    codigo: newDeptData.codigo,
-                    propietario: newDeptData.propietario,
-                    notas: newDeptData.notas
-                })
-                .select()
-                .single()
 
-            if (deptoError) throw deptoError
-
-            // 2. Insertar Teléfonos (si existen)
-            if (newDeptData.telefonos.length > 0) {
-                const telefonosPayload = newDeptData.telefonos.map(t => ({
-                    departamento_id: depto.id,
-                    nombre_contacto: t.nombre_contacto,
-                    relacion: t.relacion,
-                    numero: t.numero,
-                    es_principal: t.es_principal,
-                    notas: t.notas
-                }))
-
-                const { error: telError } = await supabase
-                    .from("telefonos_departamento")
-                    .insert(telefonosPayload)
-
-                if (telError) throw telError // Non-blocking really, but good to catch
-            }
-
-            toast.success("Departamento creado correctamente")
-
-            // 3. Refrescar lista y transicionar a contactos
-            await fetchDepartamentos(formData.id_edificio)
-            setFormData(prev => ({
-                ...prev,
-                departamentos_ids: [...prev.departamentos_ids, depto.id.toString()]
-            }))
-
-            // SPC v18.2: 2-Step Flow
-            setCreatedDeptId(depto.id)
-            setCreatedDeptCode(depto.codigo)
-            // setIsDeptDialogOpen(false) // Don't close yet
-            setNewDeptData({ codigo: "", propietario: "", notas: "", telefonos: [] }) // Reset form for next usage (or irrelevant now)
-
-        } catch (e: any) {
-            console.error("Error creating department:", e)
-            toast.error(e.message || "Error al crear departamento")
-        } finally {
-            setIsCreatingDept(false)
-        }
-    }
 
     // --- Navigation Handlers ---
     const nextStep = () => {
@@ -450,54 +381,28 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
                                 <Plus className="h-4 w-4" />
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+                        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
-                                <DialogTitle>
-                                    {createdDeptId ? `Contactos: Depto ${createdDeptCode}` : "Nuevo Departamento"}
-                                </DialogTitle>
+                                <DialogTitle>Nuevo Departamento</DialogTitle>
                                 <DialogDescription>
-                                    {createdDeptId
-                                        ? "Agregue los contactos del departamento recién creado."
-                                        : "Agrega un departamento al edificio seleccionado."}
+                                    Crea el departamento y sus contactos en un solo paso.
                                 </DialogDescription>
                             </DialogHeader>
 
-                            {!createdDeptId ? (
-                                <DepartamentoForm
-                                    formData={newDeptData}
-                                    onChange={setNewDeptData}
-                                    onSubmit={handleCreateDepartamento}
-                                    onCancel={() => setIsDeptDialogOpen(false)}
-                                    isLoading={isCreatingDept}
-                                    submitLabel="Crear y Continuar"
-                                    hidePhones={true} // Hide legacy phones
-                                />
-                            ) : (
-                                <div className="space-y-4">
-                                    <UnifiedDeptContactForm
-                                        edificioId={parseInt(formData.id_edificio)}
-                                        departamentoId={createdDeptId}
-                                        departamentoCodigo={createdDeptCode}
-                                        onSuccess={() => {
-                                            // Optional: Show checkmark or refresh list
-                                            // We could stay here to add more contacts
-                                            fetchDepartamentos(formData.id_edificio) // Ensure contact counts update if displayed
-                                        }}
-                                    />
-                                    <div className="flex justify-end pt-4 border-t">
-                                        <Button
-                                            variant="secondary"
-                                            onClick={() => {
-                                                setIsDeptDialogOpen(false)
-                                                setCreatedDeptId(null)
-                                                setCreatedDeptCode("")
-                                            }}
-                                        >
-                                            <CheckCircle className="mr-2 h-4 w-4" /> Finalizar
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
+                            <QuickDeptCreateForm
+                                edificioId={parseInt(formData.id_edificio)}
+                                onCancel={() => setIsDeptDialogOpen(false)}
+                                onSuccess={(newId, newCode) => {
+                                    setIsDeptDialogOpen(false)
+                                    // Refresh department list
+                                    fetchDepartamentos(formData.id_edificio)
+                                    // Add to selection
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        departamentos_ids: [...prev.departamentos_ids, newId.toString()]
+                                    }))
+                                }}
+                            />
                         </DialogContent>
                     </Dialog>
                 </div>

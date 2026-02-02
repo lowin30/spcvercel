@@ -790,7 +790,202 @@ export const crearTarea = tool({
     }
 });
 
-// Tool administrarGasto REMOVED - no estado/aprobado fields exist, only liquidado handled by liquidaciones
+// Tool: Crear Departamento (Visual Interface)
+export const crear_departamento = tool({
+    description: '🔴 INVOCA ESTA HERRAMIENTA REALMENTE. No respondas con texto diciendo que lo hiciste. ACTIVA la interfaz visual llamando a esta función. Si no tienes el ID del edificio, llámala sin parámetros (id_edificio: undefined).',
+    parameters: z.object({
+        id_edificio: z.number().optional().describe('ID del edificio. Opcional. Si se omite, se abrirá el selector.'),
+    }),
+    execute: async ({ id_edificio }) => {
+        console.log('[TOOL] crear_departamento invocado', { id_edificio })
+        return {
+            action: 'open_department_wizard',
+            mode: 'create',
+            initialData: { id_edificio: id_edificio },
+            info: `✅ Interfaz desplegada. PARA QUE EL USUARIO LA VEA, TU RESPUESTA FINAL DEBE INCLUIR: <tool_code>${JSON.stringify({ tool: "crear_departamento", args: { id_edificio: id_edificio ?? null } })}</tool_code>`
+        };
+    }
+})
+
+// Tool: Buscar Edificios
+export const buscar_edificios = tool({
+    description: 'Busca edificios por Nombre (o Título) y Dirección. Utiliza lógica difusa e inteligente para encontrar coincidencias incluso con errores ortográficos o términos parciales. Retorna ID y nombre. Útil para obtener el ID antes de crear departamentos.',
+    parameters: z.object({
+        termino: z.string().describe('Término de búsqueda (ej: "Ohigins 2470", "Edificio Centro"). Busca en Nombre y Dirección.'),
+    }),
+    execute: async ({ termino }) => {
+        const cookieStore = await cookies();
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { get(name: string) { return cookieStore.get(name)?.value; } } }
+        );
+
+        // 1. Intento Exacto/Fuzzy normal
+        let { data, error } = await supabase
+            .from('edificios')
+            .select('id, nombre, direccion')
+            .or(`nombre.ilike.%${termino}%,direccion.ilike.%${termino}%`)
+            .limit(5);
+
+        // 2. Fallback: Si no hay resultados y hay números (ej: dirección exacta), buscar por el número
+        if ((!data || data.length === 0) && /\d+/.test(termino)) {
+            const numbers = termino.match(/\d+/g);
+            if (numbers) {
+                const numberTerm = numbers.join('%'); // "2740"
+                const { data: dataByNum } = await supabase
+                    .from('edificios')
+                    .select('id, nombre, direccion')
+                    .ilike('direccion', `%${numberTerm}%`)
+                    .limit(5);
+
+                if (dataByNum && dataByNum.length > 0) {
+                    data = dataByNum;
+                }
+            }
+        }
+
+        // 3. Fallback: Split terms (Búsqueda "Super Inteligente" palabra por palabra)
+        if (!data || data.length === 0) {
+            const parts = termino.split(/\s+/).filter(p => p.length > 2); // Palabras > 2 letras
+            if (parts.length > 0) {
+                // Construir query OR gigante: nombre.ilike.%w1%, direccion.ilike.%w1%, ...
+                // Nota: Supabase permite filtros OR anidados pero stringificados es más fácil aquí.
+                const conditions = parts.map(p => `nombre.ilike.%${p}%,direccion.ilike.%${p}%`).join(',');
+
+                const { data: dataBroad } = await supabase
+                    .from('edificios')
+                    .select('id, nombre, direccion')
+                    .or(conditions)
+                    .limit(5);
+
+                if (dataBroad && dataBroad.length > 0) {
+                    data = dataBroad;
+                }
+            }
+        }
+
+        // 4. Fallback FINAL: Búsqueda Fuzzy en JS (fetch all candidates)
+        if (!data || data.length === 0) {
+            console.log('[BUSCAR_EDIFICIOS] Fallback JS Fuzzy activado para:', termino);
+            const { data: allEdificios } = await supabase
+                .from('edificios')
+                .select('id, nombre, direccion')
+                .limit(50); // Traemos un lote razonable
+
+            if (allEdificios) {
+                // Helper: Levenshtein Distance
+                const levenshtein = (a: string, b: string): number => {
+                    const matrix = [];
+                    for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+                    for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+                    for (let i = 1; i <= b.length; i++) {
+                        for (let j = 1; j <= a.length; j++) {
+                            if (b.charAt(i - 1) == a.charAt(j - 1)) {
+                                matrix[i][j] = matrix[i - 1][j - 1];
+                            } else {
+                                matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+                            }
+                        }
+                    }
+                    return matrix[b.length][a.length];
+                };
+                // Función simple de similitud (Token overlap + Jaro-Winkler simplificado o Includes)
+                const scored = allEdificios.map(ed => {
+                    const text = `${ed.nombre} ${ed.direccion}`.toLowerCase();
+                    const target = termino.toLowerCase();
+
+                    // 1. Coincidencia de número (Exacta o Fuzzy)
+                    const targetNums = target.match(/\d+/g) || [];
+                    const textNums = text.match(/\d+/g) || [];
+
+                    let numScore = 0;
+                    if (targetNums.length > 0 && textNums.length > 0) {
+                        // Check exact match
+                        if (targetNums.some(n => textNums.includes(n))) {
+                            numScore = 5;
+                        } else {
+                            // Check fuzzy match (dist <= 2 for numbers)
+                            // e.g. 2470 vs 2740 (dist 2)
+                            let bestNumDist = 99;
+                            targetNums.forEach(tn => {
+                                textNums.forEach(xn => {
+                                    const dist = levenshtein(tn, xn);
+                                    if (dist < bestNumDist) bestNumDist = dist;
+                                });
+                            });
+                            if (bestNumDist <= 2) numScore = 3;
+                        }
+                    }
+
+                    // 2. Fuzzy Text Match (Normalizado + Levenshtein)
+                    const normalize = (s: string) => s ? s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+                    const nombreNorm = normalize(ed.nombre);
+                    const direccionNorm = normalize(ed.direccion);
+                    const targetNorm = normalize(termino);
+
+                    const targetWords = targetNorm.split(/\W+/).filter(w => w.length > 3);
+                    const sourceWords = (nombreNorm + " " + direccionNorm).split(/\W+/).filter(w => w.length > 2);
+
+                    let wordScore = 0;
+                    targetWords.forEach(tw => {
+                        let bestDist = 99;
+                        let bestMatch = '';
+                        sourceWords.forEach(sw => {
+                            const dist = levenshtein(tw, sw);
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                bestMatch = sw;
+                            }
+                        });
+
+                        if (bestDist <= 2) {
+                            wordScore += 5;
+                            // console.log(`[DEBUG] Word '${tw}' matched '${bestMatch}' (Dist ${bestDist}) -> +5`);
+                        }
+                        else if (sourceWords.some(sw => sw.includes(tw) || tw.includes(sw))) wordScore += 3;
+                    });
+
+                    const totalScore = wordScore + numScore;
+
+                    // Bonus por "Levenshtein-ish" para casos como "ohigins" vs "o'higgins"
+                    // Si target es "ohigins" y nombre es "o'higgins", distance es pequeña.
+                    // Implementación dummy: Si el nombre del edificio tiene >50% de las letras del target?
+
+                    return { ...ed, score: totalScore };
+                });
+
+                // Filtrar y ordenar
+                const candidates = scored
+                    .filter(x => x.score > 0)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5);
+
+                if (candidates.length > 0) {
+                    console.log(`[BUSCAR_EDIFICIOS] Top 1: ${candidates[0].nombre} (${candidates[0].direccion}) Score: ${candidates[0].score}`);
+                    if (candidates.length > 1) console.log(`[BUSCAR_EDIFICIOS] Top 2: ${candidates[1].nombre} (${candidates[1].direccion}) Score: ${candidates[1].score}`);
+
+                    // AUTO-SELECT LOGIC (Aggressive)
+                    // Baja el umbral a 8 para permitir matches "Fuzzy Name (5) + Fuzzy Num (3)" = 8
+                    if (candidates[0].score >= 8) {
+                        data = [candidates[0]];
+                        console.log('[BUSCAR_EDIFICIOS] Auto-select activado. Score:', candidates[0].score);
+                    } else {
+                        data = candidates.map(({ score, ...rest }) => rest);
+                    }
+                }
+            }
+        }
+
+        if (error && !data) return { error: error.message };
+        return {
+            edificios: data || [],
+            count: data?.length || 0
+        };
+    }
+})
+
+// Tool administrarGasto REMOVED
 
 // Tool: Registrar Gasto (Trabajador/Supervisor)
 // EXACTAMENTE como procesador-imagen.tsx - Solo campos que existen en schema real
@@ -863,14 +1058,17 @@ export const adminTools = {
     crearTarea,
     editar_tarea,
     clonar_tarea,
+    crear_edificio,
+    editar_edificio,
+    buscar_edificios, // NEW
+    crear_departamento,
     registrarGasto,
     verAlertas,
     verMiEquipo,
     verLiquidacionEquipo,
     crearPresupuestoBase,
     registrarParte,
-    registrarParte,
-    learn_term // 🆕 Nivel 2: Capacidad de aprender
+    learn_term
 }
 
 // SUPERVISOR: Solo gestión de SUS tareas
@@ -879,12 +1077,15 @@ export const supervisorTools = {
     listarTareas,
     calcularLiquidacionSemanal,
     registrarGasto,
+    crear_edificio,
+    editar_edificio,
+    buscar_edificios, // NEW
+    crear_departamento,
     verMiEquipo,
     verLiquidacionEquipo,
     crearPresupuestoBase,
     registrarParte,
-    registrarParte,
-    learn_term // 🆕 Nivel 2: Capacidad de aprender
+    learn_term
 }
 
 // TRABAJADOR: Solo consulta y registro de gastos

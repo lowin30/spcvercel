@@ -23,6 +23,8 @@ const PresupuestoBaseForm = dynamic(() => import('./presupuesto-base-form'), { s
 const TaskFormChatWrapper = dynamic(() => import('./task-form-chat-wrapper'), { ssr: false })
 const BuildingWizard = dynamic(() => import('@/components/buildings/building-wizard').then(mod => mod.BuildingWizard), { ssr: false })
 const BuildingToolWrapper = dynamic(() => import('@/components/chat/tools/building-tool').then(mod => mod.BuildingToolWrapper), { ssr: false })
+// const DepartmentToolWrapper = dynamic(() => import('@/components/chat/tools/department-tool').then(mod => mod.DepartmentToolWrapper), { ssr: false })
+import { DepartmentToolWrapper } from '@/components/chat/tools/department-tool'
 const EstimationCard = dynamic(() => import('@/components/ai/estimation-card').then(mod => mod.EstimationCard), { ssr: false })
 const KnowledgeBaseManager = dynamic(() => import('@/components/knowledge-base-manager').then(mod => mod.KnowledgeBaseManager), { ssr: false })
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
@@ -167,33 +169,48 @@ export function AiChatWidget() {
     // Renderizado de Resultados de Herramientas
     const renderToolResult = (toolInvocation: ToolInvocation) => {
         const { toolName, toolCallId, state } = toolInvocation;
+        const nameLower = toolName.toLowerCase();
 
-        // INTERCEPTOR: BuildingToolWrapper
-        if ((toolName === 'crear_edificio' || toolName === 'create_building')) {
-            // Si el estado es 'call' o 'result', queremos mostrar el Wizard
-            // Pero usualmente mostramos el wiz cuando la tool SE LLAMA.
-            // El result vendría despues. 
-            // En este flujo custom, el "result" se genera cuando el User completa el Wizard.
+        // INTERCEPTOR: BuildingToolWrapper (Edificios)
+        if (nameLower === 'crear_edificio' || nameLower === 'create_building') {
             return (
                 <div key={toolCallId} className="w-full my-2">
+                    <BuildingWizard />
                     <BuildingToolWrapper
                         data={toolInvocation.args}
-                        onSuccess={() => {
-                            // Opcional: Marcar tool como completada en estado visual si quisiéramos
-                        }}
+                        isOpen={state === 'call'}
                     />
                 </div>
             )
         }
 
+        // INTERCEPTOR: DepartmentToolWrapper (Departamentos)
+        if (nameLower === 'crear_departamento') {
+            return (
+                <div key={toolCallId} className="w-full my-2">
+                    <DepartmentToolWrapper
+                        data={toolInvocation.args || {}}
+                        onSuccess={() => { }}
+                    />
+                </div>
+            )
+        }
+
+        // COMPORTAMIENTO GENERAL (Resultados de texto o JSON)
         if (state === 'result') {
+            let resultText = toolInvocation.result;
+            // Safety check for objects
+            if (typeof resultText === 'object') {
+                resultText = JSON.stringify(resultText, null, 2);
+            }
+
             return (
                 <div key={toolCallId} className="bg-gray-50 dark:bg-gray-900 border border-l-4 border-l-green-500 rounded-r-lg p-3 text-sm animate-in fade-in">
                     <div className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-1">
-                        {toolInvocation.result.includes('❌') ? '🚫 Cancelado / Error' : '✅ Completado'}
+                        {String(resultText).includes('❌') ? '🚫 Cancelado / Error' : '✅ Completado'}
                     </div>
-                    <div className="text-gray-600 dark:text-gray-400 font-mono text-xs">
-                        {toolInvocation.result}
+                    <div className="text-gray-600 dark:text-gray-400 font-mono text-xs whitespace-pre-wrap">
+                        {resultText}
                     </div>
                 </div>
             );
@@ -404,7 +421,27 @@ export function AiChatWidget() {
             case 'finalizar_tarea': message = 'Quiero finalizar una tarea'; break;
             case 'asignar_trabajador': message = 'Quiero asignar un trabajador a una tarea'; break;
             case 'asignar_supervisor': message = 'Quiero asignar un supervisor'; break;
-            case 'crear_departamento': message = 'Quiero crear un nuevo departamento'; break;
+            case 'asignar_supervisor': message = 'Quiero asignar un supervisor'; break;
+
+            // NEW: Intercept 'crear_departamento' here instead of sending to LLM message
+            // This enables the "Global Button" behavior with selector
+            case 'crear_departamento':
+                const ts = Date.now()
+                setMessages(prev => [
+                    ...prev,
+                    { id: `${ts}-user`, role: 'user', content: 'Nuevo Departamento' },
+                    {
+                        id: `${ts}-ai`,
+                        role: 'assistant',
+                        content: 'Abriendo formulario de creación...',
+                        // Call tool with NULL id -> triggers building selector
+                        toolInvocations: [{ toolCallId: `call_${ts}`, toolName: 'crear_departamento', args: { id_edificio: null }, state: 'call' }]
+                    }
+                ])
+                saveToHistory('user', 'Nuevo Departamento')
+                saveToHistory('assistant', 'Abriendo formulario...', { tool: 'crear_departamento', type: 'call' })
+                return;
+
             case 'registrar_pago': message = 'Quiero registrar un pago'; break;
             case 'configurar_afip': message = 'Configurar datos de AFIP'; break;
             // Knowledge base
@@ -921,6 +958,32 @@ export function AiChatWidget() {
                             } else if (functionName === 'crear_tarea') {
                                 startWizard('tarea', args, 'create')
                                 assistantContent += `\n[Abriendo Asistente de Tareas...]\n`
+
+                            } else if (functionName === 'crear_departamento') {
+                                setMessages(prev => {
+                                    const existing = prev.find(m => m.id === assistantId)
+                                    const newToolInvocation = {
+                                        toolCallId: `call_${Date.now()}`,
+                                        toolName: 'crear_departamento',
+                                        args: args,
+                                        state: 'call'
+                                    }
+
+                                    if (existing) {
+                                        return prev.map(m => m.id === assistantId ? {
+                                            ...m,
+                                            toolInvocations: [...(m.toolInvocations || []), newToolInvocation]
+                                        } : m)
+                                    } else {
+                                        return [...prev, {
+                                            id: assistantId,
+                                            role: "assistant",
+                                            content: assistantContent,
+                                            toolInvocations: [newToolInvocation]
+                                        }]
+                                    }
+                                })
+                                assistantContent += `\n[Activando Formulario de Departamento...]\n`
 
                             } else if (functionName === 'finalizar_tarea') {
                                 setFinalizeMode(true)
