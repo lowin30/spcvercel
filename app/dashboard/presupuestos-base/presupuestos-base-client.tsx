@@ -43,7 +43,7 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
   // Función para normalizar texto (búsqueda inteligente)
   const normalizarTexto = (texto: string): string => {
     if (!texto) return ''
-    
+
     return texto
       .toLowerCase()
       // Remover acentos
@@ -58,11 +58,11 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
   // Calcular estadísticas usando TODOS los PB
   const estadisticas = userRole === 'supervisor' ? {
     // Activos = aprobados, no liquidados, SIN PF pausado
-    activos: todosLosPB.filter(pb => 
+    activos: todosLosPB.filter(pb =>
       pb.aprobado && !pb.esta_liquidado && !pb.tiene_pf_pausado
     ).length,
     // En pausa = CON PF pausado (borrador/enviado), sin importar si PB está aprobado
-    en_pausa: todosLosPB.filter(pb => 
+    en_pausa: todosLosPB.filter(pb =>
       !pb.esta_liquidado && pb.tiene_pf_pausado
     ).length,
     // Liquidados = todos los liquidados
@@ -71,11 +71,11 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
     total: todosLosPB.length
   } : userRole === 'admin' ? {
     // Requiere Acción = aprobados sin PF y no liquidados
-    requiere_accion: todosLosPB.filter(pb => 
+    requiere_accion: todosLosPB.filter(pb =>
       pb.aprobado && !pb.tiene_presupuesto_final && !pb.esta_liquidado
     ).length,
     // Aprobados = aprobados no liquidados
-    aprobados: todosLosPB.filter(pb => 
+    aprobados: todosLosPB.filter(pb =>
       pb.aprobado && !pb.esta_liquidado
     ).length,
     // Pendientes = sin aprobar
@@ -134,11 +134,11 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
   // Obtener badges según rol y estado
   const getBadges = (pb: any) => {
     const badges = []
-    
+
     // Badge principal de aprobación
     badges.push(
       <Badge key="aprobado" className={pb.aprobado ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-        {pb.aprobado ? "Aprobado" : "Pendiente"}
+        {pb.aprobado ? "Enviado" : "Pendiente"}
       </Badge>
     )
 
@@ -264,19 +264,19 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
   const handleDelete = async (e: React.MouseEvent, id: number, aprobado: boolean) => {
     e.preventDefault() // Evitar navegación del Link
     e.stopPropagation()
-    
+
     if (aprobado) {
       toast.error("No se pueden eliminar presupuestos aprobados")
       return
     }
-    
+
     if (!confirm("¿Estás seguro de que deseas eliminar este presupuesto base? Esta acción no se puede deshacer.")) {
       return
     }
-    
+
     startTransition(async () => {
       const result = await deletePresupuestoBase(id)
-      
+
       if (result.success) {
         toast.success(result.message)
         // Actualizar lista local
@@ -353,7 +353,7 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
                   onClick={() => setFiltroActivo('aprobados')}
                   className="p-3 rounded-lg hover:bg-green-100 dark:hover:bg-green-950 transition-colors cursor-pointer"
                 >
-                  <div className="text-xs text-muted-foreground">✅ Aprobados</div>
+                  <div className="text-xs text-muted-foreground">✅ Enviados</div>
                   <div className="text-2xl font-bold text-green-600">{estadisticas.aprobados}</div>
                 </button>
                 <button
@@ -409,7 +409,7 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
               ) : (
                 <>
                   <TabsTrigger value="requiere_accion" className="text-xs">🔥 Acción</TabsTrigger>
-                  <TabsTrigger value="aprobados" className="text-xs">Aprobados</TabsTrigger>
+                  <TabsTrigger value="aprobados" className="text-xs">Enviados</TabsTrigger>
                   <TabsTrigger value="pendientes" className="text-xs">Pendientes</TabsTrigger>
                   <TabsTrigger value="liquidados" className="text-xs">Liquidados</TabsTrigger>
                   <TabsTrigger value="todos" className="text-xs">Todos</TabsTrigger>
@@ -495,14 +495,14 @@ export function PresupuestosBaseClient({ initialData, todosData, userRole, userI
                   <div className="grid grid-cols-2 gap-1 text-xs">
                     <span className="text-muted-foreground">Código:</span>
                     <span className="font-mono text-right">{pb.code || 'S/C'}</span>
-                    
+
                     <span className="text-muted-foreground">Total:</span>
                     <span className="font-semibold text-right">{formatCurrency(pb.total || 0)}</span>
-                    
+
                     <span className="text-muted-foreground">Creado:</span>
                     <span className="text-right">{pb.dias_desde_creacion || 0}d</span>
                   </div>
-                  
+
                   <div className="flex gap-1 pt-2 border-t flex-wrap">
                     {getAcciones(pb)}
                   </div>
