@@ -103,16 +103,22 @@ export default function LoginPage() {
 
 
   const getURL = () => {
+    // 1. In the browser, ALWAYS prefer the actual current origin
+    if (typeof window !== 'undefined') {
+      return window.location.origin
+    }
+
+    // 2. Server-side fallback (if needed)
     let url =
-      process.env.NEXT_PUBLIC_SITE_URL ?? // Set this to your site URL in production env.
-      process.env.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel.
-      'http://localhost:3000/'
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      process.env.NEXT_PUBLIC_VERCEL_URL ??
+      'http://localhost:3000'
 
-    // Make sure to include `https://` when not localhost.
+    // Normalize: remove trailing slash if present to avoid double slashes later
+    url = url.endsWith('/') ? url.slice(0, -1) : url
+
+    // Ensure protocol
     url = url.includes('http') ? url : `https://${url}`
-
-    // Make sure to include a trailing `/`.
-    url = url.charAt(url.length - 1) === '/' ? url : `${url}/`
 
     return url
   }
@@ -120,7 +126,8 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setLoading(true)
     try {
-      const redirectUrl = `${getURL()}api/auth/callback`
+      const origin = getURL()
+      const redirectUrl = `${origin}/api/auth/callback`
       console.log('Initiating Google OAuth with redirect:', redirectUrl)
 
       const { error } = await supabase.auth.signInWithOAuth({

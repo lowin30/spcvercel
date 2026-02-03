@@ -5,7 +5,7 @@ const nextConfig = {
   experimental: {
     externalDir: true,
     serverActions: {
-      allowedOrigins: ["localhost:3000"],
+      allowedOrigins: ["localhost:3000", "spcvercel.vercel.app"],
     },
   },
   eslint: {
