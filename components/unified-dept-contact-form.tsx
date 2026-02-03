@@ -108,18 +108,54 @@ export function UnifiedDeptContactForm({
 
             if (!edName || !depCode) throw new Error("No se pudo obtener el contexto del edificio/departamento")
 
-            const normalizeForSlug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, 'n').replace(/\s+/g, '-')
+            const normalizeForSlug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, 'n').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 
-            const slugBase = `${normalizeForSlug(edName)}-${normalizeForSlug(depCode)}-${normalizeForSlug(nombreSanitized)}`
+            // Prepare Clean Slug Parts
+            const slugBuilding = normalizeForSlug(edName)
+            const slugDept = normalizeForSlug(depCode)
+            const slugRelacion = normalizeForSlug(relacionSanitized)
 
-            // 4. Check Duplicates
-            // We check if a contact with this exact slug already exists
-            const { data: existing } = await supabase.from("contactos").select("id").eq("nombre", slugBase).maybeSingle()
+            // Remove building and dept info from the Human Name to avoid redundancy in slug
+            // e.g. If Name is "Pareja 3205 4A Juan", and Building is "Pareja 3205", Name becomes "Juan"
+            let cleanName = nombreSanitized.toLowerCase()
+            const buildingTokens = edName.toLowerCase().split(' ')
+            const deptTokens = depCode.toLowerCase().split(' ')
+
+            // Simple token removal
+            buildingTokens.forEach(t => { if (t.length > 2) cleanName = cleanName.replace(t, '') })
+            deptTokens.forEach(t => { cleanName = cleanName.replace(t, '') })
+
+            const slugName = normalizeForSlug(cleanName)
+
+            // Construct Final Base Slug: "building-dept-name-relacion"
+            // Filter empty parts
+            const slugParts = [slugBuilding, slugDept, slugName, slugRelacion].filter(p => p && p.length > 0)
+            const slugBase = slugParts.join('-')
+
+            // 4. Check Duplicates with Smart Suffix
+            // First check the exact slug
+            const { data: existing } = await supabase.from("contactos").select("id, nombre").ilike("nombre", `${slugBase}%`)
 
             let finalSlug = slugBase
-            if (existing) {
-                // Append random suffix if duplicate
-                finalSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`
+            if (existing && existing.length > 0) {
+                // Find if exact match exists or max suffix
+                const exactMatch = existing.find(c => c.nombre === slugBase)
+                if (exactMatch) {
+                    // Calculate next suffix number
+                    // Filter those that start with slugBase and follow with -number
+                    const regex = new RegExp(`^${slugBase}-(\\d+)$`)
+                    let maxSuffix = 1
+
+                    existing.forEach(c => {
+                        const match = c.nombre.match(regex)
+                        if (match) {
+                            const num = parseInt(match[1])
+                            if (num > maxSuffix) maxSuffix = num
+                        }
+                    })
+
+                    finalSlug = `${slugBase}-${maxSuffix + 1}`
+                }
             }
 
             // 5. Prepare Payload

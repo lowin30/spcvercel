@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input" 
+import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import Link from "next/link"
 import { Plus, Loader2, Phone, Trash2, Pencil } from "lucide-react"
@@ -38,9 +38,10 @@ interface Departamento {
 
 interface Telefono {
   id: number | string
-  numero: string
+  telefono: string
   relacion: string
-  nombre_contacto: string
+  nombreReal: string
+  nombre: string // Slug
   es_principal: boolean
   departamento_id: number | string
   notas?: string
@@ -62,16 +63,16 @@ export default function ContactosPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
-  
+
   // Estados para los datos
   const [edificios, setEdificios] = useState<Edificio[]>([])
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [telefonos, setTelefonos] = useState<Telefono[]>([])
-  const [telefonosPorDepartamento, setTelefonosPorDepartamento] = useState<{[key: string]: Telefono[]}>({})
+  const [telefonosPorDepartamento, setTelefonosPorDepartamento] = useState<{ [key: string]: Telefono[] }>({})
   const [edificioSeleccionado, setEdificioSeleccionado] = useState<string>("todos")
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<string>("todos")
   const [busqueda, setBusqueda] = useState<string>("")
-  
+
   // Datos filtrados
   const [departamentosFiltrados, setDepartamentosFiltrados] = useState<Departamento[]>([])
   const [telefonosFiltrados, setTelefonosFiltrados] = useState<Telefono[]>([])
@@ -86,7 +87,7 @@ export default function ContactosPage() {
       try {
         setLoading(true)
         const supabase = createClient()
-        
+
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
           return
@@ -94,28 +95,28 @@ export default function ContactosPage() {
 
         // Verificar sesión de usuario
         const { data: { user } } = await supabase.auth.getUser()
-        
+
         if (!user) {
           console.log("No se encontró sesión de usuario, redirigiendo al login")
           router.push("/login")
           return
         }
-        
+
         // Obtener detalles del usuario
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
           .eq("id", user.id)
           .single()
-          
+
         if (userError) {
           console.error("Error al obtener detalles del usuario:", userError)
           setError("Error al obtener detalles del usuario")
           return
         }
-        
+
         setUserDetails(userData)
-        
+
         // Verificar si el usuario puede ver contactos (admin o supervisor)
         const canViewContacts = userData?.rol === "admin" || userData?.rol === "supervisor"
 
@@ -123,19 +124,19 @@ export default function ContactosPage() {
           router.push("/dashboard/esperando-rol")
           return
         }
-        
+
         // Obtener datos de edificios
         const { data: edificiosData, error: edificiosError } = await supabase
           .from("edificios")
           .select("id, nombre")
           .order("nombre")
-        
+
         if (edificiosError) {
           console.error("Error al obtener edificios:", edificiosError)
         } else {
           setEdificios(edificiosData || [])
         }
-        
+
         // Obtener datos de departamentos
         const { data: departamentosData, error: deptosError } = await supabase
           .from("departamentos")
@@ -147,7 +148,7 @@ export default function ContactosPage() {
             edificios(nombre)
           `)
           .order("codigo")
-        
+
         if (deptosError) {
           if (deptosError.code === "42P01") {
             console.warn("La tabla departamentos no existe. Por favor, crea las tablas primero.")
@@ -158,15 +159,16 @@ export default function ContactosPage() {
           setDepartamentos((departamentosData || []) as unknown as Departamento[])
           setDepartamentosFiltrados((departamentosData || []) as unknown as Departamento[])
         }
-        
-        // Obtener datos de teléfonos
+
+        // Obtener datos de teléfonos (Desde tabla 'contactos')
         const { data: telefonosData, error: telefonosError } = await supabase
-          .from("telefonos_departamento")
+          .from("contactos")
           .select(`
             id,
-            numero,
+            telefono,
             relacion,
-            nombre_contacto,
+            nombreReal,
+            nombre,
             es_principal,
             notas,
             departamento_id,
@@ -177,19 +179,17 @@ export default function ContactosPage() {
               edificios(id, nombre)
             )
           `)
+          .not('departamento_id', 'is', null) // Solo traer los vinculados a dptos
           .order("es_principal", { ascending: false })
-        
+          .order("created_at", { ascending: false })
+
         if (telefonosError) {
-          if (telefonosError.code === "42P01") {
-            console.warn("La tabla telefonos_departamento no existe. Por favor, crea las tablas primero.")
-          } else {
-            console.error("Error al obtener teléfonos:", telefonosError)
-          }
+          console.error("Error al obtener contactos:", telefonosError)
         } else {
           setTelefonos((telefonosData || []) as unknown as Telefono[])
           setTelefonosFiltrados((telefonosData || []) as unknown as Telefono[])
         }
-        
+
       } catch (err) {
         console.error("Error inesperado:", err)
         setError("Ocurrió un error inesperado")
@@ -197,7 +197,7 @@ export default function ContactosPage() {
         setLoading(false)
       }
     }
-    
+
     cargarDatos()
   }, [router])
 
@@ -211,7 +211,7 @@ export default function ContactosPage() {
     } else {
       setDepartamentosFiltrados(departamentos)
     }
-    
+
     // Resetear el departamento seleccionado
     setDepartamentoSeleccionado("todos")
   }, [edificioSeleccionado, departamentos])
@@ -219,35 +219,36 @@ export default function ContactosPage() {
   // Efecto para filtrar teléfonos cuando se selecciona un departamento o cambia la búsqueda
   useEffect(() => {
     let filtrados = [...telefonos]
-    
+
     // Filtrar por edificio si hay uno seleccionado
     if (edificioSeleccionado && edificioSeleccionado !== "todos") {
       filtrados = filtrados.filter(
         tel => tel.departamentos?.edificio_id?.toString() === edificioSeleccionado
       )
     }
-    
+
     // Filtrar por departamento si hay uno seleccionado
     if (departamentoSeleccionado && departamentoSeleccionado !== "todos") {
       filtrados = filtrados.filter(
         tel => tel.departamento_id.toString() === departamentoSeleccionado
       )
     }
-    
+
     // Filtrar por búsqueda
     if (busqueda) {
       const busquedaLower = busqueda.toLowerCase()
       filtrados = filtrados.filter(
-        tel => 
-          tel.nombre_contacto?.toLowerCase().includes(busquedaLower) ||
-          tel.numero?.toLowerCase().includes(busquedaLower) ||
-          tel.relacion?.toLowerCase().includes(busquedaLower)
+        tel =>
+          (tel.nombreReal && tel.nombreReal.toLowerCase().includes(busquedaLower)) ||
+          (tel.nombre && tel.nombre.toLowerCase().includes(busquedaLower)) ||
+          (tel.telefono && tel.telefono.toLowerCase().includes(busquedaLower)) ||
+          (tel.relacion && tel.relacion.toLowerCase().includes(busquedaLower))
       )
     }
-    
+
     // Agrupar teléfonos por departamento
-    const telefonosByDepartamento: {[key: string]: Telefono[]} = {}
-    
+    const telefonosByDepartamento: { [key: string]: Telefono[] } = {}
+
     filtrados.forEach(tel => {
       const deptId = String(tel.departamento_id)
       if (!telefonosByDepartamento[deptId]) {
@@ -255,35 +256,35 @@ export default function ContactosPage() {
       }
       telefonosByDepartamento[deptId].push(tel)
     })
-    
+
     setTelefonosPorDepartamento(telefonosByDepartamento)
-    
+
     // Priorizamos los teléfonos principales para cada departamento
     const telefonosPrincipalesPorDepartamento = Object.values(telefonosByDepartamento).map(telGroup => {
       // Buscar primero un teléfono principal
       const principal = telGroup.find(tel => tel.es_principal)
       if (principal) {
-        return {...principal, _totalContactos: telGroup.length}
+        return { ...principal, _totalContactos: telGroup.length }
       }
       // Si no hay principal, usar el primero
-      return {...telGroup[0], _totalContactos: telGroup.length}
+      return { ...telGroup[0], _totalContactos: telGroup.length }
     })
-    
+
     setTelefonosFiltrados(telefonosPrincipalesPorDepartamento)
   }, [edificioSeleccionado, departamentoSeleccionado, busqueda, telefonos])
 
   // Función para eliminar un teléfono
   const eliminarTelefono = async (id: string | number) => {
     if (!canDeleteContact) return
-    
+
     if (!confirm("¿Está seguro que desea eliminar este contacto?")) {
       return
     }
-    
+
     try {
       setLoading(true)
       const supabase = createClient()
-      
+
       if (!supabase) {
         toast({
           title: "Error",
@@ -292,20 +293,20 @@ export default function ContactosPage() {
         })
         return
       }
-      
+
       const { error } = await supabase
-        .from("telefonos_departamento")
+        .from("contactos")
         .delete()
         .eq("id", id)
-      
+
       if (error) {
         throw new Error(error.message)
       }
-      
+
       // Actualizar la lista sin recargar
       setTelefonos(telefonos.filter(tel => tel.id !== id))
       setTelefonosFiltrados(telefonosFiltrados.filter(tel => tel.id !== id))
-      
+
       toast({
         title: "Contacto eliminado",
         description: "El contacto ha sido eliminado correctamente",
@@ -333,15 +334,15 @@ export default function ContactosPage() {
       </div>
     )
   }
-  
+
   // Estado de error
   if (error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-red-800">Error</h2>
         <p className="mt-2 text-red-700">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
           Reintentar
@@ -366,7 +367,7 @@ export default function ContactosPage() {
           </Link>
         ) : null}
       </div>
-      
+
       {/* Filtros */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-4 md:mb-6">
         {/* Filtro por edificio */}
@@ -386,7 +387,7 @@ export default function ContactosPage() {
             </SelectContent>
           </Select>
         </div>
-        
+
         {/* Filtro por departamento */}
         <div className="space-y-1 sm:space-y-2">
           <label className="text-xs sm:text-sm font-medium">Departamento</label>
@@ -404,19 +405,19 @@ export default function ContactosPage() {
             </SelectContent>
           </Select>
         </div>
-        
+
         {/* Búsqueda por texto */}
         <div className="space-y-1 sm:space-y-2">
           <label className="text-xs sm:text-sm font-medium">Buscar</label>
-          <Input 
-            placeholder="Buscar contacto..." 
-            value={busqueda} 
-            onChange={(e) => setBusqueda(e.target.value)} 
+          <Input
+            placeholder="Buscar contacto..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
             className="h-8 sm:h-10 text-xs sm:text-sm"
           />
         </div>
       </div>
-      
+
       {/* Lista de contactos */}
       <div className="rounded-md border w-full max-w-full overflow-hidden">
         {/* Estilos para dispositivos móviles */}
@@ -527,7 +528,7 @@ export default function ContactosPage() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
-                      {telefono.nombre_contacto || "—"}
+                      {telefono.nombreReal || telefono.nombre || "—"}
                       <div className="hidden sm:block"></div>
                       <div className="sm:hidden text-xs text-gray-500 truncate">
                         {telefono.departamentos?.edificios?.nombre || "—"} {telefono.departamentos?.codigo || "—"}
@@ -547,8 +548,8 @@ export default function ContactosPage() {
                   <TableCell>
                     <div className="flex flex-col items-end">
                       {telefonosPorDepartamento[telefono.departamento_id.toString()]?.map((tel, index) => (
-                        <a href={`tel:${tel.numero?.replace(/[-\s]/g, '')}`} key={tel.id} className="block py-0.5 hover:text-blue-600 text-nowrap">
-                          {tel.numero?.replace(/[-\s]/g, '') || "—"}
+                        <a href={`tel:${tel.telefono?.replace(/[-\s]/g, '')}`} key={tel.id} className="block py-0.5 hover:text-blue-600 text-nowrap">
+                          {tel.telefono?.replace(/[-\s]/g, '') || "—"}
                         </a>
                       ))}
                     </div>
@@ -563,8 +564,8 @@ export default function ContactosPage() {
                         </Link>
                       )}
                       {canDeleteContact && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="icon"
                           className="h-8 w-8 sm:h-9 sm:w-9"
                           title="Eliminar"
