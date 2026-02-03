@@ -61,9 +61,12 @@ export function BiometricsEnroll() {
 
         } catch (error: any) {
             console.error("Biometrics error:", error)
+            // DEBUG: Mostrar error real en el móvil
+            alert(`Error Biometría: ${error.message || error.name || JSON.stringify(error)}`)
+
             toast({
                 title: "Error al registrar huella",
-                description: error.message || "Tu dispositivo podría no ser compatible.",
+                description: "Revisa el mensaje de alerta para más detalles.",
                 variant: "destructive",
             })
         } finally {
