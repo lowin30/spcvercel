@@ -12,6 +12,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { registrarUsuario } from "./register"
+import Image from "next/image"
+import { Fingerprint } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -258,8 +260,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-gradient-to-br from-amber-50 via-white to-yellow-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <Card className="w-full max-w-md shadow-2xl">
+        {/* Header con Logo */}
+        <div className="flex justify-center pt-6 pb-4">
+          <Image
+            src="/spc-logo-main.png"
+            alt="Servicios Para Consorcio"
+            width={200}
+            height={200}
+            priority
+            className="object-contain"
+          />
+        </div>
+
         <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
@@ -267,65 +281,92 @@ export default function LoginPage() {
           </TabsList>
 
           <TabsContent value="login">
-            <CardHeader>
-              <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
-              <CardDescription>Ingresa tus credenciales para acceder al sistema</CardDescription>
+            <CardHeader className="space-y-1 text-center">
+              <CardTitle className="text-2xl font-bold">Bienvenido</CardTitle>
+              <CardDescription>Selecciona tu método de acceso preferido</CardDescription>
             </CardHeader>
-            <div className="mb-4 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" type="button" className="w-full flex gap-2" onClick={handleGoogleLogin} disabled={loading}>
-                  <svg className="h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
-                  Google
-                </Button>
-                <Button variant="outline" type="button" className="w-full flex gap-2" onClick={handlePasskeyLogin} disabled={loading}>
-                  <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M7.875 14.25l1.214 1.942a2.25 2.25 0 001.908 1.058h2.006c.776 0 1.497-.4 1.908-1.058l1.214-1.942M2.41 9h4.636a2.25 2.25 0 011.872 1.002l.164.246a2.25 2.25 0 001.872 1.002h2.092a2.25 2.25 0 001.872-1.002l.164-.246A2.25 2.25 0 0116.954 9h4.636M2.41 9a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 002.41 24h19.18a2.25 2.25 0 002.25-2.25V11.25a2.25 2.25 0 00-2.25-2.25h-4.636"></path></svg>
-                  Huella
-                </Button>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t"></span></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">O continúa con email</span></div>
-              </div>
-            </div>
-            <form onSubmit={handleLogin}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="correo@ejemplo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Contraseña</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Iniciando sesión..." : "Iniciar sesión"}
-                </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
+            <CardContent className="space-y-4 pb-4">
+              {/* Botón destacado de huella biométrica */}
+              <Button
+                variant="default"
+                type="button"
+                className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                onClick={() => {
+                  toast({
+                    title: "🚀 Próximamente",
+                    description: "El acceso biométrico estará disponible muy pronto. Por ahora usa Google para ingresar.",
+                  })
+                }}
+                disabled={loading}
+              >
+                <Fingerprint className="h-6 w-6 mr-2" />
+                Entrar con mi huella
+              </Button>
 
-          <TabsContent value="register">
-            <CardHeader>
-              <CardTitle className="text-2xl">Registrarse</CardTitle>
-              <CardDescription>Crea una nueva cuenta en el sistema</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleRegister}>
-              <CardContent className="space-y-4">
+              {/* Separador */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-300"></span>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-white dark:bg-gray-800 px-3 text-gray-500">o continúa con</span>
+                </div>
+              </div>
+
+              {/* Botón de Google (método de respaldo) */}
+              <Button
+                variant="outline"
+                type="button"
+                className="w-full h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+              >
+                <svg className="h-5 w-5 mr-2" aria-hidden="true" viewBox="0 0 488 512">
+                  <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                </svg>
+                Continuar con Google
+              </Button>
+            </CardContent>
+
+            {/* Opción de email/password colapsada */}
+            <div className="px-6 pb-4">
+              <details className="group">
+                <summary className="cursor-pointer text-center text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 list-none flex items-center justify-center gap-2">
+                  <span>Otras opciones de acceso</span>
+                  <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <form onSubmit={handleLogin}>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email">Email</Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="correo@ejemplo.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password">Contraseña</Label>
+                      <Input
+                        id="login-password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+                    </Button>
+                  </CardFooter>
+                </form>
                 <div className="space-y-2">
                   <Label htmlFor="register-nombre">Nombre</Label>
                   <Input
