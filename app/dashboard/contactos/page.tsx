@@ -360,7 +360,7 @@ export default function ContactosPage() {
           <p className="text-muted-foreground">Gestiona los teléfonos de contacto por departamento.</p>
         </div>
         <div className="flex gap-2 items-center">
-          <BatchGoogleSync />
+          {canCreateContact && <BatchGoogleSync />}
           {canCreateContact ? (
             <Link href="/dashboard/contactos/nuevo">
               <Button size="sm">
