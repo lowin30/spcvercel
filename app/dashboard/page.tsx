@@ -12,6 +12,7 @@ import { TaskStatusBadge } from "./tasks-badge"
 import { AdminDashboard } from "./admin-dashboard"
 import { SupervisorDashboard } from "./supervisor-dashboard"
 import { TrabajadorDashboard } from "./trabajador-dashboard"
+import { BiometricsEnroll } from "@/components/auth/biometrics-enroll"
 
 // Definir tipos para mejorar la inferencia
 type StatsType = {
@@ -35,17 +36,17 @@ type BuildingType = {
 
 export default function DashboardPage() {
   const supabase = createClient()
-  
+
   // Estados generales
   const [stats, setStats] = useState<StatsType | null>(null)
   const [recentTasks, setRecentTasks] = useState<TaskType[]>([])
   const [recentBuildings, setRecentBuildings] = useState<BuildingType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Estado para almacenar los datos del usuario
   const [userDetails, setUserDetails] = useState<any>(null)
-  
+
   // Estados específicos por rol
   const [financialStats, setFinancialStats] = useState<any>(null) // Para admin
   const [supervisorStats, setSupervisorStats] = useState<any>(null) // Para supervisor
@@ -56,32 +57,32 @@ export default function DashboardPage() {
     async function fetchDashboardData() {
       try {
         setLoading(true)
-        
+
         if (!supabase) {
           setError("No se pudo inicializar el cliente de Supabase")
           return
         }
-        
+
         // 1. Obtener datos del usuario actual
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           setError("No se pudo obtener la información del usuario")
           return
         }
-        
+
         // 2. Obtener detalles del usuario desde la tabla 'usuarios'
         const { data: userData, error: userError } = await supabase
           .from('usuarios')
           .select('*')
           .eq('id', user.id)
           .single()
-          
+
         if (userError || !userData) {
           console.error("Error al obtener detalles del usuario:", userError)
           setError("No se pudo obtener la información del usuario")
           return
         }
-        
+
         setUserDetails(userData)
 
         // Obtener estadísticas mediante consultas directas a las tablas
@@ -97,7 +98,7 @@ export default function DashboardPage() {
             .from('telefonos_departamento')
             .select('id', { count: 'exact', head: true })
           const { count: telefonosCount } = await executeCountQuery(telefonosQuery)
-            
+
           // 3. Contar usuarios administradores - usando la función de ayuda
           const adminsQuery = supabase
             .from('usuarios')
@@ -129,14 +130,14 @@ export default function DashboardPage() {
                 .select('id, total', { count: 'exact', head: true })
                 .eq('id_estado', 5) // ID de estado "activo"
               const { count: presupuestosActivos } = await executeCountQuery(presupuestosQuery)
-              
+
               // Monto total de presupuestos activos
               const { data: montoData } = await supabase
                 .from('presupuestos_finales')
                 .select('total')
                 .eq('id_estado', 5) // ID de estado "activo"
               const montoTotal = montoData?.reduce((sum, item) => sum + (item.total || 0), 0) || 0
-              
+
               // Facturas pendientes
               const { count: facturasPendientes } = await executeCountQuery(
                 supabase
@@ -144,7 +145,7 @@ export default function DashboardPage() {
                   .select('id', { count: 'exact', head: true })
                   .eq('id_estado_nuevo', 1) // ID de estado "pendiente"
               )
-              
+
               const { data: adminFinance } = await supabase
                 .from('vista_finanzas_admin')
                 .select('gastos_no_liquidados_semana, monto_jornales_pendientes_semana, ganancia_admin_mes, liquidaciones_pendientes, facturas_por_cobrar_total, saldos_pendientes_total, jornales_pendientes_mayor_7d, monto_jornales_pendientes_mayor_7d, visitas_hoy_total')
@@ -254,14 +255,14 @@ export default function DashboardPage() {
                 gastos_pendientes: workerFinance?.cantidad_gastos_pendientes ?? 0,
                 proximo_pago_estimado: workerFinance?.proximo_pago_estimado ?? 0
               })
-              
+
               // Cargar salario diario del trabajador
               const { data: configTrabajador } = await supabase
                 .from('configuracion_trabajadores')
                 .select('salario_diario')
                 .eq('id_trabajador', userData.id)
                 .maybeSingle()
-              
+
               setSalarioDiarioTrabajador(configTrabajador?.salario_diario ?? 0)
             } catch (e) {
               setTrabajadorStats({
@@ -286,7 +287,7 @@ export default function DashboardPage() {
 
         // Obtener tareas recientes filtradas por rol
         let tasksQuery;
-        
+
         // Filtrar tareas según el rol del usuario
         if (userData?.rol === 'admin') {
           // Los admin ven todas las tareas usando la vista completa con JOIN a estados_tareas
@@ -297,7 +298,7 @@ export default function DashboardPage() {
             `)
             .eq('finalizada', false)
             .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
-        } 
+        }
         else if (userData?.rol === 'supervisor') {
           // Los supervisores solo ven tareas que supervisan
           try {
@@ -306,9 +307,9 @@ export default function DashboardPage() {
               .from('supervisores_tareas')
               .select('id_tarea')
               .eq('id_supervisor', userData.id)
-            
+
             const idsTareas = asignaciones?.map(a => a.id_tarea) || []
-            
+
             if (idsTareas.length > 0) {
               // Luego filtramos las tareas por esos IDs usando la vista completa con JOIN a estados_tareas
               tasksQuery = supabase.from("vista_tareas_completa")
@@ -337,7 +338,7 @@ export default function DashboardPage() {
               `)
               .limit(0)
           }
-        } 
+        }
         else if (userData?.rol === 'trabajador') {
           // Los trabajadores solo ven tareas donde están asignados
           try {
@@ -346,9 +347,9 @@ export default function DashboardPage() {
               .from('trabajadores_tareas')
               .select('id_tarea')
               .eq('id_trabajador', userData.id)
-            
+
             const idsTareas = asignaciones?.map(a => a.id_tarea) || []
-            
+
             if (idsTareas.length > 0) {
               // Luego filtramos las tareas por esos IDs usando la vista completa con JOIN a estados_tareas
               tasksQuery = supabase.from("vista_tareas_completa")
@@ -387,7 +388,7 @@ export default function DashboardPage() {
             `)
             .limit(0)
         }
-        
+
         // Ejecutamos la consulta con límite
         const { data: tasksData, error: tasksError } = await executeQuery<TaskType>(
           tasksQuery,
@@ -395,7 +396,7 @@ export default function DashboardPage() {
           "created_at",
           false // descendente
         );
-        
+
         if (tasksError) {
           console.error("Error al obtener tareas recientes:", tasksError)
         } else {
@@ -443,8 +444,8 @@ export default function DashboardPage() {
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-red-800">Error</h2>
         <p className="mt-2 text-red-700">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
         >
           Reintentar
@@ -455,36 +456,39 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <BiometricsEnroll />
+      </div>
 
       {/* Mostrar interfaz específica según el rol del usuario */}
       {userDetails?.rol === 'admin' && (
-        <AdminDashboard 
-          stats={stats ?? undefined} 
-          financialStats={financialStats} 
-          recentTasks={recentTasks} 
-          recentBuildings={recentBuildings} 
+        <AdminDashboard
+          stats={stats ?? undefined}
+          financialStats={financialStats}
+          recentTasks={recentTasks}
+          recentBuildings={recentBuildings}
         />
       )}
 
       {userDetails?.rol === 'supervisor' && (
-        <SupervisorDashboard 
-          stats={stats ?? undefined} 
-          supervisorStats={supervisorStats} 
-          recentTasks={recentTasks} 
+        <SupervisorDashboard
+          stats={stats ?? undefined}
+          supervisorStats={supervisorStats}
+          recentTasks={recentTasks}
         />
       )}
 
       {userDetails?.rol === 'trabajador' && (
-        <TrabajadorDashboard 
-          stats={stats ?? undefined} 
-          trabajadorStats={trabajadorStats} 
+        <TrabajadorDashboard
+          stats={stats ?? undefined}
+          trabajadorStats={trabajadorStats}
           recentTasks={recentTasks}
           userId={userDetails.id}
           salarioDiario={salarioDiarioTrabajador}
         />
       )}
-      
+
       {/* Si no hay un rol definido, mostrar la interfaz genérica */}
       {!userDetails?.rol && (
         <>
@@ -507,7 +511,7 @@ export default function DashboardPage() {
               <p className="mt-2 text-3xl font-bold">{stats?.tareas_activas || 0}</p>
             </div>
           </div>
-          
+
           {/* Tareas recientes */}
           <div>
             <h2 className="mb-4 text-xl font-semibold">Tareas Recientes</h2>

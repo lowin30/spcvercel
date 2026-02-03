@@ -59,26 +59,32 @@ export async function updateSession(request: NextRequest) {
   // Refresh session if expired - important to do before accessing user
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 🔒 PROTECCIÓN DE RUTAS SOLO PARA ADMIN
-  const rutasProtegidas = [
-    '/dashboard/pagos',
-    '/dashboard/facturas',
-    '/dashboard/admin-tools',
-  ];
-  
-  const rutaActual = request.nextUrl.pathname;
-  const esRutaProtegida = rutasProtegidas.some(ruta => rutaActual.startsWith(ruta));
-  
-  if (esRutaProtegida && user) {
-    // Usar rol desde app_metadata para evitar llamada a BD
-    let rol: string | undefined = (user as any)?.app_metadata?.rol
+  // 🔒 RBAC & WHITELIST PROTECTION (SPC Protocol v19.0)
+  if (request.nextUrl.pathname.startsWith('/dashboard') && user) {
 
-    // Si no es admin, redirigir al dashboard
-    if (rol !== 'admin') {
+    // 1. Obtener perfil real de la tabla 'usuarios' (Source of Truth)
+    const { data: profile } = await supabase
+      .from('usuarios')
+      .select('rol, activo')
+      .eq('id', user.id)
+      .single()
+
+    // 2. WHITELIST CHECK: Si no existe o está inactivo -> Bloquear
+    if (!profile || !profile.activo) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/dashboard';
-      redirectUrl.searchParams.set('error', 'acceso_denegado');
+      redirectUrl.pathname = '/login';
+      // Logout forzado si pudiéramos, pero por ahora redirect
       return NextResponse.redirect(redirectUrl);
+    }
+
+    // 3. ADMIN ROUTES CHECK
+    const rutasAdmin = ['/dashboard/pagos', '/dashboard/facturas', '/dashboard/admin-tools'];
+    if (rutasAdmin.some(r => request.nextUrl.pathname.startsWith(r))) {
+      if (profile.rol !== 'admin') {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = '/dashboard';
+        return NextResponse.redirect(redirectUrl);
+      }
     }
   }
 
