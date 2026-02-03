@@ -32,6 +32,13 @@ export async function GET(request: Request) {
                 const { data: { user } } = await supabase.auth.getUser()
 
                 if (user) {
+                    // Extract Google Tokens from Session
+                    const { data: sessionData } = await supabase.auth.getSession()
+                    const providerToken = sessionData.session?.provider_token
+                    const providerRefreshToken = sessionData.session?.provider_refresh_token
+
+                    // console.log('Google Tokens Debug:', { hasAccess: !!providerToken, hasRefresh: !!providerRefreshToken })
+
                     // Check if user exists in 'usuarios' using Service Client (Master Key)
                     const { data: existingUser } = await serviceClient
                         .from('usuarios')
@@ -39,25 +46,32 @@ export async function GET(request: Request) {
                         .eq('id', user.id)
                         .maybeSingle()
 
+                    const updates: any = {
+                        email: user.email,
+                        last_login: new Date().toISOString()
+                    }
+
+                    // Store tokens if present (Critical for Permanent Session)
+                    if (providerToken) updates.google_access_token = providerToken
+                    if (providerRefreshToken) {
+                        updates.google_refresh_token = providerRefreshToken
+                        // Calculate expiry roughly (1 hour usually)
+                        updates.google_token_expiry = Date.now() + (3500 * 1000)
+                    }
+
                     if (!existingUser) {
                         console.log('Creating new user from Google Auth (Service Role):', user.email)
-
-                        const { error: insertError } = await serviceClient.from('usuarios').insert({
+                        await serviceClient.from('usuarios').insert({
                             id: user.id,
-                            email: user.email,
                             nombre: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
-                            rol: 'trabajador', // Default role
-                            activo: true
+                            rol: 'trabajador',
+                            activo: true,
+                            ...updates
                         })
-
-                        if (insertError) {
-                            console.error('CRITICAL: Error creating user profile:', insertError)
-                        } else {
-                            console.log('User profile created successfully via Service Role.')
-                        }
                     } else {
-                        // Optional: Ensure 'activo' is true if returning user? 
-                        // For now we trust manual management, but could force true here if desired.
+                        // Update existing user with new tokens
+                        console.log('Updating existing user tokens (Service Role):', user.email)
+                        await serviceClient.from('usuarios').update(updates).eq('id', user.id)
                     }
                 }
             } catch (syncError) {
