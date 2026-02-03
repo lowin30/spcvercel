@@ -9,6 +9,7 @@ import Link from "next/link"
 import { Plus, Loader2, Phone, Trash2, Pencil } from "lucide-react"
 import { createClient } from "@/lib/supabase-client"
 import { useToast } from "@/components/ui/use-toast"
+import { BatchGoogleSync } from "@/components/batch-google-sync"
 import {
   Table,
   TableBody,
@@ -358,15 +359,19 @@ export default function ContactosPage() {
           <h2 className="text-3xl font-bold tracking-tight">Contactos</h2>
           <p className="text-muted-foreground">Gestiona los teléfonos de contacto por departamento.</p>
         </div>
-        {canCreateContact ? (
-          <Link href="/dashboard/contactos/nuevo">
-            <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" />
-              Nuevo Contacto
-            </Button>
-          </Link>
-        ) : null}
+        <div className="flex gap-2 items-center">
+          <BatchGoogleSync />
+          {canCreateContact ? (
+            <Link href="/dashboard/contactos/nuevo">
+              <Button size="sm">
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo Contacto
+              </Button>
+            </Link>
+          ) : null}
+        </div>
       </div>
+
 
       {/* Filtros */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-4 md:mb-6">
