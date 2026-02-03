@@ -367,6 +367,17 @@ export default function LoginPage() {
                     </Button>
                   </CardFooter>
                 </form>
+              </details>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="register">
+            <CardHeader>
+              <CardTitle className="text-2xl">Registrarse</CardTitle>
+              <CardDescription>Crea una nueva cuenta en el sistema</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleRegister}>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-nombre">Nombre</Label>
                   <Input
