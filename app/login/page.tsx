@@ -13,7 +13,8 @@ import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { registrarUsuario } from "./register"
 import Image from "next/image"
-import { Fingerprint } from "lucide-react"
+import { Fingerprint, Loader2 } from "lucide-react"
+import { useBiometricLogin } from "@/hooks/use-biometric-login"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -24,6 +25,9 @@ export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState("login")
+
+  // Biometric login hook
+  const { biometricLoading, biometricEmail, showEmailInput, handleBiometricLogin } = useBiometricLogin({ supabase, toast })
 
   // Verificar si ya hay una sesión activa
   useEffect(() => {
@@ -291,16 +295,20 @@ export default function LoginPage() {
                 variant="default"
                 type="button"
                 className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={() => {
-                  toast({
-                    title: "🚀 Próximamente",
-                    description: "El acceso biométrico estará disponible muy pronto. Por ahora usa Google para ingresar.",
-                  })
-                }}
-                disabled={loading}
+                onClick={handleBiometricLogin}
+                disabled={biometricLoading || loading}
               >
-                <Fingerprint className="h-6 w-6 mr-2" />
-                Entrar con mi huella
+                {biometricLoading ? (
+                  <>
+                    <Loader2 className="h-6 w-6 mr-2 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <Fingerprint className="h-6 w-6 mr-2" />
+                    {biometricEmail ? 'Entrar con mi huella' : 'Configurar huella'}
+                  </>
+                )}
               </Button>
 
               {/* Separador */}
