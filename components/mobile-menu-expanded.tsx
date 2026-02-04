@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase-client"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 import {
   Building2,
   Calendar,
@@ -48,9 +49,6 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
   const pathname = usePathname()
   const router = useRouter()
   const userRole = userDetails?.rol || ""
-  
-  // Obtener inicial del usuario
-  const userInitial = userDetails?.email ? userDetails.email.charAt(0).toUpperCase() : 'U'
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -64,95 +62,84 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
     {
       href: "/dashboard",
       icon: Home,
-      title: "Inicio",
+      title: "dashboard",
+    },
+    {
+      href: "/dashboard/perfil",
+      icon: User,
+      title: "mi perfil",
     },
     {
       href: "/dashboard/tareas",
       icon: ClipboardList,
-      title: "Tareas",
+      title: "tareas",
     },
     {
       href: "/dashboard/agenda",
       icon: Calendar,
-      title: "Agenda",
+      title: "agenda",
     },
     {
       href: "/dashboard/edificios",
       icon: Building2,
-      title: "Edificios",
+      title: "edificios",
     },
     {
       href: "/dashboard/trabajadores/registro-dias",
       icon: Clock,
-      title: userRole === "supervisor" ? "Seguimiento de Trabajadores" : "Mis Días",
+      title: "mis dias",
     },
     {
       href: "/dashboard/trabajadores/gastos",
       icon: Receipt,
-      title: "Mis Gastos",
-    },
-    {
-      href: "/dashboard/presupuestos-base",
-      icon: FileBarChart,
-      title: "Presup. Base",
-      role: ["supervisor", "admin"],
-    },
-    {
-      href: "/dashboard/pagos",
-      icon: CreditCard,
-      title: "Pagos",
-      role: ["admin"],
+      title: "mis gastos",
     },
     {
       href: "/dashboard/contactos",
       icon: Users,
-      title: "Contactos",
+      title: "contactos",
+      role: ["admin", "supervisor"],
+    },
+    {
+      href: "/dashboard/presupuestos-base",
+      icon: FileBarChart,
+      title: "presup base",
+      role: ["admin", "supervisor"],
+    },
+    {
+      href: "/dashboard/liquidaciones",
+      icon: Wallet,
+      title: "gestion de liquidaciones",
       role: ["admin", "supervisor"],
     },
     {
       href: "/dashboard/presupuestos",
       icon: FileText,
-      title: "Presupuestos",
+      title: "presupuestos",
       role: ["admin"],
     },
     {
       href: "/dashboard/facturas",
       icon: FileText,
-      title: "Facturas",
+      title: "facturas",
       role: ["admin"],
     },
-    {
-      href: "/dashboard/liquidaciones",
-      icon: Wallet,
-      title: "Gestión de Liquidaciones",
-      role: ["admin", "supervisor"],
-    },
-
-    // Entrada de Trabajadores eliminada - Ahora se accede desde Configuración
-
     {
       href: "/dashboard/ajustes",
       icon: Shield,
-      title: "Ajustes",
+      title: "ajustes",
       role: ["admin"],
-      badge: "CONFIDENCIAL",
-      badgeColor: "bg-red-600",
     },
     {
-      href: "/dashboard/trabajadores/liquidaciones",
-      icon: UserCheck,
-      title: "Pagos Personal",
-      role: ["trabajador", "supervisor", "admin"],
-    },
-    {
-      href: "/dashboard/perfil",
-      icon: User,
-      title: "Mi Perfil",
+      href: "/dashboard/pagos",
+      icon: CreditCard,
+      title: "pagos",
+      role: ["admin"],
     },
     {
       href: "/dashboard/configuracion",
       icon: Settings,
-      title: "Configuración",
+      title: "configuracion",
       role: ["admin"],
     },
   ]
@@ -162,31 +149,31 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header con avatar */}
+      {/* Header con avatar de marca */}
       <div className="p-4 border-b space-y-3">
-        {/* Avatar con color personalizado */}
+        {/* Avatar circular con logo de marca */}
         <div className="flex items-center justify-center">
-          <div 
-            className="flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-lg shadow-lg"
-            style={{ backgroundColor: colorPerfil }}
-          >
-            {userInitial}
-          </div>
+          <Image
+            src="/spc-profile-avatar.png"
+            alt="SPC"
+            width={48}
+            height={48}
+            className="rounded-full w-12 h-12 border-2 border-amber-500/50 object-cover"
+          />
         </div>
-        
+
         <div>
-          <h2 className="font-semibold text-lg text-center">SPC Sistema de Gestión</h2>
+          <h2 className="font-semibold text-lg text-center lowercase">spc sistema de gestion</h2>
           {userDetails && (
-            <div className="mt-2 text-sm text-muted-foreground text-center">
-              <div className="font-medium">{userDetails.email}</div>
-              <div className="capitalize">{userDetails.rol}</div>
+            <div className="mt-2 text-muted-foreground text-center">
+              <div className="text-[10px] lowercase opacity-50">{userDetails.email?.toLowerCase()}</div>
             </div>
           )}
         </div>
       </div>
 
       {/* Navigation Links con tinte de color */}
-      <div 
+      <div
         className="flex-1 overflow-auto py-2"
         style={{
           backgroundColor: `color-mix(in srgb, ${colorPerfil} 3%, transparent)`
