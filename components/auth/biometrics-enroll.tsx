@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Fingerprint } from "lucide-react"
+import { registerBiometric, isBiometricSupported } from "@/lib/webauthn-client"
 
 export function BiometricsEnroll() {
     const { supabase } = useSupabase()
@@ -27,30 +28,49 @@ export function BiometricsEnroll() {
     }, [])
 
     const checkFactors = async () => {
-        const { data, error } = await supabase.auth.mfa.listFactors()
+        // Check custom WebAuthn credentials table
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data, error } = await supabase
+            .from('webauthn_credentials')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .limit(1)
+
         if (error) {
-            console.error("Error listing factors:", error)
+            console.error('error al verificar credenciales:', error)
             return
         }
 
-        const webauthn = data.all.find(f => f.factor_type === 'webauthn' && f.status === 'verified')
-        setHasBiometrics(!!webauthn)
+        setHasBiometrics(data && data.length > 0)
     }
 
     const handleEnroll = async () => {
+        if (!isBiometricSupported()) {
+            toast({
+                title: "dispositivo no compatible",
+                description: "tu navegador no soporta autenticacion biometrica.",
+                variant: "destructive",
+            })
+            return
+        }
+
         setLoading(true)
         try {
-            const { data, error } = await supabase.auth.mfa.enroll({
-                factorType: 'webauthn',
-            })
+            const deviceName = `dispositivo ${new Date().toLocaleDateString()}`
+            const success = await registerBiometric(deviceName)
 
-            if (error) throw error
+            if (!success) {
+                throw new Error('no se pudo registrar la huella')
+            }
 
             setHasBiometrics(true)
             setOpen(false)
             toast({
-                title: "Huella registrada correctamente",
-                description: "Ahora puedes iniciar sesión sin contraseña.",
+                title: "huella registrada con exito",
+                description: "ahora puedes iniciar sesion sin contraseña.",
             })
 
             // Update DB flag for UI optimization
@@ -60,13 +80,10 @@ export function BiometricsEnroll() {
             }
 
         } catch (error: any) {
-            console.error("Biometrics error:", error)
-            // DEBUG: Mostrar error real en el móvil
-            alert(`Error Biometría: ${error.message || error.name || JSON.stringify(error)}`)
-
+            console.error('biometric error:', error)
             toast({
-                title: "Error al registrar huella",
-                description: "Revisa el mensaje de alerta para más detalles.",
+                title: "error al registrar huella",
+                description: error.message || "intenta nuevamente.",
                 variant: "destructive",
             })
         } finally {
@@ -86,18 +103,18 @@ export function BiometricsEnroll() {
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Activar Acceso Biométrico</DialogTitle>
+                    <DialogTitle>activar acceso biometrico</DialogTitle>
                     <DialogDescription>
-                        Registra tu huella o FaceID para iniciar sesión más rápido y segura, sin recordar contraseñas.
+                        registra tu huella o faceid para iniciar sesion mas rapido y seguro, sin recordar contraseñas.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-center py-6">
                     <Fingerprint className="h-16 w-16 text-primary animate-pulse" />
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+                    <Button variant="outline" onClick={() => setOpen(false)}>cancelar</Button>
                     <Button onClick={handleEnroll} disabled={loading}>
-                        {loading ? "Escaneando..." : "Registrar ahora"}
+                        {loading ? "escaneando..." : "registrar ahora"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
