@@ -295,7 +295,7 @@ export default function LoginPage() {
                 variant="default"
                 type="button"
                 className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                onClick={handleBiometricLogin}
+                onClick={() => handleBiometricLogin()}
                 disabled={biometricLoading || loading}
               >
                 {biometricLoading ? (
