@@ -8,6 +8,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import { AlertasNotificaciones } from "@/components/alertas-notificaciones"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { createClient } from "@/lib/supabase-client"
+import Image from "next/image"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -27,30 +28,30 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
     const fetchUserId = async () => {
       try {
         const supabase = createClient()
-        
+
         // Verificar que el cliente se haya creado correctamente
         if (!supabase) {
           console.error('Error: No se pudo crear el cliente Supabase en DashboardShell')
           return
         }
-        
+
         const { data, error } = await supabase.auth.getUser()
-        
+
         if (error) {
           console.error('Error al obtener el usuario:', error)
           return
         }
-        
+
         if (data?.user) {
           setUserId(data.user.id)
-          
+
           // Obtener color_perfil del usuario
           const { data: userData } = await supabase
             .from('usuarios')
             .select('color_perfil')
             .eq('id', data.user.id)
             .single()
-          
+
           if (userData?.color_perfil) {
             setColorPerfil(userData.color_perfil)
           }
@@ -64,10 +65,10 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
   }, [])
 
   return (
-    <div 
+    <div
       className="flex min-h-screen flex-col"
       // Suprimir advertencias de hidratación causadas por extensiones del navegador
-      suppressHydrationWarning 
+      suppressHydrationWarning
     >
       {/* Navegación móvil - visible solo en pantallas pequeñas */}
       <MobileNav userDetails={userDetails} colorPerfil={colorPerfil} />
@@ -78,9 +79,18 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
           <div className="flex flex-col h-full">
             <div className="p-4 border-b">
               <div className="flex justify-between items-center mb-2">
-                <div className="flex-1">
-                  <h1 className="font-bold text-xl">SPC Sistema</h1>
-                  <p className="text-sm text-muted-foreground">{userDetails?.email}</p>
+                <div className="flex-1 flex items-center gap-2">
+                  <Image
+                    src="/spc-logo-navbar.png"
+                    alt="SPC"
+                    width={40}
+                    height={40}
+                    className="object-contain"
+                  />
+                  <div>
+                    <h1 className="font-bold text-lg">SPC</h1>
+                    <p className="text-xs text-muted-foreground">{userDetails?.email}</p>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-2">
@@ -89,8 +99,8 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              <DashboardNav 
-                userRole={userDetails?.rol} 
+              <DashboardNav
+                userRole={userDetails?.rol}
                 userEmail={userDetails?.email}
                 colorPerfil={colorPerfil}
               />
