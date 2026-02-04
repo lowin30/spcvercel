@@ -77,6 +77,11 @@ export function BiometricsEnroll() {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
                 await supabase.from('usuarios').update({ webauthn_enabled: true }).eq('id', user.id)
+
+                // Save email to localStorage for login button
+                if (typeof window !== 'undefined' && user.email) {
+                    localStorage.setItem('spc_biometric_email', user.email)
+                }
             }
 
         } catch (error: any) {
