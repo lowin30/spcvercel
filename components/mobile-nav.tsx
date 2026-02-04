@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { createClient } from "@/lib/supabase-client"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
+import Image from "next/image"
 
 interface MobileNavProps {
   userDetails?: {
@@ -30,7 +31,7 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
     }
     router.push("/login")
   }
-  
+
   // Cerrar el menú cuando cambie la ruta
   useEffect(() => {
     if (open) {
@@ -42,9 +43,9 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
     <header className="md:hidden" role="banner">
       <nav className="flex h-14 items-center justify-between border-b px-3" role="navigation" aria-label="Navegación principal">
         {/* Botón de menú con mejor accesibilidad */}
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           onClick={() => setOpen(true)}
           aria-label="Abrir menú de navegación"
           aria-expanded={open}
@@ -54,18 +55,25 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
           <span className="sr-only">Abrir menú</span>
         </Button>
 
-        {/* Título centrado */}
-        <div className="flex-1 text-center">
-          <span className="font-bold">SPC Sistema de Gestión</span>
+        {/* Logo centrado */}
+        <div className="flex-1 flex justify-center items-center gap-2">
+          <Image
+            src="/spc-logo-navbar.png"
+            alt="SPC"
+            width={32}
+            height={32}
+            className="object-contain"
+          />
+          <span className="font-bold text-lg">SPC</span>
         </div>
-        
+
         {/* Controles de la derecha */}
         <div className="flex items-center gap-1">
           <ThemeToggle />
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleSignOut} 
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
             className="text-muted-foreground hover:text-primary"
             aria-label="Cerrar sesión"
           >
@@ -74,14 +82,14 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
           </Button>
         </div>
       </nav>
-      
+
       {/* Panel lateral - Siempre presente en el DOM pero visualmente oculto cuando está cerrado */}
       <Sheet open={open} onOpenChange={setOpen} modal={false}>
-        <SheetContent 
-          side="left" 
-          className="w-72 p-0" 
+        <SheetContent
+          side="left"
+          className="w-72 p-0"
           id="mobile-menu-panel"
-          // Eliminamos preventDefault que causa problemas de foco
+        // Eliminamos preventDefault que causa problemas de foco
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Menú Principal</SheetTitle>
