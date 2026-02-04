@@ -79,17 +79,16 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
           <div className="flex flex-col h-full">
             <div className="p-4 border-b">
               <div className="flex justify-between items-center mb-2">
-                <div className="flex-1 flex items-center gap-3">
+                <div className="flex-1 flex flex-col items-center gap-1">
                   <Image
                     src="/spc-logo-navbar.png"
                     alt="SPC"
-                    width={60}
-                    height={60}
-                    className="object-contain"
+                    width={135}
+                    height={45}
+                    priority
+                    className="object-contain h-11 w-auto"
                   />
-                  <div>
-                    <p className="text-sm text-muted-foreground">{userDetails?.email}</p>
-                  </div>
+                  <p className="text-[10px] text-muted-foreground/50">{userDetails?.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-2">

@@ -56,15 +56,15 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
         </Button>
 
         {/* Logo centrado */}
-        <div className="flex-1 flex justify-center items-center gap-2">
+        <div className="flex-1 flex justify-center items-center">
           <Image
             src="/spc-logo-navbar.png"
             alt="SPC"
-            width={32}
-            height={32}
-            className="object-contain"
+            width={120}
+            height={40}
+            priority
+            className="object-contain h-10 w-auto"
           />
-          <span className="font-bold text-lg">SPC</span>
         </div>
 
         {/* Controles de la derecha */}
