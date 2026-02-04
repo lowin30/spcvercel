@@ -83,15 +83,14 @@ export async function POST(request: Request) {
 
     // 6. Store the credential in database
     const { error: dbError } = await supabase
-      .from('user_authenticators')
+      .from('webauthn_credentials')
       .insert({
         user_id: user.id,
         credential_id: Buffer.from(credentialID).toString('base64'),
         public_key: Buffer.from(credentialPublicKey).toString('base64'),
         counter: counter,
-        device_type: credentialDeviceType || 'unknown',
-        user_agent: request.headers.get('user-agent') || undefined,
-        friendly_name: deviceName || `Dispositivo ${new Date().toLocaleDateString()}`,
+        device_name: deviceName || `dispositivo ${new Date().toLocaleDateString()}`,
+        is_active: true,
       })
 
     if (dbError) {

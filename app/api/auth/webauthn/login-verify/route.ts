@@ -60,12 +60,13 @@ export async function POST(request: Request) {
 
     // 6. Find the authenticator that was used (by credential ID)
     const credentialIDBase64 = credential.id
-    
+
     const { data: authenticator, error: authError } = await supabase
-      .from('user_authenticators')
+      .from('webauthn_credentials')
       .select('*')
       .eq('user_id', usuario.id)
       .eq('credential_id', credentialIDBase64)
+      .eq('is_active', true)
       .single()
 
     if (authError || !authenticator) {
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     // 8. Update the counter to prevent replay attacks
     const { newCounter } = authenticationInfo
     await supabase
-      .from('user_authenticators')
+      .from('webauthn_credentials')
       .update({
         counter: newCounter,
         last_used_at: new Date().toISOString(),

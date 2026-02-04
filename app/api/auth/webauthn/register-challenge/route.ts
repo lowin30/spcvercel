@@ -21,9 +21,10 @@ export async function POST() {
 
     // 2. Get user's existing authenticators to exclude them
     const { data: existingAuthenticators } = await supabase
-      .from('user_authenticators')
+      .from('webauthn_credentials')
       .select('credential_id')
       .eq('user_id', user.id)
+      .eq('is_active', true)
 
     const excludeCredentials = existingAuthenticators?.map((auth) => ({
       id: auth.credential_id,
@@ -37,23 +38,23 @@ export async function POST() {
       userID: user.id,
       userName: user.email || user.id,
       userDisplayName: user.user_metadata?.nombre || user.email || 'Usuario',
-      
+
       // Timeout for the authentication ceremony
       timeout: WEBAUTHN_CONFIG.timeout,
-      
+
       // Attestation preference
       attestationType: WEBAUTHN_CONFIG.attestation,
-      
+
       // Exclude already registered authenticators
       excludeCredentials,
-      
+
       // Authenticator selection criteria
       authenticatorSelection: {
         authenticatorAttachment: WEBAUTHN_CONFIG.authenticatorAttachment,
         userVerification: WEBAUTHN_CONFIG.userVerification,
         residentKey: 'preferred', // Allow discoverable credentials (autofill UI)
       },
-      
+
       // Supported algorithms (ES256, RS256)
       supportedAlgorithmIDs: [-7, -257],
     })

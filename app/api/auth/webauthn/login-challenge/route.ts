@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     // 2. Find user by email (using service role to bypass RLS)
     const supabase = await createServerClient()
-    
+
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
       .select('id, email')
@@ -37,9 +37,10 @@ export async function POST(request: Request) {
 
     // 3. Get user's registered authenticators
     const { data: authenticators, error: authError } = await supabase
-      .from('user_authenticators')
+      .from('webauthn_credentials')
       .select('credential_id')
       .eq('user_id', usuario.id)
+      .eq('is_active', true)
 
     if (authError || !authenticators || authenticators.length === 0) {
       return NextResponse.json(
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
       rpID: WEBAUTHN_CONFIG.rpID,
       timeout: WEBAUTHN_CONFIG.timeout,
       userVerification: WEBAUTHN_CONFIG.userVerification,
-      
+
       // Allow any of the user's registered credentials
       allowCredentials: authenticators.map((auth) => ({
         id: auth.credential_id,
