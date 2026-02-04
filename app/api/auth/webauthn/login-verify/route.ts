@@ -1,5 +1,5 @@
-// SPC Protocol v20.1: WebAuthn Login Verification
-// Verifies the authentication assertion and creates a Supabase session
+// SPC Protocol v24.0: WebAuthn Login Verification (Simplified)
+// Verifies authentication and updates JSONB column
 
 import { NextResponse } from 'next/server'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     if (!email || !credential) {
       return NextResponse.json(
-        { error: 'Missing email or credential data' },
+        { error: 'faltan email o datos de credencial' },
         { status: 400 }
       )
     }
@@ -27,16 +27,16 @@ export async function POST(request: Request) {
     // 2. Create Supabase client
     const supabase = await createServerClient()
 
-    // 3. Find user by email
+    // 3. Find user by email with credentials
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
-      .select('id, email, activo, rol')
+      .select('id, email, activo, rol, webauthn_credentials')
       .eq('email', email)
       .single()
 
     if (userError || !usuario) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'usuario no encontrado' },
         { status: 404 }
       )
     }
@@ -44,35 +44,32 @@ export async function POST(request: Request) {
     // 4. Check if user is active
     if (!usuario.activo) {
       return NextResponse.json(
-        { error: 'Account is disabled. Contact administrator.' },
+        { error: 'cuenta deshabilitada. contacta al administrador.' },
         { status: 403 }
       )
     }
 
-    // 5. Retrieve the challenge for this email
+    // 5. Retrieve the challenge
     const expectedChallenge = getChallenge(email)
     if (!expectedChallenge) {
       return NextResponse.json(
-        { error: 'Challenge expired or not found. Please try again.' },
+        { error: 'desafio expirado o no encontrado. intenta de nuevo.' },
         { status: 400 }
       )
     }
 
-    // 6. Find the authenticator that was used (by credential ID)
+    // 6. Find the authenticator from JSONB array
     const credentialIDBase64 = credential.id
+    const credentials = usuario.webauthn_credentials || []
 
-    const { data: authenticator, error: authError } = await supabase
-      .from('webauthn_credentials')
-      .select('*')
-      .eq('user_id', usuario.id)
-      .eq('credential_id', credentialIDBase64)
-      .eq('is_active', true)
-      .single()
+    const authenticator = credentials.find(
+      (cred: any) => cred.credential_id === credentialIDBase64
+    )
 
-    if (authError || !authenticator) {
+    if (!authenticator) {
       deleteChallenge(email)
       return NextResponse.json(
-        { error: 'Authenticator not found' },
+        { error: 'autenticador no encontrado' },
         { status: 404 }
       )
     }
@@ -93,10 +90,10 @@ export async function POST(request: Request) {
         requireUserVerification: true,
       })
     } catch (error) {
-      console.error('Authentication verification failed:', error)
+      console.error('fallo verificacion de autenticacion:', error)
       deleteChallenge(email)
       return NextResponse.json(
-        { error: 'Verification failed. Please try again.' },
+        { error: 'verificacion fallida. intenta de nuevo.' },
         { status: 400 }
       )
     }
@@ -106,23 +103,25 @@ export async function POST(request: Request) {
     if (!verified) {
       deleteChallenge(email)
       return NextResponse.json(
-        { error: 'Could not verify authenticator response' },
+        { error: 'no se pudo verificar respuesta del autenticador' },
         { status: 400 }
       )
     }
 
-    // 8. Update the counter to prevent replay attacks
+    // 8. Update the counter in JSONB array
     const { newCounter } = authenticationInfo
+    const updatedCredentials = credentials.map((cred: any) =>
+      cred.credential_id === credentialIDBase64
+        ? { ...cred, counter: newCounter, last_used_at: new Date().toISOString() }
+        : cred
+    )
+
     await supabase
-      .from('webauthn_credentials')
-      .update({
-        counter: newCounter,
-        last_used_at: new Date().toISOString(),
-      })
-      .eq('id', authenticator.id)
+      .from('usuarios')
+      .update({ webauthn_credentials: updatedCredentials })
+      .eq('id', usuario.id)
 
     // 9. Create a Supabase session using Service Role
-    // This is the critical part - we need to create a valid auth session
     const serviceClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -134,17 +133,17 @@ export async function POST(request: Request) {
       }
     )
 
-    // Generate a new session token for this user
+    // Generate session token
     const { data: sessionData, error: sessionError } = await serviceClient.auth.admin.generateLink({
       type: 'magiclink',
       email: usuario.email,
     })
 
     if (sessionError || !sessionData) {
-      console.error('Failed to generate session:', sessionError)
+      console.error('no se pudo generar sesion:', sessionError)
       deleteChallenge(email)
       return NextResponse.json(
-        { error: 'Failed to create session' },
+        { error: 'no se pudo crear sesion' },
         { status: 500 }
       )
     }
@@ -153,10 +152,9 @@ export async function POST(request: Request) {
     deleteChallenge(email)
 
     // 11. Return the session data to client
-    // The client will use this to set the session in their Supabase client
     return NextResponse.json({
       verified: true,
-      message: 'Authentication successful',
+      message: 'autenticacion exitosa',
       session: {
         access_token: sessionData.properties.access_token,
         refresh_token: sessionData.properties.refresh_token,
@@ -166,9 +164,9 @@ export async function POST(request: Request) {
     })
 
   } catch (error) {
-    console.error('Login verification error:', error)
+    console.error('error verificacion de acceso:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'error interno del servidor' },
       { status: 500 }
     )
   }

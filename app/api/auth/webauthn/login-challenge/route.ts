@@ -1,5 +1,5 @@
-// SPC Protocol v20.1: WebAuthn Login Challenge
-// Generates authentication options for passwordless login
+// SPC Protocol v24.0: WebAuthn Login Challenge (Simplified)
+// Generates authentication options from JSONB column
 
 import { NextResponse } from 'next/server'
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
@@ -8,43 +8,38 @@ import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
   try {
-    // 1. Get email from request body (user enters email first to identify which credentials to use)
+    // 1. Get email from request body
     const { email } = await request.json()
 
     if (!email) {
       return NextResponse.json(
-        { error: 'Email is required' },
+        { error: 'email requerido' },
         { status: 400 }
       )
     }
 
-    // 2. Find user by email (using service role to bypass RLS)
+    // 2. Find user by email with credentials
     const supabase = await createServerClient()
 
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
-      .select('id, email')
+      .select('id, email, webauthn_credentials')
       .eq('email', email)
       .single()
 
     if (userError || !usuario) {
-      // Don't reveal whether user exists or not for security
       return NextResponse.json(
-        { error: 'No registered authenticators found for this email' },
+        { error: 'no se encontraron autenticadores para este email' },
         { status: 404 }
       )
     }
 
-    // 3. Get user's registered authenticators
-    const { data: authenticators, error: authError } = await supabase
-      .from('webauthn_credentials')
-      .select('credential_id')
-      .eq('user_id', usuario.id)
-      .eq('is_active', true)
+    // 3. Get credentials from JSONB array
+    const credentials = usuario.webauthn_credentials || []
 
-    if (authError || !authenticators || authenticators.length === 0) {
+    if (credentials.length === 0) {
       return NextResponse.json(
-        { error: 'No registered authenticators found. Please use Google login.' },
+        { error: 'no hay autenticadores registrados. usa acceso de google.' },
         { status: 404 }
       )
     }
@@ -55,24 +50,23 @@ export async function POST(request: Request) {
       timeout: WEBAUTHN_CONFIG.timeout,
       userVerification: WEBAUTHN_CONFIG.userVerification,
 
-      // Allow any of the user's registered credentials
-      allowCredentials: authenticators.map((auth) => ({
-        id: auth.credential_id,
+      allowCredentials: credentials.map((cred: any) => ({
+        id: cred.credential_id,
         type: 'public-key' as const,
-        transports: ['internal', 'hybrid'], // Support both platform and cross-platform
+        transports: ['internal', 'hybrid'],
       })),
     })
 
-    // 5. Store challenge for verification (using email as key since user isn't logged in yet)
+    // 5. Store challenge for verification
     storeChallenge(email, options.challenge)
 
     // 6. Return options to client
     return NextResponse.json(options)
 
   } catch (error) {
-    console.error('Error generating authentication options:', error)
+    console.error('error generando opciones de autenticacion:', error)
     return NextResponse.json(
-      { error: 'Failed to generate authentication options' },
+      { error: 'no se pudo generar opciones de autenticacion' },
       { status: 500 }
     )
   }

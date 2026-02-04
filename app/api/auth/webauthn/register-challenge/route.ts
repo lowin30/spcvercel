@@ -1,5 +1,5 @@
-// SPC Protocol v20.1: WebAuthn Registration Challenge
-// Generates registration options for a logged-in user
+// SPC Protocol v24.0: WebAuthn Registration Challenge (Simplified)
+// Generates registration options using JSONB column in usuarios
 
 import { NextResponse } from 'next/server'
 import { generateRegistrationOptions } from '@simplewebauthn/server'
@@ -14,48 +14,43 @@ export async function POST() {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized. Please login first.' },
+        { error: 'no autorizado. inicia sesion primero.' },
         { status: 401 }
       )
     }
 
-    // 2. Get user's existing authenticators to exclude them
-    const { data: existingAuthenticators } = await supabase
-      .from('webauthn_credentials')
-      .select('credential_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
+    // 2. Get user's existing credentials from JSONB column
+    const { data: usuario } = await supabase
+      .from('usuarios')
+      .select('webauthn_credentials')
+      .eq('id', user.id)
+      .single()
 
-    const excludeCredentials = existingAuthenticators?.map((auth) => ({
-      id: auth.credential_id,
+    const existingCredentials = usuario?.webauthn_credentials || []
+
+    const excludeCredentials = existingCredentials.map((cred: any) => ({
+      id: Buffer.from(cred.credential_id, 'base64'),
       type: 'public-key' as const,
-    })) || []
+    }))
 
     // 3. Generate registration options
     const options = await generateRegistrationOptions({
       rpName: WEBAUTHN_CONFIG.rpName,
       rpID: WEBAUTHN_CONFIG.rpID,
-      userID: user.id,
+      userID: Buffer.from(user.id),
       userName: user.email || user.id,
-      userDisplayName: user.user_metadata?.nombre || user.email || 'Usuario',
+      userDisplayName: user.user_metadata?.nombre || user.email || 'usuario',
 
-      // Timeout for the authentication ceremony
       timeout: WEBAUTHN_CONFIG.timeout,
-
-      // Attestation preference
       attestationType: WEBAUTHN_CONFIG.attestation,
-
-      // Exclude already registered authenticators
       excludeCredentials,
 
-      // Authenticator selection criteria
       authenticatorSelection: {
         authenticatorAttachment: WEBAUTHN_CONFIG.authenticatorAttachment,
         userVerification: WEBAUTHN_CONFIG.userVerification,
-        residentKey: 'preferred', // Allow discoverable credentials (autofill UI)
+        residentKey: 'preferred',
       },
 
-      // Supported algorithms (ES256, RS256)
       supportedAlgorithmIDs: [-7, -257],
     })
 
@@ -66,9 +61,9 @@ export async function POST() {
     return NextResponse.json(options)
 
   } catch (error) {
-    console.error('Error generating registration options:', error)
+    console.error('error generando opciones de registro:', error)
     return NextResponse.json(
-      { error: 'Failed to generate registration options' },
+      { error: 'no se pudo generar opciones de registro' },
       { status: 500 }
     )
   }

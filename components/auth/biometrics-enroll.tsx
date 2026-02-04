@@ -28,23 +28,23 @@ export function BiometricsEnroll() {
     }, [])
 
     const checkFactors = async () => {
-        // Check custom WebAuthn credentials table
+        // Check JSONB column in usuarios table
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        const { data, error } = await supabase
-            .from('webauthn_credentials')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .limit(1)
+        const { data: usuario, error } = await supabase
+            .from('usuarios')
+            .select('webauthn_credentials')
+            .eq('id', user.id)
+            .single()
 
         if (error) {
             console.error('error al verificar credenciales:', error)
             return
         }
 
-        setHasBiometrics(data && data.length > 0)
+        const credentials = usuario?.webauthn_credentials || []
+        setHasBiometrics(credentials.length > 0)
     }
 
     const handleEnroll = async () => {

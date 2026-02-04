@@ -1,5 +1,5 @@
-// SPC Protocol v20.1: WebAuthn Registration Verification
-// Verifies the authenticator response and stores the credential
+// SPC Protocol v24.0: WebAuthn Registration Verification (Simplified)
+// Verifies credential and stores in JSONB column
 
 import { NextResponse } from 'next/server'
 import { verifyRegistrationResponse } from '@simplewebauthn/server'
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'no autorizado' },
         { status: 401 }
       )
     }
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     if (!credential) {
       return NextResponse.json(
-        { error: 'Missing credential data' },
+        { error: 'faltan datos de credencial' },
         { status: 400 }
       )
     }
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const expectedChallenge = getChallenge(user.id)
     if (!expectedChallenge) {
       return NextResponse.json(
-        { error: 'Challenge expired or not found. Please try again.' },
+        { error: 'desafio expirado o no encontrado. intenta de nuevo.' },
         { status: 400 }
       )
     }
@@ -54,10 +54,10 @@ export async function POST(request: Request) {
         requireUserVerification: true,
       })
     } catch (error) {
-      console.error('Registration verification failed:', error)
+      console.error('fallo verificacion de registro:', error)
       deleteChallenge(user.id)
       return NextResponse.json(
-        { error: 'Verification failed. Please try again.' },
+        { error: 'verificacion fallida. intenta de nuevo.' },
         { status: 400 }
       )
     }
@@ -67,54 +67,65 @@ export async function POST(request: Request) {
     if (!verified || !registrationInfo) {
       deleteChallenge(user.id)
       return NextResponse.json(
-        { error: 'Could not verify authenticator response' },
+        { error: 'no se pudo verificar respuesta del autenticador' },
         { status: 400 }
       )
     }
 
     // 5. Extract credential data
-    const {
-      credentialPublicKey,
-      credentialID,
-      counter,
-      credentialDeviceType,
-      credentialBackedUp,
-    } = registrationInfo
+    const { credential: credentialData } = registrationInfo
+    const credentialID = credentialData.id
+    const publicKey = credentialData.publicKey
 
-    // 6. Store the credential in database
+    // 6. Create new credential object
+    const newCredential = {
+      credential_id: Buffer.from(credentialID).toString('base64'),
+      public_key: Buffer.from(publicKey).toString('base64'),
+      counter: credentialData.counter,
+      device_name: deviceName || `dispositivo ${new Date().toLocaleDateString()}`,
+      created_at: new Date().toISOString(),
+      last_used_at: null
+    }
+
+    // 7. Append to JSONB array in usuarios table
+    const { data: usuario } = await supabase
+      .from('usuarios')
+      .select('webauthn_credentials')
+      .eq('id', user.id)
+      .single()
+
+    const existingCredentials = usuario?.webauthn_credentials || []
+
     const { error: dbError } = await supabase
-      .from('webauthn_credentials')
-      .insert({
-        user_id: user.id,
-        credential_id: Buffer.from(credentialID).toString('base64'),
-        public_key: Buffer.from(credentialPublicKey).toString('base64'),
-        counter: counter,
-        device_name: deviceName || `dispositivo ${new Date().toLocaleDateString()}`,
-        is_active: true,
+      .from('usuarios')
+      .update({
+        webauthn_credentials: [...existingCredentials, newCredential],
+        webauthn_enabled: true
       })
+      .eq('id', user.id)
 
     if (dbError) {
-      console.error('Database error:', dbError)
+      console.error('error de base de datos:', dbError)
       deleteChallenge(user.id)
       return NextResponse.json(
-        { error: 'Failed to save credential' },
+        { error: 'no se pudo guardar credencial' },
         { status: 500 }
       )
     }
 
-    // 7. Clean up the challenge
+    // 8. Clean up the challenge
     deleteChallenge(user.id)
 
-    // 8. Return success
+    // 9. Return success
     return NextResponse.json({
       verified: true,
-      message: 'Authenticator registered successfully',
+      message: 'autenticador registrado con exito',
     })
 
   } catch (error) {
-    console.error('Registration verification error:', error)
+    console.error('error verificacion de registro:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'error interno del servidor' },
       { status: 500 }
     )
   }
