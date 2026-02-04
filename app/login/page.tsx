@@ -301,15 +301,52 @@ export default function LoginPage() {
                 {biometricLoading ? (
                   <>
                     <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-                    Verificando...
+                    verificando...
                   </>
                 ) : (
                   <>
                     <Fingerprint className="h-6 w-6 mr-2" />
-                    {biometricEmail ? 'Entrar con mi huella' : 'Configurar huella'}
+                    {biometricEmail ? 'entrar con mi huella' : 'entrar con huella'}
                   </>
                 )}
               </Button>
+
+              {/* Input de email de emergencia */}
+              {showEmailInput && (
+                <div className="space-y-2 animate-in fade-in-50 slide-in-from-top-2 duration-300">
+                  <Label htmlFor="biometric-email" className="text-sm text-gray-600">
+                    ingresa tu email para usar la huella
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="biometric-email"
+                      type="email"
+                      placeholder="tu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleBiometricLogin(email)
+                        }
+                      }}
+                      autoFocus
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => handleBiometricLogin(email)}
+                      disabled={!email || biometricLoading}
+                      size="icon"
+                      className="bg-amber-600 hover:bg-amber-700"
+                    >
+                      <Fingerprint className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    tu email se guardara para la proxima vez
+                  </p>
+                </div>
+              )}
 
               {/* Separador */}
               <div className="relative">

@@ -51,9 +51,9 @@ export async function POST(request: Request) {
       userVerification: WEBAUTHN_CONFIG.userVerification,
 
       allowCredentials: credentials.map((cred: any) => ({
-        id: cred.credential_id,
+        id: Buffer.from(cred.credential_id, 'base64'),
         type: 'public-key' as const,
-        transports: ['internal', 'hybrid'],
+        transports: cred.transports || ['internal', 'hybrid'],
       })),
     })
 

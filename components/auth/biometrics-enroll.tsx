@@ -79,8 +79,20 @@ export function BiometricsEnroll() {
                 await supabase.from('usuarios').update({ webauthn_enabled: true }).eq('id', user.id)
 
                 // Save email to localStorage for login button
+                console.log('[biometric enrollment] intentando guardar email en localstorage...', {
+                    email: user.email,
+                    domain: window.location.hostname,
+                    hasWindow: typeof window !== 'undefined'
+                })
+
                 if (typeof window !== 'undefined' && user.email) {
-                    localStorage.setItem('spc_biometric_email', user.email)
+                    try {
+                        localStorage.setItem('spc_biometric_email', user.email)
+                        const verified = localStorage.getItem('spc_biometric_email')
+                        console.log('[biometric enrollment] email guardado exitosamente:', verified === user.email ? '✓' : '✗', { verified })
+                    } catch (err) {
+                        console.error('[biometric enrollment] error al guardar en localstorage:', err)
+                    }
                 }
             }
 

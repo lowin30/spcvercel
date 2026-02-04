@@ -28,8 +28,8 @@ export function useBiometricLogin({ supabase, toast }: UseBiometricLoginProps) {
     const handleBiometricLogin = async (fallbackEmail?: string) => {
         if (!isBiometricSupported()) {
             toast({
-                title: "No soportado",
-                description: "Tu navegador no soporta autenticación biométrica.",
+                title: "no soportado",
+                description: "tu navegador no soporta autenticacion biometrica.",
                 variant: "destructive"
             })
             return
@@ -39,8 +39,8 @@ export function useBiometricLogin({ supabase, toast }: UseBiometricLoginProps) {
         if (!emailToUse) {
             setShowEmailInput(true)
             toast({
-                title: "Email necesario",
-                description: "Ingresa tu email para identificar tu credencial."
+                title: "email necesario",
+                description: "ingresa tu email para identificar tu credencial."
             })
             return
         }
