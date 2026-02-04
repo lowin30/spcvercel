@@ -8,10 +8,17 @@ import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
   try {
-    // 1. Get email from request body
-    const { email } = await request.json()
+    console.log('[login-challenge] inicio de request')
 
-    if (!email) {
+    // 1. Get email from request body
+    const body = await request.json()
+    const { email } = body
+
+    console.log('[login-challenge] email recibido:', email)
+    console.log('[login-challenge] body completo:', JSON.stringify(body))
+
+    if (!email || typeof email !== 'string' || email.trim() === '') {
+      console.error('[login-challenge] email invalido o vacio:', email)
       return NextResponse.json(
         { error: 'email requerido' },
         { status: 400 }
@@ -19,52 +26,109 @@ export async function POST(request: Request) {
     }
 
     // 2. Find user by email with credentials
+    console.log('[login-challenge] conectando a supabase...')
     const supabase = await createServerClient()
 
+    console.log('[login-challenge] consultando usuario:', email)
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
       .select('id, email, webauthn_credentials')
       .eq('email', email)
       .single()
 
-    if (userError || !usuario) {
+    if (userError) {
+      console.error('[login-challenge] error de supabase:', userError)
       return NextResponse.json(
         { error: 'no se encontraron autenticadores para este email' },
         { status: 404 }
       )
     }
 
+    if (!usuario) {
+      console.error('[login-challenge] usuario no encontrado:', email)
+      return NextResponse.json(
+        { error: 'no se encontraron autenticadores para este email' },
+        { status: 404 }
+      )
+    }
+
+    console.log('[login-challenge] usuario encontrado:', usuario.id)
+    console.log('[login-challenge] webauthn_credentials raw:', typeof usuario.webauthn_credentials, usuario.webauthn_credentials)
+
     // 3. Get credentials from JSONB array
     const credentials = usuario.webauthn_credentials || []
+    console.log('[login-challenge] credenciales parseadas:', credentials.length, 'encontradas')
 
     if (credentials.length === 0) {
+      console.error('[login-challenge] array de credenciales vacio para:', email)
       return NextResponse.json(
         { error: 'no hay autenticadores registrados. usa acceso de google.' },
         { status: 404 }
       )
     }
 
+    console.log('[login-challenge] primera credencial:', JSON.stringify(credentials[0]))
+    console.log('[login-challenge] credential_id:', credentials[0].credential_id)
+    console.log('[login-challenge] credential_id type:', typeof credentials[0].credential_id)
+    console.log('[login-challenge] credential_id length:', credentials[0].credential_id?.length)
+
     // 4. Generate authentication options
-    const options = await generateAuthenticationOptions({
-      rpID: WEBAUTHN_CONFIG.rpID,
-      timeout: WEBAUTHN_CONFIG.timeout,
-      userVerification: WEBAUTHN_CONFIG.userVerification,
+    console.log('[login-challenge] preparando opciones de autenticacion...')
+    console.log('[login-challenge] rpID:', WEBAUTHN_CONFIG.rpID)
+    console.log('[login-challenge] timeout:', WEBAUTHN_CONFIG.timeout)
+    console.log('[login-challenge] userVerification:', WEBAUTHN_CONFIG.userVerification)
 
-      allowCredentials: credentials.map((cred: any) => ({
-        id: Buffer.from(cred.credential_id, 'base64'),
-        type: 'public-key' as const,
-        transports: cred.transports || ['internal', 'hybrid'],
-      })),
-    })
+    try {
+      const allowCredentials = credentials.map((cred: any, index: number) => {
+        console.log(`[login-challenge] procesando credencial ${index}:`, {
+          credential_id: cred.credential_id,
+          has_transports: !!cred.transports
+        })
 
-    // 5. Store challenge for verification
-    storeChallenge(email, options.challenge)
+        const credId = Buffer.from(cred.credential_id, 'base64')
+        console.log(`[login-challenge] credencial ${index} convertida a buffer:`, credId.length, 'bytes')
 
-    // 6. Return options to client
-    return NextResponse.json(options)
+        return {
+          id: credId,
+          type: 'public-key' as const,
+          transports: cred.transports || ['internal', 'hybrid'],
+        }
+      })
 
-  } catch (error) {
-    console.error('error generando opciones de autenticacion:', error)
+      console.log('[login-challenge] allowCredentials preparado:', allowCredentials.length)
+
+      const options = await generateAuthenticationOptions({
+        rpID: WEBAUTHN_CONFIG.rpID,
+        timeout: WEBAUTHN_CONFIG.timeout,
+        userVerification: WEBAUTHN_CONFIG.userVerification,
+        allowCredentials,
+      })
+
+      console.log('[login-challenge] opciones generadas exitosamente')
+      console.log('[login-challenge] challenge length:', options.challenge?.length)
+
+      // 5. Store challenge for verification
+      storeChallenge(email, options.challenge)
+      console.log('[login-challenge] challenge almacenado para:', email)
+
+      // 6. Return options to client
+      return NextResponse.json(options)
+
+    } catch (genError: any) {
+      console.error('[login-challenge] error al generar opciones:', genError)
+      console.error('[login-challenge] error name:', genError.name)
+      console.error('[login-challenge] error message:', genError.message)
+      console.error('[login-challenge] error stack:', genError.stack)
+      throw genError
+    }
+
+  } catch (error: any) {
+    console.error('[login-challenge] error general:', error)
+    console.error('[login-challenge] error type:', typeof error)
+    console.error('[login-challenge] error name:', error?.name)
+    console.error('[login-challenge] error message:', error?.message)
+    console.error('[login-challenge] error stack:', error?.stack)
+
     return NextResponse.json(
       { error: 'no se pudo generar opciones de autenticacion' },
       { status: 500 }
