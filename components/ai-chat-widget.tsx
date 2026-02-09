@@ -1508,10 +1508,15 @@ export function AiChatWidget() {
                                     mode={wizardState.mode}
                                     taskId={wizardState.taskId}
                                     onSuccess={(taskId, taskCode) => {
+                                        // Cerrar el wizard
+                                        setShowTaskWizard(false)
+                                        setWizardState(prev => ({ ...prev, data: {} }))
+
+                                        // Mostrar mensaje de éxito
                                         setMessages(prev => [...prev, {
                                             id: Date.now().toString(),
                                             role: 'assistant',
-                                            content: `✅ **Tarea Creada Exitosamente**\n\n📌 **${displayMain}**\n\n[📂 Abrir Tarea](/dashboard/tareas/${taskId})`
+                                            content: `✅ **Tarea Creada Exitosamente**\n\n📌 **${taskCode}**\n\n[📂 Abrir Tarea](/dashboard/tareas/${taskId})`
                                         }])
                                     }}
                                     onCancel={() => {
@@ -1820,5 +1825,6 @@ export function AiChatWidget() {
         </>
     )
 }
+
 
 
