@@ -419,6 +419,19 @@ export default function FacturasPage({
   // Filtrar facturas según la vista actual (tabs), búsqueda, administrador y estado
   const filteredFacturas = facturas.filter((invoice) => {
     // Filtro por vista actual (tabs)
+    if (vistaActual === 'todas') {
+      // VISTA "TODAS": Mostrar TODAS las facturas IMPAGAS
+      // 1. Ocultar si está marcada como pagada
+      if (invoice.pagada) return false;
+
+      // 2. Ocultar si el saldo es 0 o menor (aunque no esté marcada como pagada)
+      const saldo = (invoice as any).saldo_pendiente ?? 0;
+      if (saldo <= 0) return false;
+
+      // 3. Filtro inteligente: excluir estado "Pagado" (id 5) si no hay filtro explícito
+      if (!filtroEstado && invoice.id_estado_nuevo === 5) return false;
+    }
+
     if (vistaActual === 'pendientes') {
       // 1. Ocultar si está marcada como pagada
       if (invoice.pagada) return false;
@@ -438,7 +451,6 @@ export default function FacturasPage({
     if (vistaActual === 'vencidas' && invoice.id_estado_nuevo !== 4) {
       return false; // Solo mostrar vencidas (estado 4) en vista vencidas
     }
-    // vistaActual === 'todas' no filtra nada
 
     // (Bloque 3 movido arriba dentro del if 'pendientes' para optimización)
 
