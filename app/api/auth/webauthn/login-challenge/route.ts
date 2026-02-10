@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         console.log(`[login-challenge] credencial ${index} convertida a buffer:`, credId.length, 'bytes')
 
         return {
-          id: new Uint8Array(credId),  // convertir buffer a uint8array
+          id: credId,
           type: 'public-key' as const,
           transports: cred.transports || ['internal', 'hybrid'],
         }
