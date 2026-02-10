@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
-import { createServerClient } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
 import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
@@ -12,12 +12,15 @@ export async function POST(request: Request) {
 
     // 1. Get email from request body
     const body = await request.json()
-    const { email } = body
+    const { email: rawEmail } = body
 
-    console.log('[login-challenge] email recibido:', email)
+    // normalizar email (trim + lowercase)
+    const email = rawEmail?.trim().toLowerCase()
+
+    console.log('[login-challenge] email recibido (normalizado):', email)
     console.log('[login-challenge] body completo:', JSON.stringify(body))
 
-    if (!email || typeof email !== 'string' || email.trim() === '') {
+    if (!email || typeof email !== 'string' || email === '') {
       console.error('[login-challenge] email invalido o vacio:', email)
       return NextResponse.json(
         { error: 'email requerido' },
@@ -25,9 +28,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // 2. Find user by email with credentials
-    console.log('[login-challenge] conectando a supabase...')
-    const supabase = await createServerClient()
+    // 2. Find user by email with credentials (usando service role para bypass rls)
+    console.log('[login-challenge] conectando a supabase con service role...')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      }
+    )
 
     console.log('[login-challenge] consultando usuario:', email)
     const { data: usuario, error: userError } = await supabase
@@ -37,17 +49,23 @@ export async function POST(request: Request) {
       .single()
 
     if (userError) {
-      console.error('[login-challenge] error de supabase:', userError)
+      console.error('[login-challenge] ERROR SUPABASE:', {
+        code: userError.code,
+        message: userError.message,
+        details: userError.details,
+        hint: userError.hint,
+        email_buscado: email
+      })
       return NextResponse.json(
-        { error: 'no se encontraron autenticadores para este email' },
-        { status: 404 }
+        { error: 'error al buscar usuario' },
+        { status: 500 }
       )
     }
 
     if (!usuario) {
-      console.error('[login-challenge] usuario no encontrado:', email)
+      console.error('[login-challenge] USUARIO NO EXISTE:', email)
       return NextResponse.json(
-        { error: 'no se encontraron autenticadores para este email' },
+        { error: 'email no registrado' },
         { status: 404 }
       )
     }
@@ -60,7 +78,7 @@ export async function POST(request: Request) {
     console.log('[login-challenge] credenciales parseadas:', credentials.length, 'encontradas')
 
     if (credentials.length === 0) {
-      console.error('[login-challenge] array de credenciales vacio para:', email)
+      console.error('[login-challenge] SIN CREDENCIALES REGISTRADAS:', email)
       return NextResponse.json(
         { error: 'no hay autenticadores registrados. usa acceso de google.' },
         { status: 404 }
