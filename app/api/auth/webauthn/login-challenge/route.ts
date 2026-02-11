@@ -9,7 +9,14 @@ import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
   try {
-    console.log('[login-challenge] inicio de request (v37.1)')
+    console.log('[login-challenge] inicio de request (v38.0 super-logs)')
+
+    // 1. log de variables de entorno (audit v38.0)
+    console.log('check rp_id:', process.env.NEXT_PUBLIC_RP_ID)
+    console.log('check origin:', process.env.NEXT_PUBLIC_ORIGIN)
+    // log de valores efectivos de config
+    console.log('config efectiva rp_id:', WEBAUTHN_CONFIG.rpID)
+    console.log('config efectiva origin:', WEBAUTHN_CONFIG.origin)
 
     // 1. Get email from request body
     let body;
@@ -78,12 +85,27 @@ export async function POST(request: Request) {
     // 3. Get credentials from JSONB array
     const credentials = usuario.webauthn_credentials || []
 
+    // 2. log de entrada de datos (audit v38.0)
+    console.log('datos de la bd:', {
+      email,
+      cred_id_length: credentials[0]?.credential_id?.length,
+      total_creds: credentials.length
+    })
+
     if (credentials.length === 0) {
       console.error('[login-challenge] SIN CREDENCIALES REGISTRADAS:', email)
       return NextResponse.json(
         { error: 'no hay autenticadores registrados. usa acceso de google.' },
         { status: 404 }
       )
+    }
+
+    // 3. bloque de proteccion manual (audit v38.0)
+    if (!WEBAUTHN_CONFIG.rpID || !WEBAUTHN_CONFIG.origin) {
+      console.error('[login-challenge] error fatals: config incompleta')
+      return NextResponse.json({
+        error: 'error: variables de entorno faltantes en vercel'
+      }, { status: 500 })
     }
 
     // 4. Generate authentication options
