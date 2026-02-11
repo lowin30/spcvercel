@@ -1,5 +1,6 @@
-// SPC Protocol v24.0: WebAuthn Login Challenge (Simplified)
+// SPC Protocol v37.0: WebAuthn Login Challenge (Extreme Debugging)
 // Generates authentication options from JSONB column
+// Includes verbose error handling for production diagnostics
 
 import { NextResponse } from 'next/server'
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
@@ -8,17 +9,27 @@ import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
   try {
-    console.log('[login-challenge] inicio de request')
+    console.log('[login-challenge] inicio de request (v37.0)')
 
     // 1. Get email from request body
-    const body = await request.json()
+    let body;
+    try {
+      body = await request.json()
+    } catch (e: any) {
+      console.error('[login-challenge] error al parsear body:', e)
+      return NextResponse.json({
+        error: 'body invalido',
+        details: e.message,
+        stack: e.stack
+      }, { status: 400 })
+    }
+
     const { email: rawEmail } = body
 
     // normalizar email (trim + lowercase)
     const email = rawEmail?.trim().toLowerCase()
 
     console.log('[login-challenge] email recibido (normalizado):', email)
-    console.log('[login-challenge] body completo:', JSON.stringify(body))
 
     if (!email || typeof email !== 'string' || email === '') {
       console.error('[login-challenge] email invalido o vacio:', email)
@@ -49,15 +60,13 @@ export async function POST(request: Request) {
       .single()
 
     if (userError) {
-      console.error('[login-challenge] ERROR SUPABASE:', {
-        code: userError.code,
-        message: userError.message,
-        details: userError.details,
-        hint: userError.hint,
-        email_buscado: email
-      })
+      console.error('[login-challenge] ERROR SUPABASE:', userError)
       return NextResponse.json(
-        { error: 'error al buscar usuario' },
+        {
+          error: 'error al buscar usuario',
+          details: userError.message,
+          code: userError.code
+        },
         { status: 500 }
       )
     }
@@ -70,12 +79,9 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log('[login-challenge] usuario encontrado:', usuario.id)
-    console.log('[login-challenge] webauthn_credentials raw:', typeof usuario.webauthn_credentials, usuario.webauthn_credentials)
-
     // 3. Get credentials from JSONB array
     const credentials = usuario.webauthn_credentials || []
-    console.log('[login-challenge] credenciales parseadas:', credentials.length, 'encontradas')
+    console.log('[login-challenge] credenciales encontradas:', credentials.length)
 
     if (credentials.length === 0) {
       console.error('[login-challenge] SIN CREDENCIALES REGISTRADAS:', email)
@@ -85,25 +91,14 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log('[login-challenge] primera credencial:', JSON.stringify(credentials[0]))
-    console.log('[login-challenge] credential_id:', credentials[0].credential_id)
-    console.log('[login-challenge] credential_id type:', typeof credentials[0].credential_id)
-    console.log('[login-challenge] credential_id length:', credentials[0].credential_id?.length)
-
     // 4. Generate authentication options
-    console.log('[login-challenge] preparando opciones de autenticacion...')
-    console.log('[login-challenge] rpID:', WEBAUTHN_CONFIG.rpID)
-    console.log('[login-challenge] timeout:', WEBAUTHN_CONFIG.timeout)
-    console.log('[login-challenge] userVerification:', WEBAUTHN_CONFIG.userVerification)
+    console.log('[login-challenge] preparando opciones...')
 
-    try {
-      const allowCredentials = credentials.map((cred: any, index: number) => {
-        console.log(`[login-challenge] procesando credencial ${index}:`, {
-          credential_id: cred.credential_id,
-          has_transports: !!cred.transports
-        })
-
-        // Helper para convertir base64 a Uint8Array sin usar Buffer (evita crash de build)
+    // Preparar allowCredentials con conversion segura
+    const allowCredentials = credentials.map((cred: any, index: number) => {
+      try {
+        // Usar atob para decodificar base64 a string binario
+        // Esta es la forma segura que no depende de Buffer
         const binaryString = atob(cred.credential_id)
         const len = binaryString.length
         const bytes = new Uint8Array(len)
@@ -111,64 +106,54 @@ export async function POST(request: Request) {
           bytes[i] = binaryString.charCodeAt(i)
         }
 
-        console.log(`[login-challenge] credencial ${index} convertida:`, bytes.length, 'bytes')
-
         return {
           id: bytes,
           type: 'public-key' as const,
           transports: cred.transports || ['internal', 'hybrid'],
         }
-      })
+      } catch (convError: any) {
+        console.error(`[login-challenge] error convirtiendo credencial ${index}:`, convError)
+        throw new Error(`error conversion credencial ${index}: ${convError.message}`)
+      }
+    })
 
-      console.log('[login-challenge] allowCredentials preparado:', allowCredentials.length)
+    console.log('[login-challenge] llamando generateAuthenticationOptions...')
 
-      const options = await generateAuthenticationOptions({
+    // Llamada protegida a la libreria
+    let options;
+    try {
+      options = await generateAuthenticationOptions({
         rpID: WEBAUTHN_CONFIG.rpID,
         timeout: WEBAUTHN_CONFIG.timeout,
         userVerification: WEBAUTHN_CONFIG.userVerification,
         allowCredentials,
       })
-
-      console.log('[login-challenge] opciones generadas exitosamente')
-      console.log('[login-challenge] challenge length:', options.challenge?.length)
-
-      // 5. Store challenge for verification
-      storeChallenge(email, options.challenge)
-      console.log('[login-challenge] challenge almacenado para:', email)
-
-      // 6. Return options to client
-      return NextResponse.json(options)
-
-    } catch (genError: any) {
-      console.error('[login-challenge] error al generar opciones:', genError)
-      console.error('[login-challenge] error name:', genError.name)
-      console.error('[login-challenge] error message:', genError.message)
-      console.error('[login-challenge] error stack:', genError.stack)
-
-      return NextResponse.json(
-        {
-          error: 'no se pudo generar opciones de autenticacion',
-          details: genError.message,
-          stack: genError.stack,
-          name: genError.name
-        },
-        { status: 500 }
-      )
+    } catch (libError: any) {
+      console.error('[login-challenge] CRASH en generateAuthenticationOptions:', libError)
+      return NextResponse.json({
+        error: 'crash interno en libreria webauthn',
+        message: libError.message,
+        stack: libError.stack,
+        name: libError.name
+      }, { status: 500 })
     }
 
-  } catch (error: any) {
-    console.error('[login-challenge] error general:', error)
-    console.error('[login-challenge] error type:', typeof error)
-    console.error('[login-challenge] error name:', error?.name)
-    console.error('[login-challenge] error message:', error?.message)
-    console.error('[login-challenge] error stack:', error?.stack)
+    // 5. Store challenge
+    storeChallenge(email, options.challenge)
+    console.log('[login-challenge] exito, challenge generado')
+
+    // 6. Return options
+    return NextResponse.json(options)
+
+  } catch (fatalError: any) {
+    console.error('[login-challenge] ERROR FATAL NO CAPTURADO:', fatalError)
 
     return NextResponse.json(
       {
-        error: 'no se pudo generar opciones de autenticacion',
-        details: error?.message,
-        stack: error?.stack,
-        name: error?.name
+        error: 'error fatal del servidor (extreme debug)',
+        message: fatalError?.message || 'error desconocido',
+        stack: fatalError?.stack,
+        name: fatalError?.name
       },
       { status: 500 }
     )
