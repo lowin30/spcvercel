@@ -112,28 +112,19 @@ export async function POST(request: Request) {
     console.log('[login-challenge] preparando opciones (usando string IDs)...')
 
     // Preparar allowCredentials pasando IDs como Base64URL Strings
-    // Esto evita el 'TypeError: a.replace is not a function' interno de la libreria
+    // v39.0 FIX: El runtime de @simplewebauthn v13 espera string para .replace(), 
+    // pero TS pide BufferSource. Hacemos bypass de TS con 'as any'.
     const allowCredentials = credentials.map((cred: any, index: number) => {
-      try {
-        // Base64 to Base64URL string BREAKS BUILD (TS type mismatch).
-        // Reverting to Uint8Array (via atob) which allows build to pass.
-        // The previous runtime error 'a.replace' was likely due to rpID which is now fixed in config.
-        const binaryString = atob(cred.credential_id)
-        const len = binaryString.length
-        const bytes = new Uint8Array(len)
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i)
-        }
+      // Asegurar formato Base64URL strict standard
+      const base64URL = cred.credential_id
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '')
 
-        return {
-          id: bytes, // Uint8Array (Correct TS type)
-          type: 'public-key' as const,
-          transports: cred.transports || ['internal', 'hybrid'],
-        }
-      } catch (convError: any) {
-        console.error(`[login-challenge] error convirtiendo credencial ${index}:`, convError)
-        // Skip invalid credentials instead of crashing? No, lets throw to see it.
-        throw convError
+      return {
+        id: base64URL as any, // FORCE STRING to fix 'a.replace is not a function'
+        type: 'public-key' as const,
+        transports: cred.transports || ['internal', 'hybrid'],
       }
     })
 
