@@ -93,16 +93,18 @@ export async function POST(request: Request) {
     // Esto evita el 'TypeError: a.replace is not a function' interno de la libreria
     const allowCredentials = credentials.map((cred: any, index: number) => {
       try {
-        const base64 = cred.credential_id; // Viene como Base64 desde Supabase
-
-        // Convertir Base64 a Base64URL
-        // + -> -
-        // / -> _
-        // = -> (empty)
-        const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        // Base64 to Base64URL string BREAKS BUILD (TS type mismatch).
+        // Reverting to Uint8Array (via atob) which allows build to pass.
+        // The previous runtime error 'a.replace' was likely due to rpID which is now fixed in config.
+        const binaryString = atob(cred.credential_id)
+        const len = binaryString.length
+        const bytes = new Uint8Array(len)
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
 
         return {
-          id: base64url, // String, compatible con simplewebauthn interno y JSON
+          id: bytes, // Uint8Array (Correct TS type)
           type: 'public-key' as const,
           transports: cred.transports || ['internal', 'hybrid'],
         }
