@@ -1,4 +1,4 @@
-// SPC Protocol v20.1: WebAuthn Configuration
+// SPC Protocol v42.0: WebAuthn Configuration
 // Centralized config for all WebAuthn endpoints
 
 export const WEBAUTHN_CONFIG = {
@@ -13,10 +13,10 @@ export const WEBAUTHN_CONFIG = {
   timeout: 300000,
 
   // Supported authenticator types
-  authenticatorAttachment: 'platform' as const, // Prefer platform authenticators (built-in biometrics)
+  authenticatorAttachment: 'platform' as const, // FORCE platform authenticators (built-in biometrics), NO roaming (USB)
 
   // User verification requirement
-  userVerification: 'preferred' as const, // Use biometrics when available
+  userVerification: 'required' as const, // FORCE biometric prompt (no PIN/Swipe fallback if possible)
 
   // Attestation conveyance preference
   attestation: 'none' as const, // We don't need device attestation for basic use
