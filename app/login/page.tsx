@@ -280,14 +280,14 @@ export default function LoginPage() {
 
         <Tabs defaultValue="login" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Iniciar sesión</TabsTrigger>
-            <TabsTrigger value="register">Registrarse</TabsTrigger>
+            <TabsTrigger value="login">iniciar sesion</TabsTrigger>
+            <TabsTrigger value="register">registrarse</TabsTrigger>
           </TabsList>
 
           <TabsContent value="login">
             <CardHeader className="space-y-1 text-center">
-              <CardTitle className="text-2xl font-bold">Bienvenido</CardTitle>
-              <CardDescription>Selecciona tu método de acceso preferido</CardDescription>
+              <CardTitle className="text-2xl font-bold">bienvenido</CardTitle>
+              <CardDescription>selecciona tu metodo de acceso preferido</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pb-4">
               {/* Botón destacado de huella biométrica */}
@@ -354,7 +354,7 @@ export default function LoginPage() {
                   <span className="w-full border-t border-gray-300"></span>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="bg-white dark:bg-gray-800 px-3 text-gray-500">o continúa con</span>
+                  <span className="bg-white dark:bg-gray-800 px-3 text-gray-500">o continua con</span>
                 </div>
               </div>
 
@@ -377,7 +377,7 @@ export default function LoginPage() {
             <div className="px-6 pb-4">
               <details className="group">
                 <summary className="cursor-pointer text-center text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 list-none flex items-center justify-center gap-2">
-                  <span>Otras opciones de acceso</span>
+                  <span>otras opciones de acceso</span>
                   <svg className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -385,7 +385,7 @@ export default function LoginPage() {
                 <form onSubmit={handleLogin}>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="login-email">Email</Label>
+                      <Label htmlFor="login-email">email</Label>
                       <Input
                         id="login-email"
                         type="email"
@@ -396,7 +396,7 @@ export default function LoginPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="login-password">Contraseña</Label>
+                      <Label htmlFor="login-password">contraseña</Label>
                       <Input
                         id="login-password"
                         type="password"
@@ -408,7 +408,7 @@ export default function LoginPage() {
                   </CardContent>
                   <CardFooter>
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? "Iniciando sesión..." : "Iniciar sesión"}
+                      {loading ? "iniciando sesion..." : "iniciar sesion"}
                     </Button>
                   </CardFooter>
                 </form>
@@ -418,24 +418,24 @@ export default function LoginPage() {
 
           <TabsContent value="register">
             <CardHeader>
-              <CardTitle className="text-2xl">Registrarse</CardTitle>
-              <CardDescription>Crea una nueva cuenta en el sistema</CardDescription>
+              <CardTitle className="text-2xl">registrarse</CardTitle>
+              <CardDescription>crea una nueva cuenta en el sistema</CardDescription>
             </CardHeader>
             <form onSubmit={handleRegister}>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="register-nombre">Nombre</Label>
+                  <Label htmlFor="register-nombre">nombre</Label>
                   <Input
                     id="register-nombre"
                     type="text"
-                    placeholder="Tu nombre completo"
+                    placeholder="tu nombre completo"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
+                  <Label htmlFor="register-email">email</Label>
                   <Input
                     id="register-email"
                     type="email"
@@ -446,7 +446,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="register-password">Contraseña</Label>
+                  <Label htmlFor="register-password">contraseña</Label>
                   <Input
                     id="register-password"
                     type="password"
@@ -458,7 +458,7 @@ export default function LoginPage() {
               </CardContent>
               <CardFooter>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Registrando..." : "Registrarse"}
+                  {loading ? "registrando..." : "registrarse"}
                 </Button>
               </CardFooter>
             </form>
