@@ -137,7 +137,16 @@ export async function POST(request: Request) {
       console.error('[login-challenge] error name:', genError.name)
       console.error('[login-challenge] error message:', genError.message)
       console.error('[login-challenge] error stack:', genError.stack)
-      throw genError
+
+      return NextResponse.json(
+        {
+          error: 'no se pudo generar opciones de autenticacion',
+          details: genError.message,
+          stack: genError.stack,
+          name: genError.name
+        },
+        { status: 500 }
+      )
     }
 
   } catch (error: any) {
@@ -148,7 +157,12 @@ export async function POST(request: Request) {
     console.error('[login-challenge] error stack:', error?.stack)
 
     return NextResponse.json(
-      { error: 'no se pudo generar opciones de autenticacion' },
+      {
+        error: 'no se pudo generar opciones de autenticacion',
+        details: error?.message,
+        stack: error?.stack,
+        name: error?.name
+      },
       { status: 500 }
     )
   }
