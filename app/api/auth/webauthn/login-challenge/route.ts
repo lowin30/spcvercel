@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
 import { createClient } from '@supabase/supabase-js'
+import { Buffer } from 'buffer'
 import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
@@ -114,32 +115,36 @@ export async function POST(request: Request) {
 
     // Preparar allowCredentials con conversion ROBUSTA (Buffer)
     // v45.0 FIX: Usar Buffer para conversion perfecta Base64 -> Base64URL
-    const allowCredentials = credentials.map((cred: any, index: number) => {
-      let base64URL = '';
-      try {
-        // Robusta conversion usando Node.js Buffer
-        // Esto maneja padding y caracteres URL-unsafe mejor que .replace() manual
-        base64URL = Buffer.from(cred.credential_id, 'base64').toString('base64url');
-      } catch (conversionError) {
-        console.error('[login-challenge] ERROR CONVERSION BASE64:', conversionError);
-        // Fallback porsiaca (aunque Buffer no deberia fallar con base64 valido)
-        base64URL = cred.credential_id;
-      }
+    const allowCredentials = credentials
+      .map((cred: any, index: number) => {
+        if (!cred || !cred.credential_id) {
+          console.warn(`[login-challenge] cred #${index} invalida/vacia, saltando.`)
+          return null
+        }
 
-      // v45.0 AUDIT: Deep Integrity Check
-      // Imprimimos AMBOS valores para comparar con Google Password Manager
-      console.log(`[login-challenge] cred #${index} audit:`, {
-        db_raw: cred.credential_id,
-        converted_base64url: base64URL,
-        match_check: cred.credential_id === base64URL ? 'IDENTICAL' : 'TRANSFORMED'
+        let base64URL = '';
+        try {
+          // Robusta conversion usando Node.js Buffer
+          base64URL = Buffer.from(cred.credential_id, 'base64').toString('base64url');
+        } catch (conversionError) {
+          console.error('[login-challenge] ERROR CONVERSION BASE64:', conversionError);
+          base64URL = cred.credential_id;
+        }
+
+        // v45.0 AUDIT: Deep Integrity Check
+        console.log(`[login-challenge] cred #${index} audit:`, {
+          db_raw: cred.credential_id,
+          converted_base64url: base64URL,
+          match_check: cred.credential_id === base64URL ? 'IDENTICAL' : 'TRANSFORMED'
+        })
+
+        return {
+          id: base64URL as any, // Enviar ID convertido y seguro
+          type: 'public-key' as const,
+          transports: cred.transports || undefined, // Keep relaxed transports
+        }
       })
-
-      return {
-        id: base64URL as any, // Enviar ID convertido y seguro
-        type: 'public-key' as const,
-        transports: cred.transports || undefined, // Keep relaxed transports
-      }
-    })
+      .filter((c: any) => c !== null)
 
     console.log(`[login-challenge] allowCredentials payload:`, JSON.stringify(allowCredentials))
     console.log(`[login-challenge] ${allowCredentials.length} credenciales preparadas`)
