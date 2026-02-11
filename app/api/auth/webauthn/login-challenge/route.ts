@@ -1,6 +1,6 @@
-// SPC Protocol v37.1: WebAuthn Login Challenge (Universal Fix)
+// SPC Protocol v45.0: WebAuthn Login Challenge (Robust Fix & Audit)
 // Generates authentication options from JSONB column
-// Fix applied: Pass credential IDs as Base64URL strings, not Uint8Array
+// Fix applied: Robust Buffer-based Base64URL conversion + Deep Audit Logs
 
 import { NextResponse } from 'next/server'
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
@@ -9,7 +9,7 @@ import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
   try {
-    console.log('[login-challenge] inicio de request (v38.0 super-logs)')
+    console.log('[login-challenge] inicio de request (v45.0 robust-logs)')
 
     // 1. log de variables de entorno (audit v38.0)
     console.log('check rp_id:', process.env.NEXT_PUBLIC_RP_ID)
@@ -109,31 +109,35 @@ export async function POST(request: Request) {
     }
 
     // 4. Generate authentication options
-    console.log('[login-challenge] preparando opciones (v44.0 RAW ID EXPERIMENT)...')
-    console.log('[login-challenge] AUDIT user.id:', user.id, 'type:', typeof user.id)
+    console.log('[login-challenge] preparando opciones (v45.0 ROBUST RECOVERY)...')
+    console.log('[login-challenge] AUDIT user.id:', usuario.id, 'type:', typeof usuario.id)
 
-    // Preparar allowCredentials pasando IDs DIRECTOS de la BD (Standard Base64)
-    // v44.0 EXPERIMENT: Disable Base64URL normalization to test parity with browser storage.
+    // Preparar allowCredentials con conversion ROBUSTA (Buffer)
+    // v45.0 FIX: Usar Buffer para conversion perfecta Base64 -> Base64URL
     const allowCredentials = credentials.map((cred: any, index: number) => {
-      // v39.0 logic disabled:
-      // const base64URL = cred.credential_id
-      //   .replace(/\+/g, '-')
-      //   .replace(/\//g, '_')
-      //   .replace(/=+$/, '')
+      let base64URL = '';
+      try {
+        // Robusta conversion usando Node.js Buffer
+        // Esto maneja padding y caracteres URL-unsafe mejor que .replace() manual
+        base64URL = Buffer.from(cred.credential_id, 'base64').toString('base64url');
+      } catch (conversionError) {
+        console.error('[login-challenge] ERROR CONVERSION BASE64:', conversionError);
+        // Fallback porsiaca (aunque Buffer no deberia fallar con base64 valido)
+        base64URL = cred.credential_id;
+      }
 
-      const rawID = cred.credential_id as string
-
-      // v44.0 AUDIT: Integrity Check
+      // v45.0 AUDIT: Deep Integrity Check
+      // Imprimimos AMBOS valores para comparar con Google Password Manager
       console.log(`[login-challenge] cred #${index} audit:`, {
-        db_raw: rawID,
-        sent_as_is: true,
-        transports: cred.transports
+        db_raw: cred.credential_id,
+        converted_base64url: base64URL,
+        match_check: cred.credential_id === base64URL ? 'IDENTICAL' : 'TRANSFORMED'
       })
 
       return {
-        id: rawID as any, // v44.0: Sending EXACT DB value (Standard Base64)
+        id: base64URL as any, // Enviar ID convertido y seguro
         type: 'public-key' as const,
-        transports: cred.transports || undefined,
+        transports: cred.transports || undefined, // Keep relaxed transports
       }
     })
 
