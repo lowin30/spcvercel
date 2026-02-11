@@ -103,11 +103,18 @@ export async function POST(request: Request) {
           has_transports: !!cred.transports
         })
 
-        const credId = Buffer.from(cred.credential_id, 'base64')
-        console.log(`[login-challenge] credencial ${index} convertida a buffer:`, credId.length, 'bytes')
+        // Helper para convertir base64 a Uint8Array sin usar Buffer (evita crash de build)
+        const binaryString = atob(cred.credential_id)
+        const len = binaryString.length
+        const bytes = new Uint8Array(len)
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+
+        console.log(`[login-challenge] credencial ${index} convertida:`, bytes.length, 'bytes')
 
         return {
-          id: Uint8Array.from(credId),  // usar .from en lugar de new
+          id: bytes,
           type: 'public-key' as const,
           transports: cred.transports || ['internal', 'hybrid'],
         }
