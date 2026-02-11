@@ -109,29 +109,31 @@ export async function POST(request: Request) {
     }
 
     // 4. Generate authentication options
-    console.log('[login-challenge] preparando opciones (usando string IDs)...')
+    console.log('[login-challenge] preparando opciones (v44.0 RAW ID EXPERIMENT)...')
+    console.log('[login-challenge] AUDIT user.id:', user.id, 'type:', typeof user.id)
 
-    // Preparar allowCredentials pasando IDs como Base64URL Strings
-    // v39.0 FIX: El runtime de @simplewebauthn v13 espera string para .replace(), 
-    // pero TS pide BufferSource. Hacemos bypass de TS con 'as any'.
+    // Preparar allowCredentials pasando IDs DIRECTOS de la BD (Standard Base64)
+    // v44.0 EXPERIMENT: Disable Base64URL normalization to test parity with browser storage.
     const allowCredentials = credentials.map((cred: any, index: number) => {
-      // Asegurar formato Base64URL strict standard
-      const base64URL = cred.credential_id
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '')
+      // v39.0 logic disabled:
+      // const base64URL = cred.credential_id
+      //   .replace(/\+/g, '-')
+      //   .replace(/\//g, '_')
+      //   .replace(/=+$/, '')
 
-      // v41.0 AUDIT: Integrity Check
+      const rawID = cred.credential_id as string
+
+      // v44.0 AUDIT: Integrity Check
       console.log(`[login-challenge] cred #${index} audit:`, {
-        db_raw: cred.credential_id,
-        transformed: base64URL,
-        match: cred.credential_id === base64URL ? 'EXACT' : 'MODIFIED'
+        db_raw: rawID,
+        sent_as_is: true,
+        transports: cred.transports
       })
 
       return {
-        id: base64URL as any, // FORCE STRING to fix 'a.replace is not a function'
+        id: rawID as any, // v44.0: Sending EXACT DB value (Standard Base64)
         type: 'public-key' as const,
-        transports: cred.transports || undefined, // v41.0: Relax strict default. Let browser decide if unknown.
+        transports: cred.transports || undefined,
       }
     })
 
