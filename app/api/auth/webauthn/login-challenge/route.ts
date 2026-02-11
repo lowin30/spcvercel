@@ -121,13 +121,21 @@ export async function POST(request: Request) {
         .replace(/\//g, '_')
         .replace(/=+$/, '')
 
+      // v41.0 AUDIT: Integrity Check
+      console.log(`[login-challenge] cred #${index} audit:`, {
+        db_raw: cred.credential_id,
+        transformed: base64URL,
+        match: cred.credential_id === base64URL ? 'EXACT' : 'MODIFIED'
+      })
+
       return {
         id: base64URL as any, // FORCE STRING to fix 'a.replace is not a function'
         type: 'public-key' as const,
-        transports: cred.transports || ['internal', 'hybrid'],
+        transports: cred.transports || undefined, // v41.0: Relax strict default. Let browser decide if unknown.
       }
     })
 
+    console.log(`[login-challenge] allowCredentials payload:`, JSON.stringify(allowCredentials))
     console.log(`[login-challenge] ${allowCredentials.length} credenciales preparadas`)
     console.log(`[login-challenge] rpID para generacion: '${WEBAUTHN_CONFIG.rpID}'`)
 
