@@ -4,24 +4,20 @@
 export const WEBAUTHN_CONFIG = {
   // Relying Party (RP) configuration
   rpName: 'SPC Sistema de Gestión',
-  rpID: process.env.NODE_ENV === 'production' 
-    ? 'spcvercel.vercel.app' 
-    : 'localhost',
-  
+  rpID: 'spcvercel.vercel.app',
+
   // Origin must match the domain where the authentication happens
-  origin: process.env.NODE_ENV === 'production'
-    ? 'https://spcvercel.vercel.app'
-    : 'http://localhost:3000',
-  
+  origin: 'https://spcvercel.vercel.app',
+
   // Challenge timeout (5 minutes)
   timeout: 300000,
-  
+
   // Supported authenticator types
   authenticatorAttachment: 'platform' as const, // Prefer platform authenticators (built-in biometrics)
-  
+
   // User verification requirement
   userVerification: 'preferred' as const, // Use biometrics when available
-  
+
   // Attestation conveyance preference
   attestation: 'none' as const, // We don't need device attestation for basic use
 }
@@ -50,13 +46,13 @@ export function storeChallenge(userId: string, challenge: string) {
 export function getChallenge(userId: string): string | null {
   const data = challengeStore.get(userId)
   if (!data) return null
-  
+
   // Check if challenge is still valid
   if (Date.now() - data.timestamp > WEBAUTHN_CONFIG.timeout) {
     challengeStore.delete(userId)
     return null
   }
-  
+
   return data.challenge
 }
 

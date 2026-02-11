@@ -1,6 +1,6 @@
-// SPC Protocol v37.0: WebAuthn Login Challenge (Extreme Debugging)
+// SPC Protocol v37.1: WebAuthn Login Challenge (Universal Fix)
 // Generates authentication options from JSONB column
-// Includes verbose error handling for production diagnostics
+// Fix applied: Pass credential IDs as Base64URL strings, not Uint8Array
 
 import { NextResponse } from 'next/server'
 import { generateAuthenticationOptions } from '@simplewebauthn/server'
@@ -9,7 +9,7 @@ import { WEBAUTHN_CONFIG, storeChallenge } from '@/lib/webauthn-config'
 
 export async function POST(request: Request) {
   try {
-    console.log('[login-challenge] inicio de request (v37.0)')
+    console.log('[login-challenge] inicio de request (v37.1)')
 
     // 1. Get email from request body
     let body;
@@ -19,8 +19,7 @@ export async function POST(request: Request) {
       console.error('[login-challenge] error al parsear body:', e)
       return NextResponse.json({
         error: 'body invalido',
-        details: e.message,
-        stack: e.stack
+        details: e.message
       }, { status: 400 })
     }
 
@@ -40,7 +39,6 @@ export async function POST(request: Request) {
     }
 
     // 2. Find user by email with credentials (usando service role para bypass rls)
-    console.log('[login-challenge] conectando a supabase con service role...')
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -52,7 +50,6 @@ export async function POST(request: Request) {
       }
     )
 
-    console.log('[login-challenge] consultando usuario:', email)
     const { data: usuario, error: userError } = await supabase
       .from('usuarios')
       .select('id, email, webauthn_credentials')
@@ -64,8 +61,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'error al buscar usuario',
-          details: userError.message,
-          code: userError.code
+          details: userError.message
         },
         { status: 500 }
       )
@@ -81,7 +77,6 @@ export async function POST(request: Request) {
 
     // 3. Get credentials from JSONB array
     const credentials = usuario.webauthn_credentials || []
-    console.log('[login-challenge] credenciales encontradas:', credentials.length)
 
     if (credentials.length === 0) {
       console.error('[login-challenge] SIN CREDENCIALES REGISTRADAS:', email)
@@ -92,34 +87,35 @@ export async function POST(request: Request) {
     }
 
     // 4. Generate authentication options
-    console.log('[login-challenge] preparando opciones...')
+    console.log('[login-challenge] preparando opciones (usando string IDs)...')
 
-    // Preparar allowCredentials con conversion segura
+    // Preparar allowCredentials pasando IDs como Base64URL Strings
+    // Esto evita el 'TypeError: a.replace is not a function' interno de la libreria
     const allowCredentials = credentials.map((cred: any, index: number) => {
       try {
-        // Usar atob para decodificar base64 a string binario
-        // Esta es la forma segura que no depende de Buffer
-        const binaryString = atob(cred.credential_id)
-        const len = binaryString.length
-        const bytes = new Uint8Array(len)
-        for (let i = 0; i < len; i++) {
-          bytes[i] = binaryString.charCodeAt(i)
-        }
+        const base64 = cred.credential_id; // Viene como Base64 desde Supabase
+
+        // Convertir Base64 a Base64URL
+        // + -> -
+        // / -> _
+        // = -> (empty)
+        const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
         return {
-          id: bytes,
+          id: base64url, // String, compatible con simplewebauthn interno y JSON
           type: 'public-key' as const,
           transports: cred.transports || ['internal', 'hybrid'],
         }
       } catch (convError: any) {
         console.error(`[login-challenge] error convirtiendo credencial ${index}:`, convError)
-        throw new Error(`error conversion credencial ${index}: ${convError.message}`)
+        // Skip invalid credentials instead of crashing? No, lets throw to see it.
+        throw convError
       }
     })
 
-    console.log('[login-challenge] llamando generateAuthenticationOptions...')
+    console.log(`[login-challenge] ${allowCredentials.length} credenciales preparadas`)
+    console.log(`[login-challenge] rpID para generacion: '${WEBAUTHN_CONFIG.rpID}'`)
 
-    // Llamada protegida a la libreria
     let options;
     try {
       options = await generateAuthenticationOptions({
@@ -150,10 +146,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error: 'error fatal del servidor (extreme debug)',
-        message: fatalError?.message || 'error desconocido',
-        stack: fatalError?.stack,
-        name: fatalError?.name
+        error: 'error fatal del servidor',
+        message: fatalError?.message,
+        stack: fatalError?.stack
       },
       { status: 500 }
     )
