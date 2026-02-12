@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase-client"
 import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 import { TaskStatusBadge } from "./tasks-badge"
+import { useUser } from "@descope/nextjs-sdk/client"
 
 // Importar componentes específicos por rol
 import { AdminDashboard } from "./admin-dashboard"
@@ -36,6 +37,7 @@ type BuildingType = {
 
 export default function DashboardPage() {
   const supabase = createClient()
+  const { user: descopeUser } = useUser()
 
   // Estados generales
   const [stats, setStats] = useState<StatsType | null>(null)
@@ -59,27 +61,27 @@ export default function DashboardPage() {
         setLoading(true)
 
         if (!supabase) {
-          setError("No se pudo inicializar el cliente de Supabase")
+          setError("no se pudo inicializar supabase")
           return
         }
 
-        // 1. Obtener datos del usuario actual
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-          setError("No se pudo obtener la información del usuario")
-          return
+        // obtener email de descope (no de supabase auth)
+        const email = descopeUser?.email?.toLowerCase().trim()
+        if (!email) {
+          console.log('spc: esperando email de descope para dashboard...')
+          return // no setear error, esperar al siguiente render
         }
 
-        // 2. Obtener detalles del usuario desde la tabla 'usuarios'
+        // buscar detalles del usuario por email
         const { data: userData, error: userError } = await supabase
           .from('usuarios')
           .select('*')
-          .eq('id', user.id)
-          .single()
+          .eq('email', email)
+          .maybeSingle()
 
         if (userError || !userData) {
-          console.error("Error al obtener detalles del usuario:", userError)
-          setError("No se pudo obtener la información del usuario")
+          console.error('spc: usuario no encontrado en tabla local', userError?.message)
+          setError("no se encontro tu usuario. intenta cerrar sesion y volver a entrar.")
           return
         }
 
@@ -427,7 +429,7 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData()
-  }, [])
+  }, [descopeUser?.email])
 
   // Estado de carga
   if (loading) {
