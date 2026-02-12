@@ -1,6 +1,6 @@
 "use client"
 
-import { Descope, useSession } from '@descope/nextjs-sdk'
+import { Descope, useSession } from '@descope/nextjs-sdk/client'
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
