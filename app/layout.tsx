@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { SupabaseProvider } from "@/lib/supabase-provider"
 import SWRegister from "@/components/sw-register"
 import { AiChatWidget } from "@/components/ai-chat-widget"
+import { AuthProvider } from "@descope/nextjs-sdk"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -37,14 +38,16 @@ export default function RootLayout({
         <meta charSet="UTF-8" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <SupabaseProvider>
-            {children}
-            <Toaster />
-            <SWRegister />
-            <AiChatWidget />
-          </SupabaseProvider>
-        </ThemeProvider>
+        <AuthProvider projectId={process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || "P39Y887u1otOQcg8ni38s878J2nT"}>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            <SupabaseProvider>
+              {children}
+              <Toaster />
+              <SWRegister />
+              <AiChatWidget />
+            </SupabaseProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   )

@@ -1,0 +1,2914 @@
+[
+  {
+    "type": "stdout",
+    "created": 1770857212599,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Build cache uploaded: 5.480s",
+      "id": "1770857212599736962463600000",
+      "date": 1770857212599,
+      "serial": "1770857212599736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857207120,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Uploading build cache [429.59 MB]",
+      "id": "1770857207120736962463600003",
+      "date": 1770857207120,
+      "serial": "1770857207120736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857207120,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Created build cache: 37s",
+      "id": "1770857207120736962463600002",
+      "date": 1770857207120,
+      "serial": "1770857207120736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857170608,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Creating build cache...",
+      "id": "1770857170608736962463600000",
+      "date": 1770857170608,
+      "serial": "1770857170608736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857169561,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Deployment completed",
+      "id": "1770857169561736962463600000",
+      "date": 1770857169561,
+      "serial": "1770857169561736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857150925,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Deploying outputs...",
+      "id": "1770857150925736962463600000",
+      "date": 1770857150925,
+      "serial": "1770857150925736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857150560,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Build Completed in /vercel/output [1m]",
+      "id": "1770857150560736962463600000",
+      "date": 1770857150560,
+      "serial": "1770857150560736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857150301,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Collected static files (public/, static/, .next/static): 27.89ms",
+      "id": "1770857150301736962463600000",
+      "date": 1770857150301,
+      "serial": "1770857150301736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149964,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Created all serverless functions in: 497.807ms",
+      "id": "1770857149964736962463600000",
+      "date": 1770857149964,
+      "serial": "1770857149964736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149459,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Traced Next.js server files in: 123.035ms",
+      "id": "1770857149459736962463600000",
+      "date": 1770857149459,
+      "serial": "1770857149459736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149059,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857149059736962463600003",
+      "date": 1770857149059,
+      "serial": "1770857149059736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149059,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "ƒ  (Dynamic)  server-rendered on demand",
+      "id": "1770857149059736962463600002",
+      "date": 1770857149059,
+      "serial": "1770857149059736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149059,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "○  (Static)   prerendered as static content",
+      "id": "1770857149059736962463600001",
+      "date": 1770857149059,
+      "serial": "1770857149059736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149059,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857149059736962463600000",
+      "date": 1770857149059,
+      "serial": "1770857149059736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149056,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "ƒ Middleware                                     76.9 kB",
+      "id": "1770857149056736962463600002",
+      "date": 1770857149056,
+      "serial": "1770857149056736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149056,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857149056736962463600001",
+      "date": 1770857149056,
+      "serial": "1770857149056736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149056,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857149056736962463600000",
+      "date": 1770857149056,
+      "serial": "1770857149056736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149055,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  └ other shared chunks (total)                   3.1 kB",
+      "id": "1770857149055736962463600005",
+      "date": 1770857149055,
+      "serial": "1770857149055736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149055,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  ├ chunks/81a3ca98-db365762e836f7ee.js          54.2 kB",
+      "id": "1770857149055736962463600004",
+      "date": 1770857149055,
+      "serial": "1770857149055736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149055,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  ├ chunks/6910-266acb36d382dde6.js              45.7 kB",
+      "id": "1770857149055736962463600003",
+      "date": 1770857149055,
+      "serial": "1770857149055736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149055,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "+ First Load JS shared by all                     103 kB",
+      "id": "1770857149055736962463600002",
+      "date": 1770857149055,
+      "serial": "1770857149055736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149055,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "└ ○ /login                                        9.4 kB         184 kB",
+      "id": "1770857149055736962463600001",
+      "date": 1770857149055,
+      "serial": "1770857149055736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149055,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/trabajadores/registro-dias         5.1 kB         268 kB",
+      "id": "1770857149055736962463600000",
+      "date": 1770857149055,
+      "serial": "1770857149055736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149054,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/trabajadores/liquidaciones/[id]   7.34 kB         291 kB",
+      "id": "1770857149054736962463600005",
+      "date": 1770857149054,
+      "serial": "1770857149054736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149054,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/trabajadores/liquidaciones        9.09 kB         210 kB",
+      "id": "1770857149054736962463600004",
+      "date": 1770857149054,
+      "serial": "1770857149054736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149054,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/trabajadores/gastos               11.1 kB         215 kB",
+      "id": "1770857149054736962463600003",
+      "date": 1770857149054,
+      "serial": "1770857149054736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149054,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/trabajadores/configurar             244 B         103 kB",
+      "id": "1770857149054736962463600002",
+      "date": 1770857149054,
+      "serial": "1770857149054736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149054,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/trabajadores/activar              7.46 kB         168 kB",
+      "id": "1770857149054736962463600001",
+      "date": 1770857149054,
+      "serial": "1770857149054736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149054,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/trabajadores                        244 B         103 kB",
+      "id": "1770857149054736962463600000",
+      "date": 1770857149054,
+      "serial": "1770857149054736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/tareas/nueva                        623 B         268 kB",
+      "id": "1770857149053736962463600010",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600010"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/tareas/editar/[id]                2.22 kB         273 kB",
+      "id": "1770857149053736962463600009",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600009"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/tareas/clonar/[id]                  318 B         271 kB",
+      "id": "1770857149053736962463600008",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/tareas/[id]/asignar-supervisor    5.49 kB         194 kB",
+      "id": "1770857149053736962463600007",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/tareas/[id]/asignar                8.9 kB         172 kB",
+      "id": "1770857149053736962463600006",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/tareas/[id]                       29.8 kB         448 kB",
+      "id": "1770857149053736962463600005",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/tareas                            22.7 kB         234 kB",
+      "id": "1770857149053736962463600004",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/productos/nuevo                   1.61 kB         201 kB",
+      "id": "1770857149053736962463600003",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/productos/categorias              7.39 kB         182 kB",
+      "id": "1770857149053736962463600002",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/productos/[id]/editar             1.35 kB         219 kB",
+      "id": "1770857149053736962463600001",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149053,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/productos/[id]                    4.42 kB         207 kB",
+      "id": "1770857149053736962463600000",
+      "date": 1770857149053,
+      "serial": "1770857149053736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/productos                         7.78 kB         213 kB",
+      "id": "1770857149052736962463600011",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600011"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/presupuestos/nuevo                1.64 kB         219 kB",
+      "id": "1770857149052736962463600010",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600010"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/presupuestos/[id]                 4.53 kB         177 kB",
+      "id": "1770857149052736962463600009",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600009"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/presupuestos-finales/nuevo        6.79 kB         173 kB",
+      "id": "1770857149052736962463600008",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/presupuestos-finales/editar/[id]  2.22 kB         223 kB",
+      "id": "1770857149052736962463600007",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/presupuestos-finales/[id]         14.8 kB         342 kB",
+      "id": "1770857149052736962463600006",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/presupuestos-finales                165 B         107 kB",
+      "id": "1770857149052736962463600005",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/presupuestos-base/nuevo            5.3 kB         203 kB",
+      "id": "1770857149052736962463600004",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/presupuestos-base/[id]/editar     5.39 kB         203 kB",
+      "id": "1770857149052736962463600003",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/presupuestos-base/[id]            6.36 kB         173 kB",
+      "id": "1770857149052736962463600002",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/presupuestos-base                 11.9 kB         188 kB",
+      "id": "1770857149052736962463600001",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149052,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/presupuestos                      12.7 kB         218 kB",
+      "id": "1770857149052736962463600000",
+      "date": 1770857149052,
+      "serial": "1770857149052736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/perfil                            3.98 kB         217 kB",
+      "id": "1770857149051736962463600010",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600010"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/pagos/nuevo                       5.68 kB         181 kB",
+      "id": "1770857149051736962463600009",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600009"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/pagos                             11.1 kB         151 kB",
+      "id": "1770857149051736962463600008",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/liquidaciones/nueva               8.67 kB         207 kB",
+      "id": "1770857149051736962463600007",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/liquidaciones/[id]                7.02 kB         300 kB",
+      "id": "1770857149051736962463600006",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/liquidaciones                     9.15 kB         331 kB",
+      "id": "1770857149051736962463600005",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/herramientas/calculadora          4.78 kB         119 kB",
+      "id": "1770857149051736962463600004",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/facturas/nueva                    6.21 kB         237 kB",
+      "id": "1770857149051736962463600003",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/facturas/editar/[id]              7.26 kB         178 kB",
+      "id": "1770857149051736962463600002",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/facturas/[id]                     12.2 kB         335 kB",
+      "id": "1770857149051736962463600001",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149051,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/facturas                          10.4 kB         347 kB",
+      "id": "1770857149051736962463600000",
+      "date": 1770857149051,
+      "serial": "1770857149051736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/estados                              7 kB         118 kB",
+      "id": "1770857149050736962463600011",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600011"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/esperando-rol                       244 B         103 kB",
+      "id": "1770857149050736962463600010",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600010"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/edificios/nuevo                   4.69 kB         226 kB",
+      "id": "1770857149050736962463600009",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600009"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/edificios/[id]/editar             8.01 kB         235 kB",
+      "id": "1770857149050736962463600008",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/edificios/[id]                    5.64 kB         245 kB",
+      "id": "1770857149050736962463600007",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/edificios                         8.44 kB         248 kB",
+      "id": "1770857149050736962463600006",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/contactos/nuevo                   10.9 kB         231 kB",
+      "id": "1770857149050736962463600005",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/contactos/[id]/editar             10.8 kB         202 kB",
+      "id": "1770857149050736962463600004",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/contactos/[id]                     6.5 kB         184 kB",
+      "id": "1770857149050736962463600003",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/contactos                         12.9 kB         208 kB",
+      "id": "1770857149050736962463600002",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/configuracion                     28.9 kB         261 kB",
+      "id": "1770857149050736962463600001",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149050,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/cloudinary                        6.64 kB         117 kB",
+      "id": "1770857149050736962463600000",
+      "date": 1770857149050,
+      "serial": "1770857149050736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/ajustes                           15.5 kB         347 kB",
+      "id": "1770857149049736962463600011",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600011"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/agenda                            12.5 kB         228 kB",
+      "id": "1770857149049736962463600010",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600010"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/administradores/nuevo             5.97 kB         198 kB",
+      "id": "1770857149049736962463600009",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600009"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard/administradores/[id]              4.33 kB         203 kB",
+      "id": "1770857149049736962463600008",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard/administradores                   4.28 kB         171 kB",
+      "id": "1770857149049736962463600007",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /dashboard-bridge                              244 B         103 kB",
+      "id": "1770857149049736962463600006",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /dashboard                                   12.9 kB         210 kB",
+      "id": "1770857149049736962463600005",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/user                                      244 B         103 kB",
+      "id": "1770857149049736962463600004",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/upload-cloudinary                         244 B         103 kB",
+      "id": "1770857149049736962463600003",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/tasks/list                                244 B         103 kB",
+      "id": "1770857149049736962463600002",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/tasks/active                              244 B         103 kB",
+      "id": "1770857149049736962463600001",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149049,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/resolve-map-url                           244 B         103 kB",
+      "id": "1770857149049736962463600000",
+      "date": 1770857149049,
+      "serial": "1770857149049736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149048,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/partes/registrar                          244 B         103 kB",
+      "id": "1770857149048736962463600003",
+      "date": 1770857149048,
+      "serial": "1770857149048736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149048,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/partes/[id]                               244 B         103 kB",
+      "id": "1770857149048736962463600002",
+      "date": 1770857149048,
+      "serial": "1770857149048736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149048,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/migration/unify-contacts                  244 B         103 kB",
+      "id": "1770857149048736962463600001",
+      "date": 1770857149048,
+      "serial": "1770857149048736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149048,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/diagnose                                  244 B         103 kB",
+      "id": "1770857149048736962463600000",
+      "date": 1770857149048,
+      "serial": "1770857149048736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149046,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/delete-cloudinary                         244 B         103 kB",
+      "id": "1770857149046736962463600001",
+      "date": 1770857149046,
+      "serial": "1770857149046736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149046,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/contactos/sync-google                     244 B         103 kB",
+      "id": "1770857149046736962463600000",
+      "date": 1770857149046,
+      "serial": "1770857149046736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/cloudinary/test                           244 B         103 kB",
+      "id": "1770857149045736962463600008",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/cloudinary/stats                          244 B         103 kB",
+      "id": "1770857149045736962463600007",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/cloudinary/simple-test                    244 B         103 kB",
+      "id": "1770857149045736962463600006",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/cloudinary/diagnostic                     244 B         103 kB",
+      "id": "1770857149045736962463600005",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/cloudinary/comment-upload-signature       244 B         103 kB",
+      "id": "1770857149045736962463600004",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/check-rls                                 244 B         103 kB",
+      "id": "1770857149045736962463600003",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/chat/test                                 244 B         103 kB",
+      "id": "1770857149045736962463600002",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/chat/history                              244 B         103 kB",
+      "id": "1770857149045736962463600001",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149045,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/chat/financial                            244 B         103 kB",
+      "id": "1770857149045736962463600000",
+      "date": 1770857149045,
+      "serial": "1770857149045736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/chat                                      244 B         103 kB",
+      "id": "1770857149044736962463600007",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/badges                                    244 B         103 kB",
+      "id": "1770857149044736962463600006",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/backup/cloudinary/[year]/[month]          244 B         103 kB",
+      "id": "1770857149044736962463600005",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/webauthn/register-verify             244 B         103 kB",
+      "id": "1770857149044736962463600004",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/webauthn/register-challenge          244 B         103 kB",
+      "id": "1770857149044736962463600003",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/webauthn/login-verify                244 B         103 kB",
+      "id": "1770857149044736962463600002",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/webauthn/login-challenge             244 B         103 kB",
+      "id": "1770857149044736962463600001",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149044,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/google/url                           244 B         103 kB",
+      "id": "1770857149044736962463600000",
+      "date": 1770857149044,
+      "serial": "1770857149044736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/google/test-create                   244 B         103 kB",
+      "id": "1770857149043736962463600008",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/google/status                        244 B         103 kB",
+      "id": "1770857149043736962463600007",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/google/callback                      244 B         103 kB",
+      "id": "1770857149043736962463600006",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/auth/callback                             244 B         103 kB",
+      "id": "1770857149043736962463600005",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/audio/transcribe                          244 B         103 kB",
+      "id": "1770857149043736962463600004",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ƒ /api/analizar-gasto                            244 B         103 kB",
+      "id": "1770857149043736962463600003",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "├ ○ /_not-found                                     1 kB         104 kB",
+      "id": "1770857149043736962463600002",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "┌ ○ /                                              382 B         103 kB",
+      "id": "1770857149043736962463600001",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149043,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Route (app)                                         Size  First Load JS",
+      "id": "1770857149043736962463600000",
+      "date": 1770857149043,
+      "serial": "1770857149043736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857149026,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857149026736962463600000",
+      "date": 1770857149026,
+      "serial": "1770857149026736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857127724,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Collecting build traces ...",
+      "id": "1770857127724736962463600000",
+      "date": 1770857127724,
+      "serial": "1770857127724736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857127722,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Finalizing page optimization ...",
+      "id": "1770857127722736962463600000",
+      "date": 1770857127722,
+      "serial": "1770857127722736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857126140,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": " ✓ Generating static pages (65/65)",
+      "id": "1770857126140736962463600000",
+      "date": 1770857126140,
+      "serial": "1770857126140736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857125817,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Generating static pages (48/65) \r",
+      "id": "1770857125817736962463600000",
+      "date": 1770857125817,
+      "serial": "1770857125817736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857125033,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Generating static pages (32/65) \r",
+      "id": "1770857125033736962463600000",
+      "date": 1770857125033,
+      "serial": "1770857125033736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857124825,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Generating static pages (16/65) \r",
+      "id": "1770857124825736962463600000",
+      "date": 1770857124825,
+      "serial": "1770857124825736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857123700,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Generating static pages (0/65) ...",
+      "id": "1770857123700736962463600000",
+      "date": 1770857123700,
+      "serial": "1770857123700736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857118137,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": " ⚠ Using edge runtime on a page currently disables static generation for that page",
+      "id": "1770857118137736962463600000",
+      "date": 1770857118137,
+      "serial": "1770857118137736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857117156,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Collecting page data ...",
+      "id": "1770857117156736962463600000",
+      "date": 1770857117156,
+      "serial": "1770857117156736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857116845,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Skipping linting",
+      "id": "1770857116845736962463600001",
+      "date": 1770857116845,
+      "serial": "1770857116845736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857116845,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Skipping validation of types",
+      "id": "1770857116845736962463600000",
+      "date": 1770857116845,
+      "serial": "1770857116845736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857116841,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": " ✓ Compiled successfully in 48s",
+      "id": "1770857116841736962463600000",
+      "date": 1770857116841,
+      "serial": "1770857116841736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857098682,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (131kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)",
+      "id": "1770857098682736962463600000",
+      "date": 1770857098682,
+      "serial": "1770857098682736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857068070,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   Creating an optimized production build ...",
+      "id": "1770857068070736962463600000",
+      "date": 1770857068070,
+      "serial": "1770857068070736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857068012,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857068012736962463600000",
+      "date": 1770857068012,
+      "serial": "1770857068012736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857068011,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "     · serverActions",
+      "id": "1770857068011736962463600002",
+      "date": 1770857068011,
+      "serial": "1770857068011736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857068011,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "     ✓ externalDir",
+      "id": "1770857068011736962463600001",
+      "date": 1770857068011,
+      "serial": "1770857068011736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857068011,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   - Experiments (use with caution):",
+      "id": "1770857068011736962463600000",
+      "date": 1770857068011,
+      "serial": "1770857068011736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857068009,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "   ▲ Next.js 15.5.7",
+      "id": "1770857068009736962463600000",
+      "date": 1770857068009,
+      "serial": "1770857068009736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857067207,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857067207736962463600002",
+      "date": 1770857067207,
+      "serial": "1770857067207736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857067207,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "> next build",
+      "id": "1770857067207736962463600001",
+      "date": 1770857067207,
+      "serial": "1770857067207736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857067207,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "> my-v0-project@0.1.0 build /vercel/path0",
+      "id": "1770857067207736962463600000",
+      "date": 1770857067207,
+      "serial": "1770857067207736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857067206,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857067206736962463600000",
+      "date": 1770857067206,
+      "serial": "1770857067206736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066636,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Running \"pnpm build\"",
+      "id": "1770857066636736962463600000",
+      "date": 1770857066636,
+      "serial": "1770857066636736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066635,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Detected Next.js version: 15.5.7",
+      "id": "1770857066635736962463600000",
+      "date": 1770857066635,
+      "serial": "1770857066635736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066617,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Done in 1.3s using pnpm v10.11.0",
+      "id": "1770857066617736962463600000",
+      "date": 1770857066617,
+      "serial": "1770857066617736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066581,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857066581736962463600003",
+      "date": 1770857066581,
+      "serial": "1770857066581736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066581,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "id": "1770857066581736962463600002",
+      "date": 1770857066581,
+      "serial": "1770857066581736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066581,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "│                                                                              │",
+      "id": "1770857066581736962463600001",
+      "date": 1770857066581,
+      "serial": "1770857066581736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066581,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "│   to run scripts.                                                            │",
+      "id": "1770857066581736962463600000",
+      "date": 1770857066581,
+      "serial": "1770857066581736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066580,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "│   Run \"pnpm approve-builds\" to pick which dependencies should be allowed     │",
+      "id": "1770857066580736962463600003",
+      "date": 1770857066580,
+      "serial": "1770857066580736962463600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066580,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "│   Ignored build scripts: core-js, sharp, tesseract.js, unrs-resolver.        │",
+      "id": "1770857066580736962463600002",
+      "date": 1770857066580,
+      "serial": "1770857066580736962463600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066580,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "│                                                                              │",
+      "id": "1770857066580736962463600001",
+      "date": 1770857066580,
+      "serial": "1770857066580736962463600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066580,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "╭ Warning ─────────────────────────────────────────────────────────────────────╮",
+      "id": "1770857066580736962463600000",
+      "date": 1770857066580,
+      "serial": "1770857066580736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066579,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "",
+      "id": "1770857066579736962463600000",
+      "date": 1770857066579,
+      "serial": "1770857066579736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857066057,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Already up to date",
+      "id": "1770857066057736962463600000",
+      "date": 1770857066057,
+      "serial": "1770857066057736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857065841,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Lockfile is up to date, resolution step is skipped",
+      "id": "1770857065841736962463600000",
+      "date": 1770857065841,
+      "serial": "1770857065841736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857063272,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Running \"install\" command: `pnpm install`...",
+      "id": "1770857063272736962463600000",
+      "date": 1770857063272,
+      "serial": "1770857063272736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857063267,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Detected `pnpm-lock.yaml` version 9 generated by pnpm@10.x with package.json#packageManager pnpm@10.11.0",
+      "id": "1770857063267736962463600000",
+      "date": 1770857063267,
+      "serial": "1770857063267736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857063182,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Warning: Detected \"engines\": { \"node\": \">=20.0.0\" } in your `package.json` that will automatically upgrade when a new major Node.js Version is released. Learn More: https://vercel.link/node-version",
+      "id": "1770857063182736962463600000",
+      "date": 1770857063182,
+      "serial": "1770857063182736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857063181,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Warning: Due to \"engines\": { \"node\": \">=20.0.0\" } in your `package.json` file, the Node.js Version defined in your Project Settings (\"22.x\") will not apply, Node.js Version \"24.x\" will be used instead. Learn More: https://vercel.link/node-version",
+      "id": "1770857063181736962463600000",
+      "date": 1770857063181,
+      "serial": "1770857063181736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857062802,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Vercel CLI 50.15.1",
+      "id": "1770857062802736962463600000",
+      "date": 1770857062802,
+      "serial": "1770857062802736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857062259,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Running \"vercel build\"",
+      "id": "1770857062259736962463600000",
+      "date": 1770857062259,
+      "serial": "1770857062259736962463600000"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857062258,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Warning: Detected \"engines\": { \"node\": \">=20.0.0\" } in your `package.json` that will automatically upgrade when a new major Node.js Version is released. Learn More: https://vercel.link/node-version",
+      "id": "1770857062258736962463600001",
+      "date": 1770857062258,
+      "serial": "1770857062258736962463600001"
+    }
+  },
+  {
+    "type": "stderr",
+    "created": 1770857062258,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Warning: Due to \"engines\": { \"node\": \">=20.0.0\" } in your `package.json` file, the Node.js Version defined in your Project Settings (\"22.x\") will not apply, Node.js Version \"24.x\" will be used instead. Learn More: https://vercel.link/node-version",
+      "id": "1770857062258736962463600000",
+      "date": 1770857062258,
+      "serial": "1770857062258736962463600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857061895,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Restored build cache from previous deployment (8dowEbXrsuZB6AMnf59H3D8rWBks)",
+      "id": "1770857061895290714621600000",
+      "date": 1770857061895,
+      "serial": "1770857061895290714621600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059430,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /db/migrations/2026-01-09-comentarios-foto-url-json.sql",
+      "id": "1770857059430290714621600000",
+      "date": 1770857059430,
+      "serial": "1770857059430290714621600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /db/migrations/2026-01-05-estado-vencido.sql",
+      "id": "1770857059429290714621600009",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600009"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /db/migrations/2025-12-23-liq-nuevas-drop-not-null-pf.sql",
+      "id": "1770857059429290714621600008",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600008"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /db/functions/PF-AGING-AUTO.sql",
+      "id": "1770857059429290714621600007",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600007"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /CREAR-RPC-PAGAR-LIQUIDACIONES-SUPERVISORES.sql",
+      "id": "1770857059429290714621600006",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600006"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /CREAR-RPC-LIQUIDAR-GASTOS-SUPERVISION.sql",
+      "id": "1770857059429290714621600005",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600005"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /CHECK-COLOR-PERFIL-CONSTRAINT.sql",
+      "id": "1770857059429290714621600004",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600004"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /AUTOMATIZACION-COMPLETA-PF.sql",
+      "id": "1770857059429290714621600003",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600003"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /05-SUPABASE-TABLA-ALERTAS.sql",
+      "id": "1770857059429290714621600002",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600002"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "  /01-SUPABASE-MEMORIA-CONVERSACIONAL.sql",
+      "id": "1770857059429290714621600001",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059429,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Removed 63 ignored files defined in .vercelignore",
+      "id": "1770857059429290714621600000",
+      "date": 1770857059429,
+      "serial": "1770857059429290714621600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059414,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Found .vercelignore",
+      "id": "1770857059414290714621600000",
+      "date": 1770857059414,
+      "serial": "1770857059414290714621600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857059272,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Cloning completed: 558.000ms",
+      "id": "1770857059272290714621600000",
+      "date": 1770857059272,
+      "serial": "1770857059272290714621600000"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857058714,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Cloning github.com/lowin30/spcvercel (Branch: main, Commit: 2223ea6)",
+      "id": "1770857058714290714621600001",
+      "date": 1770857058714,
+      "serial": "1770857058714290714621600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857058591,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Build machine configuration: 2 cores, 8 GB",
+      "id": "1770857058591290714621600001",
+      "date": 1770857058591,
+      "serial": "1770857058591290714621600001"
+    }
+  },
+  {
+    "type": "stdout",
+    "created": 1770857058591,
+    "payload": {
+      "deploymentId": "dpl_CpQfGCKVZfgbTE4z7pGAvY3V9pJE",
+      "info": {
+        "type": "build",
+        "name": "bld_3xi9grmvq",
+        "entrypoint": "."
+      },
+      "text": "Running build in Washington, D.C., USA (East) – iad1",
+      "id": "1770857058591290714621600000",
+      "date": 1770857058591,
+      "serial": "1770857058591290714621600000"
+    }
+  }
+]

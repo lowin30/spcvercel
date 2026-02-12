@@ -1,94 +1,11 @@
-// middleware.ts
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { type NextRequest, NextResponse } from 'next/server'
+import { authMiddleware } from '@descope/nextjs-sdk/server'
 
-async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
-  )
-
-  const { data: { session } } = await supabase.auth.getSession()
-  const user = session?.user
-
-  if (request.nextUrl.pathname.startsWith('/dashboard') && user) {
-    const { data: profile } = await supabase
-      .from('usuarios')
-      .select('rol, activo')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || !profile.activo) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/login'
-      return NextResponse.redirect(redirectUrl)
-    }
-
-    const rutasAdmin = ['/dashboard/pagos', '/dashboard/facturas', '/dashboard/admin-tools']
-    if (rutasAdmin.some((ruta) => request.nextUrl.pathname.startsWith(ruta))) {
-      if (profile.rol !== 'admin') {
-        const redirectUrl = request.nextUrl.clone()
-        redirectUrl.pathname = '/dashboard'
-        return NextResponse.redirect(redirectUrl)
-      }
-    }
-  }
-
-  return response
-}
-
-export async function middleware(request: NextRequest) {
-  const response = await updateSession(request)
-  return response
-}
+export default authMiddleware({
+  projectId: process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || 'P39Y887u1otOQcg8ni38s878J2nT',
+  publicRoutes: ['/login', '/api/auth/webauthn(.*)', '/api/auth/callback', '/manifest.json', '/icons(.*)', '/_next(.*)', '/static(.*)'],
+  redirectTo: '/login'
+})
 
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  matcher: ['/dashboard/:path*', '/api/admin/:path*']
 }

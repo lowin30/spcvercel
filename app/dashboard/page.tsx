@@ -12,7 +12,7 @@ import { TaskStatusBadge } from "./tasks-badge"
 import { AdminDashboard } from "./admin-dashboard"
 import { SupervisorDashboard } from "./supervisor-dashboard"
 import { TrabajadorDashboard } from "./trabajador-dashboard"
-import { BiometricsEnroll } from "@/components/auth/biometrics-enroll"
+
 
 // Definir tipos para mejorar la inferencia
 type StatsType = {
@@ -458,7 +458,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <BiometricsEnroll />
+
       </div>
 
       {/* Mostrar interfaz específica según el rol del usuario */}
