@@ -4,10 +4,10 @@
 export const WEBAUTHN_CONFIG = {
   // Relying Party (RP) configuration
   rpName: 'SPC Sistema de Gestión',
-  rpID: 'spcvercel.vercel.app',
+  rpID: 'spcvercel.vercel.app'.trim(),
 
   // Origin must match the domain where the authentication happens
-  origin: 'https://spcvercel.vercel.app',
+  origin: 'https://spcvercel.vercel.app'.trim(),
 
   // Challenge timeout (5 minutes)
   timeout: 300000,

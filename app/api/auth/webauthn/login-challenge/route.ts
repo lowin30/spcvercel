@@ -110,11 +110,18 @@ export async function POST(request: Request) {
     }
 
     // 4. Generate authentication options
-    console.log('[login-challenge] preparando opciones (v45.0 ROBUST RECOVERY)...')
-    console.log('[login-challenge] AUDIT user.id:', usuario.id, 'type:', typeof usuario.id)
+    console.log('[login-challenge] preparando opciones (v47.1 forensic audit)...')
+
+    // FORENSIC AUDIT: USER HANDLE
+    // webauthn es sensible a los bytes exactos del userhandle.
+    // verificamos que la codificacion sea consistente.
+    const userHandleHex = Buffer.from(new TextEncoder().encode(usuario.id)).toString('hex')
+    console.log(`[audit] user.id raw: ${usuario.id}`)
+    console.log(`[audit] user.id encoded (textencoder hex): ${userHandleHex}`)
+    console.log(`[audit] user.id type: ${typeof usuario.id} (length: ${usuario.id.length})`)
 
     // Preparar allowCredentials con conversion ROBUSTA (Buffer)
-    // v45.0 FIX: Usar Buffer para conversion perfecta Base64 -> Base64URL
+    // v47.1 FORENSIC: Loguear bit a bit lo que sale
     const allowCredentials = credentials
       .map((cred: any, index: number) => {
         if (!cred || !cred.credential_id) {
@@ -127,16 +134,21 @@ export async function POST(request: Request) {
           // Robusta conversion usando Node.js Buffer
           base64URL = Buffer.from(cred.credential_id, 'base64').toString('base64url');
         } catch (conversionError) {
-          console.error('[login-challenge] ERROR CONVERSION BASE64:', conversionError);
+          console.error('[login-challenge] error conversion base64:', conversionError);
           base64URL = cred.credential_id;
         }
 
-        // v45.0 AUDIT: Deep Integrity Check
-        console.log(`[login-challenge] cred #${index} audit:`, {
-          db_raw: cred.credential_id,
-          converted_base64url: base64URL,
-          match_check: cred.credential_id === base64URL ? 'IDENTICAL' : 'TRANSFORMED'
-        })
+        // v47.1 FORENSIC AUDIT: COMPARACION BINARIA
+        // verificamos padding y caracteres url-safe
+        console.log(`[audit] cred #${index} id original (db): ${cred.credential_id}`)
+        console.log(`[audit] cred #${index} id final (allowcredentials): ${base64URL}`)
+
+        // chequeo rapido de caracteres peligrosos
+        const tienePadding = base64URL.includes('=')
+        const tieneMas = base64URL.includes('+')
+        const tieneSlash = base64URL.includes('/')
+
+        console.log(`[audit] cred #${index} health check: padding=${tienePadding}, mas=${tieneMas}, slash=${tieneSlash}`)
 
         return {
           id: base64URL as any, // Enviar ID convertido y seguro
