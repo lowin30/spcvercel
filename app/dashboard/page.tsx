@@ -67,7 +67,13 @@ export default function DashboardPage() {
         }
 
         // obtener email de descope (no de supabase auth)
-        const email = descopeUser?.email?.toLowerCase().trim()
+        console.log('spc: dashboard page user', descopeUser)
+        let email = descopeUser?.email?.toLowerCase().trim()
+
+        if (!email && descopeUser?.loginIds && descopeUser.loginIds.length > 0) {
+          email = descopeUser.loginIds[0].toLowerCase().trim()
+        }
+
         if (!email) {
           console.log('spc: esperando email de descope para dashboard...')
           return // no setear error, esperar al siguiente render
