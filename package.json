@@ -27,6 +27,7 @@
     "@ai-sdk/openai": "^0.0.14",
     "@ai-sdk/react": "^0.0.14",
     "@descope/nextjs-sdk": "0.14.50",
+    "@descope/node-sdk": "^1.9.1",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "1.2.2",
