@@ -36,7 +36,8 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
         const { data: userData } = await supabase
           .from('usuarios')
           .select('id, color_perfil')
-          .eq('email', userDetails.email)
+          .ilike('email', userDetails.email)
+          .limit(1)
           .maybeSingle()
 
         if (userData) {

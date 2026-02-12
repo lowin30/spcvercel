@@ -19,8 +19,9 @@ export async function getDashboardStats(email: string) {
         const { data: user, error: userError } = await supabase
             .from('usuarios')
             .select('id, rol, nombre, color_perfil, email, activo')
-            .eq('email', email)
-            .single()
+            .ilike('email', email)
+            .limit(1)
+            .maybeSingle()
 
         if (userError || !user) {
             console.error('spc: error obteniendo usuario en getDashboardStats', userError)

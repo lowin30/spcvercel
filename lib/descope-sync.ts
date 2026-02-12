@@ -41,7 +41,8 @@ export async function syncDescopeUser(userData: DescopeUserData) {
         const { data: existingUser } = await supabase
             .from('usuarios')
             .select('id, email, nombre, telefono')
-            .eq('email', email)
+            .ilike('email', email)
+            .limit(1)
             .maybeSingle()
 
         const now = new Date().toISOString()

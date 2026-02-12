@@ -50,7 +50,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .eq("email", email)
+          .ilike("email", email)
+          .limit(1)
           .maybeSingle()
 
         if (userError) {
