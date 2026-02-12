@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     console.log(`[audit] user.id type: ${typeof usuario.id} (length: ${usuario.id.length})`)
 
     // Preparar allowCredentials con conversion ROBUSTA (Buffer)
-    // v47.1 FORENSIC: Loguear bit a bit lo que sale
+    // v47.2 FIX: Hybrid Decoding (limpieza manual antes de buffer)
     const allowCredentials = credentials
       .map((cred: any, index: number) => {
         if (!cred || !cred.credential_id) {
@@ -131,29 +131,41 @@ export async function POST(request: Request) {
 
         let base64URL = '';
         try {
-          // Robusta conversion usando Node.js Buffer
-          base64URL = Buffer.from(cred.credential_id, 'base64').toString('base64url');
+          // 1. LIMPIEZA HIBRIDA (Hybrid Sanitization)
+          // La DB tiene mezclado Base64URL ('_') con Padding ('==').
+          // El decoder Base64 estandar rompe con '_'. Hay que normalizarlo a Base64 puro ('/').
+          const rawID = cred.credential_id;
+          const cleanID = rawID.replace(/-/g, '+').replace(/_/g, '/');
+
+          // 2. CONVERSION SEGURA
+          // Ahora que es Base64 puro, Buffer lo lee perfecto.
+          const buffer = Buffer.from(cleanID, 'base64');
+
+          // 3. OUTPUT FINAL
+          // Lo pasamos a Base64URL para que el navegador lo entienda.
+          base64URL = buffer.toString('base64url');
+
+          // v47.2 AUDIT: Confirmar recuperacion
+          console.log(`[audit] cred #${index} id original (db): ${rawID}`)
+          console.log(`[audit] cred #${index} id sanitizado (b64): ${cleanID}`)
+          console.log(`[audit] cred #${index} id final (allowcredentials): ${base64URL}`)
+
+          // salud de la conversion
+          if (base64URL === rawID) {
+            console.log(`[audit] cred #${index} nota: el id ya estaba limpio o coincidio.`)
+          } else {
+            console.log(`[audit] cred #${index} exito: id reparado y normalizado.`)
+          }
+
         } catch (conversionError) {
           console.error('[login-challenge] error conversion base64:', conversionError);
           base64URL = cred.credential_id;
         }
 
-        // v47.1 FORENSIC AUDIT: COMPARACION BINARIA
-        // verificamos padding y caracteres url-safe
-        console.log(`[audit] cred #${index} id original (db): ${cred.credential_id}`)
-        console.log(`[audit] cred #${index} id final (allowcredentials): ${base64URL}`)
-
-        // chequeo rapido de caracteres peligrosos
-        const tienePadding = base64URL.includes('=')
-        const tieneMas = base64URL.includes('+')
-        const tieneSlash = base64URL.includes('/')
-
-        console.log(`[audit] cred #${index} health check: padding=${tienePadding}, mas=${tieneMas}, slash=${tieneSlash}`)
-
         return {
-          id: base64URL as any, // Enviar ID convertido y seguro
+          id: base64URL as any, // Enviar ID reparado
           type: 'public-key' as const,
-          transports: cred.transports || undefined, // Keep relaxed transports
+          transports: cred.transports || undefined,
         }
       })
       .filter((c: any) => c !== null)
