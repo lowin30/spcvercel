@@ -1,84 +1,14 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase-client"
+import { obtenerPerfilUsuario } from "@/app/actions/perfil-actions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, User, Mail, Shield, Briefcase, Palette } from "lucide-react"
+import { User, Mail, Shield, Briefcase, Palette } from "lucide-react"
 import { MFASecuritySection } from "@/components/mfa-security-section"
 import { PersonalAppearanceSettings } from "@/components/personal-appearance-settings"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-export default function PerfilPage() {
-  const [loading, setLoading] = useState(true)
-  const [userDetails, setUserDetails] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
-  const supabase = createClient()
-
-  useEffect(() => {
-    async function loadUserData() {
-      try {
-        setLoading(true)
-        
-        // Verificar sesión
-        const sessionResponse = await supabase.auth.getSession()
-        const session = sessionResponse.data.session
-        
-        if (!session) {
-          router.push("/login")
-          return
-        }
-        
-        // Obtener datos del usuario desde tabla usuarios
-        const { data: userData, error: userError } = await supabase
-          .from("usuarios")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
-        
-        if (userError) {
-          console.error("Error al obtener datos del usuario:", userError)
-          setError("Error al cargar perfil del usuario")
-          return
-        }
-        
-        setUserDetails(userData)
-      } catch (err) {
-        console.error("Error inesperado:", err)
-        setError("Error inesperado al cargar perfil")
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadUserData()
-  }, [router, supabase])
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="container mx-auto py-6 md:py-10 space-y-8">
-        <div className="flex justify-center items-center h-[50vh]">
-          <Loader2 className="h-8 w-8 animate-spin" />
-          <span className="ml-2">Cargando perfil...</span>
-        </div>
-      </div>
-    )
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="container mx-auto py-6 md:py-10 space-y-8">
-        <div className="bg-red-50 p-4 rounded-md mb-4">
-          <h2 className="text-red-800 text-lg font-medium">Error</h2>
-          <p className="text-red-700">{error}</p>
-        </div>
-      </div>
-    )
-  }
+export default async function PerfilPage() {
+  // Bridge: Obtener datos seguros desde el servidor (bypass RLS)
+  const userDetails = await obtenerPerfilUsuario()
 
   // Mapeo de roles a colores
   const rolBadgeVariant = (rol: string) => {
@@ -174,12 +104,12 @@ export default function PerfilPage() {
                 <div>
                   <p className="text-sm font-medium">Cuenta creada</p>
                   <p className="text-sm text-muted-foreground">
-                    {userDetails?.created_at 
+                    {userDetails?.created_at
                       ? new Date(userDetails.created_at).toLocaleDateString("es-AR", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric"
-                        })
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric"
+                      })
                       : "N/A"
                     }
                   </p>
@@ -192,7 +122,7 @@ export default function PerfilPage() {
         {/* Tab: Seguridad (MFA) */}
         <TabsContent value="security" className="space-y-4">
           <MFASecuritySection />
-          
+
           {/* Nota informativa */}
           <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
             <CardContent className="pt-6">
@@ -203,7 +133,7 @@ export default function PerfilPage() {
                     Protege tu cuenta con MFA
                   </p>
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    La autenticación de dos factores (MFA) agrega una capa extra de seguridad a tu cuenta. 
+                    La autenticación de dos factores (MFA) agrega una capa extra de seguridad a tu cuenta.
                     Recomendamos encarecidamente habilitarla, especialmente si eres administrador o supervisor.
                   </p>
                 </div>
@@ -214,8 +144,8 @@ export default function PerfilPage() {
 
         {/* Tab: Apariencia */}
         <TabsContent value="appearance">
-          <PersonalAppearanceSettings 
-            userId={userDetails?.id} 
+          <PersonalAppearanceSettings
+            userId={userDetails?.id}
             initialColorPerfil={userDetails?.color_perfil}
           />
         </TabsContent>

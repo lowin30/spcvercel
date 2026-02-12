@@ -8,8 +8,9 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Moon, Sun, Monitor, Type, Palette } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase-client"
+// import { createClient } from "@/lib/supabase-client" // Removed: Client-side write fails due to RLS
 import { useToast } from "@/components/ui/use-toast"
+import { actualizarAparienciaUsuario } from "@/app/actions/perfil-actions"
 
 interface PersonalAppearanceSettingsProps {
   userId: string
@@ -23,7 +24,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
   const [colorPerfil, setColorPerfil] = useState<string>(initialColorPerfil || '#3498db')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
+  // const supabase = createClient() // Removed
 
   const coloresPerfil = [
     { name: 'Azul', value: '#3498db', class: 'bg-blue-600' },
@@ -51,7 +52,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
 
   const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
     const root = document.documentElement
-    
+
     if (newTheme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
       root.classList.remove('light', 'dark')
@@ -64,7 +65,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
 
   const applyFontSize = (size: 'small' | 'medium' | 'large') => {
     const root = document.documentElement
-    
+
     switch (size) {
       case 'small':
         root.style.fontSize = '14px'
@@ -82,7 +83,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
     setTheme(newTheme)
     localStorage.setItem('theme-mode', newTheme)
     applyTheme(newTheme)
-    
+
     toast({
       title: "Tema actualizado",
       description: "El tema se ha aplicado correctamente",
@@ -93,7 +94,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
     setFontSize(size)
     localStorage.setItem('font-size', size)
     applyFontSize(size)
-    
+
     toast({
       title: "Tamaño de texto actualizado",
       description: "El tamaño se ha aplicado correctamente",
@@ -101,38 +102,35 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
   }
 
   const handleColorPerfilChange = async (color: string) => {
+    // 1. Optimistic Update (UI changes immediately)
+    const previousColor = colorPerfil
+    setColorPerfil(color)
+    setSaving(true)
+
     try {
-      setSaving(true)
-      setColorPerfil(color)
-      
-      // Guardar en base de datos
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ color_perfil: color })
-        .eq('id', userId)
-      
-      if (error) {
-        console.error("Error al guardar color de perfil:", error)
-        toast({
-          title: "Error",
-          description: "No se pudo guardar el color de perfil",
-          variant: "destructive",
-        })
-        return
+      // 2. Server Action Call (Write-Back Bridge)
+      const result = await actualizarAparienciaUsuario(color)
+
+      if (!result.ok) {
+        throw new Error(result.error || "Error al guardar color")
       }
-      
+
       toast({
         title: "Color de perfil actualizado",
         description: "Tu color de perfil se ha guardado correctamente",
       })
-      
-      // Refrescar la página para actualizar el color en el menú
+
+      // 3. Sync Server State (optional but good for consistency)
       router.refresh()
-    } catch (err) {
+
+    } catch (err: any) {
       console.error("Error inesperado:", err)
+      // 4. Revert Optimistic Update
+      setColorPerfil(previousColor)
+
       toast({
         title: "Error",
-        description: "Error inesperado al guardar el color",
+        description: err.message || "Error inesperado al guardar el color",
         variant: "destructive",
       })
     } finally {
@@ -165,7 +163,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
               <Sun className="h-5 w-5 md:h-6 md:w-6" />
               <span className="text-xs md:text-sm font-medium">Claro</span>
             </button>
-            
+
             <button
               onClick={() => handleThemeChange('dark')}
               className={cn(
@@ -177,7 +175,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
               <Moon className="h-5 w-5 md:h-6 md:w-6" />
               <span className="text-xs md:text-sm font-medium">Oscuro</span>
             </button>
-            
+
             <button
               onClick={() => handleThemeChange('system')}
               className={cn(
@@ -197,7 +195,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
               <Label>Modo Oscuro</Label>
               <p className="text-xs md:text-sm text-muted-foreground">Activar manualmente el modo oscuro</p>
             </div>
-            <Switch 
+            <Switch
               checked={theme === 'dark'}
               onCheckedChange={(checked) => handleThemeChange(checked ? 'dark' : 'light')}
               disabled={saving}
@@ -230,7 +228,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
                 </SelectContent>
               </Select>
             </div>
-            
+
             {/* Vista previa */}
             <div className="rounded-lg border p-3 md:p-4 bg-muted/30">
               <p className="text-xs md:text-sm text-muted-foreground mb-2">Vista previa:</p>
@@ -270,7 +268,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
                 </button>
               ))}
             </div>
-            
+
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-xs md:text-sm text-blue-800 dark:text-blue-200">
                 <strong>💡 Información:</strong> El color de perfil se guarda en tu cuenta y se sincroniza en todos tus dispositivos.
