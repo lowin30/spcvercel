@@ -11,6 +11,9 @@ interface DescopeUserData {
     phone?: string
 }
 
+import { cookies } from 'next/headers'
+import { descopeClient } from './descope-client'
+
 /**
  * sincroniza datos del usuario desde descope a la tabla local de supabase.
  * usa service role para bypass de RLS.
@@ -18,6 +21,28 @@ interface DescopeUserData {
  */
 export async function syncDescopeUser(userData: DescopeUserData) {
     try {
+        // v51.1: validacion de sesion server-side
+        const cookieStore = cookies()
+        const sessionToken = cookieStore.get('DS')?.value
+
+        if (!sessionToken) {
+            console.error('spc: no session token (DS cookie) found in sync')
+            return { ok: false, error: 'no_session_token' }
+        }
+
+        if (descopeClient) {
+            try {
+                // valida que el token sea legitimo y no haya expirado
+                await descopeClient.validateSession(sessionToken)
+                console.log('spc: session validated successfully')
+            } catch (validationError) {
+                console.error('spc: session validation failed', validationError)
+                return { ok: false, error: 'invalid_session' }
+            }
+        } else {
+            console.warn('spc: descope client not initialized, skipping validation')
+        }
+
         if (!supabaseUrl || !serviceKey) {
             console.error('spc: variables de entorno supabase no configuradas')
             return { ok: false, error: 'config' }
