@@ -54,7 +54,7 @@ export default function LoginPage() {
         <CardContent className="p-0">
           <div className="descope-container min-h-[400px]">
             <Descope
-              projectId="P39Y887u1otOQcg8ni38s878J2nT"
+              projectId="P39Y887u1otOQcg8nI38s878J2nT"
               flowId="sign-up-or-in"
               onSuccess={(e) => {
                 console.log('autenticacion exitosa:', e.detail.user)

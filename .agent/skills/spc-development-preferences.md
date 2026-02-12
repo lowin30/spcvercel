@@ -9,6 +9,10 @@ description: User's development preferences and coding philosophy for SPC projec
 
 **ALWAYS PREFER REUSING EXISTING COMPONENTS OVER CREATING NEW ONES**
 
+## 🗣️ Language Preference
+- **ALWAYS communicate in Spanish** (Español) unless explicitly requested otherwise.
+- Code comments can be in English or Spanish, but user communication must be Spanish.
+
 ## 📋 Development Rules
 
 ### 1. Component Reuse (CRITICAL)
