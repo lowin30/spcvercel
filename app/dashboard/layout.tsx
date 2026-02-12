@@ -122,15 +122,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             DEBUG: User={descopeUser ? 'OK' : 'NULL'}, Email={descopeUser?.email || 'NULL'}
           </div>
           <Button
-            onClick={() => {
-              import('@descope/nextjs-sdk/client').then(({ useDescope }) => {
-                // Hacky way to logout if hook not available directly here? 
-                // actually we can use window.location or clear cookies
-                document.cookie.split(";").forEach((c) => {
-                  document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-                });
-                window.location.href = '/login';
-              })
+            onClick={async () => {
+              await sdk.logout()
+              window.location.href = '/login'
             }}
             variant="destructive"
           >
