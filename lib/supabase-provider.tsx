@@ -24,8 +24,12 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const getInitialUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+      } catch {
+        // descope maneja auth, supabase session puede no existir
+      }
       setLoading(false);
     };
 
@@ -34,14 +38,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
       setLoading(false);
-
-      if (event === "SIGNED_OUT") {
-        router.push("/login");
-      }
-      // Opcional: Considerar router.refresh() para otros eventos si es necesario para Server Components
-      // if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-      //   router.refresh();
-      // }
+      // no redirigir en SIGNED_OUT — descope maneja la sesion
     });
 
     return () => {

@@ -25,44 +25,31 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
   const [colorPerfil, setColorPerfil] = useState<string>('#3498db')
 
   useEffect(() => {
-    const fetchUserId = async () => {
+    const fetchUserProfile = async () => {
       try {
+        if (!userDetails?.email) return
+
         const supabase = createClient()
+        if (!supabase) return
 
-        // Verificar que el cliente se haya creado correctamente
-        if (!supabase) {
-          console.error('Error: No se pudo crear el cliente Supabase en DashboardShell')
-          return
-        }
+        // buscar por email (no por supabase auth id)
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('id, color_perfil')
+          .eq('email', userDetails.email)
+          .maybeSingle()
 
-        const { data, error } = await supabase.auth.getUser()
-
-        if (error) {
-          console.error('Error al obtener el usuario:', error)
-          return
-        }
-
-        if (data?.user) {
-          setUserId(data.user.id)
-
-          // Obtener color_perfil del usuario
-          const { data: userData } = await supabase
-            .from('usuarios')
-            .select('color_perfil')
-            .eq('id', data.user.id)
-            .single()
-
-          if (userData?.color_perfil) {
-            setColorPerfil(userData.color_perfil)
-          }
+        if (userData) {
+          setUserId(userData.id)
+          if (userData.color_perfil) setColorPerfil(userData.color_perfil)
         }
       } catch (error) {
-        console.error('Error en fetchUserId:', error)
+        console.error('spc: error en dashboard shell', error)
       }
     }
 
-    fetchUserId()
-  }, [])
+    fetchUserProfile()
+  }, [userDetails?.email])
 
   return (
     <div

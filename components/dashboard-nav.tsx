@@ -3,9 +3,10 @@
 import type React from "react"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
+import { useDescope } from "@descope/nextjs-sdk/client"
 import {
   Building2,
   Users,
@@ -21,6 +22,7 @@ import {
   Clock,
   Receipt,
   User,
+  LogOut,
 } from "lucide-react"
 
 interface NavItem {
@@ -56,6 +58,18 @@ interface DashboardNavProps {
 
 export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: DashboardNavProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const sdk = useDescope()
+
+  const handleLogout = async () => {
+    try {
+      await sdk.logout()
+      console.log('spc: sesion cerrada')
+      router.push('/login')
+    } catch (err) {
+      console.error('spc: error al cerrar sesion', err)
+    }
+  }
 
   const filteredItems = navItems.filter((item) => {
     if (!item.roles) return true
@@ -108,6 +122,13 @@ export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: D
           <div className="text-center">
             <p className="text-[10px] lowercase opacity-50 text-muted-foreground">{userEmail?.toLowerCase()}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors w-full justify-center mt-1"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            cerrar sesion
+          </button>
         </div>
       </div>
     </div>
