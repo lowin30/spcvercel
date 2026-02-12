@@ -38,7 +38,10 @@ export default function RootLayout({
         <meta charSet="UTF-8" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <AuthProvider projectId={process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || "P39Y887u1otOQcg8nI38s878J2nT"}>
+        <AuthProvider
+          projectId={process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || "P39Y887u1otOQcg8nI38s878J2nT"}
+          sessionTokenViaCookie
+        >
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <SupabaseProvider>
               {children}

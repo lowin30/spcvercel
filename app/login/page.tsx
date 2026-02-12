@@ -5,7 +5,8 @@ import { useSession } from '@descope/nextjs-sdk/client'
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
-import { useEffect } from "react"
+import { useEffect, useCallback } from "react"
+import { syncDescopeUser } from "@/lib/descope-sync"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -16,6 +17,26 @@ export default function LoginPage() {
       router.push("/dashboard")
     }
   }, [isAuthenticated, router])
+
+  const handleSuccess = useCallback(async (e: any) => {
+    const user = e.detail?.user
+    console.log('spc: autenticacion ok', user?.email)
+
+    // sync descope → supabase
+    try {
+      await syncDescopeUser({
+        email: user?.email || '',
+        name: user?.name || user?.displayName || '',
+        phone: user?.phone || ''
+      })
+    } catch (err) {
+      console.error('spc: error en sync post-login', err)
+    }
+
+    // forzar refresh de cookies + navegar
+    router.refresh()
+    setTimeout(() => router.push("/dashboard"), 300)
+  }, [router])
 
   if (isSessionLoading) {
     return (
@@ -54,14 +75,10 @@ export default function LoginPage() {
         <CardContent className="p-0">
           <div className="descope-container min-h-[400px]">
             <Descope
-              projectId="P39Y887u1otOQcg8nI38s878J2nT"
               flowId="sign-up-or-in"
-              onSuccess={(e) => {
-                console.log('autenticacion exitosa:', e.detail.user)
-                router.push("/dashboard")
-              }}
+              onSuccess={handleSuccess}
               onError={(e) => {
-                console.error('error en autenticacion:', e)
+                console.error('spc: error autenticacion', e)
               }}
               theme="light"
             />
