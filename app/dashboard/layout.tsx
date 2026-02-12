@@ -5,7 +5,8 @@ import { Toaster } from "sonner"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
 import { AIAssistantGroq } from "@/components/ai-assistant-groq"
-import { useSession, useUser } from "@descope/nextjs-sdk/client"
+import { useSession, useUser, useDescope } from "@descope/nextjs-sdk/client"
+import { Button } from "@/components/ui/button"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -17,7 +18,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [loading, setLoading] = useState(true)
   const [userDetails, setUserDetails] = useState<any>(null)
   const { isAuthenticated, isSessionLoading } = useSession()
-  const { user: descopeUser } = useUser()
+  const { user: descopeUser, isUserLoading } = useUser()
+  const sdk = useDescope()
 
   useEffect(() => {
     // esperar a que descope termine de cargar la sesion
@@ -83,10 +85,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
 
     fetchUserDetails()
-  }, [isSessionLoading, isAuthenticated, descopeUser?.email])
+  }, [isSessionLoading, isUserLoading, isAuthenticated, descopeUser])
 
   // skeleton mientras descope carga la sesion o buscamos datos del usuario
-  if (isSessionLoading || loading) {
+  if (isSessionLoading || isUserLoading || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -104,6 +106,37 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center text-gray-500">redirigiendo al login...</div>
+      </div>
+    )
+  }
+
+  // Si termino de cargar session y user, pero no tenemos usuario valido o email
+  // Mostramos boton de salir para evitar loop infinito
+  if (!isSessionLoading && !isUserLoading && !loading && (!descopeUser || !userDetails)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center flex-col p-4">
+        <div className="bg-red-50 text-red-800 p-6 rounded-lg shadow-md max-w-md text-center">
+          <h2 className="text-lg font-bold mb-2">Error de Sesión</h2>
+          <p className="mb-4">No se pudo cargar la información del usuario.</p>
+          <div className="text-xs text-left bg-gray-100 p-2 rounded mb-4 overflow-auto max-h-32">
+            DEBUG: User={descopeUser ? 'OK' : 'NULL'}, Email={descopeUser?.email || 'NULL'}
+          </div>
+          <Button
+            onClick={() => {
+              import('@descope/nextjs-sdk/client').then(({ useDescope }) => {
+                // Hacky way to logout if hook not available directly here? 
+                // actually we can use window.location or clear cookies
+                document.cookie.split(";").forEach((c) => {
+                  document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                });
+                window.location.href = '/login';
+              })
+            }}
+            variant="destructive"
+          >
+            Cerrar Sesión y Reintentar
+          </Button>
+        </div>
       </div>
     )
   }
