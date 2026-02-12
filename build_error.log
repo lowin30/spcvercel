@@ -1,0 +1,48 @@
+ ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\Central 1\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\Central 1\Downloads\spc7\spc\spc\pnpm-lock.yaml
+
+   Ôû▓ Next.js 15.5.7
+   - Environments: .env.local
+   - Experiments (use with caution):
+     Ô£ô externalDir
+     ┬À serverActions
+
+   Creating an optimized production build ...
+Failed to compile.
+
+./app/dashboard/page.tsx
+Error:   x Expected a semicolon
+     ,-[C:\Users\Central 1\Downloads\spc7\spc\spc\app\dashboard\page.tsx:386:1]
+ 383 |         setRecentBuildings(buildingsData)
+ 384 |       }
+ 385 | 
+ 386 |     } catch (err) {
+     :       ^^^^^
+ 387 |       console.error("Error al cargar datos del dashboard:", err)
+ 388 |       setError("Ocurri├│ un error al cargar los datos del dashboard")
+ 389 |     } finally {
+     `----
+  x Expected ',', got 'fetchDashboardData'
+     ,-[C:\Users\Central 1\Downloads\spc7\spc\spc\app\dashboard\page.tsx:394:1]
+ 391 |     }
+ 392 |   }
+ 393 | 
+ 394 | fetchDashboardData()
+     : ^^^^^^^^^^^^^^^^^^
+ 395 |   }, [descopeUser?.email])
+ 396 | 
+ 397 | // Estado de carga
+     `----
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./app/dashboard/page.tsx
+
+
+> Build failed because of webpack errors
