@@ -37,8 +37,11 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
     const getNombreAdministrador = (id: number | null) => filtros.administradores.find(a => a.id === id)?.nombre || "Sin administrador"
     const getNombreEstado = (id: number | null) => filtros.estados.find(e => e.id === id)?.nombre || "Sin estado"
 
+    // Ensure initialFacturas is array
+    const safeFacturas = initialFacturas || []
+
     const filteredFacturas = useMemo(() => {
-        return initialFacturas.filter(invoice => {
+        return safeFacturas.filter(invoice => {
             // 1. Tab Logic
             if (vistaActual === 'pendientes') {
                 if (invoice.pagada) return false;
@@ -79,13 +82,13 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
 
             return true;
         })
-    }, [initialFacturas, vistaActual, filtroAdmin, filtroEdificio, filtroEstado, searchQuery]);
+    }, [safeFacturas, vistaActual, filtroAdmin, filtroEdificio, filtroEstado, searchQuery]);
 
     // Totals
-    const totalFacturas = initialFacturas.length
-    const totalPendientes = initialFacturas.filter(f => !f.pagada).length
-    const totalPagadas = initialFacturas.filter(f => f.pagada).length
-    const totalVencidas = initialFacturas.filter(f => f.id_estado_nuevo === 4).length
+    const totalFacturas = safeFacturas.length
+    const totalPendientes = safeFacturas.filter(f => !f.pagada).length
+    const totalPagadas = safeFacturas.filter(f => f.pagada).length
+    const totalVencidas = safeFacturas.filter(f => f.id_estado_nuevo === 4).length
     const saldoTotalPendiente = filteredFacturas.filter(f => !f.pagada).reduce((sum, f) => sum + (f.saldo_pendiente || 0), 0)
 
     // Export Data formatting
