@@ -140,7 +140,8 @@ export function TaskWizard({
             console.log("Wizard: Departments loaded", res.data.length)
             setDepartamentos(res.data)
         } else {
-            console.error("Error loading departments")
+            console.error("Error loading departments:", res.message)
+            toast.error("Error al cargar departamentos: " + (res.message || "Desconocido"))
         }
     }
 

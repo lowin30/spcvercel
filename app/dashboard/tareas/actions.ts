@@ -760,6 +760,7 @@ export async function getDepartamentosAction(edificioId?: number) {
     if (error) throw error
     return { success: true, data }
   } catch (error: any) {
+    console.error("Get Departamentos Error:", error)
     return { success: false, message: error.message, data: [] }
   }
 }
@@ -775,6 +776,7 @@ export async function getEdificiosAction() {
     if (error) throw error
     return { success: true, data }
   } catch (error: any) {
+    console.error("Get Edificios Error:", error)
     return { success: false, message: error.message, data: [] }
   }
 }
