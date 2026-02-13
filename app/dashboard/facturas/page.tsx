@@ -32,7 +32,7 @@ export default async function FacturasPage() {
     <div className="space-y-6 container mx-auto py-6">
       <FacturasClientWrapper
         initialFacturas={facturas || []}
-        kpis={kmisData || {}}
+        kpis={kmisData || null}
         filtros={filtrosData || { administradores: [], edificios: [], estados: [] }}
         userRole={rol}
       />
