@@ -82,7 +82,8 @@ export async function getPresupuestosFinales(rol: string, userId: string) {
 }
 
 export async function getPresupuestoFinalConItems(id: number) {
-    const { user, rol } = await validateSessionAndGetUser()
+    const user = await validateSessionAndGetUser()
+    const { rol } = user
 
     if (rol !== 'admin' && rol !== 'supervisor') {
         return null

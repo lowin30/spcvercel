@@ -13,7 +13,8 @@ interface Props {
 }
 
 export default async function EditarPresupuestoFinalPage({ params }: Props) {
-  const { user, rol } = await validateSessionAndGetUser()
+  const user = await validateSessionAndGetUser()
+  const { rol } = user
   const id = parseInt(params.id)
 
   if (isNaN(id)) {

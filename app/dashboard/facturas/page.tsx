@@ -13,7 +13,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import FacturasClientWrapper from "./client-wrapper"
 
 export default async function FacturasPage() {
-  const { user, rol } = await validateSessionAndGetUser()
+  const user = await validateSessionAndGetUser()
+  const { rol } = user
 
   // Security Gate
   if (rol !== 'admin') {

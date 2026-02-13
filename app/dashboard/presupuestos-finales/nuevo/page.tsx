@@ -7,7 +7,8 @@ import PresupuestoFinalFormWrapper from "./form-wrapper" // Wrapper cliente para
 export const dynamic = 'force-dynamic'
 
 export default async function NuevoPresupuestoFinalPage() {
-  const { user, rol } = await validateSessionAndGetUser()
+  const user = await validateSessionAndGetUser()
+  const { rol } = user
 
   if (rol !== "admin") {
     redirect("/dashboard")
