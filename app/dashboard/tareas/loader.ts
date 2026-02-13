@@ -464,7 +464,6 @@ export async function getCatalogsForWizard() {
         currentUserId
     }
 }
-}
 
 export async function getPresupuestosBase(tareaIds: number[]) {
     if (!tareaIds || tareaIds.length === 0) return {}
