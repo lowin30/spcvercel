@@ -429,3 +429,54 @@ export async function getTareaDetail(id: string) {
         throw new Error("No se pudo cargar el detalle de la tarea")
     }
 }
+
+export async function getCatalogsForWizard() {
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get("DS")?.value
+    let currentUserRol = null
+
+    if (sessionToken) {
+        try {
+            const authInfo = await descopeClient.validateSession(sessionToken)
+            const email = authInfo.token.email || authInfo.token.sub
+            if (email) {
+                const { data: usuario } = await supabaseAdmin.from('usuarios').select('rol').ilike('email', email).single()
+                currentUserRol = usuario?.rol
+            }
+        } catch { }
+    }
+
+    const [adminsRes, supervisorsRes, workersRes] = await Promise.all([
+        supabaseAdmin.from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
+        supabaseAdmin.from('usuarios').select('id, email, code').eq('rol', 'supervisor'),
+        supabaseAdmin.from('usuarios').select('id, email, code').eq('rol', 'trabajador')
+    ])
+
+    return {
+        administradores: adminsRes.data || [],
+        supervisores: supervisorsRes.data || [],
+        trabajadores: workersRes.data || [],
+        currentUserRol
+    }
+}
+
+export async function getPresupuestosBase(tareaIds: number[]) {
+    if (!tareaIds || tareaIds.length === 0) return {}
+
+    const { data } = await supabaseAdmin
+        .from('presupuestos_base')
+        .select('*')
+        .in('id_tarea', tareaIds)
+        .order('created_at', { ascending: false })
+
+    // Return Record<tareaId, PresupuestoBase>
+    const map: Record<number, any> = {}
+    if (data) {
+        data.forEach((pb: any) => {
+            if (!map[pb.id_tarea]) {
+                map[pb.id_tarea] = pb
+            }
+        })
+    }
+    return map
+}

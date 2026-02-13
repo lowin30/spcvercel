@@ -54,9 +54,33 @@ export async function approvePresupuestoBase(id: number) {
 
     revalidatePath('/dashboard/presupuestos-base')
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error approving presupuesto base:", error)
-    return { success: false, error: "Error al aprobar presupuesto" }
+    return { success: false, error: error.message || "Error al aprobar presupuesto" }
+  }
+}
+
+export async function anularAprobacionPresupuestoBase(id: number) {
+  try {
+    const user = await validateSessionAndGetUser()
+    const { rol } = user
+
+    if (rol !== 'admin') {
+      return { success: false, error: "Solo administradores pueden anular la aprobación" }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('presupuestos_base')
+      .update({ aprobado: false, fecha_aprobacion: null })
+      .eq('id', id)
+
+    if (error) throw error
+
+    revalidatePath('/dashboard/presupuestos-base')
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error anular approving presupuesto base:", error)
+    return { success: false, error: error.message || "Error al anular aprobación" }
   }
 }
 
@@ -77,9 +101,9 @@ export async function deletePresupuestoBase(id: number) {
 
     revalidatePath('/dashboard/presupuestos-base')
     return { success: true }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error deleting presupuesto base:", error)
-    return { success: false, error: "Error al eliminar presupuesto" }
+    return { success: false, error: error.message || "Error al eliminar presupuesto" }
   }
 }
 
