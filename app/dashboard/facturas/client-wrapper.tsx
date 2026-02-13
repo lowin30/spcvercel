@@ -214,7 +214,7 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
 
             {/* List */}
             <div className="rounded-md border">
-                <InvoiceList facturas={filteredFacturas} userRole={userRole} />
+                <InvoiceList invoices={filteredFacturas} />
             </div>
         </>
     )
