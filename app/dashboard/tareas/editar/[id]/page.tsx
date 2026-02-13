@@ -74,9 +74,9 @@ export default async function EditarTareaPage({ params: paramsPromise }: EditarT
         mode="edit"
         taskId={Number(id)}
         defaultValues={mappedTask}
-        administradores={administradores}
-        supervisores={supervisores}
-        trabajadores={trabajadores}
+        administradores={administradores?.map(a => ({ ...a, id: a.id.toString() }))}
+        supervisores={supervisores?.map(s => ({ ...s, id: s.id.toString() }))}
+        trabajadores={trabajadores?.map(t => ({ ...t, id: t.id.toString() }))}
         currentUserRol={currentUserRol || undefined}
         currentUserId={currentUserId || undefined}
       />
