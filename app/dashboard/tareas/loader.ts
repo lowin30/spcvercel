@@ -67,7 +67,7 @@ export async function getTareasData() {
             throw new Error("Usuario no registrado en el sistema SPC");
         }
 
-        const { id: userId, rol, id_delegacion } = usuario;
+        const { id: userId, rol } = usuario;
 
         // 3. Service Role Query (Bypass RLS) con Filtro Manual por Rol
         // Reemplazando 'vista_tareas_completa' y logica de 'vista_tareas_admin/supervisor'
@@ -90,22 +90,12 @@ export async function getTareasData() {
             query = query.neq('id_estado_nuevo', 9);
         }
         else if (rol === 'supervisor') {
-            // Supervisor ve tareas de su delegacion (si aplica) y asignadas/relevantes
+            // Supervisor ve tareas asignadas/relevantes
             // Logica replicada de 'vista_tareas_supervisor'
 
-            // a) Filtro Delegacion
-            if (id_delegacion) {
-                query = query.eq('id_delegacion', id_delegacion);
-            }
-
             // b) Filtro Estado/Flujo (Replicando logica de vista_tareas_supervisor)
-            // Esto es dificil de replicar con un simple .filter() de supabase si es logica OR compleja.
-            // Opcion A: Traer todo y filtrar en memoria (costoso si hay muchas tareas)
-            // Opcion B: Usar RPC filtrada si existiera.
-            // Opcion C: Confiar en que 'vista_tareas_supervisor' hace el trabajo sucio y usarla.
-
             // Veredicto Audit: 'vista_tareas_supervisor' existe. Usémosla via Service Role para simplificar.
-            return await getTareasFromView('vista_tareas_supervisor', userId, id_delegacion);
+            return await getTareasFromView('vista_tareas_supervisor', userId);
         }
         else if (rol === 'trabajador') {
             // Trabajador solo ve asignadas
@@ -143,7 +133,7 @@ export async function getTareasData() {
 }
 
 // Helper para usar vistas especificas si el rol es complejo
-async function getTareasFromView(viewName: string, userId: string, delegacionId: any) {
+async function getTareasFromView(viewName: string, userId: string) {
     // Nota: Las vistas SQL suelen depender de auth.uid() si no estan bien hechas.
     // 'vista_tareas_supervisor' usaba logica pura de estados, no de auth.uid().
     // EXCEPTO que el supervisor solo ve "sus" tareas?
@@ -164,10 +154,6 @@ async function getTareasFromView(viewName: string, userId: string, delegacionId:
     let query = supabaseAdmin.from(viewName).select('*');
 
     // 3. Aplicar interseccion: Tareas del flujo (vista) AND Asignadas al supervisor
-    // Si la vista ya filtra por delegacion, bien. Si no, agregamos.
-    if (delegacionId) {
-        query = query.eq('id_delegacion', delegacionId);
-    }
 
     // Filtro critico: Solo las asignadas (si es requerimiento de negocio)
     // El codigo legado parecia mostrar todas las de la delegacion?

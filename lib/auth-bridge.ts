@@ -8,7 +8,6 @@ export type SPCUser = {
     id: string
     rol: string
     email: string
-    id_delegacion?: number | null
 }
 
 /**
@@ -23,14 +22,13 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
 
     if (!sessionToken) {
         // Log para debuguear bugs de Vercel (cookie missing)
-        console.error("Auth Bridge: No Session Token (DS Cookie missing). Cookies presentes:", cookieStore.getAll().map(c => c.name))
+        console.error("Auth Bridge: No Session Token (DS Cookie missing). Cookies:", cookieStore.getAll().map(c => c.name))
         redirect('/login')
     }
 
     let authInfo;
     try {
         // 1. Validar Token Descope
-        // Nota: descopeClient.validateSession lanza error si el token es invalido/expiro
         authInfo = await descopeClient.validateSession(sessionToken)
     } catch (error) {
         console.error("Auth Bridge: Session Validation Failed (Expired/Invalid)", error)
@@ -47,7 +45,7 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
     // 3. Buscar Usuario en DB (Bypass RLS)
     const { data: usuario, error } = await supabaseAdmin
         .from('usuarios')
-        .select('id, rol, id_delegacion, email')
+        .select('id, rol, email')
         .ilike('email', email)
         .single()
 
