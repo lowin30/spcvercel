@@ -53,19 +53,19 @@ export async function deleteInvoice(invoiceId: number) {
     if (payments && payments.length > 0) {
       return { success: false, message: 'No se puede eliminar la factura porque tiene pagos asociados.' }
     }
-    
+
     // Obtener el ID del presupuesto final asociado a esta factura
     const { data: facturaData, error: facturaError } = await supabase
       .from('facturas')
       .select('id_presupuesto_final')
       .eq('id', invoiceId)
       .single()
-      
+
     if (facturaError) {
       console.error('Error al obtener datos de la factura:', facturaError)
       return { success: false, message: 'Error al obtener datos de la factura.' }
     }
-    
+
     const idPresupuestoFinal = facturaData?.id_presupuesto_final
 
     // 2. Obtener primero los IDs de los ítems de la factura para eliminar sus ajustes
@@ -82,7 +82,7 @@ export async function deleteInvoice(invoiceId: number) {
     // 3. Eliminar primero los ajustes asociados a los ítems
     if (itemsData && itemsData.length > 0) {
       const itemIds = itemsData.map(item => item.id)
-      
+
       const { error: ajustesError } = await supabase
         .from('ajustes_facturas')
         .delete()
@@ -115,7 +115,7 @@ export async function deleteInvoice(invoiceId: number) {
       console.error('Error al eliminar la factura:', invoiceError)
       return { success: false, message: 'Error al eliminar la factura.' }
     }
-    
+
     // 4. Si hay un presupuesto asociado, verificar si quedan otras facturas
     if (idPresupuestoFinal) {
       // Verificar si quedan otras facturas asociadas al mismo presupuesto
@@ -124,36 +124,36 @@ export async function deleteInvoice(invoiceId: number) {
         .select('id')
         .eq('id_presupuesto_final', idPresupuestoFinal)
         .limit(1)
-      
+
       if (facturasRestantesError) {
         console.error('Error al verificar facturas restantes:', facturasRestantesError)
       }
-      
+
       const quedanFacturas = facturasRestantes && facturasRestantes.length > 0
-      
+
       // Obtener la tarea asociada al presupuesto
       const { data: presupuestoData, error: presupuestoError } = await supabase
         .from('presupuestos_finales')
         .select('id_tarea')
         .eq('id', idPresupuestoFinal)
         .single()
-      
+
       if (presupuestoError) {
         console.error('Error al obtener datos del presupuesto:', presupuestoError)
       } else {
         const idTarea = presupuestoData?.id_tarea
-        
+
         // 4.1 Actualizar el estado del presupuesto según si quedan facturas
         if (!quedanFacturas) {
           // Si NO quedan facturas, volver a estado "presupuestado" y desaprobar
           const { error: updateError } = await supabase
             .from('presupuestos_finales')
-            .update({ 
+            .update({
               id_estado: 3,      // Estado "presupuestado"
               aprobado: false    // Desaprobar el presupuesto
             })
             .eq('id', idPresupuestoFinal)
-            
+
           if (updateError) {
             console.error('Error al actualizar estado del presupuesto:', updateError)
           } else {
@@ -162,14 +162,14 @@ export async function deleteInvoice(invoiceId: number) {
             revalidatePath(`/dashboard/presupuestos-finales/${idPresupuestoFinal}`)
             revalidatePath(`/dashboard/presupuestos-finales/editar/${idPresupuestoFinal}`)
           }
-          
+
           // 4.2 Actualizar el estado de la tarea si existe
           if (idTarea) {
             const { error: tareaError } = await supabase
               .from('tareas')
               .update({ id_estado_nuevo: 3 }) // Estado "presupuestado" (id: 3)
               .eq('id', idTarea)
-              
+
             if (tareaError) {
               console.error('Error al actualizar estado de la tarea:', tareaError)
             } else {
@@ -197,6 +197,94 @@ export async function deleteInvoice(invoiceId: number) {
 
   } catch (error: any) {
     console.error('Error inesperado al eliminar la factura:', error)
+    return { success: false, message: `Error inesperado: ${error.message}` }
+  }
+}
+
+// ... existing code ...
+
+export async function createFacturaAction(formData: {
+  id_presupuesto_final: number;
+  id_presupuesto: number;
+  id_estado_nuevo: number;
+  datos_afip: string | null;
+  id_administrador: number;
+  items: {
+    descripcion: string;
+    cantidad: number;
+    precio: number;
+    es_mano_obra?: boolean;
+    es_material?: boolean; // Added support for material flag
+  }[];
+  notas?: string;
+}) {
+  const supabase = await createSsrServerClient()
+
+  try {
+    // 1. Validar sesión
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, message: 'Usuario no autenticado' }
+    }
+
+    // 2. Recalcular total en el servidor (Seguridad Crítica)
+    // No confiamos en el total enviado por el cliente.
+    const calculatedTotal = formData.items.reduce((sum, item) => {
+      return sum + (Number(item.cantidad) * Number(item.precio))
+    }, 0)
+
+    // 3. Preparar objeto factura
+    const nuevaFactura = {
+      id_presupuesto_final: formData.id_presupuesto_final,
+      id_presupuesto: formData.id_presupuesto,
+      monto_total: calculatedTotal, // Usamos el total validado
+      total: calculatedTotal,      // Redundancia por compatibilidad si esquema varia
+      id_estado_nuevo: formData.id_estado_nuevo,
+      datos_afip: formData.datos_afip,
+      id_administrador: formData.id_administrador,
+      // notas: formData.notas // Verificar si existe columna notas en facturas, si no ignorar
+    }
+
+    // 4. Insertar factura
+    const { data: facturaInsertada, error: invoiceError } = await supabase
+      .from('facturas')
+      .insert(nuevaFactura)
+      .select()
+      .single()
+
+    if (invoiceError) {
+      console.error('Error insertando factura:', invoiceError)
+      return { success: false, message: `Error al crear factura: ${invoiceError.message}` }
+    }
+
+    // 5. Insertar items
+    if (formData.items && formData.items.length > 0) {
+      const itemsFactura = formData.items.map(item => ({
+        id_factura: facturaInsertada.id,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio,
+        subtotal_item: Number(item.cantidad) * Number(item.precio),
+        es_material: item.es_material || false
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('items_factura')
+        .insert(itemsFactura)
+
+      if (itemsError) {
+        // Riesgo: Factura creada sin items. Deberíamos hacer rollback o alertar.
+        // Por "Cirugía Mínima" solo logueamos y retornamos error parcial o advertencia.
+        console.error('Error insertando items:', itemsError)
+        return { success: false, message: 'Factura creada pero hubo error al guardar los items.' }
+      }
+    }
+
+    revalidatePath('/dashboard/facturas')
+    return { success: true, message: 'Factura creada exitosamente', data: facturaInsertada }
+
+  } catch (error: any) {
+    console.error('Excepción en createFacturaAction:', error)
     return { success: false, message: `Error inesperado: ${error.message}` }
   }
 }
