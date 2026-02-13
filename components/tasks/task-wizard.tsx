@@ -159,7 +159,7 @@ export function TaskWizard({
 
             if (res.success) {
                 console.log("Wizard: Buildings loaded", res.data.length)
-                setEdificios(res.data)
+                setEdificios(res.data.map((e: any) => ({ ...e, id: e.id.toString() })))
             } else {
                 console.error("Error loading buildings")
             }
