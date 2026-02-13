@@ -1,5 +1,5 @@
 import { createSsrServerClient } from "@/lib/ssr-server"
-import { validateSessionAndGetUser } from "@/lib/rbac"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 
 export async function getFacturas(rol: string, userId: string) {
     const supabase = await createSsrServerClient()

@@ -1,7 +1,7 @@
 "use server"
 
 import { createSsrServerClient } from '@/lib/ssr-server'
-import { validateSessionAndGetUser } from '@/lib/rbac'
+import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
 
 // RBAC Check Helper (Private)

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useState } from "react"
+
 // REMOVED: useSupabase
 import { postCommentAction } from "@/app/dashboard/tareas/actions"
 import { Button } from "@/components/ui/button"
@@ -23,8 +23,7 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
   const [contenido, setContenido] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [files, setFiles] = useState<File[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
+
   // const { supabase, user } = useSupabase() -> Removed, using Action
 
   const { toast } = useToast()

@@ -1,6 +1,6 @@
 "use server"
 
-import { convertirPresupuestoADosFacturas as secureConvert, desaprobarPresupuesto as secureDesaprobar } from "@/app/actions/facturas-actions"
+import { convertirPresupuestoADosFacturas as secureConvert } from "@/app/actions/facturas-actions"
 
 // Re-export or Wrap new actions to maintain compatibility if imports exist, 
 // or simpler: just redirect imports in codebase later.
