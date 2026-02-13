@@ -749,10 +749,10 @@ export async function getDepartamentosAction(edificioId?: number) {
   try {
     await validateSessionAndGetUser()
 
-    let query = supabaseAdmin.from('departamentos').select('id, codigo, id_edificio, piso, propietario')
+    let query = supabaseAdmin.from('departamentos').select('id, codigo, edificio_id, piso, propietario')
 
     if (edificioId) {
-      query = query.eq('id_edificio', edificioId)
+      query = query.eq('edificio_id', edificioId)
     }
 
     const { data, error } = await query.order('piso').order('codigo')
