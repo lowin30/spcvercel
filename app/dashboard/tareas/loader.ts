@@ -426,10 +426,28 @@ export async function getCatalogsForWizard() {
             const authInfo = await descopeClient.validateSession(sessionToken)
             const email = authInfo.token.email || authInfo.token.sub
             if (email) {
-                const { data: usuario } = await supabaseAdmin.from('usuarios').select('rol').ilike('email', email).single()
+                const { data: usuario } = await supabaseAdmin.from('usuarios').select('id, rol').ilike('email', email).single()
                 currentUserRol = usuario?.rol
+                // Also capture ID
+                if (usuario?.id) {
+                    // We need to return currentUserId to the page
+                }
             }
         } catch { }
+    }
+
+    // Reuse the logic to get currentUserId properly
+    let currentUserId = null;
+    if (sessionToken) {
+        const authInfo = await descopeClient.validateSession(sessionToken);
+        const email = authInfo.token.email || authInfo.token.sub;
+        if (email) {
+            const { data: u } = await supabaseAdmin.from('usuarios').select('id, rol').ilike('email', email).single();
+            if (u) {
+                currentUserRol = u.rol;
+                currentUserId = u.id;
+            }
+        }
     }
 
     const [adminsRes, supervisorsRes, workersRes] = await Promise.all([
@@ -442,8 +460,10 @@ export async function getCatalogsForWizard() {
         administradores: adminsRes.data || [],
         supervisores: supervisorsRes.data || [],
         trabajadores: workersRes.data || [],
-        currentUserRol
+        currentUserRol,
+        currentUserId
     }
+}
 }
 
 export async function getPresupuestosBase(tareaIds: number[]) {

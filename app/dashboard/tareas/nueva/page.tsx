@@ -5,7 +5,7 @@ import Link from "next/link"
 import { getCatalogsForWizard } from "../loader"
 
 export default async function NuevaTareaPage() {
-  const { administradores, supervisores, trabajadores, currentUserRol } = await getCatalogsForWizard()
+  const { administradores, supervisores, trabajadores, currentUserRol, currentUserId } = await getCatalogsForWizard()
 
   // Note: Server Components don't have router.push. We use Link or client-side navigation in children.
   // The Wizard uses client-side router for success redirect.
@@ -26,6 +26,7 @@ export default async function NuevaTareaPage() {
         supervisores={supervisores}
         trabajadores={trabajadores}
         currentUserRol={currentUserRol || undefined}
+        currentUserId={currentUserId || undefined}
       // onSuccess handled by Wizard default or we can pass a redirect action if needed (but Wizard uses router).
       />
     </div>

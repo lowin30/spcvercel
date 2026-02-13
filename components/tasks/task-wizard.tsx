@@ -39,6 +39,12 @@ interface TaskWizardProps {
 
 // ... existing WizardState ...
 
+const STEPS = [
+    { id: 1, title: 'Ubicación', icon: Building2 },
+    { id: 2, title: 'Detalles', icon: FileText },
+    { id: 3, title: 'Confirmación', icon: CheckCircle }
+]
+
 export function TaskWizard({
     onSuccess,
     defaultValues,
