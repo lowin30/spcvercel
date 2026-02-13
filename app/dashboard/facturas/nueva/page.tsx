@@ -114,9 +114,7 @@ export default async function NuevaFacturaPage({
   )
 }
 
-import { DashboardShell } from "@/components/dashboard-shell"
-import { toast } from "sonner"
-import { EstadoInteractivo } from "@/components/estado-interactivo"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input";
