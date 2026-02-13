@@ -15,7 +15,7 @@ export default async function EditarTareaPage({ params: paramsPromise }: EditarT
   const { id } = await paramsPromise;
 
   // 1. Fetch Catalogs (Shared)
-  const { administradores, supervisores, trabajadores, currentUserRol } = await getCatalogsForWizard()
+  const { administradores, supervisores, trabajadores, currentUserRol, currentUserId } = await getCatalogsForWizard()
 
   // 2. Fetch Task Data (Single)
   // We need specific task for edit. getTareasData() returns list.
@@ -78,6 +78,7 @@ export default async function EditarTareaPage({ params: paramsPromise }: EditarT
         supervisores={supervisores}
         trabajadores={trabajadores}
         currentUserRol={currentUserRol || undefined}
+        currentUserId={currentUserId || undefined}
       />
     </div>
   );
