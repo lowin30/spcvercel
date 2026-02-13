@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -9,10 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { toast } from "@/hooks/use-toast"
-import { createClient } from "@/lib/supabase-client"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Plus, Loader2 } from "lucide-react"
+import { createClient } from "@/lib/supabase-client" // Keep for client-side task creation logic if needed, or refactor later. Kept for now as createNuevaTarea uses it.
+import { createPresupuestoBase, updatePresupuestoBase } from "@/app/dashboard/presupuestos-base/actions"
 
 interface Tarea {
   id: number
@@ -30,7 +30,7 @@ interface PresupuestoBaseFormProps {
 
 export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuccess, onCancel }: PresupuestoBaseFormProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = createClient() // Still used for creating tasks client-side for now
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [tareaId, setTareaId] = useState(presupuesto?.id_tarea?.toString() || "")
@@ -69,11 +69,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
     e.preventDefault()
 
     if (!tareaId || !materiales || !manoObra) {
-      toast({
-        title: "Error",
-        description: "Por favor completa todos los campos requeridos",
-        variant: "destructive",
-      })
+      toast.error("Por favor completa todos los campos requeridos")
       return
     }
 
@@ -81,9 +77,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
 
     try {
       if (presupuesto) {
-        // UPDATE: Solo se envían los campos que se pueden modificar desde el formulario.
-        // 'total' es una columna generada y no se debe incluir.
-        // 'code', 'id_supervisor' y 'aprobado' no deben cambiar en una actualización.
+        // UPDATE con Server Action
         const updateData = {
           id_tarea: Number.parseInt(tareaId),
           materiales: Number.parseInt(materiales),
@@ -91,64 +85,40 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
           nota_pb: notaPb,
         };
 
-        const { error } = await supabase
-          .from("presupuestos_base")
-          .update(updateData)
-          .eq("id", presupuesto.id);
+        const result = await updatePresupuestoBase(presupuesto.id, updateData);
 
-        if (error) throw error;
+        if (!result.success) throw new Error(result.error);
 
-        toast({
-          title: "Presupuesto actualizado",
-          description: "El presupuesto base ha sido actualizado correctamente",
-        });
+        toast.success("El presupuesto base ha sido actualizado correctamente")
 
       } else {
-        // CREATE: Se genera un nuevo código y se establecen los valores iniciales.
-        // 'total' se omite para que la base de datos lo calcule.
-        const now = new Date();
-        const code = `PB-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, "0")}${now.getDate().toString().padStart(2, "0")}-${Math.floor(
-          Math.random() * 1000,
-        )
-          .toString()
-          .padStart(3, "0")}`;
-
+        // CREATE con Server Action
         const createData = {
-          code,
           id_tarea: Number.parseInt(tareaId),
           materiales: Number.parseInt(materiales),
           mano_obra: Number.parseInt(manoObra),
-          id_supervisor: userId,
           nota_pb: notaPb,
-          aprobado: false,
-
         };
 
-        const { data, error } = await supabase.from("presupuestos_base").insert(createData).select();
+        const result = await createPresupuestoBase(createData);
 
-        if (error) throw error;
+        if (!result.success) throw new Error(result.error);
 
-        toast({
-          title: "Presupuesto creado",
-          description: "El presupuesto base ha sido creado correctamente",
-        });
+        toast.success("El presupuesto base ha sido creado correctamente")
 
-        // Get tarea details for the callback
+        // Callback handling
         const tareaSeleccionada = tareas.find(t => t.id === Number.parseInt(tareaId));
-
-        // Call onSuccess callback if provided (for chat widget integration)
-        if (onSuccess && data && data[0]) {
+        if (onSuccess && result.data) {
           onSuccess({
-            ...data[0],
+            ...result.data,
             tarea_titulo: tareaSeleccionada?.titulo || "Tarea",
             tarea_code: tareaSeleccionada?.code || "",
             total: totalCalculado
           });
-          return; // Skip router navigation when using callback
+          return;
         }
       }
 
-      // Redireccionar a la página de presupuestos base (solo si no hay callback)
       if (!onSuccess) {
         router.push("/dashboard/presupuestos-base");
         router.refresh();
@@ -156,31 +126,22 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
 
     } catch (error: any) {
       console.error("Error al guardar presupuesto base:", error);
-      toast({
-        title: "Error al guardar",
-        description: error.message || "Ocurrió un error al guardar el presupuesto base",
-        variant: "destructive",
-      });
+      toast.error(error.message || "Ocurrió un error al guardar el presupuesto base")
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  // Crear nueva tarea
+  // Crear nueva tarea (Mantenemos logica cliente por ahora para no romper flujo modal complejo, podria refactorizarse luego)
   const crearNuevaTarea = async () => {
     if (!nuevaTarea.titulo || !nuevaTarea.id_edificio) {
-      toast({
-        title: "Error",
-        description: "Por favor completa todos los campos requeridos",
-        variant: "destructive",
-      })
+      toast.error("Por favor completa todos los campos requeridos")
       return
     }
 
     setCreandoTarea(true)
 
     try {
-      // Generar código único para la tarea
       const now = new Date()
       const code = `T-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, "0")}${Math.floor(
         Math.random() * 1000,
@@ -198,23 +159,15 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
 
       if (error) throw error
 
-      // Actualizar el estado de tareas añadiendo la nueva tarea
       const nuevaTareaCreada = data[0]
       setTareaId(nuevaTareaCreada.id.toString())
 
-      toast({
-        title: "Tarea creada",
-        description: "La tarea ha sido creada correctamente",
-      })
-
+      toast.success("La tarea ha sido creada correctamente")
       setShowCrearTarea(false)
+      // Idealmente recargar tareas aqui
     } catch (error) {
       console.error("Error al crear tarea:", error)
-      toast({
-        title: "Error",
-        description: "Ocurrió un error al crear la tarea",
-        variant: "destructive",
-      })
+      toast.error("Ocurrió un error al crear la tarea")
     } finally {
       setCreandoTarea(false)
     }
@@ -301,8 +254,13 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
 
       <div className="space-y-2">
         <Label htmlFor="total">Total ($)</Label>
-        {/* Displaying totalCalculado and ensuring it's formatted correctly */}
-        <Input id="total" type="text" value={totalCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} disabled className="bg-muted font-semibold" />
+        <Input
+          id="total"
+          type="text"
+          value={totalCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          disabled
+          className="bg-muted font-semibold"
+        />
       </div>
 
       <div className="space-y-2">
@@ -327,7 +285,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting || (!presupuesto && !tareaId) || (presupuesto && !presupuesto.id)}>
+        <Button type="submit" disabled={isSubmitting || (!presupuesto && !tareaId)}>
           {isSubmitting ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
           ) : presupuesto ? (
@@ -338,7 +296,6 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
         </Button>
       </div>
 
-      {/* Diálogo para crear tarea */}
       <Dialog open={showCrearTarea} onOpenChange={setShowCrearTarea}>
         <DialogContent>
           <DialogHeader>

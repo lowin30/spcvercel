@@ -20,41 +20,42 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 // import { UnifiedDeptContactForm } from "@/components/unified-dept-contact-form" // Replaced
 import { QuickDeptCreateForm } from "@/components/quick-dept-create-form"
 
+// ... existing imports ...
+import { getEdificiosAction, getDepartamentosAction } from "@/app/dashboard/tareas/actions"
+
 // --- Tipos ---
 interface TaskWizardProps {
     onSuccess?: (taskId: number, code: string) => void
     defaultValues?: any
     mode?: 'create' | 'edit'
     taskId?: number
+    // Injected Catalogs
+    administradores?: { id: string; nombre: string }[]
+    supervisores?: { id: string; email: string }[]
+    trabajadores?: { id: string; email: string }[]
+    currentUserRol?: string // Optional injection to avoid client-side profile fetch
+    currentUserId?: string
 }
 
-interface WizardState {
-    // Step 1: Contexto
-    id_administrador: string
-    id_edificio: string
-    departamentos_ids: string[]
+// ... existing WizardState ...
 
-    // Step 2: Definición
-    titulo: string
-    descripcion: string
-    prioridad: "baja" | "media" | "alta"
-    id_supervisor: string
-    id_asignado: string // Trabajador
-
-    // Step 3: Scheduling
-    fecha_visita: Date | null
-    id_estado_nuevo: string
-}
-
-const STEPS = [
-    { id: 1, title: "Ubicación", icon: Building2 },
-    { id: 2, title: "Definición", icon: FileText },
-    { id: 3, title: "Confirmación", icon: Calendar },
-]
-
-export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }: TaskWizardProps) {
+export function TaskWizard({
+    onSuccess,
+    defaultValues,
+    mode = 'create',
+    taskId,
+    administradores = [],
+    supervisores = [],
+    trabajadores = [],
+    currentUserRol,
+    currentUserId: initialUserId
+}: TaskWizardProps) {
     const router = useRouter()
-    const supabase = createClient()
+    const supabase = createClient() // Still needed for auth check? Or passed via prop?
+    // We will try to rely on passed props, but keep fallback if not provided?
+    // User requirement: "paginas... deben cargar... y pasarlos".
+    // So we assume they are passed.
+
     const titleInputRef = useRef<HTMLInputElement>(null)
 
     // --- Estado Global del Wizard ---
@@ -74,16 +75,16 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
         ...defaultValues
     })
 
-    // --- Estados de Datos (Selectores) ---
-    const [administradores, setAdministradores] = useState<{ id: string; nombre: string }[]>([])
+    // --- Estados de Datos (Selectores Dinamicos) ---
+    // Administradores, Supervisores, Trabajadores come from props now.
+    // We only manage Edificios and Departamentos internally as they are cascaded.
     const [edificios, setEdificios] = useState<{ id: string; nombre: string }[]>([])
     const [departamentos, setDepartamentos] = useState<{ id: string; codigo: string; propietario?: string }[]>([])
-    const [supervisores, setSupervisores] = useState<{ id: string; email: string }[]>([])
-    const [trabajadores, setTrabajadores] = useState<{ id: string; email: string }[]>([])
 
     // --- Estados de Usuario ---
-    const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+    // Use props if available, else fetch (fallback for safety)
+    const [currentUserRole, setCurrentUserRole] = useState<string | null>(currentUserRol || null)
+    const [currentUserId, setCurrentUserId] = useState<string | null>(initialUserId || null)
 
     // --- Estado Sub-Dialogo Departamento ---
     const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false)
@@ -91,51 +92,49 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
     // --- Efectos de Carga Inicial ---
     useEffect(() => {
         const init = async () => {
-            // 1. Obtener usuario actual
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                setCurrentUserId(user.id)
-                const { data: profile } = await supabase.from('usuarios').select('rol').eq('id', user.id).single()
-                setCurrentUserRole(profile?.rol || null)
+            // Only fetch user if not passed (Legacy support or safety)
+            if (!currentUserId || !currentUserRole) {
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    setCurrentUserId(user.id)
+                    const { data: profile } = await supabase.from('usuarios').select('rol').eq('id', user.id).single()
+                    setCurrentUserRole(profile?.rol || null)
 
-                // Auto-asignar supervisor si es el rol
-                if (profile?.rol === 'supervisor' && mode === 'create') {
-                    setFormData(prev => ({ ...prev, id_supervisor: user.id }))
+                    // Auto-asign supervisor (if logic requires knowing rol inside component)
+                    if (profile?.rol === 'supervisor' && mode === 'create') {
+                        setFormData(prev => ({ ...prev, id_supervisor: user.id }))
+                    }
+                }
+            } else {
+                // If passed via props
+                if (currentUserRol === 'supervisor' && mode === 'create' && !defaultValues?.id_supervisor) {
+                    setFormData(prev => ({ ...prev, id_supervisor: currentUserId || "" }))
                 }
             }
 
-            // 2. Cargar Administradores
-            const { data: admins } = await supabase.from("administradores").select("id, nombre").eq("estado", "activo").order("nombre")
-            if (admins) setAdministradores(admins.map(a => ({ ...a, id: a.id.toString() })))
-
-            // 3. Cargar Supervisores y Trabajadores
-            const { data: supers } = await supabase.from("usuarios").select("id, email").eq("rol", "supervisor")
-            const { data: works } = await supabase.from("usuarios").select("id, email").eq("rol", "trabajador")
-            if (supers) setSupervisores(supers)
-            if (works) setTrabajadores(works)
-
-            // 4. Si es modo edición, forzar carga de edificios y departamentos iniciales
-            if (mode === 'edit' && defaultValues) {
-                setFormData(prev => ({ ...prev, ...defaultValues }))
+            // Catalogs are now Props. We don't fetch them here.
+            // But we might need to load initial Buildings if editing and id_administrador is set.
+            if (defaultValues?.id_administrador) {
+                // Trigger building load?
+                // The effect on [formData.id_administrador] will handle it!
             }
         }
         init()
-    }, [])
+    }, [currentUserId, currentUserRole, mode, defaultValues])
 
     // --- Lógica de Cascada (Step 1) ---
     const fetchDepartamentos = async (edificioId: string) => {
         if (!edificioId) return
         console.log("Wizard: Fetching departments for edificio", edificioId)
-        const { data } = await supabase
-            .from("departamentos")
-            .select("id, codigo, propietario")
-            .eq("edificio_id", parseInt(edificioId))
-            .order("codigo")
 
-        if (data) {
-            const mapped = data.map(d => ({ ...d, id: d.id.toString() }))
-            console.log("Wizard: Departments loaded", mapped.length)
-            setDepartamentos(mapped)
+        // Use Server Action
+        const res = await getDepartamentosAction(parseInt(edificioId))
+
+        if (res.success) {
+            console.log("Wizard: Departments loaded", res.data.length)
+            setDepartamentos(res.data)
+        } else {
+            console.error("Error loading departments")
         }
     }
 
@@ -148,16 +147,14 @@ export function TaskWizard({ onSuccess, defaultValues, mode = 'create', taskId }
 
         const fetchEdificios = async () => {
             console.log("Wizard: Fetching buildings for admin", formData.id_administrador)
-            const { data } = await supabase
-                .from("edificios")
-                .select("id, nombre")
-                .eq("id_administrador", parseInt(formData.id_administrador))
-                .order("nombre")
+            // Use Server Action
+            const res = await getEdificiosAction(parseInt(formData.id_administrador))
 
-            if (data) {
-                const mapped = data.map(e => ({ ...e, id: e.id.toString() }))
-                console.log("Wizard: Buildings loaded", mapped.length)
-                setEdificios(mapped)
+            if (res.success) {
+                console.log("Wizard: Buildings loaded", res.data.length)
+                setEdificios(res.data)
+            } else {
+                console.error("Error loading buildings")
             }
         }
         fetchEdificios()

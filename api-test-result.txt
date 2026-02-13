@@ -1,0 +1,22 @@
+Project: P39Y887u1otOQcg8nI38s878J2nT
+Testing different API versions...
+
+/v1/flow/start: Status 404
+{
+  "errorCode": "E102001",
+  "errorDescription": "Unknown flow"
+}
+
+/v2/flow/start: Status 404
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx</center>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cd0086b2af8
+
+x-descope-project-id header: Status 401
+{
+  "errorCode": "E011007",
+  "errorDescription": "Request is missing a valid bearer token"
+}

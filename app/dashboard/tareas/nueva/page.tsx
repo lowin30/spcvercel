@@ -1,32 +1,32 @@
-"use client"
-
-import { useRouter } from "next/navigation"
 import { TaskWizard } from "@/components/tasks/task-wizard"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
+import { getCatalogsForWizard } from "../loader"
 
-export default function NuevaTareaPage() {
-  const router = useRouter()
+export default async function NuevaTareaPage() {
+  const { administradores, supervisores, trabajadores, currentUserRol } = await getCatalogsForWizard()
+
+  // Note: Server Components don't have router.push. We use Link or client-side navigation in children.
+  // The Wizard uses client-side router for success redirect.
 
   return (
     <div className="space-y-6">
       <div className="flex items-center">
-        <Button variant="ghost" size="sm" className="mr-2" onClick={() => router.push("/dashboard/tareas")}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Volver
+        <Button variant="ghost" size="sm" className="mr-2" asChild>
+          <Link href="/dashboard/tareas">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Volver
+          </Link>
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">Nueva Tarea</h1>
       </div>
 
       <TaskWizard
-        onSuccess={(taskId) => {
-          // Si el usuario quiere ver detalle de tarea, lo enviamos allí. 
-          // O podríamos volver al listado. 
-          // El Wizard ya hace un router.push por defecto si no le pasamos onSuccess personalizado que NO haga push.
-          // Pero TaskWizard.tsx linea 226 ejecuta onSuccess O un router.push.
-          // Si pasamos onSuccess, el wizard NO hace push.
-          router.push(`/dashboard/tareas/${taskId}`)
-          router.refresh()
-        }}
+        administradores={administradores}
+        supervisores={supervisores}
+        trabajadores={trabajadores}
+        currentUserRol={currentUserRol || undefined}
+      // onSuccess handled by Wizard default or we can pass a redirect action if needed (but Wizard uses router).
       />
     </div>
   )

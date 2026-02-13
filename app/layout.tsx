@@ -40,6 +40,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <AuthProvider
           projectId={process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || "P39Y887u1otOQcg8nI38s878J2nT"}
+          baseUrl="https://api.descope.com"
           sessionTokenViaCookie
         >
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>

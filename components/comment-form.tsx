@@ -3,7 +3,9 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useSupabase } from "@/lib/supabase-provider"
+import { useState } from "react"
+// REMOVED: useSupabase
+import { postCommentAction } from "@/app/dashboard/tareas/actions"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/use-toast"
@@ -21,7 +23,10 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
   const [contenido, setContenido] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { supabase, user } = useSupabase()
+  const [files, setFiles] = useState<File[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  // const { supabase, user } = useSupabase() -> Removed, using Action
+
   const { toast } = useToast()
   const router = useRouter()
 
@@ -60,14 +65,8 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
       return
     }
 
-    if (!user?.id) {
-      toast({
-        title: "Sesión requerida",
-        description: "Debes iniciar sesión para comentar.",
-        variant: "destructive",
-      })
-      return
-    }
+    // Removed client-side user check, action handles it.
+    // if (!user?.id) { ... }
 
     setIsSubmitting(true)
 
@@ -151,15 +150,14 @@ export function CommentForm({ idTarea, onSuccess, isChatVariant = false }: Comme
         }
       }
 
-      const { error } = await supabase.from("comentarios").insert({
-        contenido,
-        id_tarea: idTarea,
-        id_usuario: user?.id,
-        foto_url: fotoUrls,
+      const result = await postCommentAction({
+        taskId: idTarea,
+        content: contenido,
+        fotoUrls: fotoUrls
       })
 
-      if (error) {
-        throw new Error(error.message)
+      if (!result.success) {
+        throw new Error(result.message || "Error al guardar el comentario")
       }
 
       toast({

@@ -1,0 +1,20 @@
+Testing CORS Preflight for Descope Flow Start
+Project: P39Y887u1otOQcg8nI38s878J2nT
+
+Origin: "http://localhost:3000"
+Status: 204
+Access-Control-Allow-Origin: http://localhost:3000
+Access-Control-Allow-Methods: GET,POST,PUT,DELETE,PATCH
+Access-Control-Allow-Headers: Content-Type,Accept,Authorization,current-project,x-csrf-token,x-current-project,x-current-company,x-descope-flow-nonce,mcp-protocol-version,x-descope-sdk-session-id,x-descope-sdk-name,x-descope-sdk-version,x-descope-sdk-sha,x-descope-sdk-go-version,x-descope-sdk-python-version,x-descope-sdk-node-version,x-descope-sdk-java-version,x-descope-widget-id,x-descope-widget-type,x-descope-widget-version,x-descope-refresh-cookie-name,x-request-id,x-feature-flags,x-descope-bridge-name,x-descope-bridge-version,x-descope-platform-name,x-descope-platform-version,x-descope-app-name,x-descope-app-version,x-descope-device,x-descope-project-id,x-external-rid,cf-ipcountry,cf-ja3-hash,cf-bot-score,cf-threat-score,cf-verified-bot,cf-ray,Cf-Ja4,x-asn,cf-ipcity,cf-iplatitude,cf-iplongitude,cf-connecting-ip,x-hub-signature-256,x-vercel-signature,sec-fetch-dest,x-requested-with,x-sso-suite-sso-id,x-sso-suite-tenant-id,x-sso-suite-mode,X-Descope-Flow-Nonce,x-descope-flow-nonce,x-external-rid,x-descope-trusted-device-token,x-descope-portal
+
+Origin: "https://spcvercel.vercel.app"
+Status: 204
+Access-Control-Allow-Origin: https://spcvercel.vercel.app
+Access-Control-Allow-Methods: GET,POST,PUT,DELETE,PATCH
+Access-Control-Allow-Headers: Content-Type,Accept,Authorization,current-project,x-csrf-token,x-current-project,x-current-company,x-descope-flow-nonce,mcp-protocol-version,x-descope-sdk-session-id,x-descope-sdk-name,x-descope-sdk-version,x-descope-sdk-sha,x-descope-sdk-go-version,x-descope-sdk-python-version,x-descope-sdk-node-version,x-descope-sdk-java-version,x-descope-widget-id,x-descope-widget-type,x-descope-widget-version,x-descope-refresh-cookie-name,x-request-id,x-feature-flags,x-descope-bridge-name,x-descope-bridge-version,x-descope-platform-name,x-descope-platform-version,x-descope-app-name,x-descope-app-version,x-descope-device,x-descope-project-id,x-external-rid,cf-ipcountry,cf-ja3-hash,cf-bot-score,cf-threat-score,cf-verified-bot,cf-ray,Cf-Ja4,x-asn,cf-ipcity,cf-iplatitude,cf-iplongitude,cf-connecting-ip,x-hub-signature-256,x-vercel-signature,sec-fetch-dest,x-requested-with,x-sso-suite-sso-id,x-sso-suite-tenant-id,x-sso-suite-mode,X-Descope-Flow-Nonce,x-descope-flow-nonce,x-external-rid,x-descope-trusted-device-token,x-descope-portal
+
+Origin: "http://evil.example.com"
+Status: 204
+Access-Control-Allow-Origin: http://evil.example.com
+Access-Control-Allow-Methods: GET,POST,PUT,DELETE,PATCH
+Access-Control-Allow-Headers: Content-Type,Accept,Authorization,current-project,x-csrf-token,x-current-project,x-current-company,x-descope-flow-nonce,mcp-protocol-version,x-descope-sdk-session-id,x-descope-sdk-name,x-descope-sdk-version,x-descope-sdk-sha,x-descope-sdk-go-version,x-descope-sdk-python-version,x-descope-sdk-node-version,x-descope-sdk-java-version,x-descope-widget-id,x-descope-widget-type,x-descope-widget-version,x-descope-refresh-cookie-name,x-request-id,x-feature-flags,x-descope-bridge-name,x-descope-bridge-version,x-descope-platform-name,x-descope-platform-version,x-descope-app-name,x-descope-app-version,x-descope-device,x-descope-project-id,x-external-rid,cf-ipcountry,cf-ja3-hash,cf-bot-score,cf-threat-score,cf-verified-bot,cf-ray,Cf-Ja4,x-asn,cf-ipcity,cf-iplatitude,cf-iplongitude,cf-connecting-ip,x-hub-signature-256,x-vercel-signature,sec-fetch-dest,x-requested-with,x-sso-suite-sso-id,x-sso-suite-tenant-id,x-sso-suite-mode,X-Descope-Flow-Nonce,x-descope-flow-nonce,x-external-rid,x-descope-trusted-device-token,x-descope-portal

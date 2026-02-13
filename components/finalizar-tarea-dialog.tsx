@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Loader2, MessageSquare, AlertCircle } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { finalizarTareaAction } from "@/app/dashboard/tareas/actions"
 
 interface FinalizarTareaDialogProps {
   open: boolean
@@ -134,101 +135,17 @@ export function FinalizarTareaDialog({
     try {
       const supabase = createClient()
 
-      // Obtener usuario actual
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Usuario no autenticado")
-
-      // 1. Determinar estado según si hubo trabajo
-      const nuevoEstado = huboTrabajo ? 7 : 11 // terminado : vencido
-
-      // 2. Marcar tarea como finalizada
-      const { error: taskError } = await supabase
-        .from("tareas")
-        .update({
-          finalizada: true,
-          id_estado_nuevo: nuevoEstado
-        })
-        .eq("id", tareaId)
-
-      if (taskError) throw taskError
-
-      // 3. SI HUBO TRABAJO → Actualizar PF a Enviado (si existe y está en Borrador)
-      if (huboTrabajo) {
-        const { data: pf } = await supabase
-          .from("presupuestos_finales")
-          .select("id, id_estado")
-          .eq("id_tarea", tareaId)
-          .maybeSingle()
-
-        if (pf) {
-          const { data: estadoBorrador } = await supabase
-            .from("estados_presupuestos")
-            .select("id")
-            .eq("codigo", "borrador")
-            .single()
-
-          if (pf.id_estado === estadoBorrador?.id) {
-            const { data: estadoEnviado } = await supabase
-              .from("estados_presupuestos")
-              .select("id")
-              .eq("codigo", "enviado")
-              .single()
-
-            await supabase
-              .from("presupuestos_finales")
-              .update({ id_estado: estadoEnviado?.id })
-              .eq("id", pf.id)
-          }
-        }
-      }
-      // SI NO HUBO TRABAJO → El trigger rechaza PF automáticamente
-
-      // 4. Guardar comentario con contexto
-      const prefijoComentario = huboTrabajo
-        ? "TAREA FINALIZADA"
-        : "TAREA CERRADA SIN TRABAJO"
-
-      const { error: commentError } = await supabase
-        .from("comentarios")
-        .insert({
-          contenido: `${prefijoComentario}\n\nResumen: ${resumen.trim()}`,
-          id_tarea: tareaId,
-          id_usuario: user.id,
-        })
-
-      if (commentError) throw commentError
-
-      // 3. Guardar notas de departamentos (si hay alguna)
-      const notasPromises = Object.entries(notasDepartamentos).map(async ([depId, nota]) => {
-        if (!nota.trim()) return
-
-        const fecha = new Date().toLocaleDateString('es-AR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        })
-        const nuevaNota = `[${fecha}] ${nota.trim()}`
-
-        // Obtener nota actual del departamento
-        const { data: currentData } = await supabase
-          .from("departamentos")
-          .select("notas")
-          .eq("id", Number(depId))
-          .single()
-
-        // Concatenar con historial
-        const notasActualizadas = currentData?.notas
-          ? `${currentData.notas}\n\n${nuevaNota}`
-          : nuevaNota
-
-        // Actualizar
-        return supabase
-          .from("departamentos")
-          .update({ notas: notasActualizadas })
-          .eq("id", Number(depId))
+      // 3. Ejecutar Acción de Servidor (Consolidada)
+      const result = await finalizarTareaAction({
+        taskId: tareaId,
+        huboTrabajo: huboTrabajo,
+        resumen: resumen,
+        notasDepartamentos: notasDepartamentos
       })
 
-      await Promise.all(notasPromises)
+      if (!result.success) {
+        throw new Error(result.message)
+      }
 
       toast.success("✅ Tarea finalizada con éxito")
       onFinalizada()

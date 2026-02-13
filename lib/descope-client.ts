@@ -3,7 +3,7 @@ import DescopeClient from '@descope/node-sdk';
 const projectId = process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || 'P39Y887u1otOQcg8nI38s878J2nT';
 // management key opcional para validaciones de lectura, pero obligatoria si quisieramos usar management api (que fallo antes)
 // para validateSession solo necesitamos el project id
-const managementKey = 'K39Z6M2BWGxFWhDRBDWPt3fJlGtAOcfVdqkTjZLXOX3C9QkCIC5fGyEIxP6goyJNrYgYkLB';
+const managementKey = 'K39YcPRRxj8qeOROrSI6El7VlPoKHg7Wejk1SI6fdrrpsIFxNI6uo49l1XtAOkskk3IuoQ3';
 
 // inicializar cliente
 // usar try-catch por si acaso
