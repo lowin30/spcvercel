@@ -1,8 +1,119 @@
-"use client"
+import { createSsrServerClient } from '@/lib/ssr-server'
+import { FacturaNuevaForm } from '@/components/facturas/factura-nueva-form'
+import { redirect } from 'next/navigation'
+import { Card, CardContent } from "@/components/ui/card"
+import { AlertCircle } from "lucide-react"
 
-import React, { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase-client"
+export default async function NuevaFacturaPage({
+  searchParams,
+}: {
+  searchParams: { presupuesto_final_id?: string }
+}) {
+  const supabase = await createSsrServerClient()
+  const presupuestoFinalId = searchParams.presupuesto_final_id
+
+  if (!presupuestoFinalId) {
+    return (
+      <Card className="border-red-500 m-8">
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-2 text-red-600">
+            <AlertCircle className="h-5 w-5" />
+            <p>Error: No se ha especificado un presupuesto final para facturar.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // 1. Cargar Presupuesto Final
+  const { data: presupuestoData, error: presupuestoError } = await supabase
+    .from("presupuestos_finales")
+    .select("*")
+    .eq("id", presupuestoFinalId)
+    .single()
+
+  if (presupuestoError || !presupuestoData) {
+    console.error("Error cargando presupuesto:", presupuestoError)
+    return (
+      <Card className="border-red-500 m-8">
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-2 text-red-600">
+            <AlertCircle className="h-5 w-5" />
+            <p>Error: No se pudo cargar el presupuesto final.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // 2. Cargar Cliente
+  let cliente = undefined
+  if (presupuestoData.cliente_id) {
+    const { data: clienteData } = await supabase
+      .from("clientes")
+      .select("*")
+      .eq("id", presupuestoData.cliente_id)
+      .single()
+    if (clienteData) cliente = clienteData
+  }
+
+  // 3. Cargar Items (desde tabla items o items_presupuesto según corresponda)
+  // La lógica original buscaba en tabla 'items' por id_presupuesto (que es el ID del presupuesto final en este contexto según logica anterior)
+  // OJO: id_presupuesto en items suele referir al presupuesto FINAL.
+  const { data: itemsData } = await supabase
+    .from("items")
+    .select("*")
+    .eq("id_presupuesto", presupuestoFinalId)
+
+  const items = itemsData || []
+
+  // 4. Estados Factura
+  const { data: estadosData } = await supabase
+    .from("estados_facturas")
+    .select("*")
+    .order("orden")
+
+  const estadosFactura = estadosData || []
+
+  // 5. Generar Siguiente Código
+  let nextCodigo = "fac000001"
+  const { data: facturasExistentes } = await supabase
+    .from("facturas")
+    .select("code")
+
+  if (facturasExistentes && facturasExistentes.length > 0) {
+    const numeros = facturasExistentes
+      .map(f => f.code)
+      .filter((c): c is string => typeof c === 'string' && c.startsWith("fac"))
+      .map(c => parseInt(c.substring(3), 10))
+      .filter(n => !isNaN(n))
+
+    if (numeros.length > 0) {
+      const last = Math.max(...numeros)
+      nextCodigo = `fac${(last + 1).toString().padStart(6, '0')}`
+    }
+  }
+
+  // Estructurar props
+  const presupuestoCompleto = {
+    ...presupuestoData,
+    cliente,
+    items
+  }
+
+  return (
+    <div className="container mx-auto py-6">
+      <h1 className="text-2xl font-bold mb-6">Nueva Factura</h1>
+      <FacturaNuevaForm
+        presupuesto={presupuestoCompleto}
+        estadosFactura={estadosFactura}
+        nextCodigo={nextCodigo}
+        initialItems={items}
+      />
+    </div>
+  )
+}
+
 import { DashboardShell } from "@/components/dashboard-shell"
 import { toast } from "sonner"
 import { EstadoInteractivo } from "@/components/estado-interactivo"
@@ -90,7 +201,7 @@ function FacturaContent(): JSX.Element {
   const router = useRouter()
   const searchParams = useSearchParams()
   const presupuestoFinalId = searchParams.get("presupuesto_final_id")
-  
+
   // Estados para el formulario
   const [datosPresupuesto, setDatosPresupuesto] = useState<PresupuestoFinal | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -100,28 +211,28 @@ function FacturaContent(): JSX.Element {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<number>(1) // Borrador por defecto
   const [numeroFactura, setNumeroFactura] = useState<string>("") // Campo datos_afip
   const [fechaVencimiento, setFechaVencimiento] = useState<Date>(new Date(new Date().setDate(new Date().getDate() + 30)))
-  const [notas, setNotas] = useState<string>("") 
+  const [notas, setNotas] = useState<string>("")
   const [items, setItems] = useState<Item[]>([])
   const [nextFacturaCode, setNextFacturaCode] = useState<string>("") // Para generar código secuencial
   const [tieneManoObra, setTieneManoObra] = useState<boolean>(false)
-  
+
   // Estados para el modal de ítems
   const [itemModalOpen, setItemModalOpen] = useState<boolean>(false)
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined)
-  
+
   const supabase = createClient()
-  
+
   console.log("[FacturaNueva] Componente content renderizado. presupuestoFinalId:", presupuestoFinalId)
-  
+
   useEffect(() => {
     console.log("[FacturaNueva] useEffect ejecutándose")
-    
+
     async function cargarDatosPresupuesto() {
       if (!presupuestoFinalId) {
         setCargando(false)
         return
       }
-      
+
       try {
         // Paso 1: Obtenemos el presupuesto final
         const { data: presupuestoData, error: presupuestoError } = await supabase
@@ -129,16 +240,16 @@ function FacturaContent(): JSX.Element {
           .select("*")
           .eq("id", presupuestoFinalId)
           .single();
-          
+
         if (presupuestoError) {
           console.error("[Carga Presupuesto] Error al cargar presupuesto final:", presupuestoError);
           throw presupuestoError;
         }
-        
+
         // Convertimos la respuesta a nuestro tipo PresupuestoFinal
         const presupuestoFinal = presupuestoData as unknown as PresupuestoFinal;
         console.log("Datos del presupuesto_final cargado:", presupuestoFinal) // Log para ver el objeto completo
-        
+
         // Paso 2: Si el presupuesto tiene cliente_id, cargamos los datos del cliente
         let datosCliente: Cliente | undefined = undefined
         if (presupuestoFinal?.cliente_id) {
@@ -147,21 +258,21 @@ function FacturaContent(): JSX.Element {
             .select("*")
             .eq("id", presupuestoFinal.cliente_id)
             .single();
-            
+
           if (clienteError) {
             console.warn("[Carga Cliente] Advertencia al cargar cliente:", clienteError); // Usamos warn ya que podría ser opcional
           } else if (clienteData) {
             datosCliente = clienteData as unknown as Cliente;
           }
         }
-        
+
         // Paso 3: Cargamos los items del presupuesto si existen
         let itemsCargados: Item[] = []
         try {
           // Nueva lógica: Los ítems se cargan desde la tabla 'items' usando el presupuestoFinalId directamente.
           if (presupuestoFinalId) { // Usamos el ID del presupuesto final de la URL
             console.log(`[Carga Items] Intentando cargar ítems desde la tabla 'items' para presupuesto_final_id: ${presupuestoFinalId}`);
-            
+
             const { data: itemsData, error: itemsError } = await supabase
               .from("items") // Consultar la tabla 'items'
               .select("*")
@@ -180,7 +291,7 @@ function FacturaContent(): JSX.Element {
           if (itemsCargados.length === 0) {
             console.log("No se encontraron ítems para este presupuesto final en ninguna de las tablas consultadas.")
           }
-          
+
           // Verificar si hay items de mano de obra
           const hayManoDeObra = itemsCargados.some(item => item.es_mano_obra === true)
           setTieneManoObra(hayManoDeObra)
@@ -190,17 +301,17 @@ function FacturaContent(): JSX.Element {
           toast.error("Error al cargar ítems: No se pudieron cargar los ítems del presupuesto.")
           itemsCargados = [] // Asegurarse de que esté vacío en caso de error
         }
-        
+
         // Paso 4: Cargamos los estados de facturas
         const estadosRes = await supabase
           .from("estados_facturas")
           .select("*")
           .order("orden", { ascending: true })
-          
+
         if (!estadosRes.error && estadosRes.data) {
           setEstadosFactura(estadosRes.data as unknown as EstadoFactura[])
         }
-        
+
         // Paso 5: Generamos el nuevo código de factura (secuencial)
         let codigoFacturaGenerado = "fac000001"; // Usar una variable diferente para el estado
 
@@ -236,14 +347,14 @@ function FacturaContent(): JSX.Element {
         }
         // Actualizamos el estado con el código generado
         setNextFacturaCode(codigoFacturaGenerado);
-        
+
         // Combinamos los datos finales del presupuesto
         const datosCompletosPresupuesto: PresupuestoFinal = {
           ...presupuestoFinal,
           cliente: datosCliente,
           items: itemsCargados
         }
-        
+
         // Actualizamos el estado con todos los datos cargados
         setItems(itemsCargados) // Aseguramos que el estado 'items' también se actualice aquí
         setDatosPresupuesto(datosCompletosPresupuesto)
@@ -340,20 +451,20 @@ function FacturaContent(): JSX.Element {
       setGuardando(false)
     }
   }
-  
+
   const handleDeleteItem = (itemIdToDelete: number) => {
     setItems(prevItems => prevItems.filter(item => item.id !== itemIdToDelete));
     toast.info("Ítem eliminado de la factura");
   };
 
   // Función eliminada - Ya no usamos la edición en línea
-  
+
   // Función para abrir el modal para añadir un nuevo ítem
   const handleAddItemModal = () => {
     setEditingItem(undefined);
     setItemModalOpen(true);
   };
-  
+
   // Función para abrir el modal para editar un ítem existente
   const handleEditItemModal = (item: Item) => {
     setEditingItem({
@@ -362,7 +473,7 @@ function FacturaContent(): JSX.Element {
     });
     setItemModalOpen(true);
   };
-  
+
   // Función para guardar un ítem desde el modal
   const handleSaveItemFromModal = (itemData: Omit<Item, "id">) => {
     if (editingItem) {
@@ -382,7 +493,7 @@ function FacturaContent(): JSX.Element {
       setItems(prevItems => [...prevItems, newItem]);
       toast.success("Ítem añadido correctamente");
     }
-    
+
     // Verificamos si hay ítems de mano de obra
     // Usamos !! para convertir cualquier valor posiblemente undefined a booleano
     const hayManoDeObra = items.some(item => !!item.es_mano_obra) || !!itemData.es_mano_obra;
@@ -392,20 +503,20 @@ function FacturaContent(): JSX.Element {
   // Función eliminada - Ya no usamos la edición en línea
 
   // Calcular subtotal de ítems
-  const subtotalItems = items && items.length > 0 
+  const subtotalItems = items && items.length > 0
     ? items.reduce((sum, item) => {
-        return sum + (item.cantidad * item.precio)
-      }, 0)
+      return sum + (item.cantidad * item.precio)
+    }, 0)
     : 0
-    
+
   // Renderización del componente con UI de formulario
   return (
     <div className="flex-1 space-y-6">
       {/* Botones de acción */}
       <div className="flex items-center justify-end space-x-2">
         <Button variant="outline" onClick={() => router.back()}>Cancelar</Button>
-        <Button 
-          onClick={handleSubmit} 
+        <Button
+          onClick={handleSubmit}
           disabled={guardando || cargando || !!error}
         >
           {guardando ? (
@@ -421,7 +532,7 @@ function FacturaContent(): JSX.Element {
           )}
         </Button>
       </div>
-      
+
       {error && (
         <Card className="border-red-500">
           <CardContent className="p-6">
@@ -429,9 +540,9 @@ function FacturaContent(): JSX.Element {
               <AlertCircle className="h-5 w-5" />
               <p>{error}</p>
             </div>
-            <Button 
-              variant="outline" 
-              className="mt-4" 
+            <Button
+              variant="outline"
+              className="mt-4"
               onClick={() => router.back()}
             >
               Volver
@@ -439,7 +550,7 @@ function FacturaContent(): JSX.Element {
           </CardContent>
         </Card>
       )}
-      
+
       {cargando ? (
         <div className="flex h-[400px] w-full items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -457,20 +568,20 @@ function FacturaContent(): JSX.Element {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="codigo">Código de Factura</Label>
-                  <Input 
-                    id="codigo" 
-                    value={nextFacturaCode} 
+                  <Input
+                    id="codigo"
+                    value={nextFacturaCode}
                     readOnly
                     className="bg-muted"
                   />
                   <p className="text-sm text-muted-foreground">Generado automáticamente</p>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="numero_afip">Número de Factura AFIP</Label>
-                  <Input 
-                    id="numero_afip" 
-                    value={numeroFactura} 
+                  <Input
+                    id="numero_afip"
+                    value={numeroFactura}
                     onChange={(e) => setNumeroFactura(e.target.value)}
                     placeholder="Ej: A-0001-00001234"
                   />
@@ -576,17 +687,17 @@ function FacturaContent(): JSX.Element {
                           </td>
                           <td className="py-2 text-center">
                             <div className="flex justify-center space-x-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditItemModal(item)}
-                                  aria-label="Editar ítem"
-                                >
-                                  <span className="sr-only">Editar</span>
-                                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
-                                    <path d="M11.8536 1.14645C11.6583 0.951184 11.3417 0.951184 11.1465 1.14645L3.71455 8.57836C3.62459 8.66832 3.55263 8.77461 3.50251 8.89155L2.04044 12.303C1.9599 12.491 2.00189 12.709 2.14646 12.8536C2.29103 12.9981 2.50905 13.0401 2.69697 12.9596L6.10847 11.4975C6.2254 11.4474 6.3317 11.3754 6.42166 11.2855L13.8536 3.85355C14.0488 3.65829 14.0488 3.34171 13.8536 3.14645L11.8536 1.14645ZM4.42166 9.28547L11.5 2.20711L12.7929 3.5L5.71455 10.5784L4.21924 11.2192L3.78081 10.7808L4.42166 9.28547Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
-                                  </svg>
-                                </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditItemModal(item)}
+                                aria-label="Editar ítem"
+                              >
+                                <span className="sr-only">Editar</span>
+                                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
+                                  <path d="M11.8536 1.14645C11.6583 0.951184 11.3417 0.951184 11.1465 1.14645L3.71455 8.57836C3.62459 8.66832 3.55263 8.77461 3.50251 8.89155L2.04044 12.303C1.9599 12.491 2.00189 12.709 2.14646 12.8536C2.29103 12.9981 2.50905 13.0401 2.69697 12.9596L6.10847 11.4975C6.2254 11.4474 6.3317 11.3754 6.42166 11.2855L13.8536 3.85355C14.0488 3.65829 14.0488 3.34171 13.8536 3.14645L11.8536 1.14645ZM4.42166 9.28547L11.5 2.20711L12.7929 3.5L5.71455 10.5784L4.21924 11.2192L3.78081 10.7808L4.42166 9.28547Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
+                                </svg>
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -623,7 +734,7 @@ function FacturaContent(): JSX.Element {
                   Añadir Ítem
                 </Button>
               </div>
-              
+
               {/* Modal para añadir/editar ítems */}
               <ItemFacturaModal
                 open={itemModalOpen}
@@ -631,7 +742,7 @@ function FacturaContent(): JSX.Element {
                 onSave={handleSaveItemFromModal}
                 editingItem={editingItem}
               />
-              
+
               {tieneManoObra && (
                 <div className="mt-4 p-3 rounded-md bg-blue-50 border border-blue-200">
                   <p className="text-sm text-blue-700">
@@ -649,7 +760,7 @@ function FacturaContent(): JSX.Element {
               <CardDescription>Información adicional para la factura</CardDescription>
             </CardHeader>
             <CardContent>
-              <Textarea 
+              <Textarea
                 placeholder="Ingrese información adicional o notas para la factura..."
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
