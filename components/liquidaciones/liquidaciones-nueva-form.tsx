@@ -206,63 +206,47 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
             const sobrecostoSupervisorInsert = haySobrecostoInsert ? Math.abs(Math.round(gananciaNetaInt * 0.5)) : 0
             const sobrecostoAdminInsert = haySobrecostoInsert ? Math.abs(gananciaAdminInt) : 0
 
-            // Insertamos
-            const { data: liquidacionData, error: liquidacionError } = await supabase
-                .from('liquidaciones_nuevas')
-                .insert({
-                    id_presupuesto_base: selectedPresupuesto.id,
-                    id_tarea: selectedPresupuesto.id_tarea,
-                    id_usuario_admin: adminId,
-                    id_usuario_supervisor: supervisorId,
-                    gastos_reales: gastosRealesIntForInsert,
-                    ganancia_neta: gananciaNetaInt,
-                    ganancia_supervisor: gananciaSupervisorInt,
-                    ganancia_admin: gananciaAdminInt,
-                    total_supervisor: totalSupervisorInsert,
-                    code: code,
-                    total_base: totalBaseIntForInsert,
-                    ajuste_admin: ajusteAdminIntForInsert,
-                    id_factura: null,
-                    sobrecosto: haySobrecostoInsert,
-                    monto_sobrecosto: montoSobrecostoInsert,
-                    sobrecosto_supervisor: sobrecostoSupervisorInsert,
-                    sobrecosto_admin: sobrecostoAdminInsert
-                })
-                .select('id')
-                .single()
 
-            if (liquidacionError) {
-                throw liquidacionError
+            // --- SERVER ACTION MIGRATION (v83.7) ---
+            const formData = new FormData()
+            formData.append('id_presupuesto_base', selectedPresupuesto.id.toString())
+            formData.append('id_tarea', selectedPresupuesto.id_tarea.toString())
+            formData.append('id_usuario_admin', adminId)
+            formData.append('id_usuario_supervisor', supervisorId)
+            formData.append('gastos_reales', gastosRealesIntForInsert.toString())
+            formData.append('ganancia_neta', gananciaNetaInt.toString())
+            formData.append('ganancia_supervisor', gananciaSupervisorInt.toString())
+            formData.append('ganancia_admin', gananciaAdminInt.toString())
+            formData.append('total_supervisor', totalSupervisorInsert.toString())
+            formData.append('code', code)
+            formData.append('total_base', totalBaseIntForInsert.toString())
+            formData.append('ajuste_admin', ajusteAdminIntForInsert.toString())
+            formData.append('sobrecosto', haySobrecostoInsert.toString())
+            formData.append('monto_sobrecosto', montoSobrecostoInsert.toString())
+            formData.append('sobrecosto_supervisor', sobrecostoSupervisorInsert.toString())
+            formData.append('sobrecosto_admin', sobrecostoAdminInsert.toString())
+
+            // Dynamic Import of Server Action to avoid Client Component issues if not handled
+            const { createLiquidacionAction } = await import('@/app/dashboard/liquidaciones/actions')
+
+            const result = await createLiquidacionAction(null, formData)
+
+            if (!result || !result.success) {
+                throw new Error(result?.message || "Error desconocido al crear liquidación")
             }
 
             toast.success('Liquidación creada con éxito!')
 
-            // RPC Liquidar Gastos
-            try {
-                const { data: rpcData, error: rpcError } = await supabase.rpc('liquidar_gastos_supervision', {
-                    p_id_tarea: selectedPresupuesto.id_tarea,
-                    p_id_liquidacion: liquidacionData.id
-                })
-                if (rpcError) {
-                    console.error('Error al liquidar gastos:', rpcError)
-                } else {
-                    // success logic implied
-                }
-            } catch (e) {
-                console.error('Excepción liquidar_gastos_supervision:', e)
-            }
-
             // Reset y Refrescar
-            // Al ser server component, lo ideal es refrescar la pagina completa o navegar
             router.refresh()
             setSelectedPresupuestoId('')
             setGastosReales(null)
             setAjusteAdmin(0)
-            // Opcional: Redirigir al listado
+            // Router Push opcional si se quiere redirigir
             // router.push('/dashboard/liquidaciones')
 
         } catch (error: any) {
-            toast.error('Error al crear la liquidación.' + error.message)
+            toast.error('Error al crear la liquidación: ' + error.message)
             console.error('Error detallado:', error)
         } finally {
             setIsSubmitting(false)
