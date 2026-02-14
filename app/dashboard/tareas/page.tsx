@@ -1,36 +1,50 @@
 import { Suspense } from "react"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-import { getTareasData, getRecordatorios, getTareasParaPresupuesto, getPresupuestosBase } from "@/app/dashboard/tareas/loader"
-import TareasClientPage from "@/app/dashboard/tareas/client-page"
-import { Loader2 } from "lucide-react"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+// 1. Loader Imports
+import {
+  getTareasData,
+  getRecordatorios,
+  getTareasParaPresupuesto,
+  getPresupuestosBase
+} from "@/app/dashboard/tareas/loader"
+import { supabaseAdmin } from "@/lib/supabase-admin" // Direct fetch for catalogs or new loader function?
+// Let's use direct admin fetch here for brevity or better, a dedicated loader function
+import { getCatalogsForWizard } from "@/app/dashboard/tareas/loader" // Reuse this if possible or create new.
+// getCatalogsForWizard returns { administradores, supervisores, trabajadores }. Missing Edificios linked to Admin.
 
-// Componente de carga para Suspense
-function TareasLoading() {
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
-    </div>
-  )
-}
+async function getFiltersCatalogs() {
+  const [admins, eds, sups] = await Promise.all([
+    supabaseAdmin.from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
+    supabaseAdmin.from('vista_edificios_completa').select('id, nombre, id_administrador').order('nombre'),
+    supabaseAdmin.from('usuarios').select('id, email, nombre, code').eq('rol', 'supervisor')
+  ]);
 
-type Props = {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+  return {
+    administradores: admins.data || [],
+    edificios: eds.data || [],
+    supervisores: sups.data || []
+  }
 }
 
 export default async function TareasPage({ searchParams }: Props) {
   // 1. Identity Bridge: Validar Sesión y Obtener Usuario
-  // Si falla, validateSessionAndGetUser lanzará error o redirect (según implementación, aqui lanza error)
-  // Next.js capturará el error en error.tsx, o podemos usar try/catch para redirect.
   const user = await validateSessionAndGetUser()
 
   // 2. Parse Search Params
   const params = await searchParams
   const crearPresupuestoMode = params.crear_presupuesto === 'true'
 
-  let initialTareas = []
+  // Extract Filters
+  const filters = {
+    id_administrador: params.id_administrador as string,
+    id_edificio: params.id_edificio as string,
+    estado: params.estado as string,
+    id_supervisor: params.id_supervisor as string,
+    search: params.search as string
+  }
+
+  let initialTareas: any[] = []
   let initialPresupuestosBase = {}
 
   // 3. Data Fetching (Server Side) via Loader (Bypass RLS controlled)
@@ -42,18 +56,19 @@ export default async function TareasPage({ searchParams }: Props) {
         initialPresupuestosBase = await getPresupuestosBase(ids)
       }
     } else {
-      initialTareas = await getTareasData()
+      // Pass filters to loader
+      initialTareas = await getTareasData(filters)
     }
   } catch (error) {
     console.error("Critical Data Fetch Error:", error)
-    // Podríamos lanzar error para mostrar 'error.tsx'
-    // throw error 
-    // O devolver vacío para que la UI muestre "No data"
     initialTareas = []
   }
 
-  // 4. Fetch Recordatorios (Parallelizable? Yes, but simple await is fine for now)
+  // 4. Fetch Recordatorios
   const recordatorios = await getRecordatorios(user.rol, user.id)
+
+  // 5. Fetch Catalogs for Filters
+  const catalogs = await getFiltersCatalogs()
 
   // 5. Render Client Component with Hydrated Data
   return (
@@ -64,6 +79,7 @@ export default async function TareasPage({ searchParams }: Props) {
         initialRecordatorios={recordatorios}
         initialPresupuestosBase={initialPresupuestosBase}
         crearPresupuestoMode={crearPresupuestoMode}
+        catalogs={catalogs} // Pass catalogs
       />
     </Suspense>
   )

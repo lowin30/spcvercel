@@ -27,7 +27,16 @@ export type Tarea = {
     can_edit: boolean
 }
 
-export async function getTareasData() {
+
+export type TareasFilterParams = {
+    id_administrador?: string
+    id_edificio?: string
+    estado?: string
+    id_supervisor?: string
+    search?: string
+}
+
+export async function getTareasData(filters?: TareasFilterParams) {
     const cookieStore = await cookies()
     const sessionToken = cookieStore.get("DS")?.value
 
@@ -38,19 +47,6 @@ export async function getTareasData() {
 
     try {
         const authInfo = await descopeClient.validateSession(sessionToken)
-        // El token es válido. Ahora obtenemos el email para mapear al usuario real.
-        // authInfo.token.sub suele ser el Descope User ID, pero necesitamos el email
-        // para buscar en nuestra tabla 'usuarios'.
-        // Dependiendo de la config de Descope, el email puede estar en `authInfo.token.email` o `authInfo.token.sub` si es email.
-
-        // Vamos a buscar el usuario en nuestra DB usando el email o el descope_id si lo tuviéramos mapeado.
-        // Asumimos que el email viene en el token JWT de Descope.
-        // Si no, tendríamos que usar descopeClient.management.user.load(...)
-
-        // Para simplificar bridge v2.0, asumimos que descope sub es el email o tenemos el email en el token.
-        // Voy a usar una funcion helper si existe o inferir del jwt decode basico.
-        // Tipicamente descope-node-sdk devuelve el JWT decodificado en authInfo.token
-
         const email = authInfo.token.email || authInfo.token.sub; // Fallback
 
         if (!email) throw new Error("No se pudo identificar el email del usuario en el token Descope")
@@ -70,46 +66,98 @@ export async function getTareasData() {
         const { id: userId, rol } = usuario;
 
         // 3. Service Role Query (Bypass RLS) con Filtro Manual por Rol
-        // Reemplazando 'vista_tareas_completa' y logica de 'vista_tareas_admin/supervisor'
-
         let query = supabaseAdmin
-            .from('vista_tareas_completa') // Usamos la vista base si existe, o construimos raw query.
-            // Dado el audit report: vista_tareas_completa existe pero su definicion esta perdida.
-            // Sin embargo, si supabaseAdmin la puede leer, la usamos.
-            // Si no, tendriamos que hacer un join manual gigante.
-            // Asumiremos que la vista es leible por Service Role.
+            .from('vista_tareas_completa')
             .select('*')
             .order('created_at', { ascending: false });
 
         // 4. Aplicar Filtros de Seguridad (ACL)
         if (rol === 'admin') {
-            // Admin ve todo excepto liquidado (id_estado_nuevo = 9)
-            // La vista 'vista_tareas_admin' ya hacia esto, podemos replicar logica o usar la vista
-            // query = query.neq('id_estado_nuevo', 9);
-            // Mejor usamos la logica explicita aqui para control total.
             query = query.neq('id_estado_nuevo', 9);
         }
         else if (rol === 'supervisor') {
-            // Supervisor ve tareas asignadas/relevantes
-            // Logica replicada de 'vista_tareas_supervisor'
+            // Replicamos logica manual de asignación
+            const { data: asignaciones } = await supabaseAdmin
+                .from('supervisores_tareas')
+                .select('id_tarea')
+                .eq('id_supervisor', userId);
 
-            // b) Filtro Estado/Flujo (Replicando logica de vista_tareas_supervisor)
-            // Veredicto Audit: 'vista_tareas_supervisor' existe. Usémosla via Service Role para simplificar.
-            return await getTareasFromView('vista_tareas_supervisor', userId);
+            const idsAsignados = asignaciones?.map(a => a.id_tarea) || [];
+
+            if (idsAsignados.length > 0) {
+                query = query.in('id', idsAsignados);
+            } else {
+                return []; // Supervisor sin tareas
+            }
         }
         else if (rol === 'trabajador') {
-            // Trabajador solo ve asignadas
-            // Replicamos logica manual
             const { data: asignaciones } = await supabaseAdmin
                 .from('trabajadores_tareas')
                 .select('id_tarea')
                 .eq('id_trabajador', userId);
 
             const ids = asignaciones?.map(a => a.id_tarea) || [];
-
             if (ids.length === 0) return []; // Sin tareas
-
             query = query.in('id', ids);
+        }
+
+        // 5. Aplicar Filtros de Usuario (Search Params)
+        if (filters) {
+            // Filtro Administrador
+            if (filters.id_administrador && filters.id_administrador !== '_todos_') {
+                query = query.eq('id_administrador', filters.id_administrador)
+            }
+
+            // Filtro Edificio
+            if (filters.id_edificio && filters.id_edificio !== '_todos_') {
+                query = query.eq('id_edificio', filters.id_edificio)
+            }
+
+            // Filtro Estado
+            if (filters.estado && filters.estado !== '_todos_') {
+                const estadoId = parseInt(filters.estado)
+                if (!isNaN(estadoId)) {
+                    query = query.eq('id_estado_nuevo', estadoId)
+                }
+            }
+
+            // Filtro Supervisor (Email o ID?)
+            // El filtro suele venir como ID o Email. Asumiremos ID numérico o email string.
+            // Si es email (como estaba antes), buscamos en `supervisores_emails` (texto).
+            // Si es ID, buscamos en relación.
+            // Por simplicidad y legacy compatibility, si viene como email:
+            if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
+                // Check if it looks like an email using simple regex or just assume string
+                if (filters.id_supervisor.includes('@')) {
+                    query = query.ilike('supervisores_emails', `%${filters.id_supervisor}%`)
+                } else {
+                    // Assume ID? vista_tareas_completa does NOT have supervisor_id column directly exposed usually, 
+                    // it has aggregated string. 
+                    // To filter by Supervisor ID efficiently, we need a join or subquery.
+                    // Given the view definition limit, let's stick to text search on emails if possible,
+                    // OR, fetch tasks for that supervisor first.
+                    // Let's rely on the previous logic: `supervisores_emails` ILIKE or we'd need to filter by ID via junction table.
+                    // For scalability: subquery on junction table `supervisores_tareas`.
+                    const { data: tareasSup } = await supabaseAdmin
+                        .from('supervisores_tareas')
+                        .select('id_tarea')
+                        .eq('id_supervisor', filters.id_supervisor)
+
+                    const idsSup = tareasSup?.map(t => t.id_tarea) || []
+                    if (idsSup.length > 0) {
+                        query = query.in('id', idsSup)
+                    } else {
+                        return [] // No matches
+                    }
+                }
+            }
+
+            // Busqueda de Texto
+            if (filters.search) {
+                const term = filters.search;
+                // Simple OR search across generic fields
+                query = query.or(`titulo.ilike.%${term}%,code.ilike.%${term}%,descripcion.ilike.%${term}%,nombre_edificio.ilike.%${term}%`)
+            }
         }
 
         const { data: tareas, error: dataError } = await query;
@@ -123,9 +171,7 @@ export async function getTareasData() {
 
     } catch (error) {
         console.error("Loader Error:", error);
-        // Fail Closed: Si algo falla, el usuario no ve nada.
         if ((error as any).message?.includes("No hay sesión")) {
-            // Dejar que el componente maneje el redirect o lanzar error especifico
             throw new Error("Unauthorized");
         }
         throw error;
