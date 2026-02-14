@@ -57,15 +57,80 @@ interface FacturaNuevaFormProps {
     initialItems: Item[]
     edificios?: any[]  // Added for Protocol v82.3
     tareas?: any[]     // Added for Protocol v82.3
+    presupuestosDisponibles?: any[] // Added for Protocol v82.5
 }
 
 export function FacturaNuevaForm({
     presupuesto,
     estadosFactura,
     nextCodigo,
-    initialItems
+    initialItems,
+    presupuestosDisponibles = [],
+    edificios,
+    tareas
 }: FacturaNuevaFormProps) {
     const router = useRouter()
+
+    // 🔌 Selector de Presupuesto (Si no hay presupuesto seleccionado)
+    if (!presupuesto) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Seleccionar Presupuesto</CardTitle>
+                        <CardDescription>
+                            Para crear una nueva factura, primero selecciona un presupuesto aprobado que no haya sido facturado aún.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {presupuestosDisponibles.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <AlertCircle className="h-10 w-10 mx-auto mb-2 text-yellow-500" />
+                                <p>No hay presupuestos aprobados pendientes de facturación.</p>
+                                <Button variant="link" onClick={() => router.push('/dashboard/presupuestos')}>
+                                    Ir a Presupuestos
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="grid gap-2">
+                                    <Label>Presupuestos Disponibles</Label>
+                                    <div className="grid gap-2">
+                                        {presupuestosDisponibles.map((p) => (
+                                            <Button
+                                                key={p.id}
+                                                variant="outline"
+                                                className="justify-between h-auto py-3 px-4"
+                                                onClick={() => {
+                                                    toast.info("Cargando datos del presupuesto...")
+                                                    router.push(`/dashboard/facturas/nueva?presupuesto_final_id=${p.id}`)
+                                                }}
+                                            >
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className="font-semibold">{p.code} - {p.clientes?.empresa || p.clientes?.nombre || 'Sin cliente'}</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        Total: {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(p.total || 0)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center text-primary text-xs font-medium">
+                                                    Seleccionar <Check className="ml-1 h-3 w-3" />
+                                                </div>
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+                <div className="text-center">
+                    <Button variant="ghost" onClick={() => router.back()}>
+                        Volver al Dashboard
+                    </Button>
+                </div>
+            </div>
+        )
+    }
 
     // Estados
     const [guardando, setGuardando] = useState(false)
