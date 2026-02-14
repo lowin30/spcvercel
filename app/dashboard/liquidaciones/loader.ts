@@ -19,9 +19,10 @@ export interface LiquidacionDTO {
 
 export async function getLiquidaciones(userId: string, role: string): Promise<LiquidacionDTO[]> {
     // 1. Admin: Ve todo
-    // 1. Admin: Ve todo (Query directa a tabla autorizada para traer campos faltantes 'pagada', etc)
+    // 1. Admin: Ve todo
     if (role === 'admin') {
-        const { data, error } = await supabaseAdmin
+        // Fetch raw data without user joins first to avoid FK errors
+        const { data: liquidaciones, error } = await supabaseAdmin
             .from('liquidaciones_nuevas')
             .select(`
                 id,
@@ -29,29 +30,49 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
                 ganancia_neta,
                 ganancia_supervisor,
                 ganancia_admin,
-                titulo_tarea,
+                id_usuario_supervisor,
+                id_usuario_admin,
                 total_base,
                 code_factura,
                 pagada,
                 fecha_pago,
                 gastos_reales,
                 total_supervisor,
-                supervisor:usuarios!liquidaciones_nuevas_id_usuario_supervisor_fkey(email),
-                admin:usuarios!liquidaciones_nuevas_id_usuario_admin_fkey(email),
-                tarea:tareas!liquidaciones_nuevas_id_tarea_fkey(titulo)
+                titulo_tarea, // Intentamos traerlo si existe
+                tarea:tareas(titulo) // Dejamos que Supabase infiera el join (un solo FK usualmente)
             `)
             .order('created_at', { ascending: false })
 
         if (error) {
-            console.error("Error fetching liquidaciones (admin):", error)
+            console.error("Error fetching liquidaciones base (admin):", error)
             throw new Error("Error al cargar liquidaciones")
         }
 
+        const rawData = liquidaciones || []
+
+        // Extract User IDs for Batch Fetch
+        const userIds = new Set<string>()
+        rawData.forEach((row: any) => {
+            if (row.id_usuario_supervisor) userIds.add(row.id_usuario_supervisor)
+            if (row.id_usuario_admin) userIds.add(row.id_usuario_admin)
+        })
+
+        // Fetch Users manually (Application-Side Join) to bypass schema FK naming issues
+        let usersMap = new Map<string, string>()
+        if (userIds.size > 0) {
+            const { data: usersData } = await supabaseAdmin
+                .from('usuarios')
+                .select('id, email')
+                .in('id', Array.from(userIds))
+
+            usersData?.forEach((u: any) => usersMap.set(u.id, u.email))
+        }
+
         // Map to DTO
-        return (data || []).map((row: any) => ({
+        return rawData.map((row: any) => ({
             id: row.id,
             created_at: row.created_at,
-            titulo_tarea: row.tarea?.titulo || 'Sin Título',
+            titulo_tarea: row.tarea?.titulo || row.titulo_tarea || 'Sin Título',
             total_base: row.total_base,
             gastos_reales: row.gastos_reales,
             ganancia_neta: row.ganancia_neta,
@@ -61,8 +82,8 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
             pagada: row.pagada,
             fecha_pago: row.fecha_pago,
             code_factura: row.code_factura,
-            email_supervisor: row.supervisor?.email,
-            email_admin: row.admin?.email
+            email_supervisor: usersMap.get(row.id_usuario_supervisor),
+            email_admin: usersMap.get(row.id_usuario_admin)
         }))
     }
 
