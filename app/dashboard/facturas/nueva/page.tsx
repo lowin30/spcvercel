@@ -56,8 +56,8 @@ export default async function NuevaFacturaPage({
       <h1 className="text-2xl font-bold mb-6">Nueva Factura</h1>
       <FacturaNuevaForm
         presupuesto={data.presupuesto}
-        estadosFactura={data.estadosFactura}
-        nextCodigo={data.nextCodigo}
+        estadosFactura={data.estadosFactura || []}
+        nextCodigo={data.nextCodigo || "fac000000"}
         initialItems={data.presupuesto.items}
         edificios={data.edificios} // Protocol v82.3
         tareas={data.tareas}       // Protocol v82.3
