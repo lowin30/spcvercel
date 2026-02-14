@@ -37,9 +37,8 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
                 pagada,
                 fecha_pago,
                 gastos_reales,
-                total_supervisor,
-                titulo_tarea, // Intentamos traerlo si existe
-                tarea:tareas(titulo) // Dejamos que Supabase infiera el join (un solo FK usualmente)
+                titulo_tarea,
+                tarea:tareas(titulo)
             `)
             .order('created_at', { ascending: false })
 
