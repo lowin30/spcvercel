@@ -19,71 +19,33 @@ export interface LiquidacionDTO {
 
 export async function getLiquidaciones(userId: string, role: string): Promise<LiquidacionDTO[]> {
     // 1. Admin: Ve todo
-    // 1. Admin: Ve todo
     if (role === 'admin') {
-        // Fetch raw data without user joins first to avoid FK errors
-        const { data: liquidaciones, error } = await supabaseAdmin
-            .from('liquidaciones_nuevas')
+        const { data, error } = await supabaseAdmin
+            .from('vista_liquidaciones_completa')
             .select(`
                 id,
                 created_at,
                 ganancia_neta,
                 ganancia_supervisor,
                 ganancia_admin,
-                id_usuario_supervisor,
-                id_usuario_admin,
+                titulo_tarea,
                 total_base,
                 code_factura,
                 pagada,
                 fecha_pago,
                 gastos_reales,
-                titulo_tarea,
-                tarea:tareas(titulo)
+                total_supervisor,
+                email_supervisor,
+                email_admin
             `)
             .order('created_at', { ascending: false })
 
         if (error) {
-            console.error("Error fetching liquidaciones base (admin):", error)
+            console.error("Error fetching liquidaciones (admin):", error)
             throw new Error("Error al cargar liquidaciones")
         }
 
-        const rawData = liquidaciones || []
-
-        // Extract User IDs for Batch Fetch
-        const userIds = new Set<string>()
-        rawData.forEach((row: any) => {
-            if (row.id_usuario_supervisor) userIds.add(row.id_usuario_supervisor)
-            if (row.id_usuario_admin) userIds.add(row.id_usuario_admin)
-        })
-
-        // Fetch Users manually (Application-Side Join) to bypass schema FK naming issues
-        let usersMap = new Map<string, string>()
-        if (userIds.size > 0) {
-            const { data: usersData } = await supabaseAdmin
-                .from('usuarios')
-                .select('id, email')
-                .in('id', Array.from(userIds))
-
-            usersData?.forEach((u: any) => usersMap.set(u.id, u.email))
-        }
-
-        // Map to DTO
-        return rawData.map((row: any) => ({
-            id: row.id,
-            created_at: row.created_at,
-            titulo_tarea: row.tarea?.titulo || row.titulo_tarea || 'Sin Título',
-            total_base: row.total_base,
-            gastos_reales: row.gastos_reales,
-            ganancia_neta: row.ganancia_neta,
-            ganancia_supervisor: row.ganancia_supervisor,
-            ganancia_admin: row.ganancia_admin,
-            total_supervisor: row.total_supervisor,
-            pagada: row.pagada,
-            fecha_pago: row.fecha_pago,
-            code_factura: row.code_factura,
-            email_supervisor: usersMap.get(row.id_usuario_supervisor),
-            email_admin: usersMap.get(row.id_usuario_admin)
-        }))
+        return data || []
     }
 
     // 2. Supervisor: Ve SOLO sus liquidaciones y SIN márgenes internos
