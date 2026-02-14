@@ -32,6 +32,10 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
         authInfo = await descopeClient.validateSession(sessionToken)
     } catch (error) {
         console.error("Auth Bridge: Session Validation Failed (Expired/Invalid)", error)
+        // No redirect here to avoid swallowing NEXT_REDIRECT
+    }
+
+    if (!authInfo) {
         redirect('/login')
     }
 
