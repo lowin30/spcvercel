@@ -69,7 +69,10 @@ export function TaskFiltersBar({ administradores, edificios, supervisores, userR
     // Filter Logic for Dropdowns
     const edificiosFiltrados = useMemo(() => {
         if (!currentAdmin || currentAdmin === '_todos_') return edificios
-        return edificios.filter(e => e.id_administrador.toString() === currentAdmin)
+        return edificios.filter(e => {
+            if (!e.id_administrador) return false
+            return String(e.id_administrador) === currentAdmin
+        })
     }, [edificios, currentAdmin])
 
     const estados = [
