@@ -1,5 +1,23 @@
 import { Suspense } from "react"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
+import TareasClientPage from "@/app/dashboard/tareas/client-page"
+import { Loader2 } from "lucide-react"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+// Componente de carga para Suspense
+function TareasLoading() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
+    </div>
+  )
+}
+
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
 
 // 1. Loader Imports
 import {
