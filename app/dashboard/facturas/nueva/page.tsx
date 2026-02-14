@@ -1,4 +1,5 @@
 import { validateSessionAndGetUser } from '@/lib/auth-bridge'
+import { redirect } from 'next/navigation'
 import { getDatosNuevaFactura } from './loader'
 import { FacturaNuevaForm } from '@/components/facturas/factura-nueva-form'
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,6 +12,13 @@ export default async function NuevaFacturaPage({
 }) {
   // 1. Validar Usuario y Sesión (Service Role bypass)
   const user = await validateSessionAndGetUser()
+
+  // 🔒 GATEKEEPER PATTERN (SPC Protocol v80.0)
+  // Solo admin puede crear facturas (acceso a Service Role para generar codigo y lista de clientes).
+  if (user.rol !== 'admin') {
+    // Redirigir silenciosamente o mostrar error
+    redirect('/dashboard')
+  }
 
   const presupuestoFinalId = searchParams.presupuesto_final_id
 
