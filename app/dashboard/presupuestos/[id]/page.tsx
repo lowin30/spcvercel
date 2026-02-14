@@ -1,80 +1,38 @@
-import { createSsrServerClient } from '@/lib/ssr-server'
+import { validateSessionAndGetUser } from '@/lib/auth-bridge'
+import { getPresupuestoById } from './loader'
 import { PresupuestoDetail } from '@/components/presupuestos/presupuesto-detail'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 
 export default async function PresupuestoPage({
   params
 }: {
   params: { id: string }
 }) {
-  const supabase = await createSsrServerClient()
-  const { id } = params
+  // 1. Validar Usuario y Sesión (Service Role bypass auth check)
+  // Esto asegura que Descope Auth + Supabase User están sync.
+  const user = await validateSessionAndGetUser()
 
-  const { data: { session } } = await supabase.auth.getSession()
-
-  if (!session) {
-    redirect('/login')
-  }
-
-  // 1. Obtener detalles del usuario (para permisos)
-  const { data: userDetails, error: userError } = await supabase
-    .from("usuarios")
-    .select("*")
-    .eq("id", session.user.id)
-    .single()
-
-  if (userError) {
-    console.error("Error al obtener usuario:", userError)
-    // Podríamos mostrar error o redirigir, pero dejamos la UI manejarlo si es undefined
-  }
-
-  // 2. Estrategia de carga unificada (Final -> Base)
-
-  // Intento 1: Presupuesto Final
-  let { data: presupuestoFinal, error: errorFinal } = await supabase
-    .from("presupuestos_finales")
-    .select(`
-      *,
-      estados_presupuestos:id_estado (id, nombre, color, codigo),
-      tareas:id_tarea (id, titulo, descripcion, edificios:id_edificio (id, nombre))
-    `)
-    .eq("id", id)
-    .single()
-
-  let presupuesto = null
-
-  if (presupuestoFinal) {
-    presupuesto = { ...presupuestoFinal, tipo: "final" }
-  } else {
-    // Intento 2: Presupuesto Base
-    // Solo buscamos base si no encontramos final (evita doble query si funciona el primero)
-    const { data: presupuestoBase, error: errorBase } = await supabase
-      .from("presupuestos_base")
-      .select(`
-         *,
-         tareas:id_tarea (id, titulo, descripcion, edificios:id_edificio (id, nombre))
-       `)
-      .eq("id", id)
-      .single()
-
-    if (presupuestoBase) {
-      presupuesto = { ...presupuestoBase, tipo: "base" }
-    }
-  }
+  // 2. Fetch de datos usando Loader (Service Role bypass RLS)
+  const presupuesto = await getPresupuestoById(params.id)
 
   if (!presupuesto) {
     return notFound()
   }
 
+  // 3. Render
+  // Pasamos userDetails para permisos en UI (aunque protected por loader si quisieramos RBAC estricto antes)
+  // En este caso, validateSessionAndGetUser devuelve usuario valido, la logica de permisos (Admin vs Supervisor) 
+  // podria agregarse aqui si fuera necesario, pero por ahora confiamos en la UI o agregamos check si es critico.
+
+  // Para presupuestos, cualquier usuario con acceso al sistema puede VER los detalles (por ahora).
+  // Si se requiere restricción, agregar: if (user.rol !== 'admin' && !presupuesto.isOwner...)
+
   return (
     <div className='container mx-auto py-6'>
       <PresupuestoDetail
         presupuesto={presupuesto}
-        userDetails={userDetails}
+        userDetails={user}
       />
     </div>
   )
 }
-
-
-
