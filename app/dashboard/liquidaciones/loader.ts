@@ -17,10 +17,11 @@ export interface LiquidacionDTO {
     code_factura?: string
 }
 
+
 export async function getLiquidaciones(userId: string, role: string): Promise<LiquidacionDTO[]> {
     // 1. Admin: Ve todo
     if (role === 'admin') {
-        const { data, error } = await supabaseAdmin
+        const { data: viewData, error } = await supabaseAdmin
             .from('vista_liquidaciones_completa')
             .select(`
                 id,
@@ -31,8 +32,6 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
                 titulo_tarea,
                 total_base,
                 code_factura,
-                pagada,
-                fecha_pago,
                 gastos_reales,
                 total_supervisor,
                 email_supervisor,
@@ -41,11 +40,49 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
             .order('created_at', { ascending: false })
 
         if (error) {
-            console.error("Error fetching liquidaciones (admin):", error)
+            console.error("Error fetching liquidaciones (view):", error)
             throw new Error("Error al cargar liquidaciones")
         }
 
-        return data || []
+        const liquidaciones = viewData || []
+
+        // Enriquecer datos faltantes en la vista (pagada, fecha_pago)
+        // buscándolos en la tabla base 'liquidaciones_nuevas'
+        if (liquidaciones.length > 0) {
+            const ids = liquidaciones.map((l: any) => l.id)
+            const { data: baseData } = await supabaseAdmin
+                .from('liquidaciones_nuevas')
+                .select('id, pagada, fecha_pago')
+                .in('id', ids)
+
+            // Map para acceso rápido
+            const baseMap = new Map()
+            baseData?.forEach((b: any) => baseMap.set(b.id, b))
+
+            // Fusionar
+            return liquidaciones.map((row: any) => {
+                const extra = baseMap.get(row.id) || {}
+                return {
+                    id: row.id,
+                    created_at: row.created_at,
+                    titulo_tarea: row.titulo_tarea || 'Sin Título',
+                    total_base: row.total_base,
+                    gastos_reales: row.gastos_reales,
+                    ganancia_neta: row.ganancia_neta || 0,
+                    ganancia_supervisor: row.ganancia_supervisor || 0,
+                    ganancia_admin: row.ganancia_admin || 0,
+                    total_supervisor: row.total_supervisor || 0,
+                    code_factura: row.code_factura,
+                    email_supervisor: row.email_supervisor,
+                    email_admin: row.email_admin,
+                    // Campos enriquecidos
+                    pagada: extra.pagada ?? false,
+                    fecha_pago: extra.fecha_pago ?? null
+                }
+            })
+        }
+
+        return []
     }
 
     // 2. Supervisor: Ve SOLO sus liquidaciones y SIN márgenes internos
