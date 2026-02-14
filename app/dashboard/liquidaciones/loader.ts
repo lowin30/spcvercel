@@ -19,10 +19,10 @@ export interface LiquidacionDTO {
 
 export async function getLiquidaciones(userId: string, role: string): Promise<LiquidacionDTO[]> {
     // 1. Admin: Ve todo
-    // 1. Admin: Ve todo
+    // 1. Admin: Ve todo (Query directa a tabla autorizada para traer campos faltantes 'pagada', etc)
     if (role === 'admin') {
         const { data, error } = await supabaseAdmin
-            .from('vista_liquidaciones_completa')
+            .from('liquidaciones_nuevas')
             .select(`
                 id,
                 created_at,
@@ -32,12 +32,13 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
                 titulo_tarea,
                 total_base,
                 code_factura,
-                email_supervisor,
-                email_admin,
                 pagada,
                 fecha_pago,
                 gastos_reales,
-                total_supervisor
+                total_supervisor,
+                supervisor:usuarios!liquidaciones_nuevas_id_usuario_supervisor_fkey(email),
+                admin:usuarios!liquidaciones_nuevas_id_usuario_admin_fkey(email),
+                tarea:tareas!liquidaciones_nuevas_id_tarea_fkey(titulo)
             `)
             .order('created_at', { ascending: false })
 
@@ -46,7 +47,23 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
             throw new Error("Error al cargar liquidaciones")
         }
 
-        return data || []
+        // Map to DTO
+        return (data || []).map((row: any) => ({
+            id: row.id,
+            created_at: row.created_at,
+            titulo_tarea: row.tarea?.titulo || 'Sin Título',
+            total_base: row.total_base,
+            gastos_reales: row.gastos_reales,
+            ganancia_neta: row.ganancia_neta,
+            ganancia_supervisor: row.ganancia_supervisor,
+            ganancia_admin: row.ganancia_admin,
+            total_supervisor: row.total_supervisor,
+            pagada: row.pagada,
+            fecha_pago: row.fecha_pago,
+            code_factura: row.code_factura,
+            email_supervisor: row.supervisor?.email,
+            email_admin: row.admin?.email
+        }))
     }
 
     // 2. Supervisor: Ve SOLO sus liquidaciones y SIN márgenes internos
