@@ -22,29 +22,18 @@ export default async function NuevaFacturaPage({
 
   const presupuestoFinalId = searchParams.presupuesto_final_id
 
-  if (!presupuestoFinalId) {
-    return (
-      <Card className="border-red-500 m-8">
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-2 text-red-600">
-            <AlertCircle className="h-5 w-5" />
-            <p>Error: No se ha especificado un presupuesto final para facturar.</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
   // 2. Cargar Datos usando Loader (Service Role bypass RLS)
+  // Desbloqueo: Pasamos el ID (puede ser undefined) y dejamos que el loader decida.
   const data = await getDatosNuevaFactura(presupuestoFinalId)
 
-  if (!data.presupuesto) {
+  // Si se pidió un ID específico y no existe, mostrar error (o fallback a selector)
+  if (presupuestoFinalId && !data.presupuesto) {
     return (
       <Card className="border-red-500 m-8">
         <CardContent className="p-6">
           <div className="flex items-center space-x-2 text-red-600">
             <AlertCircle className="h-5 w-5" />
-            <p>Error: No se pudo cargar el presupuesto final.</p>
+            <p>Error: No se pudo cargar el presupuesto final solicitado.</p>
           </div>
         </CardContent>
       </Card>
@@ -56,11 +45,12 @@ export default async function NuevaFacturaPage({
       <h1 className="text-2xl font-bold mb-6">Nueva Factura</h1>
       <FacturaNuevaForm
         presupuesto={data.presupuesto}
+        presupuestosDisponibles={data.presupuestosDisponibles} // Protocol v82.5
         estadosFactura={data.estadosFactura || []}
         nextCodigo={data.nextCodigo || "fac000000"}
-        initialItems={data.presupuesto.items}
-        edificios={data.edificios} // Protocol v82.3
-        tareas={data.tareas}       // Protocol v82.3
+        initialItems={data.presupuesto?.items || []}
+        edificios={data.edificios}
+        tareas={data.tareas}
       />
     </div>
   )
