@@ -71,7 +71,6 @@
     "ai": "^3.1.14",
     "chart.js": "latest",
     "class-variance-authority": "^0.7.1",
-    "cloudinary": "^2.9.0",
     "clsx": "1.2.1",
     "cmdk": "1.0.4",
     "date-fns": "^4.1.0",

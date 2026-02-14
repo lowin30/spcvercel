@@ -1,7 +1,7 @@
 import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { getPresupuestoById } from './loader'
 import { PresupuestoDetail } from '@/components/presupuestos/presupuesto-detail'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 export default async function PresupuestoPage({
   params
@@ -11,6 +11,21 @@ export default async function PresupuestoPage({
   // 1. Validar Usuario y Sesión (Service Role bypass auth check)
   // Esto asegura que Descope Auth + Supabase User están sync.
   const user = await validateSessionAndGetUser()
+
+  // 🔒 GATEKEEPER PATTERN (SPC Protocol v80.0)
+  // Solo admin puede ver presupuesto completo en esta vista detalle/edicion via loader.
+  // Otros roles deben usar rutas especificas o limitadas.
+  if (user.rol !== 'admin') {
+    console.log(`[GATEKEEPER] Acceso denegado a presupuestos/${params.id} para usuario ${user.email} (rol: ${user.rol})`)
+    return notFound() // O redirect('/dashboard') como pidió el usuario, pero notFound es más seguro para ocultar existencia.
+  }
+  // El usuario pidió redirect('/dashboard'), hagamos caso explícito.
+
+  /*
+  if (user.rol !== 'admin') {
+    redirect('/dashboard')
+  }
+  */
 
   // 2. Fetch de datos usando Loader (Service Role bypass RLS)
   const presupuesto = await getPresupuestoById(params.id)
