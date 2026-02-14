@@ -15,6 +15,7 @@ interface HistorialGastosOCRProps {
   tareaId: number
   userRole?: string // Rol del usuario actual: 'admin', 'supervisor', 'trabajador'
   userId?: number // ID del usuario actual
+  initialGastos?: any[]
 }
 
 interface Gasto {
@@ -30,15 +31,16 @@ interface Gasto {
   comprobante_url: string | null
   imagen_procesada_url: string | null
   created_at: string
-  usuarios: {
+  usuarios?: {
     email: string
     color_perfil: string
   }
+  email_usuario?: string
 }
 
-export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }: HistorialGastosOCRProps) {
-  const [gastos, setGastos] = useState<Gasto[]>([])
-  const [loading, setLoading] = useState(true)
+export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId, initialGastos }: HistorialGastosOCRProps) {
+  const [gastos, setGastos] = useState<Gasto[]>(initialGastos as Gasto[] || [])
+  const [loading, setLoading] = useState(!initialGastos)
   const [exportando, setExportando] = useState(false)
   const [mostrarDetalles, setMostrarDetalles] = useState<{ [key: number]: boolean }>({})
   const supabase = createClient()
@@ -56,7 +58,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
         .order("created_at", { ascending: false })
 
       if (gastosResponse.error) throw gastosResponse.error
-      
+
       // Usar datos tipados correctamente
       const gastosData = gastosResponse.data as Gasto[] || []
       setGastos(gastosData)
@@ -69,8 +71,10 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
   }
 
   useEffect(() => {
-    cargarGastos()
-    
+    if (!initialGastos) {
+      cargarGastos()
+    }
+
     // Configurar suscripciones en tiempo real
     try {
       // @ts-ignore - Ignoramos los errores de TypeScript porque sabemos que la API existe
@@ -110,7 +114,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
       const interval = setInterval(() => {
         cargarGastos()
       }, 30000) // Cada 30 segundos
-      
+
       // Limpieza
       return () => {
         clearInterval(interval)
@@ -123,7 +127,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
       const interval = setInterval(() => {
         cargarGastos()
       }, 15000) // Cada 15 segundos
-      
+
       return () => {
         clearInterval(interval)
       }
@@ -133,10 +137,10 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
   const guardarPDFEnSupabase = async (blob: Blob, filename: string, tareaId: number): Promise<string> => {
     const supabase = createClient();
     if (!supabase) throw new Error("No se pudo obtener cliente de Supabase");
-    
+
     const fileExt = filename.split('.').pop();
     const filePath = `tarea_${tareaId}/${Date.now()}_${Math.floor(Math.random() * 10000)}.${fileExt}`;
-    
+
     // Subir archivo a Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('comprobantes')
@@ -144,32 +148,32 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
         contentType: 'application/pdf',
         cacheControl: '3600'
       });
-      
+
     if (uploadError) {
       throw new Error(`Error al subir PDF: ${uploadError.message}`);
     }
-    
+
     // Obtener URL pública
     const { data: urlData } = supabase.storage
       .from('comprobantes')
       .getPublicUrl(filePath);
-      
+
     const pdfUrl = urlData?.publicUrl;
     if (!pdfUrl) throw new Error("No se pudo obtener URL pública del PDF");
-    
+
     // Actualizar la tarea con la URL del PDF
     const { error: updateError } = await supabase
       .from('tareas')
       .update({ gastos_tarea_pdf: pdfUrl })
       .eq('id', tareaId);
-      
+
     if (updateError) {
       throw new Error(`Error al actualizar tarea: ${updateError.message}`);
     }
-    
+
     return pdfUrl;
   };
-  
+
   // Función para exportar a PDF los gastos (SOLO MATERIALES CON FOTOS)
   const exportarPDF = async () => {
     // Validar que existan gastos para exportar
@@ -177,24 +181,24 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
       toast.error('No hay gastos para exportar');
       return;
     }
-    
+
     try {
       setExportando(true);
       toast.info('Generando PDF de materiales con fotos...');
-      
+
       // Generar el PDF (solo materiales con imágenes)
       const resultado = await generarGastosTareaPDF(tareaId);
-      
+
       // Verificar si hay materiales con fotos
       if (resultado.montoTotal === 0) {
         toast.warning('⚠️ No hay gastos de materiales con fotos para exportar');
         setExportando(false);
         return;
       }
-      
+
       // Mostrar el monto total
       toast.success(`PDF generado: $${resultado.montoTotal.toLocaleString('es-CL')} en materiales`);
-      
+
       // Descargar el archivo automáticamente
       const url = window.URL.createObjectURL(resultado.blob);
       const link = document.createElement('a');
@@ -202,13 +206,13 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
       link.setAttribute('download', resultado.filename);
       document.body.appendChild(link);
       link.click();
-      
+
       // Limpiar recursos del DOM después de descargar
       setTimeout(() => {
         link.parentNode?.removeChild(link);
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       // Guardar la referencia en Supabase
       try {
         const pdfUrl = await guardarPDFEnSupabase(resultado.blob, resultado.filename, tareaId);
@@ -217,7 +221,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
         console.error('Error al guardar en Supabase:', storageError);
         toast.error(`El PDF se descargó pero no se pudo guardar: ${storageError.message}`);
       }
-      
+
     } catch (error: any) {
       console.error('Error al exportar PDF:', error);
       toast.error(`Error al generar PDF: ${error.message || 'Error desconocido'}`);
@@ -245,7 +249,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
 
     try {
       setLoading(true);
-      
+
       // Primero chequeamos que el gasto exista
       const { data: gastoCheck, error: checkError } = await supabase
         .from('gastos_tarea')
@@ -262,15 +266,15 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
         toast.info('⚠️ Este gasto ya ha sido eliminado');
         return;
       }
-      
+
       // Obtenemos los datos del gasto que existe
       const gastoData = gastoCheck;
-      
+
       // Eliminar archivos del storage si existen
       if (gastoData) {
         // Extraer las rutas de los archivos desde las URLs
         // Las URLs tienen el formato: https://[dominio].supabase.co/storage/v1/object/public/[bucket]/[ruta]
-        const extraerRutaDesdeURL = (url: string | null): {bucket: string, path: string} | null => {
+        const extraerRutaDesdeURL = (url: string | null): { bucket: string, path: string } | null => {
           if (!url) return null;
           try {
             // Usamos URL para asegurarnos que es una URL válida
@@ -284,7 +288,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
             return null;
           }
         };
-        
+
         // Procesar la URL del comprobante original
         if (gastoData.comprobante_url) {
           const rutaComprobante = extraerRutaDesdeURL(gastoData.comprobante_url);
@@ -296,7 +300,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                 .from(rutaComprobante.bucket)
                 // @ts-expect-error - El tipado de Supabase puede variar entre versiones
                 .remove([rutaComprobante.path]);
-                
+
               if (deleteError) {
                 console.error('Error al eliminar archivo original:', deleteError);
               } else {
@@ -308,7 +312,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
             }
           }
         }
-        
+
         // Procesar la URL de la imagen procesada
         if (gastoData.imagen_procesada_url) {
           const rutaProcesada = extraerRutaDesdeURL(gastoData.imagen_procesada_url);
@@ -320,7 +324,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                 .from(rutaProcesada.bucket)
                 // @ts-expect-error - El tipado de Supabase puede variar entre versiones
                 .remove([rutaProcesada.path]);
-                
+
               if (deleteError) {
                 console.error('Error al eliminar imagen procesada:', deleteError);
               } else {
@@ -333,7 +337,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
           }
         }
       }
-      
+
       // Finalmente eliminamos el registro de la base de datos
       console.log('Eliminando registro de la base de datos, ID:', gastoId);
       const { error: deleteError } = await supabase
@@ -342,10 +346,10 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
         .eq('id', gastoId);
 
       if (deleteError) throw deleteError;
-      
+
       // Actualizamos la UI inmediatamente, sin esperar a la suscripción
       setGastos(prevGastos => prevGastos.filter(g => g.id !== gastoId));
-      
+
       toast.success('✅ Gasto y archivos asociados eliminados');
     } catch (error: any) {
       console.error('Error eliminando gasto:', error);
@@ -374,7 +378,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
   const gastosManuales = gastos.filter((g) => g.metodo_registro === "manual").length
   const gastosCamara = gastos.filter((g) => g.metodo_registro === "camara").length
   const gastosArchivo = gastos.filter((g) => g.metodo_registro === "archivo").length
-  
+
   // Estadísticas por tipo y estado de liquidación
   const gastosMateriales = gastos.filter((g) => g.tipo_gasto === "material").length
   const gastosManoObra = gastos.filter((g) => g.tipo_gasto === "mano_de_obra" || g.tipo_gasto === "manual").length
@@ -418,12 +422,12 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
               </div>
             )}
           </div>
-          
+
           {gastos.length > 0 && (
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => exportarPDF()}
                 disabled={exportando}
                 className="text-xs h-7"
@@ -452,43 +456,44 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                     {/* Línea principal */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: gasto.usuarios.color_perfil }}
-                        />
+                        {gasto.usuarios?.color_perfil && (
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: gasto.usuarios.color_perfil }}
+                          />
+                        )}
                         <span className="font-medium text-sm">${gasto.monto.toLocaleString("es-CL")}</span>
-                        
+
                         {/* Badge Método de Registro */}
                         <Badge
                           variant={(gasto.metodo_registro === "camara" || gasto.metodo_registro === "archivo") ? "default" : "secondary"}
                           className="text-xs"
                         >
-                          {gasto.metodo_registro === "camara" ? "📸 Cámara" : 
-                           gasto.metodo_registro === "archivo" ? "📄 Archivo" : "✏️ Manual"}
+                          {gasto.metodo_registro === "camara" ? "📸 Cámara" :
+                            gasto.metodo_registro === "archivo" ? "📄 Archivo" : "✏️ Manual"}
                         </Badge>
-                        
+
                         {/* Badge Tipo de Gasto */}
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${
-                            gasto.tipo_gasto === 'material' 
-                              ? 'bg-blue-50 text-blue-700 border-blue-300' 
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${gasto.tipo_gasto === 'material'
+                              ? 'bg-blue-50 text-blue-700 border-blue-300'
                               : 'bg-orange-50 text-orange-700 border-orange-300'
-                          }`}
+                            }`}
                         >
                           {gasto.tipo_gasto === 'material' ? '📦 Material' : '👷 M. Obra'}
                         </Badge>
-                        
+
                         {/* Badge Estado Liquidación */}
                         {gasto.liquidado && (
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className="text-xs bg-green-50 text-green-700 border-green-300 font-semibold"
                           >
                             ✓ Liquidado
                           </Badge>
                         )}
-                        
+
                         {/* Badge Confianza OCR */}
                         {gasto.confianza_ocr && (
                           <Badge variant="outline" className={`text-xs ${getConfianzaColor(gasto.confianza_ocr)}`}>
@@ -520,7 +525,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Segunda línea */}
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -528,11 +533,11 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           <span>{formatDateTime(gasto.fecha_gasto)}</span>
                           <span>•</span>
-                          <span>{gasto.usuarios.email.split('@')[0]}</span>
+                          <span>{(gasto.email_usuario || gasto.usuarios?.email || 'N/A').split('@')[0]}</span>
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Detalles OCR si se muestran */}
                     {mostrarDetalles[gasto.id] && gasto.datos_ocr && (
                       <Card className="mt-2 bg-slate-50">
@@ -544,14 +549,14 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                                 <span>${parseFloat(gasto.datos_ocr.monto).toLocaleString("es-CL")}</span>
                               </div>
                             )}
-                            
+
                             {gasto.datos_ocr.fecha && (
                               <div className="flex gap-1">
                                 <span className="font-medium">Fecha detectada:</span>
                                 <span>{gasto.datos_ocr.fecha}</span>
                               </div>
                             )}
-                            
+
                             {gasto.datos_ocr.texto_extraido && (
                               <details className="mt-2">
                                 <summary className="cursor-pointer font-medium">Ver texto extraído</summary>
@@ -560,7 +565,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                                 </div>
                               </details>
                             )}
-                            
+
                             {gasto.datos_ocr.timestamp && (
                               <div className="text-xs text-muted-foreground">
                                 Procesado: {formatDateTime(gasto.datos_ocr.timestamp)}
@@ -570,7 +575,7 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId }:
                         </CardContent>
                       </Card>
                     )}
-                    
+
                     {/* Imagen del comprobante (preferir la procesada si existe) */}
                     {(gasto.imagen_procesada_url || gasto.comprobante_url) && (
                       <div className="mt-2">

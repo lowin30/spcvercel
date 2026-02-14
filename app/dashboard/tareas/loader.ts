@@ -443,6 +443,17 @@ export async function getTareaDetail(id: string) {
         })) || []
 
 
+        // 7. Gastos (Desde la Vista Completa para visibilidad total)
+        const { data: gastosData, error: gastosError } = await supabaseAdmin
+            .from("vista_gastos_tarea_completa")
+            .select("*")
+            .eq("id_tarea", tareaId)
+            .order("created_at", { ascending: false })
+
+        if (gastosError) {
+            console.error("Error fetching gastos from view:", gastosError)
+        }
+
         return {
             tarea: tareaData,
             userDetails: usuario,
@@ -452,7 +463,8 @@ export async function getTareaDetail(id: string) {
             supervisoresDisponibles: supervisoresDisp || [],
             comentarios: comentariosEnriquecidos,
             presupuestoBase: pbData,
-            presupuestoFinal: pfData
+            presupuestoFinal: pfData,
+            gastos: gastosData || []
         }
 
     } catch (error) {

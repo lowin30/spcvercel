@@ -50,6 +50,7 @@ interface TaskDetailViewProps {
         comentarios: any[]
         presupuestoBase: any
         presupuestoFinal: any
+        gastos: any[]
     }
 }
 
@@ -431,7 +432,12 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
 
                             <Separator className="my-6" />
                             <ErrorBoundary fallback={<p>Error al cargar el historial de gastos</p>}>
-                                <HistorialGastosOCR tareaId={Number(tarea.id)} userRole={userDetails?.rol || 'trabajador'} userId={userDetails?.id} />
+                                <HistorialGastosOCR
+                                    tareaId={Number(tarea.id)}
+                                    userRole={userDetails?.rol || 'trabajador'}
+                                    userId={userDetails?.id}
+                                    initialGastos={initialData.gastos}
+                                />
                             </ErrorBoundary>
                         </div>
                     </div>
