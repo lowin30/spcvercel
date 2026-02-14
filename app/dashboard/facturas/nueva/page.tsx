@@ -59,6 +59,8 @@ export default async function NuevaFacturaPage({
         estadosFactura={data.estadosFactura}
         nextCodigo={data.nextCodigo}
         initialItems={data.presupuesto.items}
+        edificios={data.edificios} // Protocol v82.3
+        tareas={data.tareas}       // Protocol v82.3
       />
     </div>
   )

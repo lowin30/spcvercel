@@ -55,6 +55,8 @@ interface FacturaNuevaFormProps {
     estadosFactura: EstadoFactura[]
     nextCodigo: string
     initialItems: Item[]
+    edificios?: any[]  // Added for Protocol v82.3
+    tareas?: any[]     // Added for Protocol v82.3
 }
 
 export function FacturaNuevaForm({

@@ -39,7 +39,28 @@ export async function getDatosNuevaFactura(presupuestoFinalId: string) {
 
     const estadosFactura = estadosData || []
 
-    // 5. Generar Siguiente Código
+    // 5. Cargar Edificios (Catalogo Global para Select)
+    const { data: edificiosData } = await supabaseAdmin
+        .from("edificios")
+        .select(`
+            id, 
+            nombre, 
+            direccion,
+            id_administrador,
+            administradores (
+                id,
+                nombre,
+                email
+            )
+        `)
+        .order("nombre")
+
+    // 6. Cargar Tareas Pendientes (Opcional - solo las que tienen saldo pendiente si aplica)
+    // Por ahora traemos todas las recientes o filtriamos. 
+    // Para v82.3 solo necesitamos tener el array vacío o listo.
+    const tareas = []
+
+    // 7. Generar Siguiente Código
     let nextCodigo = "fac000001"
     const { data: facturasExistentes } = await supabaseAdmin
         .from("facturas")
@@ -65,6 +86,8 @@ export async function getDatosNuevaFactura(presupuestoFinalId: string) {
             items
         },
         estadosFactura,
-        nextCodigo
+        nextCodigo,
+        edificios: edificiosData || [],
+        tareas
     }
 }
