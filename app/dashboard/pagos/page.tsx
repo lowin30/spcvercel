@@ -49,7 +49,7 @@ export default async function PagosPage({
     modalidad_pago: p.modalidad,
     factura_code: p.factura_interno,
     factura_id: p.id_factura.toString(),
-    factura_datos_afip: p.factura_numero_afip, // OFICIAL AFIP
+    factura_numero_afip: p.factura_numero_afip, // OFICIAL AFIP
     edificio_cuit: p.edificio_cuit, // CUIT real del edificio
     tarea_titulo: p.tarea_titulo,
     edificio_id: p.edificio_id,

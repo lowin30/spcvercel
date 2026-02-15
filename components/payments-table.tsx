@@ -27,7 +27,7 @@ export type EnrichedPayment = {
   modalidad_pago: string;
   factura_code: string | null;
   factura_id: string | null;
-  factura_datos_afip: string | null; // OFICIAL AFIP
+  factura_numero_afip: string | null; // OFICIAL AFIP
   edificio_cuit: string | null; // CUIT REAL
   tarea_titulo: string | null;
   edificio_id: number | null;
@@ -206,9 +206,9 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                           ) : (
                             <span className="font-medium">{payment.factura_code}</span>
                           )}
-                          {payment.factura_datos_afip && (
+                          {payment.factura_numero_afip && (
                             <span className="text-xs text-muted-foreground">
-                              afip: {payment.factura_datos_afip}
+                              afip: {payment.factura_numero_afip}
                             </span>
                           )}
                         </div>
@@ -275,9 +275,9 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                             ) : (
                               <span className="text-sm block">Factura: {payment.factura_code}</span>
                             )}
-                            {payment.factura_datos_afip && (
+                            {payment.factura_numero_afip && (
                               <span className="text-xs block text-muted-foreground">
-                                afip: {payment.factura_datos_afip}
+                                afip: {payment.factura_numero_afip}
                               </span>
                             )}
                           </CardDescription>
