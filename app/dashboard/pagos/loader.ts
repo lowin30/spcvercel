@@ -26,7 +26,8 @@ export type PagoEnriquecido = {
     tarea_titulo: string
     tarea_codigo: string
     presupuesto_total_aprobado: number
-    nro_factura: string
+    factura_interno: string
+    factura_numero_afip: string
     created_at: string
 }
 
@@ -41,13 +42,13 @@ export async function getPagos(filters?: PagosFilterParams): Promise<PagoEnrique
             .select('*');
 
         if (filters) {
-            // 1. Busqueda amplia (q) incluyendo CUIT y Nro Factura
+            // 1. Busqueda amplia (q) incluyendo CUIT y Nro Factura (oficial e interno)
             if (filters.q) {
                 const term = filters.q;
-                query = query.or(`administrador_nombre.ilike.%${term}%,edificio_nombre.ilike.%${term}%,tarea_titulo.ilike.%${term}%,tarea_codigo.ilike.%${term}%,nro_factura.ilike.%${term}%,edificio_cuit.ilike.%${term}%`);
+                query = query.or(`administrador_nombre.ilike.%${term}%,edificio_nombre.ilike.%${term}%,tarea_titulo.ilike.%${term}%,tarea_codigo.ilike.%${term}%,factura_interno.ilike.%${term}%,factura_numero_afip.ilike.%${term}%,edificio_cuit.ilike.%${term}%`);
             }
 
-            // 2. Filtros exactos por ID y Modalidad
+            // ... (rest of filtering logic remains same logically but using correct names)
             if (filters.adm && filters.adm !== 'all') {
                 query = query.eq('administrador_id', filters.adm);
             }

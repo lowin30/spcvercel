@@ -19,12 +19,30 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+// Definición del tipo para los datos enriquecidos de los pagos (v90.5)
+export type EnrichedPayment = {
+  id: string;
+  monto_pagado: number;
+  fecha_pago: string;
+  modalidad_pago: string;
+  factura_code: string | null;
+  factura_id: string | null;
+  factura_datos_afip: string | null; // OFICIAL AFIP
+  edificio_cuit: string | null; // CUIT REAL
+  tarea_titulo: string | null;
+  edificio_id: number | null;
+  edificio_nombre: string | null;
+  administrador_id: number | null;
+  administrador_nombre: string | null;
+  created_by_email: string | null;
+  tarea_codigo: string | null;
+  presupuesto_total: number | null;
+};
+
 import { Eye, Trash2, Calendar, User, CreditCard, Search, Filter, ArrowUpDown } from "lucide-react";
-import { useTransition } from 'react';
+import { useTransition, useEffect, useState } from "react";
 import { deletePayment } from '@/app/dashboard/pagos/borrar-pago';
-import type { EnrichedPayment } from "@/app/dashboard/pagos/page";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -51,7 +69,7 @@ const formatDate = (dateString: string) => {
 // Función para normalizar texto: quita acentos y convierte a minúsculas
 const normalizarTexto = (texto: string | number | null | undefined): string => {
   if (!texto && texto !== 0) return '';
-  
+
   return String(texto)
     .toLowerCase()
     // Normalizar acentos
@@ -62,15 +80,15 @@ const normalizarTexto = (texto: string | number | null | undefined): string => {
 // Función para verificar si un texto coincide con la búsqueda (súper amigable)
 const coincideBusqueda = (texto: string | number | null | undefined, busqueda: string): boolean => {
   if ((!texto && texto !== 0) || !busqueda) return false;
-  
+
   const textoNormalizado = normalizarTexto(texto);
   const busquedaNormalizada = normalizarTexto(busqueda);
-  
+
   // Búsqueda simple por substring (encuentra "mitre" en "Edificio Mitre 123")
   if (textoNormalizado.includes(busquedaNormalizada)) {
     return true;
   }
-  
+
   // Búsqueda tolerante a errores comunes de tipeo
   const busquedaToleranteStr = busquedaNormalizada
     .replace(/[zs]/g, '[zs]')  // z y s son intercambiables
@@ -79,7 +97,7 @@ const coincideBusqueda = (texto: string | number | null | undefined, busqueda: s
     .replace(/[cq]/g, '[cq]')  // c y q son intercambiables
     .replace(/ll/g, '[lly]')   // ll y y son intercambiables
     .replace(/v/g, '[vb]');    // v y b son intercambiables
-  
+
   try {
     const patron = new RegExp(busquedaToleranteStr, 'i');
     return patron.test(textoNormalizado);
@@ -93,7 +111,7 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
   const [isPending, startTransition] = useTransition();
   const [isMounted, setIsMounted] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
-  
+
   // 🔍 Estados de filtros con valores iniciales desde localStorage
   const [searchQuery, setSearchQuery] = useState("");
   const [modalidadFilter, setModalidadFilter] = useState<string>("all");
@@ -103,7 +121,7 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
   const [fechaHasta, setFechaHasta] = useState("");
   const [ordenarPor, setOrdenarPor] = useState<"fecha" | "monto" | "edificio">("fecha");
   const [ordenDireccion, setOrdenDireccion] = useState<"asc" | "desc">("desc");
-  
+
   // Cargar filtros guardados desde localStorage al montar
   useEffect(() => {
     setIsMounted(true);
@@ -124,7 +142,7 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
       }
     }
   }, []);
-  
+
   // Guardar filtros en localStorage cuando cambien
   useEffect(() => {
     if (isMounted) {
@@ -140,15 +158,16 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
       }));
     }
   }, [searchQuery, modalidadFilter, adminFilter, edificioFilter, fechaDesde, fechaHasta, ordenarPor, ordenDireccion, isMounted]);
-  
+
   // 🔍 FILTRAR Y ORDENAR PAGOS
   const filteredPayments = payments
     .filter((payment) => {
       // Búsqueda por texto inteligente (tolerante a acentos y errores de tipeo)
       if (searchQuery) {
-        const matches = 
+        const matches =
           coincideBusqueda(payment.factura_code, searchQuery) ||
           coincideBusqueda(payment.factura_datos_afip, searchQuery) ||
+          coincideBusqueda(payment.edificio_cuit, searchQuery) ||
           coincideBusqueda(payment.tarea_titulo, searchQuery) ||
           coincideBusqueda(payment.edificio_nombre, searchQuery) ||
           coincideBusqueda(payment.administrador_nombre, searchQuery) ||
@@ -157,22 +176,22 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
           coincideBusqueda(payment.monto_pagado, searchQuery);
         if (!matches) return false;
       }
-      
+
       // Filtro por modalidad
       if (modalidadFilter !== "all" && payment.modalidad_pago !== modalidadFilter) {
         return false;
       }
-      
+
       // Filtro por administrador
       if (adminFilter !== "all" && payment.administrador_id?.toString() !== adminFilter) {
         return false;
       }
-      
+
       // Filtro por edificio (cascada: si hay admin seleccionado, solo mostrar edificios de ese admin)
       if (edificioFilter !== "all" && payment.edificio_id?.toString() !== edificioFilter) {
         return false;
       }
-      
+
       // Filtro por rango de fechas
       if (fechaDesde && new Date(payment.fecha_pago) < new Date(fechaDesde)) {
         return false;
@@ -180,12 +199,12 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
       if (fechaHasta && new Date(payment.fecha_pago) > new Date(fechaHasta)) {
         return false;
       }
-      
+
       return true;
     })
     .sort((a, b) => {
       const multiplicador = ordenDireccion === "asc" ? 1 : -1;
-      
+
       if (ordenarPor === "fecha") {
         return (new Date(a.fecha_pago).getTime() - new Date(b.fecha_pago).getTime()) * multiplicador;
       } else if (ordenarPor === "monto") {
@@ -197,12 +216,12 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
       }
       return 0;
     });
-  
+
   // Estadísticas
   const totalPagos = filteredPayments.length;
   const montoTotal = filteredPayments.reduce((sum, p) => sum + p.monto_pagado, 0);
   const modalidades = Array.from(new Set(payments.map(p => p.modalidad_pago).filter(Boolean)));
-  
+
   // Listas únicas para filtros
   const administradores = Array.from(
     new Map(
@@ -211,7 +230,7 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
         .map(p => [p.administrador_id, { id: p.administrador_id!, nombre: p.administrador_nombre! }])
     ).values()
   ).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  
+
   // Edificios filtrados por administrador si está seleccionado
   const edificiosDisponibles = payments.filter(p => {
     if (adminFilter !== "all") {
@@ -219,20 +238,20 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
     }
     return p.edificio_id && p.edificio_nombre;
   });
-  
+
   const edificios = Array.from(
     new Map(
       edificiosDisponibles.map(p => [p.edificio_id, { id: p.edificio_id!, nombre: p.edificio_nombre! }])
     ).values()
   ).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  
+
   // Funciones para filtros de fecha rápida
   const setFechaHoy = () => {
     const hoy = new Date().toISOString().split('T')[0];
     setFechaDesde(hoy);
     setFechaHasta(hoy);
   };
-  
+
   const setFechaAyer = () => {
     const ayer = new Date();
     ayer.setDate(ayer.getDate() - 1);
@@ -240,7 +259,7 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
     setFechaDesde(ayerStr);
     setFechaHasta(ayerStr);
   };
-  
+
   const setFechaSemana = () => {
     const hoy = new Date();
     const lunes = new Date(hoy);
@@ -248,14 +267,14 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
     setFechaDesde(lunes.toISOString().split('T')[0]);
     setFechaHasta(new Date().toISOString().split('T')[0]);
   };
-  
+
   const setFechaMes = () => {
     const hoy = new Date();
     const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     setFechaDesde(primerDia.toISOString().split('T')[0]);
     setFechaHasta(hoy.toISOString().split('T')[0]);
   };
-  
+
   const limpiarFechas = () => {
     setFechaDesde("");
     setFechaHasta("");
@@ -387,8 +406,8 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
             {/* Administrador */}
             <div>
               <label className="text-sm font-medium mb-1 block">Administrador</label>
-              <Select 
-                value={adminFilter} 
+              <Select
+                value={adminFilter}
                 onValueChange={(value) => {
                   setAdminFilter(value);
                   // Resetear edificio cuando cambias admin
@@ -521,11 +540,11 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
             Mostrando {totalPagos} de {payments.length} pagos
           </CardDescription>
         </CardHeader>
-      <CardContent className="p-0 sm:p-6 pt-0">
-        {!isMounted || !isMobile ? (
-          // Vista Desktop - Tabla
-          <div className="hidden sm:block overflow-auto">
-            <style jsx global>{`
+        <CardContent className="p-0 sm:p-6 pt-0">
+          {!isMounted || !isMobile ? (
+            // Vista Desktop - Tabla
+            <div className="hidden sm:block overflow-auto">
+              <style jsx global>{`
               /* Ajustes para tablets (tamaños intermedios) */
               @media (min-width: 641px) and (max-width: 1023px) {
                 table.payments-table {
@@ -567,158 +586,170 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                 }
               }
             `}</style>
-            <Table className="payments-table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Factura</TableHead>
-                  <TableHead>Edificio</TableHead>
-                  <TableHead>Admin</TableHead>
-                  <TableHead>Tarea</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="hidden lg:table-cell">Registrado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPayments && filteredPayments.length > 0 ? (
-                  filteredPayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          {payment.factura_id ? (
-                            <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline">
-                              {payment.factura_code}
-                            </Link>
-                          ) : (
-                            <span className="font-medium">{payment.factura_code}</span>
-                          )}
-                          {payment.factura_datos_afip && (
-                            <span className="text-xs text-muted-foreground">
-                              AFIP: {payment.factura_datos_afip}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{payment.edificio_nombre}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{payment.administrador_nombre}</TableCell>
-                      <TableCell className="text-muted-foreground">{payment.tarea_titulo}</TableCell>
-                      <TableCell className="text-right font-mono">{formatCurrency(payment.monto_pagado)}</TableCell>
-                      <TableCell>{formatDate(payment.fecha_pago)}</TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{payment.created_by_email}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {payment.factura_id && (
-                            <Button variant="ghost" size="icon" asChild>
-                              <Link href={`/dashboard/facturas/${payment.factura_id}`}>
-                                <Eye className="h-4 w-4" />
-                                <span className="sr-only">Ver Factura</span>
-                              </Link>
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(payment.id)} disabled={isPending}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                            <span className="sr-only">Eliminar Pago</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
+              <Table className="payments-table">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24">
-                      No se encontraron pagos con los filtros seleccionados.
-                    </TableCell>
+                    <TableHead>Factura</TableHead>
+                    <TableHead>Edificio</TableHead>
+                    <TableHead>Admin</TableHead>
+                    <TableHead>Tarea</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead className="hidden lg:table-cell">Registrado</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          // Vista Mobile - Cards
-          <div className="block sm:hidden p-3">
-            {filteredPayments && filteredPayments.length > 0 ? (
-              <div className="space-y-3">
-                {filteredPayments.map((payment) => (
-                  <Card key={payment.id} className="overflow-hidden bg-muted/10 border shadow-sm">
-                    <CardHeader className="p-4 pb-0">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg flex items-center gap-1">
-                            <span className="font-mono">{formatCurrency(payment.monto_pagado)}</span>
-                          </CardTitle>
-                          <CardDescription className="mt-1 space-y-0.5">
+                </TableHeader>
+                <TableBody>
+                  {filteredPayments && filteredPayments.length > 0 ? (
+                    filteredPayments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell>
+                          <div className="flex flex-col">
                             {payment.factura_id ? (
-                              <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline text-sm block">
-                                Factura: {payment.factura_code}
+                              <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline">
+                                {payment.factura_code}
                               </Link>
                             ) : (
-                              <span className="text-sm block">Factura: {payment.factura_code}</span>
+                              <span className="font-medium">{payment.factura_code}</span>
                             )}
                             {payment.factura_datos_afip && (
-                              <span className="text-xs block">
+                              <span className="text-xs text-muted-foreground">
                                 AFIP: {payment.factura_datos_afip}
                               </span>
                             )}
-                          </CardDescription>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-black font-semibold text-xs md:text-sm">{payment.edificio_nombre}</span>
+                            {payment.edificio_cuit && (
+                              <span className="text-[10px] text-muted-foreground">cuit: {payment.edificio_cuit}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{payment.administrador_nombre}</TableCell>
+                        <TableCell className="text-muted-foreground">{payment.tarea_titulo}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(payment.monto_pagado)}</TableCell>
+                        <TableCell>{formatDate(payment.fecha_pago)}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{payment.created_by_email}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {payment.factura_id && (
+                              <Button variant="ghost" size="icon" asChild>
+                                <Link href={`/dashboard/facturas/${payment.factura_id}`}>
+                                  <Eye className="h-4 w-4" />
+                                  <span className="sr-only">Ver Factura</span>
+                                </Link>
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(payment.id)} disabled={isPending}>
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <span className="sr-only">Eliminar Pago</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center h-24">
+                        No se encontraron pagos con los filtros seleccionados.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            // Vista Mobile - Cards
+            <div className="block sm:hidden p-3">
+              {filteredPayments && filteredPayments.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredPayments.map((payment) => (
+                    <Card key={payment.id} className="overflow-hidden bg-muted/10 border shadow-sm">
+                      <CardHeader className="p-4 pb-0">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-lg flex items-center gap-1">
+                              <span className="font-mono">{formatCurrency(payment.monto_pagado)}</span>
+                            </CardTitle>
+                            <CardDescription className="mt-1 space-y-0.5">
+                              {payment.factura_id ? (
+                                <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline text-sm block">
+                                  Factura: {payment.factura_code}
+                                </Link>
+                              ) : (
+                                <span className="text-sm block">Factura: {payment.factura_code}</span>
+                              )}
+                              {payment.factura_datos_afip && (
+                                <span className="text-xs block">
+                                  AFIP: {payment.factura_datos_afip}
+                                </span>
+                              )}
+                            </CardDescription>
+                          </div>
+                          <Badge variant="outline" className="capitalize">
+                            {payment.modalidad_pago}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="capitalize">
-                          {payment.modalidad_pago}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-2">
-                      <div className="grid gap-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span>{formatDate(payment.fecha_pago)}</span>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-2">
+                        <div className="grid gap-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <span>{formatDate(payment.fecha_pago)}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4 text-gray-400" />
+                            <span>{payment.tarea_titulo}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="h-4 w-4 text-center text-gray-400">🏢</span>
+                            <div className="flex flex-col">
+                              <span className="text-muted-foreground text-xs">{payment.edificio_nombre}</span>
+                              {payment.edificio_cuit && (
+                                <span className="text-[10px] text-muted-foreground/70">cuit: {payment.edificio_cuit}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-gray-400" />
+                            <span className="text-muted-foreground text-xs">{payment.administrador_nombre}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4 text-gray-400" />
-                          <span>{payment.tarea_titulo}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="h-4 w-4 text-center text-gray-400">🏢</span>
-                          <span className="text-muted-foreground text-xs">{payment.edificio_nombre}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-gray-400" />
-                          <span className="text-muted-foreground text-xs">{payment.administrador_nombre}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="border-t p-2 flex justify-end gap-2 bg-muted/20">
-                      {payment.factura_id && (
-                        <Button variant="outline" size="sm" asChild className="h-8 px-2">
-                          <Link href={`/dashboard/facturas/${payment.factura_id}`}>
-                            <Eye className="h-3 w-3 mr-1" />
-                            <span className="text-xs">Ver factura</span>
-                          </Link>
+                      </CardContent>
+                      <CardFooter className="border-t p-2 flex justify-end gap-2 bg-muted/20">
+                        {payment.factura_id && (
+                          <Button variant="outline" size="sm" asChild className="h-8 px-2">
+                            <Link href={`/dashboard/facturas/${payment.factura_id}`}>
+                              <Eye className="h-3 w-3 mr-1" />
+                              <span className="text-xs">Ver factura</span>
+                            </Link>
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(payment.id)}
+                          disabled={isPending}
+                          className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          <span className="text-xs">Eliminar</span>
                         </Button>
-                      )}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleDelete(payment.id)} 
-                        disabled={isPending} 
-                        className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        <span className="text-xs">Eliminar</span>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-muted-foreground">No se encontraron pagos.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">No se encontraron pagos.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }
