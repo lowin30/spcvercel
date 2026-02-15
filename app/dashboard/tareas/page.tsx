@@ -24,11 +24,11 @@ import {
   getTareasData,
   getRecordatorios,
   getTareasParaPresupuesto,
-  getPresupuestosBase
+  getPresupuestosBase,
+  getTareasCounts
 } from "@/app/dashboard/tareas/loader"
 import { supabaseAdmin } from "@/lib/supabase-admin" // Direct fetch for catalogs or new loader function?
 // Let's use direct admin fetch here for brevity or better, a dedicated loader function
-import { getCatalogsForWizard } from "@/app/dashboard/tareas/loader" // Reuse this if possible or create new.
 // getCatalogsForWizard returns { administradores, supervisores, trabajadores }. Missing Edificios linked to Admin.
 
 async function getFiltersCatalogs() {
@@ -67,29 +67,48 @@ export default async function TareasPage({ searchParams }: Props) {
 
   let initialTareas: any[] = []
   let initialPresupuestosBase = {}
+  let initialCounts = { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+  let recordatorios: any[] = []
+  let catalogs: any = null
 
   // 3. Data Fetching (Server Side) via Loader (Bypass RLS controlled)
   try {
     if (crearPresupuestoMode) {
-      initialTareas = await getTareasParaPresupuesto()
+      const [tareas, counts, recs, cats] = await Promise.all([
+        getTareasParaPresupuesto(),
+        getTareasCounts(filters),
+        getRecordatorios(user.rol, user.id),
+        getFiltersCatalogs()
+      ])
+      initialTareas = tareas
+      initialCounts = counts
+      recordatorios = recs
+      catalogs = cats
+
       if (initialTareas.length > 0) {
         const ids = initialTareas.map(t => t.id)
         initialPresupuestosBase = await getPresupuestosBase(ids)
       }
     } else {
       // Pass filters to loader
-      initialTareas = await getTareasData(filters)
+      const [tareas, counts, recs, cats] = await Promise.all([
+        getTareasData(filters),
+        getTareasCounts(filters),
+        getRecordatorios(user.rol, user.id),
+        getFiltersCatalogs()
+      ])
+      initialTareas = tareas
+      initialCounts = counts
+      recordatorios = recs
+      catalogs = cats
     }
   } catch (error) {
     console.error("Critical Data Fetch Error:", error)
     initialTareas = []
+    initialCounts = { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+    recordatorios = []
+    catalogs = { administradores: [], edificios: [], supervisores: [], estados: [] }
   }
-
-  // 4. Fetch Recordatorios
-  const recordatorios = await getRecordatorios(user.rol, user.id)
-
-  // 5. Fetch Catalogs for Filters
-  const catalogs = await getFiltersCatalogs()
 
   // 5. Render Client Component with Hydrated Data
   return (
@@ -99,6 +118,7 @@ export default async function TareasPage({ searchParams }: Props) {
         initialUserDetails={user}
         initialRecordatorios={recordatorios}
         initialPresupuestosBase={initialPresupuestosBase}
+        initialCounts={initialCounts}
         crearPresupuestoMode={crearPresupuestoMode}
         catalogs={catalogs} // Pass catalogs
       />

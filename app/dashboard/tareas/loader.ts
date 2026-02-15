@@ -198,6 +198,102 @@ export async function getTareasData(filters?: TareasFilterParams) {
     }
 }
 
+export async function getTareasCounts(filters?: TareasFilterParams) {
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get("DS")?.value
+
+    if (!sessionToken) return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+
+    try {
+        const authInfo = await descopeClient.validateSession(sessionToken)
+        const email = authInfo.token.email || authInfo.token.sub
+
+        const { data: usuario } = await supabaseAdmin
+            .from('usuarios')
+            .select('id, rol')
+            .ilike('email', email)
+            .single()
+
+        if (!usuario) return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+
+        const { id: userId, rol } = usuario
+
+        // Reutilizamos la lógica de filtrado base (sin el filtro de 'view' ni 'estado')
+        let query = supabaseAdmin
+            .from('vista_tareas_completa')
+            .select('id_estado_nuevo');
+
+        // Aplicamos seguridad por rol
+        if (rol === 'admin') {
+            query = query.neq('id_estado_nuevo', 9)
+        } else if (rol === 'supervisor') {
+            const { data: asignaciones } = await supabaseAdmin
+                .from('supervisores_tareas')
+                .select('id_tarea')
+                .eq('id_supervisor', userId)
+            const ids = asignaciones?.map(a => a.id_tarea) || []
+            if (ids.length > 0) query = query.in('id', ids)
+            else return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        } else if (rol === 'trabajador') {
+            const { data: asignaciones } = await supabaseAdmin
+                .from('trabajadores_tareas')
+                .select('id_tarea')
+                .eq('id_trabajador', userId)
+            const ids = asignaciones?.map(a => a.id_tarea) || []
+            if (ids.length > 0) query = query.in('id', ids)
+            else return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        }
+
+        // Aplicamos filtros globales (admin, edificio, supervisor, search)
+        if (filters) {
+            if (filters.id_administrador && filters.id_administrador !== '_todos_') {
+                query = query.eq('id_administrador', filters.id_administrador)
+            }
+            if (filters.id_edificio && filters.id_edificio !== '_todos_') {
+                query = query.eq('id_edificio', filters.id_edificio)
+            }
+            if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
+                const { data: tSup } = await supabaseAdmin
+                    .from('supervisores_tareas')
+                    .select('id_tarea')
+                    .eq('id_supervisor', filters.id_supervisor)
+                const ids = tSup?.map(t => t.id_tarea) || []
+                if (ids.length > 0) query = query.in('id', ids)
+                else return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+            }
+            if (filters.search) {
+                query = query.or(`titulo.ilike.%${filters.search}%,code.ilike.%${filters.search}%,descripcion.ilike.%${filters.search}%,nombre_edificio.ilike.%${filters.search}%`)
+            }
+        }
+
+        const { data: tareas } = await query
+
+        if (!tareas) return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+
+        // Agrupamos y contamos en JS (eficiente para el volumen esperado)
+        const counts = {
+            activas: 0,
+            aprobadas: 0,
+            enviadas: 0,
+            finalizadas: 0,
+            todas: tareas.length
+        }
+
+        tareas.forEach(t => {
+            const id = t.id_estado_nuevo
+            if ([1, 2, 3, 8, 10].includes(id)) counts.activas++
+            else if (id === 5) counts.aprobadas++
+            else if (id === 4) counts.enviadas++
+            else if ([6, 7, 9].includes(id)) counts.finalizadas++
+        })
+
+        return counts
+    } catch (e) {
+        console.error("Error calculating counts:", e)
+        return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+    }
+}
+
 // Helper para usar vistas especificas si el rol es complejo
 async function getTareasFromView(viewName: string, userId: string) {
     // Nota: Las vistas SQL suelen depender de auth.uid() si no estan bien hechas.
