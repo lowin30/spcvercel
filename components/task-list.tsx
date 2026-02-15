@@ -77,23 +77,14 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
   )
 
   // Estados normalizados para las tareas
-  const estadosTarea = [
-    { id: 1, nombre: "Organizar", color: "gray" },
-    { id: 2, nombre: "Preguntar", color: "blue" },
-    { id: 3, nombre: "Presupuestado", color: "purple" },
-    { id: 4, nombre: "Enviado", color: "indigo" },
-    { id: 5, nombre: "Aprobado", color: "green" },
-    { id: 6, nombre: "Facturado", color: "orange" },
-    { id: 7, nombre: "Terminado", color: "green" },
-    { id: 8, nombre: "Reclamado", color: "red" },
-    { id: 9, nombre: "Liquidada", color: "purple" },
-    { id: 10, nombre: "Posible", color: "yellow" },
-  ]
 
-  // Función para obtener el nombre y color del estado por id
-  const getEstadoById = (id: number) => {
-    const estado = estadosTarea.find(e => e.id === id)
-    return estado || { nombre: "Desconocido", color: "gray" }
+  // Función para obtener el color del estado por id (se mantiene la lógica de colores)
+  const getEstadoColorName = (id: number) => {
+    const map: Record<number, string> = {
+      1: "gray", 2: "blue", 3: "purple", 4: "indigo", 5: "green",
+      6: "orange", 7: "green", 8: "red", 9: "purple", 10: "yellow"
+    }
+    return map[id] || "gray"
   }
 
   const getSupervisorInfo = (task: Task) => {
@@ -130,8 +121,8 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
     }
 
     // Si es número (nuevo sistema normalizado)
-    const estado = getEstadoById(idEstado as number)
-    switch (estado.color) {
+    const colorName = getEstadoColorName(idEstado as number)
+    switch (colorName) {
       case "gray":
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
       case "blue":
@@ -155,7 +146,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
 
   // Función para manejar eliminación de tarea
   const handleDeleteTask = async (taskId: number) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.")) {
+    if (!confirm("¿estas seguro de que deseas eliminar esta tarea? esta accion no se puede deshacer.")) {
       return
     }
 
@@ -165,13 +156,12 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
     try {
       const result = await deleteTask(taskId)
       if (result.success) {
-        toast.success(result.message || "Tarea eliminada con éxito")
-        // La página debe actualizarse automáticamente gracias a revalidatePath
+        toast.success("tarea eliminada con exito")
       } else {
-        toast.error(result.message || "Error al eliminar la tarea")
+        toast.error("error al eliminar la tarea")
       }
     } catch (error) {
-      toast.error("Ocurrió un error inesperado")
+      toast.error("ocurrio un error inesperado")
       console.error("Error al eliminar tarea:", error)
     } finally {
       setIsDeleting(false)
@@ -218,8 +208,6 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
             </div>
           ) : (
             filteredTasks.map((task) => {
-              // Obtener información del estado normalizado
-              const estadoInfo = getEstadoById(task.id_estado_nuevo);
               const supervisorInfo = getSupervisorInfo(task);
 
               return (
@@ -289,7 +277,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                       <div className="flex justify-between items-center mt-4 pt-4 border-t text-sm">
                         <div className="flex items-center gap-2">
                           <Badge className={getEstadoColor(task.id_estado_nuevo)}>
-                            {estadoInfo.nombre}
+                            {task.estado_tarea?.toLowerCase()}
                           </Badge>
                         </div>
 
@@ -300,7 +288,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                         <div className="absolute inset-0 bg-white/70 dark:bg-black/70 flex items-center justify-center rounded-md">
                           <div className="flex items-center gap-2">
                             <Loader2 className="animate-spin h-4 w-4" />
-                            <span>{isDeleting ? "Eliminando..." : "Clonando..."}</span>
+                            <span>{isDeleting ? "eliminando..." : "clonando..."}</span>
                           </div>
                         </div>
                       )}
@@ -324,24 +312,22 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
             </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Título</TableHead>
-                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Estado</TableHead>
-                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">Fecha de visita</TableHead>
-                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">Supervisor</TableHead>
-                {userRole === "admin" && <TableHead className="px-2 py-2 text-xs whitespace-nowrap w-[80px]">Acciones</TableHead>}
+                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">titulo</TableHead>
+                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">estado</TableHead>
+                <TableHead className="px-1 py-1 text-xs whitespace-nowrap">fecha de visita</TableHead>
+                <TableHead className="px-2 py-2 text-xs whitespace-nowrap">supervisor</TableHead>
+                {userRole === "admin" && <TableHead className="px-2 py-2 text-xs whitespace-nowrap w-[80px]">acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredTasks.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={userRole === "admin" ? 5 : 4} className="h-24 text-center">
-                    No se encontraron tareas
+                    no se encontraron tareas
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredTasks.map((task) => {
-                  // Obtener información del estado normalizado
-                  const estadoInfo = getEstadoById(task.id_estado_nuevo);
 
                   return (
                     <TableRow key={task.id}>
@@ -352,7 +338,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                       </TableCell>
                       <TableCell className="px-2 py-3 whitespace-nowrap">
                         <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5`}>
-                          {estadoInfo.nombre}
+                          {task.estado_tarea?.toLowerCase()}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-2 py-3 whitespace-nowrap">
@@ -362,7 +348,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                             <span className="text-xs">{formatDateTime(task.fecha_visita)}</span>
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">No programada</span>
+                          <span className="text-xs text-muted-foreground">no programada</span>
                         )}
                       </TableCell>
                       <TableCell className="px-3 py-3">
@@ -383,7 +369,7 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              title="Clonar tarea"
+                              title="clonar tarea"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();

@@ -12,10 +12,11 @@ type Props = {
     administradores: { id: number, nombre: string }[]
     edificios: { id: number, nombre: string, id_administrador: number }[]
     supervisores: { id: number, email: string, nombre?: string, code?: string }[]
+    estados: { id: number, nombre: string, codigo: string }[]
     userRole?: string
 }
 
-export function TaskFiltersBar({ administradores, edificios, supervisores, userRole }: Props) {
+export function TaskFiltersBar({ administradores, edificios, supervisores, estados, userRole }: Props) {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -75,18 +76,6 @@ export function TaskFiltersBar({ administradores, edificios, supervisores, userR
         })
     }, [edificios, currentAdmin])
 
-    const estados = [
-        { id: 1, nombre: "Organizar" },
-        { id: 2, nombre: "Preguntar" },
-        { id: 3, nombre: "Presupuestado" },
-        { id: 4, nombre: "Enviado" },
-        { id: 5, nombre: "Aprobado" },
-        { id: 6, nombre: "Facturado" },
-        { id: 7, nombre: "Terminado" },
-        { id: 8, nombre: "Reclamado" },
-        { id: 9, nombre: "Liquidada" },
-        { id: 10, nombre: "Posible" }
-    ]
 
     const isAdminOrSupervisor = userRole === 'admin' || userRole === 'supervisor'
 
@@ -98,10 +87,10 @@ export function TaskFiltersBar({ administradores, edificios, supervisores, userR
                 <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar por título, código..."
+                        placeholder="buscar por titulo, codigo..."
                         defaultValue={currentSearch || ''}
                         onChange={(e) => handleSearch(e.target.value)}
-                        className="pl-8"
+                        className="pl-8 lowercase"
                     />
                 </div>
 
@@ -141,9 +130,9 @@ export function TaskFiltersBar({ administradores, edificios, supervisores, userR
                         <SelectValue placeholder="Estado" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="_todos_">Todos los Estados</SelectItem>
+                        <SelectItem value="_todos_">todos los estados</SelectItem>
                         {estados.map(e => (
-                            <SelectItem key={e.id} value={e.id.toString()}>{e.nombre}</SelectItem>
+                            <SelectItem key={e.id} value={e.id.toString()}>{e.nombre.toLowerCase()}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -166,10 +155,11 @@ export function TaskFiltersBar({ administradores, edificios, supervisores, userR
                 )}
             </div>
 
+            {/* Clear Filters Button (v88.1 clean) */}
             {(currentAdmin || currentEdificio || currentEstado || currentSupervisor || currentSearch) && (
                 <div className="flex justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => router.push(pathname)} className="text-muted-foreground hover:text-red-500">
-                        <X className="mr-2 h-4 w-4" /> Limpiar Filtros
+                    <Button variant="ghost" size="sm" onClick={() => router.push(pathname + '?view=activas')} className="text-muted-foreground hover:text-red-500 lowercase">
+                        <X className="mr-2 h-4 w-4" /> limpiar filtros
                     </Button>
                 </div>
             )}

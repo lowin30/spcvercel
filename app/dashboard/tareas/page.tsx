@@ -32,16 +32,18 @@ import { getCatalogsForWizard } from "@/app/dashboard/tareas/loader" // Reuse th
 // getCatalogsForWizard returns { administradores, supervisores, trabajadores }. Missing Edificios linked to Admin.
 
 async function getFiltersCatalogs() {
-  const [admins, eds, sups] = await Promise.all([
+  const [admins, eds, sups, states] = await Promise.all([
     supabaseAdmin.from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
     supabaseAdmin.from('vista_edificios_completa').select('id, nombre, id_administrador').order('nombre'),
-    supabaseAdmin.from('usuarios').select('id, email, nombre, code').eq('rol', 'supervisor')
+    supabaseAdmin.from('usuarios').select('id, email, nombre, code').eq('rol', 'supervisor'),
+    supabaseAdmin.from('estados_tareas').select('id, nombre, codigo').order('orden')
   ]);
 
   return {
     administradores: admins.data || [],
     edificios: eds.data || [],
-    supervisores: sups.data || []
+    supervisores: sups.data || [],
+    estados: states.data || []
   }
 }
 
@@ -59,7 +61,8 @@ export default async function TareasPage({ searchParams }: Props) {
     id_edificio: params.id_edificio as string,
     estado: params.estado as string,
     id_supervisor: params.id_supervisor as string,
-    search: params.search as string
+    search: params.search as string,
+    view: params.view as string
   }
 
   let initialTareas: any[] = []

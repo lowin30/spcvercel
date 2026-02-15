@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase-client" // Keep for Realtime if needed, but remove fetching
 import { Button } from "@/components/ui/button"
 import { TaskList } from "@/components/task-list"
@@ -29,6 +29,7 @@ type Props = {
         administradores: any[]
         edificios: any[]
         supervisores: any[]
+        estados: any[]
     }
 }
 
@@ -53,49 +54,31 @@ export default function TareasClientPage({
 
     const [selectedTareaId, setSelectedTareaId] = useState<string | null>(null)
     const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const currentView = searchParams.get('view') || 'activas'
 
-    // ... (Keep existing helpers like getEstadoColor, handleSelectTareaForPresupuesto)
+    // Helper to update URL
+    const createQueryString = (deltas: Record<string, string | null>) => {
+        const params = new URLSearchParams(searchParams.toString())
+        for (const [key, value] of Object.entries(deltas)) {
+            if (value === null || value === '_todos_' || value === '') {
+                params.delete(key)
+            } else {
+                params.set(key, value)
+            }
+        }
+        return params.toString()
+    }
+
+    const handleTabChange = (value: string) => {
+        const query = createQueryString({ view: value })
+        router.push(pathname + '?' + query)
+    }
 
     // (Lógica de filtrado reemplazada por Server Side Filtering + TaskFiltersBar)
 
-    // Helper para mantener consistencia con tabs
-    const tareasParaTabs = tareas
-
-    // Estados normalizados (Re-integrated for Tabs logic)
-    const estadosTarea = [
-        { id: 1, nombre: "Organizar", color: "gray", codigo: "organizar", descripcion: "Tarea en fase inicial de organización", orden: 1 },
-        { id: 2, nombre: "Preguntar", color: "blue", codigo: "preguntar", descripcion: "Tarea en fase de consulta o investigación", orden: 2 },
-        { id: 3, nombre: "Presupuestado", color: "purple", codigo: "presupuestado", descripcion: "Tarea con presupuesto creado", orden: 3 },
-        { id: 4, nombre: "Enviado", color: "indigo", codigo: "enviado", descripcion: "Presupuesto enviado al cliente", orden: 4 },
-        { id: 5, nombre: "Aprobado", color: "green", codigo: "aprobado", descripcion: "Presupuesto aprobado por el cliente", orden: 5 },
-        { id: 6, nombre: "Facturado", color: "orange", codigo: "facturado", descripcion: "Tarea facturada", orden: 6 },
-        { id: 7, nombre: "Terminado", color: "green", codigo: "terminado", descripcion: "Tarea completada", orden: 7 },
-        { id: 8, nombre: "Reclamado", color: "red", codigo: "reclamado", descripcion: "Tarea con reclamo del cliente", orden: 8 },
-        { id: 9, nombre: "Liquidada", color: "purple", codigo: "liquidada", descripcion: "Tarea completada y liquidada financieramente", orden: 9 },
-        { id: 10, nombre: "Posible", color: "yellow", codigo: "posible", descripcion: "Son posibles trabajos a futuro", orden: 10 }
-    ]
-
-    // Tareas por estado (Categorización para Tabs)
-    const tarefasPorEstadoFiltradas: Record<number, any[]> = useMemo(() => {
-        const grouped: Record<number, any[]> = {}
-        // Inicializar grupos
-        estadosTarea.forEach(estado => {
-            grouped[estado.id] = []
-        })
-
-        // Agrupar
-        tareasParaTabs.forEach(t => {
-            if (grouped[t.id_estado_nuevo]) {
-                grouped[t.id_estado_nuevo].push(t)
-            }
-        })
-        return grouped
-    }, [tareasParaTabs])
-
-    // Helper para "Otros"
-    const tareasOtros = useMemo(() => {
-        return tareasParaTabs.filter(t => ![1, 5].includes(t.id_estado_nuevo))
-    }, [tareasParaTabs])
+    // Mapeo de Supervisores para UI (Avatares)
 
     // Mapeo de Supervisores para UI (Avatares)
     // Usamos 'catalogs.supervisores' si existe
@@ -117,12 +100,12 @@ export default function TareasClientPage({
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold">Tareas</h2>
-                    <p className="text-muted-foreground">Gestiona las tareas del sistema</p>
+                    <h2 className="text-3xl font-bold">tareas</h2>
+                    <p className="text-muted-foreground">gestiona las tareas del sistema</p>
                 </div>
                 {(userDetails?.rol === "admin" || userDetails?.rol === "supervisor") && (
                     <div className="flex gap-2">
-                        <Button asChild><Link href="/dashboard/tareas/nueva"><Plus className="mr-2 h-4 w-4" /> Nueva Tarea</Link></Button>
+                        <Button asChild><Link href="/dashboard/tareas/nueva"><Plus className="mr-2 h-4 w-4" /> nueva tarea</Link></Button>
                     </div>
                 )}
             </div>
@@ -133,31 +116,37 @@ export default function TareasClientPage({
                     administradores={catalogs.administradores}
                     edificios={catalogs.edificios}
                     supervisores={catalogs.supervisores}
+                    estados={catalogs.estados}
                     userRole={userDetails?.rol}
                 />
             )}
 
-            {/* TABS */}
-            <Tabs defaultValue="todas" className="mt-10">
-
-                <TabsList className="bg-blue-100 p-2 border-2 border-blue-500">
-                    <TabsTrigger value="todas">TODAS ({tareasParaTabs.length})</TabsTrigger>
-                    <TabsTrigger value="1">ORGANIZAR ({tarefasPorEstadoFiltradas[1]?.length || 0})</TabsTrigger>
-                    <TabsTrigger value="5">APROBADO ({tarefasPorEstadoFiltradas[5]?.length || 0})</TabsTrigger>
-                    <TabsTrigger value="otros">OTROS ({tareasOtros.length})</TabsTrigger>
+            {/* Smart Tabs (v88.1) */}
+            <Tabs
+                value={currentView}
+                onValueChange={handleTabChange}
+                className="mt-10"
+            >
+                <TabsList className="bg-slate-100 dark:bg-slate-900 p-1 border rounded-lg h-auto flex-wrap">
+                    <TabsTrigger value="activas" className="px-4 py-2">activas</TabsTrigger>
+                    <TabsTrigger value="aprobadas" className="px-4 py-2">aprobadas</TabsTrigger>
+                    <TabsTrigger value="enviadas" className="px-4 py-2">enviadas</TabsTrigger>
+                    <TabsTrigger value="finalizadas" className="px-4 py-2">finalizadas</TabsTrigger>
+                    <TabsTrigger value="todas" className="px-4 py-2">todas</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="todas" className="mt-4">
-                    <TaskList tasks={tareasParaTabs} userRole={userDetails?.rol} supervisoresMap={supervisoresMap} />
-                </TabsContent>
-                <TabsContent value="1" className="mt-4">
-                    <TaskList tasks={tarefasPorEstadoFiltradas[1] || []} userRole={userDetails?.rol} supervisoresMap={supervisoresMap} />
-                </TabsContent>
-                {/* ... Other tabs ... */}
-                <TabsContent value="otros" className="mt-4">
-                    {/* Logic for 'otros' */}
-                    <TaskList tasks={tareasOtros} userRole={userDetails?.rol} supervisoresMap={supervisoresMap} />
-                </TabsContent>
+                <div className="mt-4">
+                    {tareas.length > 0 ? (
+                        <TaskList tasks={tareas} userRole={userDetails?.rol} supervisoresMap={supervisoresMap} />
+                    ) : (
+                        <Card className="border-dashed border-2 py-10">
+                            <CardContent className="flex flex-col items-center justify-center text-muted-foreground">
+                                <Search className="h-10 w-10 mb-4 opacity-20" />
+                                <p>no se encontraron tareas en esta vista</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             </Tabs>
         </div>
     )

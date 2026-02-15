@@ -34,6 +34,7 @@ export type TareasFilterParams = {
     estado?: string
     id_supervisor?: string
     search?: string
+    view?: string
 }
 
 export async function getTareasData(filters?: TareasFilterParams) {
@@ -103,6 +104,34 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         // 5. Aplicar Filtros de Usuario (Search Params)
         if (filters) {
+            // Filtro por VISTA (Smart Tabs v88.1)
+            // Solo aplicamos si no hay un filtro de estado específico seleccionado
+            if (!filters.estado || filters.estado === '_todos_') {
+                const view = filters.view || 'activas';
+
+                switch (view) {
+                    case 'activas':
+                        // organizar, preguntar, presupuestado, reclamado, posible (1, 2, 3, 8, 10)
+                        query = query.in('id_estado_nuevo', [1, 2, 3, 8, 10]);
+                        break;
+                    case 'aprobadas':
+                        // aprobado (5)
+                        query = query.eq('id_estado_nuevo', 5);
+                        break;
+                    case 'enviadas':
+                        // enviado (4)
+                        query = query.eq('id_estado_nuevo', 4);
+                        break;
+                    case 'finalizadas':
+                        // facturado, terminado, liquidada (6, 7, 9)
+                        query = query.in('id_estado_nuevo', [6, 7, 9]);
+                        break;
+                    case 'todas':
+                        // No aplicamos filtro de estado adicional (pero respetamos seguridades de rol arriba)
+                        break;
+                }
+            }
+
             // Filtro Administrador
             if (filters.id_administrador && filters.id_administrador !== '_todos_') {
                 query = query.eq('id_administrador', filters.id_administrador)
@@ -113,7 +142,7 @@ export async function getTareasData(filters?: TareasFilterParams) {
                 query = query.eq('id_edificio', filters.id_edificio)
             }
 
-            // Filtro Estado
+            // Filtro Estado Especifico (Sobreescribe la Vista)
             if (filters.estado && filters.estado !== '_todos_') {
                 const estadoId = parseInt(filters.estado)
                 if (!isNaN(estadoId)) {
@@ -122,22 +151,10 @@ export async function getTareasData(filters?: TareasFilterParams) {
             }
 
             // Filtro Supervisor (Email o ID?)
-            // El filtro suele venir como ID o Email. Asumiremos ID numérico o email string.
-            // Si es email (como estaba antes), buscamos en `supervisores_emails` (texto).
-            // Si es ID, buscamos en relación.
-            // Por simplicidad y legacy compatibility, si viene como email:
             if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
-                // Check if it looks like an email using simple regex or just assume string
                 if (filters.id_supervisor.includes('@')) {
                     query = query.ilike('supervisores_emails', `%${filters.id_supervisor}%`)
                 } else {
-                    // Assume ID? vista_tareas_completa does NOT have supervisor_id column directly exposed usually, 
-                    // it has aggregated string. 
-                    // To filter by Supervisor ID efficiently, we need a join or subquery.
-                    // Given the view definition limit, let's stick to text search on emails if possible,
-                    // OR, fetch tasks for that supervisor first.
-                    // Let's rely on the previous logic: `supervisores_emails` ILIKE or we'd need to filter by ID via junction table.
-                    // For scalability: subquery on junction table `supervisores_tareas`.
                     const { data: tareasSup } = await supabaseAdmin
                         .from('supervisores_tareas')
                         .select('id_tarea')
@@ -147,7 +164,8 @@ export async function getTareasData(filters?: TareasFilterParams) {
                     if (idsSup.length > 0) {
                         query = query.in('id', idsSup)
                     } else {
-                        return [] // No matches
+                        // Si no tiene tareas, devolvemos vacío directamente
+                        return []
                     }
                 }
             }
@@ -155,9 +173,11 @@ export async function getTareasData(filters?: TareasFilterParams) {
             // Busqueda de Texto
             if (filters.search) {
                 const term = filters.search;
-                // Simple OR search across generic fields
                 query = query.or(`titulo.ilike.%${term}%,code.ilike.%${term}%,descripcion.ilike.%${term}%,nombre_edificio.ilike.%${term}%`)
             }
+        } else {
+            // DEFAULT: Si no hay filtros en absoluto, mostrar ACTIVAS
+            query = query.in('id_estado_nuevo', [1, 2, 3, 8, 10]);
         }
 
         const { data: tareas, error: dataError } = await query;
