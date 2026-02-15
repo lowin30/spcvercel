@@ -112,12 +112,12 @@ export function FinalizarTareaDialog({
       return
     }
 
-    // 🔴 VALIDACIÓN CRÍTICA: Si hubo trabajo, debe existir PB
+    // VALIDACION CRITICA: Si hubo trabajo, debe existir PB
     if (huboTrabajo && !tienePB) {
-      toast.error("⚠️ Debes crear un Presupuesto Base antes de finalizar esta tarea", {
+      toast.error("debes crear un presupuesto base antes de finalizar esta tarea", {
         duration: 6000,
         action: {
-          label: "Crear PB",
+          label: "crear pb",
           onClick: () => {
             router.push(`/dashboard/presupuestos-base/nuevo?tarea=${tareaId}`)
             onOpenChange(false)
@@ -143,16 +143,16 @@ export function FinalizarTareaDialog({
         throw new Error(result.message)
       }
 
-      toast.success("✅ Tarea finalizada con éxito")
+      toast.success("tarea finalizada con exito")
       onFinalizada()
       onOpenChange(false)
       setResumen("")
       setHuboTrabajo(null)
       setNotasDepartamentos({})
 
-      // NUEVA LÓGICA DE CONTINUIDAD (CLONADO DIRECTO - AUTO SAVE)
+      // NUEVA LOGICA DE CONTINUIDAD (CLONADO DIRECTO - AUTO SAVE)
       if (continuarTarea && rubrosContinuidad.length > 0) {
-        toast.loading("Creando tarea de seguimiento...")
+        toast.loading("creando tarea de seguimiento...")
 
         // Importación dinámica para evitar problemas de SSR si no se usara
         const { quickCloneTask } = await import('@/app/dashboard/tareas/actions')
@@ -166,9 +166,9 @@ export function FinalizarTareaDialog({
 
         const nuevaTarea = res.task
 
-        // ÉXITO FINAL
+        // EXITO FINAL
         toast.dismiss() // Quitar loading
-        toast.success(`✅ Tarea Finalizada.\n✨ Nueva tarea iniciada: ${nuevaTarea.titulo}`, {
+        toast.success(`tarea finalizada.\nnueva tarea iniciada: ${nuevaTarea.titulo}`, {
           duration: 5000
         })
 
@@ -205,8 +205,8 @@ export function FinalizarTareaDialog({
         }, 1000)
       }
     } catch (error) {
-      console.error("Error al finalizar tarea:", error)
-      toast.error("Error al finalizar tarea")
+      console.error("error al finalizar tarea:", error)
+      toast.error("error al finalizar tarea")
     } finally {
       setIsSubmitting(false)
     }
@@ -239,9 +239,9 @@ export function FinalizarTareaDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Finalizar Tarea</DialogTitle>
+          <DialogTitle>finalizar tarea</DialogTitle>
           <DialogDescription>
-            Confirma si se realizó trabajo y describe qué se hizo o por qué se cancela.
+            confirma si se realizo trabajo y describe que se hizo o por que se cancela.
           </DialogDescription>
         </DialogHeader>
 
@@ -250,7 +250,7 @@ export function FinalizarTareaDialog({
           <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4">
             <Label className="text-sm font-semibold mb-3 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-600" />
-              ¿Se realizó trabajo en esta tarea? *
+              ¿se realizo trabajo en esta tarea? *
             </Label>
             <RadioGroup
               value={huboTrabajo?.toString()}
@@ -259,18 +259,18 @@ export function FinalizarTareaDialog({
               <div className="flex items-start space-x-2 mb-2">
                 <RadioGroupItem value="true" id="trabajo-si" />
                 <Label htmlFor="trabajo-si" className="cursor-pointer">
-                  <div className="font-medium">Sí, se trabajó</div>
+                  <div className="font-medium">si, se trabajo</div>
                   <div className="text-xs text-muted-foreground">
-                    La tarea se completó y se debe facturar al cliente
+                    la tarea se completo y se debe facturar al cliente
                   </div>
                 </Label>
               </div>
               <div className="flex items-start space-x-2">
                 <RadioGroupItem value="false" id="trabajo-no" />
                 <Label htmlFor="trabajo-no" className="cursor-pointer">
-                  <div className="font-medium">No, no se trabajó</div>
+                  <div className="font-medium">no, no se trabajo</div>
                   <div className="text-xs text-muted-foreground">
-                    Tarea cancelada o sin actividad real
+                    tarea cancelada o sin actividad real
                   </div>
                 </Label>
               </div>
@@ -279,13 +279,13 @@ export function FinalizarTareaDialog({
 
           <div>
             <Label htmlFor="resumen" className="text-sm font-medium">
-              Resumen de lo realizado *
+              resumen de lo realizado *
             </Label>
             <Textarea
               id="resumen"
               placeholder={huboTrabajo === false
-                ? "Ej: Cliente canceló el trabajo, no se pudo acceder al depto..."
-                : "Ej: Se realizó la reparación completa del sistema eléctrico..."}
+                ? "ej: cliente cancelo el trabajo, no se pudo acceder al depto..."
+                : "ej: se realizo la reparacion completa del sistema electrico..."}
               value={resumen}
               onChange={(e) => setResumen(e.target.value)}
               rows={4}
@@ -293,7 +293,7 @@ export function FinalizarTareaDialog({
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Este comentario será visible para todos los usuarios de la tarea
+              este comentario sera visible para todos los usuarios de la tarea
             </p>
           </div>
 
@@ -303,11 +303,11 @@ export function FinalizarTareaDialog({
               <div className="flex items-center gap-2 mb-3">
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-sm font-medium">
-                  Notas de atención de departamentos (opcional)
+                  notas de atencion de departamentos (opcional)
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                ¿Cómo te atendieron en cada departamento?
+                ¿como te atendieron en cada departamento?
               </p>
               <div className="space-y-3">
                 {departamentos.map((dep) => (
@@ -317,12 +317,12 @@ export function FinalizarTareaDialog({
                     </Label>
                     {dep.notaActual && (
                       <p className="text-[11px] text-muted-foreground italic line-clamp-1">
-                        Última nota: {dep.notaActual.split('\n\n').pop()}
+                        ultima nota: {dep.notaActual.split('\n\n').pop()}
                       </p>
                     )}
                     <Textarea
                       id={`nota-dep-${dep.id}`}
-                      placeholder="Ej: Muy amable, nos atendió rápido..."
+                      placeholder="ej: muy amable, nos atendio rapido..."
                       value={notasDepartamentos[dep.id] || ''}
                       onChange={(e) => setNotasDepartamentos(prev => ({
                         ...prev,
@@ -346,7 +346,7 @@ export function FinalizarTareaDialog({
                 className={`w-6 h-6 min-w-[1.5rem] rounded-md border-2 flex items-center justify-center cursor-pointer mt-0.5 transition-all duration-200 ${continuarTarea ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm scale-110' : 'border-muted-foreground/30 hover:border-indigo-400 bg-white dark:bg-gray-950'}`}
                 onClick={() => setContinuarTarea(!continuarTarea)}
               >
-                {continuarTarea && <span className="text-sm font-bold leading-none">✓</span>}
+                {continuarTarea && <span className="text-sm font-bold leading-none">v</span>}
               </div>
 
               <div className="grid gap-1.5 leading-none flex-1">
@@ -354,10 +354,10 @@ export function FinalizarTareaDialog({
                   className={`text-base font-semibold leading-none cursor-pointer transition-colors ${continuarTarea ? 'text-indigo-700 dark:text-indigo-300' : 'text-foreground'}`}
                   onClick={() => setContinuarTarea(!continuarTarea)}
                 >
-                  ¿Quedan trabajos pendientes?
+                  ¿quedan trabajos pendientes?
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Al finalizar, se abrirá la pantalla para crear una tarea de seguimiento.
+                  al finalizar, se abrira la pantalla para crear una tarea de seguimiento.
                 </p>
               </div>
             </div>
@@ -373,7 +373,7 @@ export function FinalizarTareaDialog({
                     <div
                       className={`w-4 h-4 rounded border flex items-center justify-center ${rubrosContinuidad.includes(rubro) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-400'}`}
                     >
-                      {rubrosContinuidad.includes(rubro) && <span className="text-[10px] font-bold">✓</span>}
+                      {rubrosContinuidad.includes(rubro) && <span className="text-[10px] font-bold">v</span>}
                     </div>
                     <span
                       className={`text-sm font-medium ${rubrosContinuidad.includes(rubro) ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-700 dark:text-gray-300'}`}
@@ -395,15 +395,15 @@ export function FinalizarTareaDialog({
             disabled={isSubmitting}
             className="border-muted-foreground/30 text-muted-foreground dark:border-gray-700 dark:text-gray-300 hover:bg-muted/20"
           >
-            Cancelar
+            cancelar
           </Button>
           <Button
             onClick={handleFinalizar}
             disabled={isSubmitting || !resumen.trim() || huboTrabajo === null}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+            className="bg-green-600 hover:bg-green-700 text-white focus-visible:ring-2 focus-visible:ring-green-400/60"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isSubmitting ? "Finalizando..." : "Finalizar Tarea"}
+            {isSubmitting ? "finalizando..." : "finalizar tarea"}
           </Button>
         </DialogFooter>
       </DialogContent>

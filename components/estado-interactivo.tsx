@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
 import { createClient } from "@/lib/supabase-client"
 import { obtenerEstadosTarea, EstadoTarea } from "@/lib/estados-service"
@@ -86,19 +87,19 @@ export function EstadoInteractivo({
       try {
         // Forzar la actualización para asegurarnos de obtener los estados más recientes
         const estadosDisponibles = await obtenerEstadosTarea(true); // Forzar actualización
-        
+
         if (!estadosDisponibles || estadosDisponibles.length === 0) {
           console.error('EstadoInteractivo: No se recibieron estados');
-          toast({ 
-            title: "Error", 
-            description: "No se pudieron cargar los estados de las tareas. Intente recargar la página.", 
-            variant: "destructive" 
+          toast({
+            title: "Error",
+            description: "No se pudieron cargar los estados de las tareas. Intente recargar la página.",
+            variant: "destructive"
           });
           return;
         }
-        
+
         setEstados(estadosDisponibles as Estado[]);
-        
+
         const estadoEncontrado = estadosDisponibles.find(e => e.id === estadoActualId) || null;
         setEstadoActual(estadoEncontrado as Estado | null);
       } catch (error) {
@@ -108,10 +109,10 @@ export function EstadoInteractivo({
         setIsLoading(false);
       }
     };
-    
+
     cargarEstados();
   }, [tipoEntidad, estadoActualId]);
-  
+
   // Actualizar estado finalizado cuando cambia desde las props
   useEffect(() => {
     if (esFinalizada !== esTareaFinalizada) {
@@ -123,15 +124,15 @@ export function EstadoInteractivo({
   const handleEstadoChange = async (estadoId: number) => {
     // Si es el mismo estado, no hacemos nada
     if (estadoId === estadoActualId) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       const nuevoEstado = estados.find(e => e.id === estadoId);
       if (!nuevoEstado) {
         throw new Error("Estado no encontrado");
       }
-      
+
       // await new Promise(resolve => setTimeout(resolve, 400)); // Simulación eliminada
 
       const supabase = createClient();
@@ -150,15 +151,15 @@ export function EstadoInteractivo({
         console.error(`Error al actualizar estado en Supabase (${tablaAActualizar}):`, error);
         throw new Error(`Error al actualizar estado: ${error.message}`);
       }
-      
+
       toast({
-        title: "Estado actualizado", 
+        title: "Estado actualizado",
         description: `La ${tipoEntidad} ahora está en estado: ${nuevoEstado.nombre} ${esTareaFinalizada ? '(Finalizada)' : '(Activa)'}`,
       });
 
       // Actualizar el estado local
       setEstadoActual(nuevoEstado);
-      
+
       // Notificar al componente padre
       if (onEstadoChange) {
         onEstadoChange(estadoId, esTareaFinalizada);
@@ -182,24 +183,24 @@ export function EstadoInteractivo({
       onShowFinalizarDialog();
       return;
     }
-    
+
     // Si se desmarca (volver a activa), ejecutar directamente
     setIsLoading(true);
     try {
       const supabase = createClient();
       const tablaAActualizar = tipoEntidad === 'tarea' ? 'tareas' : tipoEntidad;
       const id_estado_nuevo = 2; // organizar
-      
+
       const { data, error } = await supabase
         .from(tablaAActualizar)
-        .update({ 
+        .update({
           finalizada: false,
-          id_estado_nuevo: id_estado_nuevo 
+          id_estado_nuevo: id_estado_nuevo
         })
         .eq("id", entidadId);
 
       if (error) throw new Error(`Error al actualizar estado finalizada: ${error.message}`);
-      
+
       setEsTareaFinalizada(false);
 
       if (onEstadoChange && estadoActual) {
@@ -207,7 +208,7 @@ export function EstadoInteractivo({
       }
 
       toast({
-        title: "Estado de finalización actualizado", 
+        title: "Estado de finalización actualizado",
         description: `La ${tipoEntidad} ahora está activa`,
       });
 
@@ -235,7 +236,7 @@ export function EstadoInteractivo({
       "yellow": "#FFC107",
       "red": "#F44336",
     };
-    
+
     return colorMap[colorName] || colorName;
   };
 
@@ -243,21 +244,29 @@ export function EstadoInteractivo({
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {tipoEntidad === "tarea" && (
         <div className="flex items-center mr-2">
-          <Switch
-            id="toggle-finalizada"
-            checked={esTareaFinalizada}
-            onCheckedChange={handleFinalizadaChange}
-            className="mr-2 data-[state=checked]:!bg-emerald-600 dark:data-[state=checked]:!bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
-          />
-          <Label htmlFor="toggle-finalizada" className={esTareaFinalizada ? "text-emerald-600 dark:text-emerald-400" : ""}>
-            {esTareaFinalizada ? "Finalizada" : "Activa"}
-          </Label>
+          {!esTareaFinalizada ? (
+            <Button
+              size="sm"
+              onClick={() => handleFinalizadaChange(true)}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+            >
+              finalizar tarea
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              disabled
+              className="bg-slate-400 text-white font-medium"
+            >
+              finalizada
+            </Button>
+          )}
         </div>
       )}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild disabled={isLoading}>
-          <Badge 
+          <Badge
             className="cursor-pointer hover:opacity-80 transition-all"
             style={{
               backgroundColor: estadoActual ? getColorStyle(estadoActual.color) : "#9E9E9E",
@@ -275,8 +284,8 @@ export function EstadoInteractivo({
               className="cursor-pointer"
               disabled={estado.id === estadoActualId}
             >
-              <div 
-                className="w-3 h-3 mr-2 rounded-full" 
+              <div
+                className="w-3 h-3 mr-2 rounded-full"
                 style={{ backgroundColor: getColorStyle(estado.color) }}
               />
               {estado.nombre}
