@@ -45,7 +45,7 @@ export async function getPagos(filters?: PagosFilterParams): Promise<PagoEnrique
             // 1. Busqueda amplia (q) incluyendo CUIT y Nro Factura (oficial e interno)
             if (filters.q) {
                 const term = filters.q;
-                query = query.or(`administrador_nombre.ilike.%${term}%,edificio_nombre.ilike.%${term}%,tarea_titulo.ilike.%${term}%,tarea_codigo.ilike.%${term}%,factura_interno.ilike.%${term}%,factura_numero_afip.ilike.%${term}%,edificio_cuit.ilike.%${term}%`);
+                query = query.or(`factura_numero_afip.ilike.%${term}%,factura_interno.ilike.%${term}%,edificio_nombre.ilike.%${term}%,administrador_nombre.ilike.%${term}%,tarea_titulo.ilike.%${term}%,tarea_codigo.ilike.%${term}%,edificio_cuit.ilike.%${term}%`);
             }
 
             // ... (rest of filtering logic remains same logically but using correct names)
