@@ -428,6 +428,12 @@ export async function getTareaDetail(id: string) {
 
         if (tareaError || !tareaData) throw new Error("Tarea no encontrada")
 
+        // 2.5 Obtener Catálogo de Estados (Public access via Admin for stability)
+        const { data: estadosData } = await supabaseAdmin
+            .from("estados_tareas")
+            .select("id, nombre, codigo, color, orden")
+            .order("orden")
+
         // 3. Obtener Supervisores y Trabajadores Asignados
         // Supervisor (puede ser null si no hay asignado)
         const { data: supervisorRel } = await supabaseAdmin
@@ -580,7 +586,8 @@ export async function getTareaDetail(id: string) {
             comentarios: comentariosEnriquecidos,
             presupuestoBase: pbData,
             presupuestoFinal: pfData,
-            gastos: gastosData || []
+            gastos: gastosData || [],
+            estados: estadosData || []
         }
 
     } catch (error) {

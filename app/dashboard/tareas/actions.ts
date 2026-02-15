@@ -224,6 +224,40 @@ export async function updateTask(taskId: number, data: any) {
 }
 
 /**
+ * Actualizar solo el estado de una tarea
+ * SEGURIDAD: Admin o Supervisor
+ */
+export async function updateTaskStatusAction(taskId: number, estadoId: number, finalizada: boolean = false) {
+  if (!taskId || !estadoId) return { success: false, message: 'datos incompletos' }
+
+  try {
+    const { rol } = await validateSessionAndGetUser()
+
+    if (!['admin', 'supervisor'].includes(rol)) {
+      return { success: false, message: 'acceso denegado: solo admin y supervisor pueden cambiar el estado' }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tareas')
+      .update({
+        id_estado_nuevo: estadoId,
+        finalizada: finalizada
+      })
+      .eq('id', taskId)
+
+    if (error) throw error
+
+    revalidatePath(`/dashboard/tareas/${taskId}`)
+    revalidatePath('/dashboard/tareas')
+
+    return { success: true, message: 'estado actualizado' }
+  } catch (error: any) {
+    console.error('Update Status Error:', error)
+    return { success: false, message: error.message || 'error al actualizar estado' }
+  }
+}
+
+/**
  * Crear una nueva tarea
  * SEGURIDAD: Admin o Supervisor
  */

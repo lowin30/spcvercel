@@ -51,6 +51,7 @@ interface TaskDetailViewProps {
         presupuestoBase: any
         presupuestoFinal: any
         gastos: any[]
+        estados: any[]
     }
 }
 
@@ -67,6 +68,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
     // Catalogs
     const [trabajadoresDisponibles] = useState<any[]>(initialData.trabajadoresDisponibles)
     const [supervisoresDisponibles] = useState<Array<any>>(initialData.supervisoresDisponibles)
+    const [estadosCat] = useState<any[]>(initialData.estados || [])
 
     // Derived state
     const [esTareaFinalizada, setEsTareaFinalizada] = useState(Boolean(initialData.tarea.finalizada))
@@ -199,6 +201,8 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                 entidadId={tarea.id}
                                 estadoActualId={estadoActualId}
                                 esFinalizada={esTareaFinalizada}
+                                userRol={userDetails?.rol}
+                                estadosInyectados={estadosCat}
                                 onEstadoChange={(nuevoEstadoId, finalizada) => {
                                     setEstadoActualId(nuevoEstadoId);
                                     setEsTareaFinalizada(finalizada);

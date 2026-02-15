@@ -15,6 +15,7 @@ import { toast } from "@/components/ui/use-toast"
 import { createClient } from "@/lib/supabase-client"
 import { obtenerEstadosTarea, EstadoTarea } from "@/lib/estados-service"
 import { FinalizarTareaDialog } from "@/components/finalizar-tarea-dialog"
+import { updateTaskStatusAction } from "@/app/dashboard/tareas/actions"
 
 interface Estado {
   id: number
@@ -60,9 +61,9 @@ interface EstadoInteractivoProps {
   tipoEntidad: "tarea" | "presupuesto" | "factura"
   entidadId: number
   estadoActualId: number | null
-  esFinalizada?: boolean
-  onEstadoChange?: (nuevoEstadoId: number, esFinalizada: boolean) => void
   onShowFinalizarDialog?: () => void
+  userRol?: string
+  estadosInyectados?: any[]
   className?: string
 }
 
@@ -73,45 +74,45 @@ export function EstadoInteractivo({
   esFinalizada = false,
   onEstadoChange,
   onShowFinalizarDialog,
+  userRol,
+  estadosInyectados,
   className = ""
 }: EstadoInteractivoProps) {
   const [estados, setEstados] = useState<Estado[]>([])
   const [estadoActual, setEstadoActual] = useState<Estado | null>(null)
   const [esTareaFinalizada, setEsTareaFinalizada] = useState<boolean>(esFinalizada)
   const [isLoading, setIsLoading] = useState(false)
+  const [readOnly] = useState(userRol === 'trabajador')
 
   // Cargar los estados según el tipo de entidad desde el servicio centralizado
   useEffect(() => {
     const cargarEstados = async () => {
+      if (estadosInyectados && estadosInyectados.length > 0) {
+        setEstados(estadosInyectados as Estado[]);
+        const estadoEncontrado = estadosInyectados.find(e => e.id === estadoActualId) || null;
+        setEstadoActual(estadoEncontrado as Estado | null);
+        return;
+      }
+
       setIsLoading(true);
       try {
-        // Forzar la actualización para asegurarnos de obtener los estados más recientes
-        const estadosDisponibles = await obtenerEstadosTarea(true); // Forzar actualización
-
+        const estadosDisponibles = await obtenerEstadosTarea(true);
         if (!estadosDisponibles || estadosDisponibles.length === 0) {
           console.error('EstadoInteractivo: No se recibieron estados');
-          toast({
-            title: "Error",
-            description: "No se pudieron cargar los estados de las tareas. Intente recargar la página.",
-            variant: "destructive"
-          });
           return;
         }
-
         setEstados(estadosDisponibles as Estado[]);
-
         const estadoEncontrado = estadosDisponibles.find(e => e.id === estadoActualId) || null;
         setEstadoActual(estadoEncontrado as Estado | null);
       } catch (error) {
-        console.error("Error general al cargar estados:", error);
-        toast({ title: "Error", description: "Ocurrió un error inesperado al cargar estados.", variant: "destructive" });
+        console.error("Error al cargar estados:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
     cargarEstados();
-  }, [tipoEntidad, estadoActualId]);
+  }, [tipoEntidad, estadoActualId, estadosInyectados]);
 
   // Actualizar estado finalizado cuando cambia desde las props
   useEffect(() => {
@@ -122,53 +123,32 @@ export function EstadoInteractivo({
 
   // Función para manejar el cambio de estado
   const handleEstadoChange = async (estadoId: number) => {
-    // Si es el mismo estado, no hacemos nada
-    if (estadoId === estadoActualId) return;
+    if (estadoId === estadoActualId || readOnly) return;
 
     setIsLoading(true);
 
     try {
       const nuevoEstado = estados.find(e => e.id === estadoId);
-      if (!nuevoEstado) {
-        throw new Error("Estado no encontrado");
-      }
+      if (!nuevoEstado) throw new Error("estado no encontrado");
 
-      // await new Promise(resolve => setTimeout(resolve, 400)); // Simulación eliminada
+      const res = await updateTaskStatusAction(entidadId, estadoId, esTareaFinalizada)
 
-      const supabase = createClient();
-      // Determinar la tabla a actualizar basado en tipoEntidad
-      // Por ahora, asumimos que siempre es 'tareas' para este componente cuando tipoEntidad es 'tarea'
-      // IMPORTANTE: La actualización SIEMPRE se realiza en las tablas originales, no en las vistas
-      // aunque las consultas se hagan contra la vista optimizada "vista_tareas_completa"
-      const tablaAActualizar = tipoEntidad === 'tarea' ? 'tareas' : tipoEntidad; // Corregido: la tabla es 'tareas' (plural)
-
-      const { data, error } = await supabase
-        .from(tablaAActualizar) // ej. 'tareas'
-        .update({ id_estado_nuevo: estadoId })
-        .eq("id", entidadId);
-
-      if (error) {
-        console.error(`Error al actualizar estado en Supabase (${tablaAActualizar}):`, error);
-        throw new Error(`Error al actualizar estado: ${error.message}`);
+      if (!res.success) {
+        throw new Error(res.message)
       }
 
       toast({
-        title: "Estado actualizado",
-        description: `La ${tipoEntidad} ahora está en estado: ${nuevoEstado.nombre} ${esTareaFinalizada ? '(Finalizada)' : '(Activa)'}`,
+        title: "estado actualizado",
+        description: `la ${tipoEntidad} ahora esta en estado: ${nuevoEstado.nombre.toLowerCase()} ${esTareaFinalizada ? '(finalizada)' : '(activa)'}`,
       });
 
-      // Actualizar el estado local
       setEstadoActual(nuevoEstado);
-
-      // Notificar al componente padre
-      if (onEstadoChange) {
-        onEstadoChange(estadoId, esTareaFinalizada);
-      }
-    } catch (err) {
+      if (onEstadoChange) onEstadoChange(estadoId, esTareaFinalizada);
+    } catch (err: any) {
       console.error(`Error al cambiar estado:`, err);
       toast({
-        title: "Error",
-        description: `No se pudo cambiar el estado. ${err instanceof Error ? err.message : ""}`,
+        title: "error",
+        description: err.message || "no se pudo cambiar el estado",
         variant: "destructive",
       });
     } finally {
@@ -178,45 +158,37 @@ export function EstadoInteractivo({
 
   // Manejar el cambio del estado finalizado
   const handleFinalizadaChange = async (checked: boolean) => {
+    if (readOnly) return;
+
     // Si se intenta marcar como finalizada, mostrar el diálogo
     if (checked && onShowFinalizarDialog) {
       onShowFinalizarDialog();
       return;
     }
 
-    // Si se desmarca (volver a activa), ejecutar directamente
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const tablaAActualizar = tipoEntidad === 'tarea' ? 'tareas' : tipoEntidad;
-      const id_estado_nuevo = 2; // organizar
+      const id_estado_nuevo = 2; // organizar (según lógica previa)
 
-      const { data, error } = await supabase
-        .from(tablaAActualizar)
-        .update({
-          finalizada: false,
-          id_estado_nuevo: id_estado_nuevo
-        })
-        .eq("id", entidadId);
+      const res = await updateTaskStatusAction(entidadId, id_estado_nuevo, false)
 
-      if (error) throw new Error(`Error al actualizar estado finalizada: ${error.message}`);
+      if (!res.success) throw new Error(res.message)
 
       setEsTareaFinalizada(false);
-
       if (onEstadoChange && estadoActual) {
-        onEstadoChange(estadoActual.id, false);
+        onEstadoChange(id_estado_nuevo, false);
       }
 
       toast({
-        title: "Estado de finalización actualizado",
-        description: `La ${tipoEntidad} ahora está activa`,
+        title: "estado de finalizacion actualizado",
+        description: `la ${tipoEntidad} ahora esta activa`,
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error al cambiar estado de finalización:`, err);
       toast({
-        title: "Error",
-        description: `No se pudo cambiar el estado de finalización. ${err instanceof Error ? err.message : ""}`,
+        title: "error",
+        description: err.message || "no se pudo cambiar el estado de finalizacion",
         variant: "destructive",
       });
     } finally {
@@ -248,6 +220,7 @@ export function EstadoInteractivo({
             <Button
               size="sm"
               onClick={() => handleFinalizadaChange(true)}
+              disabled={readOnly}
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
             >
               finalizar tarea
@@ -265,15 +238,15 @@ export function EstadoInteractivo({
       )}
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild disabled={isLoading}>
+        <DropdownMenuTrigger asChild disabled={isLoading || readOnly}>
           <Badge
-            className="cursor-pointer hover:opacity-80 transition-all"
+            className={`${readOnly ? 'cursor-default' : 'cursor-pointer'} hover:opacity-80 transition-all`}
             style={{
               backgroundColor: estadoActual ? getColorStyle(estadoActual.color) : "#9E9E9E",
               color: "white",
             }}
           >
-            {isLoading ? "Actualizando..." : estadoActual?.nombre || "Sin estado"}
+            {isLoading ? "actualizando..." : estadoActual?.nombre.toLowerCase() || "sin estado"}
           </Badge>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
