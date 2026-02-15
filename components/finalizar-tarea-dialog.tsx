@@ -24,6 +24,7 @@ interface FinalizarTareaDialogProps {
   onOpenChange: (open: boolean) => void
   tareaId: number
   onFinalizada: () => void
+  presupuestoBase?: any
   // Chat Integration Props (SPC v9.5)
   isChatVariant?: boolean
   onSuccess?: () => void
@@ -41,12 +42,13 @@ export function FinalizarTareaDialog({
   onOpenChange,
   tareaId,
   onFinalizada,
+  presupuestoBase,
   isChatVariant = false,
   onSuccess
 }: FinalizarTareaDialogProps) {
   const [resumen, setResumen] = useState("")
   const [huboTrabajo, setHuboTrabajo] = useState<boolean | null>(null)
-  const [tienePB, setTienePB] = useState(false)
+  const [tienePB, setTienePB] = useState(!!presupuestoBase)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [notasDepartamentos, setNotasDepartamentos] = useState<Record<number, string>>({})
@@ -60,14 +62,8 @@ export function FinalizarTareaDialog({
       try {
         const supabase = createClient()
 
-        // Verificar si existe PB
-        const { data: pb } = await supabase
-          .from("presupuestos_base")
-          .select("id, aprobado")
-          .eq("id_tarea", tareaId)
-          .maybeSingle()
-
-        setTienePB(!!pb)
+        // Actualizar tienePB desde la prop o el estado local si es necesario
+        setTienePB(!!presupuestoBase)
 
         // Cargar departamentos
         const { data, error } = await supabase

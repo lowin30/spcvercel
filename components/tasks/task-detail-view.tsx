@@ -509,6 +509,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                 open={showFinalizarDialog}
                 onOpenChange={setShowFinalizarDialog}
                 tareaId={tarea.id}
+                presupuestoBase={initialData.presupuestoBase}
                 onFinalizada={() => {
                     setEsTareaFinalizada(true)
                     setEstadoActualId(7)
