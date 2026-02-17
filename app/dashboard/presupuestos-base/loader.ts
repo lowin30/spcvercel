@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Cliente Service Role para bypass de RLS (Manual RBAC)
+// cliente service role para bypass de rls (bridge protocol)
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -12,73 +12,75 @@ const supabaseAdmin = createClient(
     }
 )
 
-export async function getPresupuestosBase(rol: string, userId: string) {
-    // 1. Validacion de Seguridad (Manual RBAC)
+export interface PresupuestoBase {
+    id: number
+    code: string
+    id_tarea: number
+    titulo_tarea: string
+    materiales: number
+    mano_obra: number
+    total: number
+    aprobado: boolean
+    fecha_aprobacion: string | null
+    id_supervisor: string
+    email_supervisor: string
+    id_edificio: number
+    nombre_edificio: string
+    id_administrador: number
+    nombre_administrador: string
+    created_at: string
+    updated_at: string
+    nota_pb: string | null
+    tiene_liquidacion: boolean
+    esta_liquidado: boolean
+}
+
+export async function getPresupuestosBase(params: {
+    rol: string,
+    userId: string,
+    q?: string,
+    tab?: string
+}): Promise<PresupuestoBase[]> {
+    const { rol, userId, q, tab } = params;
+
+    // validacion de seguridad (manual rbac)
     if (rol === 'trabajador') {
-        return [] // Trabajadores no ven presupuestos
+        return []
     }
 
-    // 2. Query Base
+    // query base usando la vista completa
     let query = supabaseAdmin
-        .from('presupuestos_base')
-        .select(`
-            *,
-            tareas!inner(
-                id,
-                titulo,
-                code,
-                id_edificio,
-                id_usuario_asignado,
-                id_supervisor
-            )
-        `)
-        .order('created_at', { ascending: false })
+        .from('vista_presupuestos_base_completa')
+        .select('*')
 
-    // 3. Filtrado por Rol
+    // seguridad rbac (supervisor)
     if (rol === 'supervisor') {
-        // Supervisor solo ve presupuestos de tareas donde es supervisor
-        query = query.eq('tareas.id_supervisor', userId)
+        query = query.eq('id_supervisor', userId)
     }
 
-    // Admin ve todo (no se aplica filtro extra)
+    // filtrado por tabs
+    if (tab === 'pendientes') {
+        query = query.eq('aprobado', false)
+    } else if (tab === 'activas') {
+        query = query.eq('aprobado', true).eq('esta_liquidado', false)
+    } else if (tab === 'pagada') {
+        query = query.eq('esta_liquidado', true)
+    }
+    // 'todas' no tiene filtros adicionales
+
+    // busqueda inteligente
+    if (q) {
+        query = query.or(`titulo_tarea.ilike.%${q}%,nombre_edificio.ilike.%${q}%,nombre_administrador.ilike.%${q}%,code.ilike.%${q}%`)
+    }
+
+    query = query.order('created_at', { ascending: false })
 
     const { data, error } = await query
 
     if (error) {
-        console.error("Error fetching presupuestos base:", error)
-        throw new Error("Error al cargar presupuestos base")
+        console.error("error fetching presupuestos base:", error)
+        throw new Error("error al cargar presupuestos base")
     }
 
     return data || []
-}
-
-export async function getPresupuestoBaseById(id: string, rol: string, userId: string) {
-    if (rol === 'trabajador') return null
-
-    const { data, error } = await supabaseAdmin
-        .from('presupuestos_base')
-        .select(`
-            *,
-            tareas!inner(
-                id,
-                titulo,
-                code,
-                id_edificio,
-                id_usuario_asignado,
-                id_supervisor
-            )
-        `)
-        .eq('id', id)
-        .single()
-
-    if (error || !data) return null
-
-    // Validacion Post-Query para Supervisor
-    if (rol === 'supervisor') {
-        if (data.tareas.id_supervisor !== userId) {
-            return null // Acceso denegado
-        }
-    }
-
-    return data
 }

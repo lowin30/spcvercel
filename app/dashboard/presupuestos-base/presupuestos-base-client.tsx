@@ -1,253 +1,178 @@
 "use client"
 
-import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Plus, Trash2, Eye, ExternalLink } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
-import { deletePresupuestoBase } from "./actions"
 import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
+import { Plus, Eye, Search } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
+import type { PresupuestoBase } from "./loader"
 
 interface PresupuestosBaseClientProps {
-  initialData: any[]
-  todosData?: any[]
+  presupuestos: PresupuestoBase[]
   userRole: string
   userId: string
 }
 
-export function PresupuestosBaseClient({ initialData, todosData, userRole, userId }: PresupuestosBaseClientProps) {
+export function PresupuestosBaseClient({ presupuestos, userRole, userId }: PresupuestosBaseClientProps) {
   const router = useRouter()
-  // Usamos initialData como fuente de verdad inicial
-  const [presupuestosBase, setPresupuestosBase] = useState<any[]>(initialData)
-  const [filtroActivo, setFiltroActivo] = useState<string>(
-    userRole === 'supervisor' ? 'activos' : 'requiere_accion'
-  )
-  const [busqueda, setBusqueda] = useState("")
-  const [isPending, startTransition] = useTransition()
+  const searchParams = useSearchParams()
+  const [busqueda, setBusqueda] = useState(searchParams.get('q') || '')
+  const tabActual = searchParams.get('tab') || 'todas'
 
-  // Usamos todosData para los filtros client-side si está disponible, sino initialData
-  const todosLosPB = todosData || initialData
-
-  // Función para normalizar texto (búsqueda inteligente)
-  const normalizarTexto = (texto: string): string => {
-    if (!texto) return ''
-
-    return texto
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[sz]/g, 's')
-      .replace(/[iy]/g, 'i')
-  }
-
-  // Calcular estadísticas
-  const estadisticas = userRole === 'supervisor' ? {
-    activos: todosLosPB.filter(pb => pb.aprobado && !pb.esta_liquidado && !pb.tiene_pf_pausado).length,
-    en_pausa: todosLosPB.filter(pb => !pb.esta_liquidado && pb.tiene_pf_pausado).length,
-    liquidados: todosLosPB.filter(pb => pb.esta_liquidado).length,
-    total: todosLosPB.length
-  } : userRole === 'admin' ? {
-    requiere_accion: todosLosPB.filter(pb => pb.aprobado && !pb.tiene_presupuesto_final && !pb.esta_liquidado).length,
-    aprobados: todosLosPB.filter(pb => pb.aprobado && !pb.esta_liquidado).length,
-    pendientes: todosLosPB.filter(pb => !pb.aprobado).length,
-    liquidados: todosLosPB.filter(pb => pb.esta_liquidado).length,
-    total: todosLosPB.length
-  } : null
-
-  // Filtrado
-  const presupuestosFiltrados = todosLosPB.filter(presupuesto => {
-    // Búsqueda
-    if (busqueda) {
-      const terminoBusqueda = normalizarTexto(busqueda)
-      const coincide = (
-        (normalizarTexto(presupuesto.code || '').includes(terminoBusqueda)) ||
-        (normalizarTexto(presupuesto.nota_pb || '').includes(terminoBusqueda)) ||
-        (normalizarTexto(presupuesto.titulo_tarea || '').includes(terminoBusqueda))
-      )
-      if (!coincide) return false
-    }
-
-    // Filtros por tabs
-    if (userRole === 'supervisor') {
-      if (filtroActivo === 'activos') return presupuesto.aprobado && !presupuesto.esta_liquidado && !presupuesto.tiene_pf_pausado
-      if (filtroActivo === 'pendientes') return !presupuesto.aprobado
-      if (filtroActivo === 'en_pausa') return !presupuesto.esta_liquidado && presupuesto.tiene_pf_pausado
-      if (filtroActivo === 'liquidados') return presupuesto.esta_liquidado
-      if (filtroActivo === 'todos') return true
+  // actualizar url con searchParams
+  const updateUrl = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value) {
+      params.set(key, value)
     } else {
-      // Admin
-      if (filtroActivo === 'requiere_accion') return presupuesto.aprobado && !presupuesto.tiene_presupuesto_final && !presupuesto.esta_liquidado
-      if (filtroActivo === 'aprobados') return presupuesto.aprobado && !presupuesto.esta_liquidado
-      if (filtroActivo === 'pendientes') return !presupuesto.aprobado
-      if (filtroActivo === 'liquidados') return presupuesto.esta_liquidado
-      if (filtroActivo === 'todos') return true
+      params.delete(key)
     }
-    return true
-  })
-
-  const handleDelete = async (e: React.MouseEvent, id: number, aprobado: boolean) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (aprobado) {
-      toast.error("No se pueden eliminar presupuestos aprobados")
-      return
-    }
-
-    if (!confirm("¿Estás seguro de quitar este presupuesto?")) return
-
-    startTransition(async () => {
-      const result = await deletePresupuestoBase(id)
-      if (result.success) {
-        toast.success("Presupuesto eliminado")
-        router.refresh()
-      } else {
-        toast.error(result.error || "Error al eliminar")
-      }
-    })
+    router.push(`?${params.toString()}`)
   }
 
-  // Helpers de UI (Badges, Acciones) simplificados
-  const getBadges = (pb: any) => (
-    <>
-      <Badge className={pb.aprobado ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-        {pb.aprobado ? "Enviado" : "Pendiente"}
-      </Badge>
-      {userRole === 'admin' && pb.tiene_presupuesto_final && (
-        <Badge className="bg-blue-100 text-blue-800 text-xs">PF ✓</Badge>
-      )}
-      {pb.esta_liquidado && (
-        <Badge className="bg-purple-100 text-purple-800 text-xs">Liquidado</Badge>
-      )}
-    </>
-  )
+  const handleBusqueda = (e: React.FormEvent) => {
+    e.preventDefault()
+    updateUrl('q', busqueda)
+  }
 
-  const getAcciones = (pb: any) => (
-    <div className="flex items-center justify-center gap-1 flex-wrap">
-      <Button variant="ghost" size="sm" asChild className="h-8 px-2">
-        <Link href={`/dashboard/presupuestos-base/${pb.id}`}>
-          <Eye className="h-4 w-4 mr-1" />
-          <span className="hidden sm:inline">Ver</span>
-        </Link>
-      </Button>
+  const handleTabChange = (tab: string) => {
+    updateUrl('tab', tab)
+  }
 
-      {pb.id_tarea && (
-        <Button variant="ghost" size="sm" asChild className="h-8 px-2">
-          <Link href={`/dashboard/tareas/${pb.id_tarea}`}>
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </Button>
-      )}
+  // calcular estadisticas
+  const stats = {
+    todas: presupuestos.length,
+    pendientes: presupuestos.filter(p => !p.aprobado).length,
+    activas: presupuestos.filter(p => p.aprobado && !p.esta_liquidado).length,
+    pagada: presupuestos.filter(p => p.esta_liquidado).length,
+  }
 
-      {userRole === 'admin' && !pb.aprobado && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-          onClick={(e) => handleDelete(e, pb.id, pb.aprobado)}
-          disabled={isPending}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      )}
-    </div>
-  )
+  // obtener badge de estado
+  const getEstadoBadge = (pb: PresupuestoBase) => {
+    if (pb.esta_liquidado) {
+      return <Badge className="bg-green-600 hover:bg-green-700 text-white">liquidado</Badge>
+    }
+    if (pb.aprobado && pb.tiene_liquidacion) {
+      return <Badge className="bg-blue-600 hover:bg-blue-700 text-white">en liquidacion</Badge>
+    }
+    if (pb.aprobado) {
+      return <Badge className="bg-purple-600 hover:bg-purple-700 text-white">activo</Badge>
+    }
+    return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">pendiente</Badge>
+  }
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4">
+    <div className="space-y-6 p-4 sm:p-6">
+      {/* header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Presupuestos Base</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">presupuestos base</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Gestión de presupuestos preliminares (Cabeceras).
+            gestion de presupuestos preliminares
           </p>
         </div>
-        <Link href="/dashboard/presupuestos-base/nuevo" className="self-start sm:self-auto">
-          <Button size="sm" className="w-full sm:w-auto text-sm">
-            <Plus className="mr-1 h-4 w-4" />
-            <span className="sm:inline">Nuevo Presupuesto Base</span>
+        <Link href="/dashboard/presupuestos-base/nuevo">
+          <Button size="sm" className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            nuevo presupuesto
           </Button>
         </Link>
       </div>
 
-      {/* Filtros minimalistas */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 pt-2 pb-4 border-b">
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <Input
-            placeholder="Buscar..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full sm:w-64 text-sm"
-          />
-          <Tabs value={filtroActivo} onValueChange={setFiltroActivo} className="w-full sm:w-auto">
-            <TabsList className="grid w-full grid-cols-4 sm:w-auto">
-              {userRole === 'supervisor' ? (
-                <>
-                  <TabsTrigger value="activos" className="text-xs">Activos ({estadisticas?.activos})</TabsTrigger>
-                  <TabsTrigger value="pendientes" className="text-xs">Pendientes ({estadisticas?.en_pausa})</TabsTrigger>
-                  <TabsTrigger value="todos" className="text-xs">Todos ({estadisticas?.total})</TabsTrigger>
-                </>
-              ) : (
-                <>
-                  <TabsTrigger value="requiere_accion" className="text-xs">Acción ({estadisticas?.requiere_accion})</TabsTrigger>
-                  <TabsTrigger value="aprobados" className="text-xs">Enviados ({estadisticas?.aprobados})</TabsTrigger>
-                  <TabsTrigger value="todos" className="text-xs">Todos ({estadisticas?.total})</TabsTrigger>
-                </>
-              )}
-            </TabsList>
-          </Tabs>
-        </div>
+      {/* filtros */}
+      <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 pb-4 space-y-4">
+        {/* buscador */}
+        <form onSubmit={handleBusqueda} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="buscar por titulo, edificio o administrador..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button type="submit" variant="secondary">buscar</Button>
+        </form>
+
+        {/* tabs */}
+        <Tabs value={tabActual} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 h-auto">
+            <TabsTrigger value="todas" className="text-xs sm:text-sm px-2">
+              todas ({stats.todas})
+            </TabsTrigger>
+            <TabsTrigger value="pendientes" className="text-xs sm:text-sm px-2">
+              pendientes ({stats.pendientes})
+            </TabsTrigger>
+            <TabsTrigger value="activas" className="text-xs sm:text-sm px-2">
+              activas ({stats.activas})
+            </TabsTrigger>
+            <TabsTrigger value="pagada" className="text-xs sm:text-sm px-2">
+              pagada ({stats.pagada})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {presupuestosFiltrados.length > 0 ? (
-        <div className="hidden md:block rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">TAREA</TableHead>
-                <TableHead className="font-semibold">CÓDIGO</TableHead>
-                <TableHead className="font-semibold">ESTADO</TableHead>
-                <TableHead className="font-semibold text-right">TOTAL</TableHead>
-                <TableHead className="font-semibold text-center">ACCIONES</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {presupuestosFiltrados.map((pb) => (
-                <TableRow key={pb.id} className="hover:bg-muted/30">
-                  <TableCell className="max-w-[300px]">
-                    <div className="font-medium text-sm">
-                      {pb.titulo_tarea || `Tarea #${pb.id_tarea}`}
-                    </div>
-                    {pb.nombre_edificio && (
-                      <div className="text-xs text-muted-foreground">{pb.nombre_edificio}</div>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{pb.code}</TableCell>
-                  <TableCell><div className="flex gap-1">{getBadges(pb)}</div></TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {formatCurrency(pb.total || 0)}
-                  </TableCell>
-                  <TableCell>{getAcciones(pb)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      {/* grid de cards */}
+      {presupuestos.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {presupuestos.map((pb) => (
+            <Card key={pb.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-base sm:text-lg line-clamp-2">
+                    {pb.titulo_tarea || `tarea #${pb.id_tarea}`}
+                  </CardTitle>
+                  {getEstadoBadge(pb)}
+                </div>
+                <CardDescription className="text-xs">
+                  {pb.code}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">edificio:</span>
+                    <span className="font-medium">{pb.nombre_edificio}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">admin:</span>
+                    <span className="font-medium">{pb.nombre_administrador}</span>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">total</span>
+                    <span className="text-lg font-bold">{formatCurrency(pb.total)}</span>
+                  </div>
+                </div>
+
+                <Link href={`/dashboard/presupuestos-base/${pb.id}`}>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Eye className="mr-2 h-4 w-4" />
+                    ver detalle
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : (
-        <div className="text-center py-10 text-muted-foreground">No hay presupuestos.</div>
+        <Card className="p-12">
+          <div className="text-center space-y-2">
+            <p className="text-lg text-muted-foreground">no hay presupuestos para mostrar</p>
+            <p className="text-sm text-muted-foreground">
+              {busqueda && "intenta ajustar tu busqueda"}
+            </p>
+          </div>
+        </Card>
       )}
     </div>
   )
