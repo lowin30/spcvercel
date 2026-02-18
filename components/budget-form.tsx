@@ -149,11 +149,12 @@ export function BudgetForm({
   const [items, setItems] = useState<Item[]>(itemsBase || [])
 
   // Estados para la selección en cascada de administrador-edificio
-  const [administradores, setAdministradores] = useState<any[]>([])
-  const [edificios, setEdificios] = useState<any[]>([])
-  const [selectedAdministrador, setSelectedAdministrador] = useState<string>("")
-  const [selectedEdificio, setSelectedEdificio] = useState<string>("")
+  const [administradores, setAdministradores] = useState<any[]>(listas?.administradores || [])
+  const [edificios, setEdificios] = useState<any[]>(listas?.edificios || [])
+  const [selectedAdministrador, setSelectedAdministrador] = useState<string>(initialData?.id_administrador?.toString() || presupuestoAEditar?.id_administrador?.toString() || "")
+  const [selectedEdificio, setSelectedEdificio] = useState<string>(initialData?.id_edificio?.toString() || presupuestoAEditar?.id_edificio?.toString() || "")
   const [loadingEdificios, setLoadingEdificios] = useState<boolean>(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   const initialNewItemFormState: NewItemFormState = {
     descripcion: "",
@@ -166,6 +167,12 @@ export function BudgetForm({
   const [newItem, setNewItem] = useState<NewItemFormState>(initialNewItemFormState);
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Hydration safety v94.1
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+
   // Estados para el modal de ítems
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
@@ -174,68 +181,24 @@ export function BudgetForm({
   const { toast } = useToast()
   const router = useRouter()
 
-  // Si hay una tarea seleccionada, establecerla como valor inicial
+  // Sincronizar listas inyectadas (v94.1) e hidratar estados iniciales
   useEffect(() => {
-    if (tareaSeleccionada && tareaSeleccionada.id) {
-      setSelectedTarea(tareaSeleccionada.id.toString())
+    if (listas) {
+      setAdministradores(listas.administradores);
+      // Sincronizar edificios filtrados si hay un admin seleccionado
+      if (selectedAdministrador) {
+        const filtrados = listas.edificios.filter(e => e.id_administrador?.toString() === selectedAdministrador);
+        if (filtrados.length > 0) {
+          setEdificios(filtrados);
+        } else {
+          setEdificios(listas.edificios);
+        }
+      } else {
+        setEdificios(listas.edificios);
+      }
     }
-  }, [tareaSeleccionada])
+  }, [listas, selectedAdministrador]);
 
-  // Sincronizar el estado interno de 'items' con la prop 'itemsBase'
-  // Esto es crucial para cuando se navega para crear un nuevo presupuesto (itemsBase podría ser undefined o [])
-  // o cuando se carga un presupuesto base diferente.
-  useEffect(() => {
-    setItems(itemsBase || []);
-  }, [itemsBase]);
-
-  // Efecto para pre-seleccionar Administrador y Edificio basado en la tarea (desde edición o creación)
-  useEffect(() => {
-    const preseleccionarDesdeTarea = async () => {
-      // Caso 1: Si estamos editando un presupuesto final (presupuestoAEditar)
-      // Los datos vienen directamente de vista_presupuestos_finales_completa
-      if (presupuestoAEditar) {
-        if (presupuestoAEditar.id_administrador) {
-          const adminIdStr = presupuestoAEditar.id_administrador.toString();
-          setSelectedAdministrador(adminIdStr);
-          await cargarEdificiosPorAdministrador(adminIdStr);
-        }
-
-        if (presupuestoAEditar.id_edificio) {
-          setSelectedEdificio(presupuestoAEditar.id_edificio.toString());
-        }
-        return;
-      }
-
-      // Caso 2: Crear presupuesto desde presupuestoBase o idTarea
-      const tareaId = presupuestoBase?.id_tarea || (idTarea ? parseInt(idTarea) : null);
-
-      if (tareaId) {
-        const res = await getTaskForFinalBudgetAction(tareaId);
-
-        if (!res.success) {
-          console.error('Error al obtener datos de la tarea para preseleccionar:', res.message);
-          return;
-        }
-
-        const tareaCompleta = res.data;
-
-        if (tareaCompleta) {
-          if (tareaCompleta.id_administrador) {
-            const adminIdStr = tareaCompleta.id_administrador.toString();
-            setSelectedAdministrador(adminIdStr);
-            // Una vez que el administrador está seleccionado, necesitamos cargar sus edificios
-            await cargarEdificiosPorAdministrador(adminIdStr);
-          }
-          if (tareaCompleta.id_edificio) {
-            setSelectedEdificio(tareaCompleta.id_edificio.toString());
-          }
-        }
-      }
-    };
-
-    preseleccionarDesdeTarea();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presupuestoBase, idTarea, presupuestoAEditar, supabase]);
 
   // Cargar lista de administradores al iniciar el formulario
   useEffect(() => {
@@ -420,6 +383,10 @@ export function BudgetForm({
     )
   }
 
+  // Extraer totales para uso en el renderizado v94.1
+  const { total, materiales: totalMaterialesItems, mano_obra: totalManoObraItems } = calculateTotals();
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -591,6 +558,13 @@ export function BudgetForm({
                       <p className="font-medium">Materiales</p>
                       <p>${presupuestoBase?.materiales.toLocaleString()}</p>
                     </div>
+                    <div className="pt-4 border-t flex justify-between items-center text-primary">
+                      <span className="font-semibold">Suma parcial de ítems:</span>
+                      <span className="text-xl font-bold">
+                        {isMounted ? `$${total.toLocaleString("es-AR")}` : `$${total}`}
+                      </span>
+                    </div>
+
                     <div className="flex justify-between">
                       <p className="font-medium">Mano de obra</p>
                       <p>${presupuestoBase?.mano_obra.toLocaleString()}</p>

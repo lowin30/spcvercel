@@ -949,7 +949,11 @@ export async function saveBudgetAction(params: {
       budgetData.materiales = budgetData.materiales ?? 0;
       budgetData.mano_obra = budgetData.mano_obra ?? 0;
       budgetData.total = budgetData.total ?? 0;
+    } else if (tipo === 'base') {
+      // Remover total ya que es una columna GENERATED ALWAYS en presupuestos_base
+      delete budgetData.total;
     }
+
 
     let savedBudget: any;
 
