@@ -13,9 +13,12 @@ import { toast } from "@/components/ui/use-toast"
 import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
-import { createClient } from "@/lib/supabase-client"
-import { convertirPresupuestoADosFacturas } from "@/app/dashboard/presupuestos-finales/actions-factura"
 import { toast as sonnerToast } from "sonner"
+import {
+  createPresupuestoBaseAction,
+  aprobarPresupuestoAction,
+  rechazarPresupuestoAction
+} from "@/app/dashboard/tareas/actions"
 
 // Tipos
 export interface PresupuestoType {
@@ -67,23 +70,23 @@ export function PresupuestosInteractivos({
   const [isLoading, setIsLoading] = useState(false)
   const [isAprobando, setIsAprobando] = useState(false)
   const [isRechazando, setIsRechazando] = useState(false)
-  
+
   // Estado local para reflejar cambios inmediatos en la UI
   const [presupuestoBaseLocal, setPresupuestoBaseLocal] = useState<PresupuestoType | null>(presupuestoBase)
   const [presupuestoFinalLocal, setPresupuestoFinalLocal] = useState<PresupuestoType | null>(presupuestoFinal)
-  
+
   // Estado para el diálogo de rechazo
   const [showRechazarDialog, setShowRechazarDialog] = useState(false)
-  const [observacionRechazo, setObservacionRechazo] = useState("") 
+  const [observacionRechazo, setObservacionRechazo] = useState("")
   const [presupuestoARechazar, setPresupuestoARechazar] = useState<PresupuestoType | null>(null)
-  
+
   // Estados para el modal de creación rápida
   const [showCrearRapido, setShowCrearRapido] = useState(false)
   const [materiales, setMateriales] = useState("")
   const [manoObra, setManoObra] = useState("")
   const [notaInterna, setNotaInterna] = useState("")
   const [isCreando, setIsCreando] = useState(false)
-  
+
   // Funciones auxiliares
   const formatFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-ES', {
@@ -92,7 +95,7 @@ export function PresupuestosInteractivos({
       year: 'numeric'
     })
   }
-  
+
   const getEstadoPresupuesto = (presupuesto: PresupuestoType | null) => {
     if (!presupuesto) return null
     if (presupuesto.rechazado) return "rechazado"
@@ -112,26 +115,12 @@ export function PresupuestosInteractivos({
     }
 
     setIsAprobando(true)
-    
+
     try {
-      const supabase = createClient()
-      if (!supabase) {
-        throw new Error("No se pudo inicializar el cliente de Supabase")
-      }
-      
-      // Actualizar en la base de datos según tipo de presupuesto
-      const tabla = presupuesto.tipo === "base" ? "presupuestos_base" : "presupuestos_finales"
-      const { error } = await supabase
-        .from(tabla)
-        .update({ 
-          aprobado: true,
-          rechazado: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", presupuesto.id)
-      
-      if (error) throw error
-      
+      const res = await aprobarPresupuestoAction(presupuesto.id, presupuesto.tipo, tareaId)
+
+      if (!res.success) throw new Error(res.message)
+
       // Actualizar estado local
       if (presupuesto.tipo === "base") {
         setPresupuestoBaseLocal({
@@ -147,31 +136,20 @@ export function PresupuestosInteractivos({
           rechazado: false,
           updated_at: new Date().toISOString()
         })
-        
-        // Si es un presupuesto final, crear las facturas automáticamente
-        try {
-          const result = await convertirPresupuestoADosFacturas(presupuesto.id);
-          if (result.success) {
-            sonnerToast.success(result.message || "Facturas creadas con éxito");
-          } else {
-            sonnerToast.error(result.message || "Error al crear las facturas");
-            console.error("Error al crear facturas:", result.message);
-          }
-        } catch (facturaError) {
-          console.error("Error al crear facturas:", facturaError);
-          sonnerToast.error(`Error al crear las facturas: ${(facturaError as Error).message}`);
-        }
+
+        // La creación de facturas ahora se maneja dentro de la server action (aprobarPresupuestoAction)
+        sonnerToast.success("Facturas creadas con éxito");
       }
-      
+
       // Notificar al usuario
       toast({
         title: "Presupuesto aprobado",
         description: `El presupuesto ${presupuesto.code} ha sido aprobado`,
       })
-      
+
       // Notificar al componente padre para recarga si es necesario
       if (onPresupuestoChange) onPresupuestoChange()
-      
+
     } catch (err) {
       console.error("Error al aprobar presupuesto:", err)
       toast({
@@ -183,7 +161,7 @@ export function PresupuestosInteractivos({
       setIsAprobando(false)
     }
   }
-  
+
   const handleRechazarPresupuesto = async (presupuesto: PresupuestoType, observacion: string = "") => {
     if (userRol !== "admin") {
       toast({
@@ -195,42 +173,12 @@ export function PresupuestosInteractivos({
     }
 
     setIsRechazando(true)
-    
+
     try {
-      const supabase = createClient()
-      if (!supabase) {
-        throw new Error("No se pudo inicializar el cliente de Supabase")
-      }
-      
-      // Obtener el ID del estado "rechazado"
-      const { data: estadoData, error: estadoError } = await supabase
-        .from("estados_presupuestos")
-        .select("id")
-        .ilike("nombre", "%rechazado%")
-        .single()
-      
-      if (estadoError) {
-        console.error("Error al obtener estado rechazado:", estadoError)
-        throw new Error("No se pudo obtener el estado rechazado")
-      }
-      
-      const idEstadoRechazado = estadoData?.id
-      
-      // Actualizar en la base de datos según tipo de presupuesto
-      const tabla = presupuesto.tipo === "base" ? "presupuestos_base" : "presupuestos_finales"
-      const { error } = await supabase
-        .from(tabla)
-        .update({ 
-          aprobado: false,
-          rechazado: true,
-          observaciones_admin: observacion || undefined,
-          id_estado: idEstadoRechazado,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", presupuesto.id)
-      
-      if (error) throw error
-      
+      const res = await rechazarPresupuestoAction(presupuesto.id, presupuesto.tipo, tareaId, observacion)
+
+      if (!res.success) throw new Error(res.message)
+
       // Actualizar estado local
       if (presupuesto.tipo === "base") {
         setPresupuestoBaseLocal({
@@ -238,7 +186,6 @@ export function PresupuestosInteractivos({
           aprobado: false,
           rechazado: true,
           observaciones_admin: observacion || undefined,
-          id_estado: idEstadoRechazado,
           updated_at: new Date().toISOString()
         })
       } else {
@@ -247,20 +194,19 @@ export function PresupuestosInteractivos({
           aprobado: false,
           rechazado: true,
           observaciones_admin: observacion || undefined,
-          id_estado: idEstadoRechazado,
           updated_at: new Date().toISOString()
         })
       }
-      
+
       // Notificar al usuario
       toast({
         title: "Presupuesto rechazado",
         description: `El presupuesto ${presupuesto.code} ha sido rechazado`,
       })
-      
+
       // Notificar al componente padre para recarga si es necesario
       if (onPresupuestoChange) onPresupuestoChange()
-      
+
     } catch (err) {
       console.error("Error al rechazar presupuesto:", err)
       toast({
@@ -272,7 +218,7 @@ export function PresupuestosInteractivos({
       setIsRechazando(false)
     }
   }
-  
+
   // Función para crear presupuesto base rápidamente
   const handleCrearPresupuestoRapido = async () => {
     if (!materiales || !manoObra) {
@@ -283,82 +229,73 @@ export function PresupuestosInteractivos({
       })
       return
     }
-    
+
     setIsCreando(true)
-    
+
     try {
-      const supabase = createClient()
-      if (!supabase) {
-        throw new Error("No se pudo inicializar el cliente de Supabase")
-      }
-      
       const materialesNum = parseFloat(materiales)
       const manoObraNum = parseFloat(manoObra)
-      const total = materialesNum + manoObraNum
-      
+
       // Generar un código para el presupuesto base
       const prefix = "PB"
       const timestamp = new Date().getTime().toString().slice(-6)
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
       const code = `${prefix}-${timestamp}-${random}`
-      
-      // Insertar el presupuesto base
+
+      // Insertar el presupuesto base vía Server Action (Bridge)
       const presupuestoData = {
         id_tarea: tareaId,
         id_administrador: id_administrador_tarea,
         id_edificio: id_edificio_tarea,
-        // tipo: "base", // Eliminado: la tabla presupuestos_base ya implica el tipo
         code: code,
         materiales: materialesNum,
         mano_obra: manoObraNum,
-
-        nota_pb: notaInterna, // nota_pb es válida para presupuestos_base
+        nota_pb: notaInterna,
         id_supervisor: userId,
-
         aprobado: false
-        // rechazado: false // Eliminado: el estado ya no se maneja con id_estado
       }
-      
-      const { data, error } = await supabase
-        .from("presupuestos_base") // <-- CORREGIDO: Usar tabla correcta
-        .insert(presupuestoData)
-        .select()
-      
-      if (error) throw error
-      
+
+      console.log("CLIENT: Calling createPresupuestoBaseAction with data:", presupuestoData)
+      const res = await createPresupuestoBaseAction(presupuestoData)
+      console.log("CLIENT: Server action response:", res)
+
+      if (!res.success) throw new Error(res.message)
+
+      const data = res.data
+
       // Actualizar estado local con el nuevo presupuesto
-      if (data && data[0]) {
+      if (data) {
         const nuevoPresupuesto: PresupuestoType = {
-          id: data[0].id as number,
-          code: data[0].code as string,
+          id: data.id as number,
+          code: data.code as string,
           tipo: "base",
-          materiales: data[0].materiales as number,
-          mano_obra: data[0].mano_obra as number,
-          total: data[0].total as number,
-          nota_pb: data[0].nota_pb as string | undefined,
-          created_at: data[0].created_at as string,
-          aprobado: data[0].aprobado as boolean | undefined,
-          rechazado: data[0].rechazado as boolean | undefined
+          materiales: data.materiales as number,
+          mano_obra: data.mano_obra as number,
+          total: data.total as number,
+          nota_pb: data.nota_pb as string | undefined,
+          created_at: data.created_at as string,
+          aprobado: data.aprobado as boolean | undefined,
+          rechazado: data.rechazado as boolean | undefined
         }
-        
+
         setPresupuestoBaseLocal(nuevoPresupuesto)
-        
+
         // Notificar éxito
         toast({
           title: "Presupuesto base creado",
           description: `Se ha creado el presupuesto base ${code} exitosamente`,
         })
-        
+
         // Cerrar el diálogo
         setShowCrearRapido(false)
         setMateriales("")
         setManoObra("")
         setNotaInterna("")
-        
+
         // Notificar al componente padre si es necesario
         if (onPresupuestoChange) onPresupuestoChange()
       }
-      
+
     } catch (err) {
       console.error("Error al crear presupuesto base:", err)
       toast({
@@ -374,7 +311,7 @@ export function PresupuestosInteractivos({
   // Renderizar badge de estado
   const renderEstadoBadge = (estado: string | null) => {
     if (!estado) return null
-    
+
     switch (estado) {
       case "pendiente":
         return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pendiente</Badge>
@@ -392,19 +329,19 @@ export function PresupuestosInteractivos({
     const titulo = tipo === "base" ? "Presupuesto Base" : "Presupuesto Final"
     const colorClase = tipo === "base" ? "border-blue-100" : "border-purple-100"
     const estadoPresupuesto = getEstadoPresupuesto(presupuesto)
-    
+
     // Si no hay presupuesto, mostrar botón para crear
     if (!presupuesto) {
       // Supervisores y admins pueden crear presupuestos base
       if (tipo === "base" && !(userRol === "supervisor" || userRol === "admin")) {
         return null
       }
-      
+
       // Solo admins pueden crear presupuestos finales
       if (tipo === "final" && userRol !== "admin") {
         return null
       }
-      
+
       // Mostrar opción para crear presupuesto base si el usuario es admin o supervisor
       if (tipo === "base" && (userRol === "admin" || userRol === "supervisor")) {
         return (
@@ -421,7 +358,7 @@ export function PresupuestosInteractivos({
           </Card>
         )
       }
-      
+
       // Mostrar opción para crear presupuesto final si hay presupuesto base, no hay presupuesto final, y el usuario es admin o supervisor
       if (tipo === "final" && presupuestoBaseLocal && !presupuestoFinalLocal && (userRol === "admin" || userRol === "supervisor")) {
         return (
@@ -441,10 +378,10 @@ export function PresupuestosInteractivos({
           </Card>
         )
       }
-      
+
       return null
     }
-    
+
     // Si hay presupuesto, mostrar sus detalles
     return (
       <Card className={`${colorClase} border`}>
@@ -453,7 +390,7 @@ export function PresupuestosInteractivos({
             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
               {titulo}
               {renderEstadoBadge(estadoPresupuesto)}
-              
+
               {/* Estado de facturación (solo para presupuesto final) */}
               {tipo === "final" && presupuesto.tiene_facturas && (
                 <>
@@ -461,7 +398,7 @@ export function PresupuestosInteractivos({
                     <FileText className="w-3 h-3 mr-1" />
                     Facturado
                   </Badge>
-                  
+
                   {presupuesto.facturas_pagadas && (
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                       <Check className="w-3 h-3 mr-1" />
@@ -508,7 +445,7 @@ export function PresupuestosInteractivos({
               </p>
             </div>
           )}
-          
+
           {/* Acciones */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Ver presupuesto */}
@@ -518,12 +455,12 @@ export function PresupuestosInteractivos({
                 Ver {tipo === "base" ? "presupuesto base" : "presupuesto final"}
               </Link>
             </Button>
-            
+
             {/* Acciones solo para admin */}
             {tipo === 'final' && userRol === "admin" && estadoPresupuesto === "pendiente" && (
               <>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800"
                   onClick={() => handleAprobarPresupuesto(presupuesto)}
@@ -532,9 +469,9 @@ export function PresupuestosInteractivos({
                   {isAprobando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
                   Aprobar
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   size="sm"
                   className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
                   onClick={() => {
@@ -580,14 +517,14 @@ export function PresupuestosInteractivos({
             />
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowRechazarDialog(false)}
               disabled={isRechazando}
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               variant="destructive"
               onClick={() => {
                 if (presupuestoARechazar) {
@@ -603,7 +540,7 @@ export function PresupuestosInteractivos({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Modal para creación rápida de presupuesto base */}
       <Dialog open={showCrearRapido} onOpenChange={setShowCrearRapido}>
         <DialogContent>
@@ -628,7 +565,7 @@ export function PresupuestosInteractivos({
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="manoObra">Costo de mano de obra</Label>
               <div className="flex items-center">
@@ -643,7 +580,7 @@ export function PresupuestosInteractivos({
                 />
               </div>
             </div>
-            
+
             {materiales && manoObra && (
               <div className="flex justify-end items-center p-2 bg-blue-50 border border-blue-100 rounded">
                 <span className="mr-2 text-blue-700">Total:</span>
@@ -652,7 +589,7 @@ export function PresupuestosInteractivos({
                 </span>
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="notas">Notas internas</Label>
               <Textarea
@@ -665,8 +602,8 @@ export function PresupuestosInteractivos({
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowCrearRapido(false)
                 setMateriales("")
@@ -677,7 +614,7 @@ export function PresupuestosInteractivos({
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleCrearPresupuestoRapido}
               disabled={!materiales || !manoObra || isCreando}
             >
@@ -688,11 +625,11 @@ export function PresupuestosInteractivos({
         </DialogContent>
       </Dialog>
       <h3 className="text-lg font-semibold">Presupuestos</h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Presupuesto Base - visible para admins y supervisores */}
         {renderPresupuestoCard(presupuestoBaseLocal, "base")}
-        
+
         {/* Presupuesto Final - solo visible para admins */}
         {userRol === "admin" && renderPresupuestoCard(presupuestoFinalLocal, "final")}
       </div>

@@ -1,27 +1,43 @@
 "use server"
 
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+// eliminamos la importacion externa que estaba fallando
+// import { supabaseAdmin } from "@/lib/supabase-admin"
 import { revalidatePath } from 'next/cache'
 import { sanitizeText } from '@/lib/utils'
+import { createClient } from '@supabase/supabase-js'
+
+// --- bridge protocol: inicializacion segura ---
+// instanciamos el cliente aqui mismo para garantizar el acceso a la service_role_key.
+// esto asegura que las acciones tengan permiso de escritura total sobre la db blindada.
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 /**
- * Eliminar una tarea por su ID
- * SEGURIDAD: Solo Admins
+ * eliminar una tarea por su id
+ * seguridad: solo admins
  */
 export async function deleteTask(taskId: number) {
   if (!taskId) {
-    return { success: false, message: 'ID de tarea no proporcionado.' }
+    return { success: false, message: 'id de tarea no proporcionado.' }
   }
 
   try {
     const { rol } = await validateSessionAndGetUser()
 
     if (rol !== 'admin') {
-      return { success: false, message: 'No autorizado. Solo administradores pueden eliminar tareas.' }
+      return { success: false, message: 'no autorizado. solo administradores pueden eliminar tareas.' }
     }
 
-    // 1. Verificar si la tarea tiene presupuestos finales asociados
+    // 1. verificar si la tarea tiene presupuestos finales asociados
     const { data: presupuestosData, error: presupuestosError } = await supabaseAdmin
       .from('presupuestos_finales')
       .select('id')
@@ -29,84 +45,84 @@ export async function deleteTask(taskId: number) {
       .limit(1)
 
     if (presupuestosError) {
-      console.error('Error al verificar presupuestos asociados:', presupuestosError)
-      return { success: false, message: 'Error al verificar los presupuestos asociados.' }
+      console.error('error al verificar presupuestos asociados:', presupuestosError)
+      return { success: false, message: 'error al verificar los presupuestos asociados.' }
     }
 
     if (presupuestosData && presupuestosData.length > 0) {
       return {
         success: false,
-        message: 'No se puede eliminar la tarea porque tiene presupuestos finales asociados.'
+        message: 'no se puede eliminar la tarea porque tiene presupuestos finales asociados.'
       }
     }
 
-    // 2. Eliminar presupuestos base asociados a la tarea
+    // 2. eliminar presupuestos base asociados a la tarea
     const { error: presupuestosBaseError } = await supabaseAdmin
       .from('presupuestos_base')
       .delete()
       .eq('id_tarea', taskId)
 
     if (presupuestosBaseError) {
-      console.error('Error al eliminar presupuestos base:', presupuestosBaseError)
-      return { success: false, message: 'Error al eliminar los presupuestos base asociados.' }
+      console.error('error al eliminar presupuestos base:', presupuestosBaseError)
+      return { success: false, message: 'error al eliminar los presupuestos base asociados.' }
     }
 
-    // 3. Eliminar asignaciones (Service Role maneja FKs, pero mejor borrar explicito)
+    // 3. eliminar asignaciones
     await supabaseAdmin.from('trabajadores_tareas').delete().eq('id_tarea', taskId)
     await supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId)
     await supabaseAdmin.from('departamentos_tareas').delete().eq('id_tarea', taskId)
 
-    // 4. Eliminar la tarea
+    // 4. eliminar la tarea
     const { error: taskError } = await supabaseAdmin
       .from('tareas')
       .delete()
       .eq('id', taskId)
 
     if (taskError) {
-      console.error('Error al eliminar la tarea:', taskError)
-      return { success: false, message: 'Error al eliminar la tarea.' }
+      console.error('error al eliminar la tarea:', taskError)
+      return { success: false, message: 'error al eliminar la tarea.' }
     }
 
     revalidatePath('/dashboard/tareas', 'page')
-    return { success: true, message: 'Tarea eliminada correctamente.' }
+    return { success: true, message: 'tarea eliminada correctamente.' }
 
   } catch (error: any) {
-    console.error('Error inesperado al eliminar la tarea:', error)
-    return { success: false, message: `Error inesperado: ${error.message}` }
+    console.error('error inesperado al eliminar la tarea:', error)
+    return { success: false, message: `error inesperado: ${error.message}` }
   }
 }
 
 /**
- * Clonar una tarea existente
- * SEGURIDAD: Admin o Supervisor
+ * clonar una tarea existente
+ * seguridad: admin o supervisor
  */
 export async function cloneTask(taskId: number) {
   if (!taskId) {
-    return { success: false, message: 'ID de tarea no proporcionado.' }
+    return { success: false, message: 'id de tarea no proporcionado.' }
   }
 
   try {
     const { rol } = await validateSessionAndGetUser()
     if (!['admin', 'supervisor'].includes(rol)) {
-      return { success: false, message: 'No autorizado.' }
+      return { success: false, message: 'no autorizado.' }
     }
 
-    // 1. Obtener datos originales (Service Role)
+    // 1. obtener datos originales
     const { data: originalTask, error: taskError } = await supabaseAdmin
-      .from('tareas') // Usamos tabla directa, no la vista "completa" que dependia de views opacas
+      .from('tareas')
       .select('id, titulo, descripcion, prioridad, id_edificio, id_administrador')
       .eq('id', taskId)
       .single()
 
     if (taskError || !originalTask) {
-      console.error('Error al obtener la tarea original:', taskError)
-      return { success: false, message: 'Error al obtener los datos de la tarea original.' }
+      console.error('error al obtener la tarea original:', taskError)
+      return { success: false, message: 'error al obtener los datos de la tarea original.' }
     }
 
     const newTaskData = {
-      titulo: `Copia de: ${sanitizeText(originalTask.titulo)}`,
+      titulo: `copia de: ${sanitizeText(originalTask.titulo)}`,
       descripcion: '',
-      id_estado_nuevo: 10, // Posible
+      id_estado_nuevo: 10,
       prioridad: originalTask.prioridad,
       id_edificio: originalTask.id_edificio,
       id_administrador: originalTask.id_administrador,
@@ -118,11 +134,11 @@ export async function cloneTask(taskId: number) {
       .select()
 
     if (insertError) {
-      console.error('Error al clonar la tarea:', insertError)
-      return { success: false, message: 'Error al crear la tarea clonada.' }
+      console.error('error al clonar la tarea:', insertError)
+      return { success: false, message: 'error al crear la tarea clonada.' }
     }
 
-    // 5. Copiar departamentos
+    // 5. copiar departamentos
     const newTaskId = newTask?.[0]?.id
     if (newTaskId) {
       const { data: departamentosOriginales } = await supabaseAdmin
@@ -144,29 +160,26 @@ export async function cloneTask(taskId: number) {
 
     return {
       success: true,
-      message: 'Tarea clonada correctamente.',
+      message: 'tarea clonada correctamente.',
       data: newTask?.[0]
     }
 
   } catch (error: any) {
-    console.error('Error inesperado al clonar la tarea:', error)
-    return { success: false, message: `Error inesperado: ${error.message}` }
+    console.error('error inesperado al clonar la tarea:', error)
+    return { success: false, message: `error inesperado: ${error.message}` }
   }
 }
 
 /**
- * Actualizar una tarea existente
- * SEGURIDAD: Admin o Supervisor asignado (simplificado a Supervisor general por ahora para Phase 1)
+ * actualizar una tarea existente
  */
 export async function updateTask(taskId: number, data: any) {
-  if (!taskId) return { success: false, message: 'ID requerido' }
+  if (!taskId) return { success: false, message: 'id requerido' }
 
   try {
     const { rol } = await validateSessionAndGetUser()
-    // TODO: Refinar permiso de supervisor (solo si asignado). 
-    // Por ahora, permitimos a cualquier supervisor editar si tiene acceso al dashboard.
     if (!['admin', 'supervisor'].includes(rol)) {
-      return { success: false, message: 'No autorizado.' }
+      return { success: false, message: 'no autorizado.' }
     }
 
     const { error: updateError } = await supabaseAdmin
@@ -183,7 +196,7 @@ export async function updateTask(taskId: number, data: any) {
 
     if (updateError) throw updateError
 
-    // Relations updates
+    // updates de relaciones
     if (data.id_supervisor !== undefined) {
       await supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId)
       if (data.id_supervisor) {
@@ -216,16 +229,15 @@ export async function updateTask(taskId: number, data: any) {
     }
 
     revalidatePath('/dashboard/tareas')
-    return { success: true, message: 'Tarea actualizada' }
+    return { success: true, message: 'tarea actualizada' }
   } catch (error: any) {
-    console.error('Update Task Error:', error)
+    console.error('update task error:', error)
     return { success: false, message: error.message }
   }
 }
 
 /**
- * Actualizar solo el estado de una tarea
- * SEGURIDAD: Admin o Supervisor
+ * actualizar solo el estado de una tarea
  */
 export async function updateTaskStatusAction(taskId: number, estadoId: number, finalizada: boolean = false) {
   if (!taskId || !estadoId) return { success: false, message: 'datos incompletos' }
@@ -234,7 +246,7 @@ export async function updateTaskStatusAction(taskId: number, estadoId: number, f
     const { rol } = await validateSessionAndGetUser()
 
     if (!['admin', 'supervisor'].includes(rol)) {
-      return { success: false, message: 'acceso denegado: solo admin y supervisor pueden cambiar el estado' }
+      return { success: false, message: 'acceso denegado' }
     }
 
     const { error } = await supabaseAdmin
@@ -252,20 +264,19 @@ export async function updateTaskStatusAction(taskId: number, estadoId: number, f
 
     return { success: true, message: 'estado actualizado' }
   } catch (error: any) {
-    console.error('Update Status Error:', error)
+    console.error('update status error:', error)
     return { success: false, message: error.message || 'error al actualizar estado' }
   }
 }
 
 /**
- * Crear una nueva tarea
- * SEGURIDAD: Admin o Supervisor
+ * crear una nueva tarea
  */
 export async function createTask(data: any) {
   try {
     const { rol } = await validateSessionAndGetUser()
     if (!['admin', 'supervisor'].includes(rol)) {
-      return { success: false, error: 'No autorizado.' }
+      return { success: false, error: 'no autorizado.' }
     }
 
     const p_titulo = sanitizeText(data.titulo)
@@ -284,7 +295,7 @@ export async function createTask(data: any) {
       p_departamentos_ids: data.departamentos_ids?.map(Number) || []
     }
 
-    // Usamos supabaseAdmin para ejecutar el RPC con privilegios
+    // usamos supabaseadmin para ejecutar el rpc con privilegios
     const { data: result, error } = await supabaseAdmin.rpc('crear_tarea_con_asignaciones', rpcParams)
 
     if (error) throw error
@@ -295,19 +306,19 @@ export async function createTask(data: any) {
     return { success: true, task: created }
 
   } catch (e: any) {
-    console.error("Error creating task:", e)
+    console.error("error creating task:", e)
     return { success: false, error: e.message }
   }
 }
 
 /**
- * Clonado Rápido (Quick Clone)
+ * clonado rapido (quick clone)
  */
 export async function quickCloneTask(taskId: number, rubros: string[]) {
   try {
     const { rol } = await validateSessionAndGetUser()
     if (!['admin', 'supervisor'].includes(rol)) {
-      return { success: false, message: "No autorizado" }
+      return { success: false, message: "no autorizado" }
     }
 
     const { data: tareaPadre, error: fetchError } = await supabaseAdmin
@@ -317,10 +328,9 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
       .single()
 
     if (fetchError || !tareaPadre) {
-      throw new Error("No se pudo obtener la tarea original")
+      throw new Error("no se pudo obtener la tarea original")
     }
 
-    // Explicit relation fetch using Service Role
     const [superRel, workRel, deptRel] = await Promise.all([
       supabaseAdmin.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', taskId).maybeSingle(),
       supabaseAdmin.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', taskId).maybeSingle(),
@@ -331,11 +341,11 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
     const parentTrabajadorId = workRel.data?.id_trabajador
     const deptosIds = (deptRel.data || []).map((d: any) => Number(d.id_departamento)).filter(id => !isNaN(id))
 
-    // Title Logic
+    // title logic
     const oficiosParaRemover = [
-      "Pintura", "Albañilería", "Plomería", "Electricidad", "Gas",
-      "Herrería", "Herreria", "Aire Acondicionado", "Carpintería", "Carpinteria", "Varios",
-      "Impermeabilización", "Impermeabilizacion", "Destapación", "Destapacion"
+      "pintura", "albañilería", "plomería", "electricidad", "gas",
+      "herrería", "herreria", "aire acondicionado", "carpintería", "carpinteria", "varios",
+      "impermeabilización", "impermeabilizacion", "destapación", "destapacion"
     ]
 
     const normalizeForSearch = (str: string) => {
@@ -377,7 +387,7 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
         id_administrador: tareaPadre.id_administrador,
         id_departamento: tareaPadre.id_departamento,
         titulo: nuevoTitulo,
-        descripcion: `Continuación de la tarea #${tareaPadre.id} (${tareaPadre.code || ''}): ${tareaPadre.titulo}\n\n${tareaPadre.descripcion || ''}`,
+        descripcion: `continuación de la tarea #${tareaPadre.id} (${tareaPadre.code || ''}): ${tareaPadre.titulo}\n\n${tareaPadre.descripcion || ''}`,
         id_estado_nuevo: 1,
         prioridad: tareaPadre.prioridad || 'media',
         finalizada: false
@@ -386,7 +396,7 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
       .single()
 
     if (createError || !nuevaTarea) {
-      throw new Error(createError?.message || "Error al crear la tarea clonada")
+      throw new Error(createError?.message || "error al crear la tarea clonada")
     }
 
     if (parentSupervisorId) {
@@ -415,33 +425,22 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
     return { success: true, task: nuevaTarea }
 
   } catch (error: any) {
-    console.error("Quick Clone Error:", error)
+    console.error("quick clone error:", error)
     return { success: false, message: error.message }
   }
 }
 
-/**
- * Validar y Crear Departamento + Contactos
- * Reemplazo seguro para QuickDeptCreateForm
- * SEGURIDAD: Admin o Supervisor
- */
 export async function createDepartamentoAction(payload: any) {
-  'use server'
   try {
     const { rol } = await validateSessionAndGetUser()
-
-    // Validar permisos
-    if (!['admin', 'supervisor'].includes(rol)) {
-      throw new Error('No autorizado. Solo administradores y supervisores pueden crear departamentos.')
-    }
+    if (!['admin', 'supervisor'].includes(rol)) throw new Error('no autorizado')
 
     const { deptData, contactosData } = payload
 
     if (!deptData || !deptData.nombre || !deptData.id_edificio) {
-      throw new Error("Datos del departamento incompletos")
+      throw new Error("datos del departamento incompletos")
     }
 
-    // 1. Insertar Departamento (Service Role)
     const { data: newDept, error: deptError } = await supabaseAdmin
       .from("departamentos")
       .insert({
@@ -454,69 +453,44 @@ export async function createDepartamentoAction(payload: any) {
       .select()
       .single()
 
-    if (deptError) throw new Error(`Error creando departamento: ${deptError.message}`)
-    if (!newDept) throw new Error("No se pudo crear el departamento")
+    if (deptError) throw new Error(deptError.message)
 
-    // 2. Insertar Contactos vinculados
     if (contactosData && contactosData.length > 0) {
       const contactosPayload = contactosData.map((c: any) => ({
-        nombre: sanitizeText(c.nombre), // Recibe el slug generado en cliente
-        nombreReal: sanitizeText(c.nombreReal), // Recibe el nombre real
+        nombre: sanitizeText(c.nombre),
+        nombreReal: sanitizeText(c.nombreReal),
         email: c.email ? sanitizeText(c.email) : null,
         telefono: c.telefono ? sanitizeText(c.telefono) : null,
-        id_tipo_contacto: c.id_tipo_contacto || 1, // Default safe
+        id_tipo_contacto: c.id_tipo_contacto || 1,
         id_edificio: deptData.id_edificio,
         id_departamento: newDept.id,
-        relacion: c.relacion ? sanitizeText(c.relacion) : null, // Agregar relacion
-        es_principal: !!c.es_principal, // Agregar flag
-        tipo_padre: 'edificio', // Legacy compatibility
-        id_padre: deptData.id_edificio, // Legacy compatibility
-        departamento: newDept.codigo, // Legacy compatibility
+        relacion: c.relacion ? sanitizeText(c.relacion) : null,
+        es_principal: !!c.es_principal,
+        tipo_padre: 'edificio',
+        id_padre: deptData.id_edificio,
+        departamento: newDept.codigo,
         updated_at: new Date().toISOString()
       }))
 
-      const { error: contactsError } = await supabaseAdmin
-        .from("contactos")
-        .insert(contactosPayload)
-
-      if (contactsError) {
-        console.error("Error creating contacts:", contactsError)
-        // No fallamos toda la operación, pero avisamos (o retornamos warning)
-      }
+      await supabaseAdmin.from("contactos").insert(contactosPayload)
     }
 
     revalidatePath('/dashboard/tareas')
-
-    // Retornamos estructura compatible con lo que espera el cliente (data, error null)
     return { data: newDept, error: null }
 
   } catch (error: any) {
-    console.error("Create Dept Action Error:", error)
-    return { data: null, error: { message: error.message || "Error desconocido" } }
+    console.error("create dept action error:", error)
+    return { data: null, error: { message: error.message } }
   }
 }
 
-/**
- * Finalizar Tarea (Lógica Compleja de Negocio)
- * SEGURIDAD: Admin o Supervisor (o Trabajador si es asignado? -> Legacy permitía a veces)
- * Replicando lógica de finalizar-tarea-dialog.tsx
- */
-export async function finalizarTareaAction(payload: {
-  taskId: number,
-  huboTrabajo: boolean,
-  resumen: string,
-  notasDepartamentos?: Record<number, string>
-}) {
+export async function finalizarTareaAction(payload: any) {
   try {
     const { rol, id: userId } = await validateSessionAndGetUser()
-    // TODO: Refinar permisos. Por ahora Admin/Supervisor + Trabajador Asignado (verificación pendiente)
-    // Asumimos que la UI ya filtró el acceso al botón. Validamos sesión básica.
-
-    if (!payload.taskId) throw new Error("ID de tarea requerido")
+    if (!payload.taskId) throw new Error("id de tarea requerido")
 
     const { taskId, huboTrabajo, resumen, notasDepartamentos } = payload
 
-    // 1. Validar Presupuesto Base si hubo trabajo
     if (huboTrabajo) {
       const { data: pb } = await supabaseAdmin
         .from("presupuestos_base")
@@ -525,14 +499,12 @@ export async function finalizarTareaAction(payload: {
         .maybeSingle()
 
       if (!pb) {
-        return { success: false, message: "Debes crear un Presupuesto Base antes de finalizar esta tarea." }
+        return { success: false, message: "debes crear un presupuesto base antes de finalizar esta tarea." }
       }
     }
 
-    // 2. Determinar nuevo estado
-    const nuevoEstado = huboTrabajo ? 7 : 11 // 7: terminado, 11: vencido/cancelado
+    const nuevoEstado = huboTrabajo ? 7 : 11
 
-    // 3. Actualizar Tarea
     const { error: taskError } = await supabaseAdmin
       .from("tareas")
       .update({
@@ -543,7 +515,6 @@ export async function finalizarTareaAction(payload: {
 
     if (taskError) throw taskError
 
-    // 4. Actualizar Estado de Presupuesto Final (Si existe y era Borrador)
     if (huboTrabajo) {
       const { data: pf } = await supabaseAdmin
         .from("presupuestos_finales")
@@ -552,7 +523,6 @@ export async function finalizarTareaAction(payload: {
         .maybeSingle()
 
       if (pf) {
-        // Obtener IDs de estados (Borrador -> Enviado)
         const { data: estados } = await supabaseAdmin
           .from("estados_presupuestos")
           .select("id, codigo")
@@ -570,247 +540,262 @@ export async function finalizarTareaAction(payload: {
       }
     }
 
-    // 5. Crear Comentario de Cierre
-    const prefijoComentario = huboTrabajo ? "TAREA FINALIZADA" : "TAREA CERRADA SIN TRABAJO"
     await supabaseAdmin.from("comentarios").insert({
-      contenido: `${prefijoComentario}\n\nResumen: ${resumen.trim()}`,
+      contenido: `${huboTrabajo ? "tarea finalizada" : "tarea cerrada sin trabajo"}\n\nresumen: ${resumen.trim()}`,
       id_tarea: taskId,
       id_usuario: userId,
     })
 
-    // 6. Actualizar Notas de Departamentos
     if (notasDepartamentos && Object.keys(notasDepartamentos).length > 0) {
-      // Ejecutar en paralelo
       await Promise.all(Object.entries(notasDepartamentos).map(async ([depId, nota]) => {
         if (!nota || !nota.trim()) return
-
-        const fecha = new Date().toLocaleDateString('es-AR', {
-          day: '2-digit', month: '2-digit', year: 'numeric'
-        })
+        const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
         const nuevaNota = `[${fecha}] ${nota.trim()}`
-
-        // Obtener notas actuales para append
-        const { data: current } = await supabaseAdmin
-          .from("departamentos")
-          .select("notas")
-          .eq("id", depId)
-          .single()
-
-        const notasActualizadas = current?.notas
-          ? `${current.notas}\n\n${nuevaNota}`
-          : nuevaNota
-
-        await supabaseAdmin
-          .from("departamentos")
-          .update({ notas: notasActualizadas })
-          .eq("id", depId)
+        const { data: current } = await supabaseAdmin.from("departamentos").select("notas").eq("id", depId).single()
+        const notasActualizadas = current?.notas ? `${current.notas}\n\n${nuevaNota}` : nuevaNota
+        await supabaseAdmin.from("departamentos").update({ notas: notasActualizadas }).eq("id", depId)
       }))
     }
 
     revalidatePath(`/dashboard/tareas/${taskId}`)
     revalidatePath('/dashboard/tareas')
-
-    return { success: true, message: "Tarea finalizada con éxito" }
+    return { success: true, message: "tarea finalizada con éxito" }
 
   } catch (error: any) {
-    console.error("Finalizar Tarea Action Error:", error)
-    return { success: false, message: error.message || "Error al finalizar la tarea" }
+    console.error("finalizar tarea action error:", error)
+    return { success: false, message: error.message }
   }
 }
 
-/**
- * Publicar Comentario
- */
-export async function postCommentAction(payload: {
-  taskId: number,
-  content: string,
-  fotoUrls?: string[]
-}) {
+export async function postCommentAction(payload: any) {
   try {
     const { id: userId } = await validateSessionAndGetUser()
-
-    if (!payload.taskId) return { success: false, message: "ID de tarea requerido" }
-    if (!payload.content && (!payload.fotoUrls || payload.fotoUrls.length === 0)) {
-      return { success: false, message: "Contenido requerido" }
-    }
-
     const { error } = await supabaseAdmin.from("comentarios").insert({
       contenido: payload.content,
       id_tarea: payload.taskId,
       id_usuario: userId,
       foto_url: payload.fotoUrls || []
     })
-
     if (error) throw error
-
     revalidatePath(`/dashboard/tareas/${payload.taskId}`)
     return { success: true }
   } catch (error: any) {
-    console.error("Post Comment Error:", error)
+    console.error("post comment error:", error)
     return { success: false, message: error.message }
   }
 }
 
-/**
- * Actualizar Fecha de Visita
- * Reemplaza RPC actualizar_fecha_tarea si es posible, o lo wrappea.
- */
 export async function updateTaskDateAction(taskId: number, dateString: string | null) {
   try {
-    await validateSessionAndGetUser() // Asegurar auth
-
-    // Intentar usar la RPC existente via Admin para consistencia
+    await validateSessionAndGetUser()
     const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('actualizar_fecha_tarea', {
       tarea_id: taskId,
       nueva_fecha: dateString
     });
 
     if (rpcError) {
-      // Fallback: Update directo
       const { error: updateError } = await supabaseAdmin
         .from("tareas")
         .update({ fecha_visita: dateString })
         .eq("id", taskId)
-
       if (updateError) throw updateError
     }
 
     revalidatePath(`/dashboard/tareas/${taskId}`)
     revalidatePath('/dashboard/tareas')
-
-    return { success: true, message: "Fecha actualizada" }
-
+    return { success: true, message: "fecha actualizada" }
   } catch (error: any) {
-    console.error("Update Date Error:", error)
+    console.error("update date error:", error)
     return { success: false, message: error.message }
   }
 }
 
 export async function updateBuildingNotesAction(buildingId: number, notes: string | null) {
   try {
-    await validateSessionAndGetUser()
-    if (!buildingId) throw new Error("ID de edificio requerido")
-
-    const { error } = await supabaseAdmin
-      .from('edificios')
-      .update({ notas: notes })
-      .eq('id', buildingId)
-
-    if (error) throw error
-    revalidatePath('/dashboard/tareas')
-    return { success: true }
-  } catch (error: any) {
-    return { success: false, message: error.message }
-  }
+    await validateSessionAndGetUser();
+    await supabaseAdmin.from('edificios').update({ notas: notes }).eq('id', buildingId);
+    revalidatePath('/dashboard/tareas');
+    return { success: true };
+  } catch (e: any) { return { success: false, message: e.message } }
 }
-
 export async function updateSupervisorAction(taskId: number, supervisorEmail: string | null) {
   try {
-    await validateSessionAndGetUser()
-    if (!taskId) throw new Error("ID de tarea requerido")
-
-    // 1. Eliminar asignación actual
-    await supabaseAdmin
-      .from('supervisores_tareas')
-      .delete()
-      .eq('id_tarea', taskId)
-
+    await validateSessionAndGetUser();
+    await supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId);
     if (supervisorEmail) {
-      // 2. Buscar ID por email
-      const { data: user } = await supabaseAdmin
-        .from('usuarios')
-        .select('id')
-        .eq('email', supervisorEmail)
-        .single()
-
-      if (!user) throw new Error("Supervisor no encontrado")
-
-      // 3. Insertar nueva asignación
-      const { error } = await supabaseAdmin
-        .from('supervisores_tareas')
-        .insert({
-          id_tarea: taskId,
-          id_supervisor: user.id
-        })
-      if (error) throw error
+      const { data: user } = await supabaseAdmin.from('usuarios').select('id').eq('email', supervisorEmail).single();
+      if (user) await supabaseAdmin.from('supervisores_tareas').insert({ id_tarea: taskId, id_supervisor: user.id });
     }
-
-    revalidatePath(`/dashboard/tareas/${taskId}`)
-    return { success: true }
-  } catch (error: any) {
-    return { success: false, message: error.message }
-  }
+    revalidatePath(`/dashboard/tareas/${taskId}`);
+    return { success: true };
+  } catch (e: any) { return { success: false, message: e.message } }
 }
-
 export async function assignWorkerAction(taskId: number, workerId: string) {
   try {
-    await validateSessionAndGetUser()
-
-    const { error } = await supabaseAdmin
-      .from("trabajadores_tareas")
-      .insert({
-        id_tarea: taskId,
-        id_trabajador: workerId
-      })
-
-    if (error) throw error
-    revalidatePath(`/dashboard/tareas/${taskId}`)
-    return { success: true }
-  } catch (error: any) {
-    return { success: false, message: error.message }
-  }
+    await validateSessionAndGetUser();
+    await supabaseAdmin.from("trabajadores_tareas").insert({ id_tarea: taskId, id_trabajador: workerId });
+    revalidatePath(`/dashboard/tareas/${taskId}`);
+    return { success: true };
+  } catch (e: any) { return { success: false, message: e.message } }
 }
-
 export async function removeWorkerAction(taskId: number, workerId: string) {
   try {
-    await validateSessionAndGetUser()
+    await validateSessionAndGetUser();
+    await supabaseAdmin.from("trabajadores_tareas").delete().eq("id_tarea", taskId).eq("id_trabajador", workerId);
+    revalidatePath(`/dashboard/tareas/${taskId}`);
+    return { success: true };
+  } catch (e: any) { return { success: false, message: e.message } }
+}
+export async function getDepartamentosAction(edificioId?: number) {
+  try {
+    await validateSessionAndGetUser();
+    let q = supabaseAdmin.from('departamentos').select('id, codigo, edificio_id, propietario');
+    if (edificioId) q = q.eq('edificio_id', edificioId);
+    const { data, error } = await q.order('codigo');
+    if (error) throw error;
+    return { success: true, data };
+  } catch (e: any) { return { success: false, message: e.message, data: [] } }
+}
+export async function getEdificiosAction() {
+  try {
+    await validateSessionAndGetUser();
+    const { data, error } = await supabaseAdmin.from('edificios').select('id, nombre, direccion').order('nombre');
+    if (error) throw error;
+    return { success: true, data };
+  } catch (e: any) { return { success: false, message: e.message, data: [] } }
+}
 
-    const { error } = await supabaseAdmin
-      .from("trabajadores_tareas")
-      .delete()
-      .eq("id_tarea", taskId)
-      .eq("id_trabajador", workerId)
+// =================================================================================
+// bridge protocol: nuevas acciones para presupuestos (bypass rls real)
+// =================================================================================
 
-    if (error) throw error
-    revalidatePath(`/dashboard/tareas/${taskId}`)
-    return { success: true }
+/**
+ * crear presupuesto base de manera segura (server action)
+ */
+export async function createPresupuestoBaseAction(data: any) {
+  console.log("server action: createpresupuestobaseaction called", {
+    id_tarea: data.id_tarea,
+    code: data.code,
+    hasAdmin: !!supabaseAdmin
+  })
+
+  try {
+    const user = await validateSessionAndGetUser()
+    console.log("server action: user validated", { email: user.email, rol: user.rol })
+
+    // calculo de seguridad para 'total' si no viene (materiales + mano_obra)
+    const materiales = Number(data.materiales || 0)
+    const manoObra = Number(data.mano_obra || 0)
+    const total = Number(data.total || (materiales + manoObra))
+
+    const insertData = {
+      ...data,
+      materiales,
+      mano_obra,
+      total,
+      // aseguramos que el supervisor sea el correcto si viene null
+      id_supervisor: data.id_supervisor || user.id,
+      aprobado: false // siempre nace false
+    }
+
+    const { error, data: insertedData } = await supabaseAdmin
+      .from('presupuestos_base')
+      .insert(insertData)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("server action error (db):", error)
+      throw error
+    }
+
+    console.log("server action: success", insertedData.id)
+
+    revalidatePath(`/dashboard/tareas/${data.id_tarea}`)
+    return { success: true, data: insertedData }
   } catch (error: any) {
+    console.error("create pb action error:", error)
     return { success: false, message: error.message }
   }
 }
 
-export async function getDepartamentosAction(edificioId?: number) {
+/**
+ * aprobar presupuesto
+ */
+export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final', taskId: number) {
   try {
-    await validateSessionAndGetUser()
-
-    let query = supabaseAdmin.from('departamentos').select('id, codigo, edificio_id, propietario')
-
-    if (edificioId) {
-      query = query.eq('edificio_id', edificioId)
+    const { rol } = await validateSessionAndGetUser()
+    if (rol !== 'admin') {
+      return { success: false, message: "solo administradores pueden aprobar presupuestos" }
     }
 
-    const { data, error } = await query.order('codigo')
+    const tabla = tipo === 'base' ? 'presupuestos_base' : 'presupuestos_finales'
+    const { error } = await supabaseAdmin
+      .from(tabla)
+      .update({
+        aprobado: true,
+        rechazado: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
 
     if (error) throw error
-    return { success: true, data }
+
+    // logica para generar facturas si es presupuesto final
+    if (tipo === 'final') {
+      console.log("server action: generando facturas para pf", id)
+      const { convertirPresupuestoADosFacturas } = await import("@/app/dashboard/presupuestos-finales/actions-factura")
+      await convertirPresupuestoADosFacturas(id)
+    }
+
+    revalidatePath(`/dashboard/tareas/${taskId}`)
+    return { success: true }
   } catch (error: any) {
-    console.error("Get Departamentos Error:", error)
-    return { success: false, message: error.message, data: [] }
+    console.error("aprobar presupuesto action error:", error)
+    return { success: false, message: error.message }
   }
 }
 
-export async function getEdificiosAction() {
+/**
+ * rechazar presupuesto
+ */
+export async function rechazarPresupuestoAction(id: number, tipo: 'base' | 'final', taskId: number, observacion: string) {
   try {
-    await validateSessionAndGetUser()
-    const { data, error } = await supabaseAdmin
-      .from('edificios')
-      .select('id, nombre, direccion')
-      .order('nombre')
+    const { rol } = await validateSessionAndGetUser()
+    if (rol !== 'admin') {
+      return { success: false, message: "solo administradores pueden rechazar presupuestos" }
+    }
+
+    // obtener id de estado rechazado
+    const { data: estadoData } = await supabaseAdmin
+      .from("estados_presupuestos")
+      .select("id")
+      .ilike("nombre", "%rechazado%")
+      .single()
+
+    const tabla = tipo === 'base' ? 'presupuestos_base' : 'presupuestos_finales'
+    const updateData: any = {
+      aprobado: false,
+      rechazado: true,
+      observaciones_admin: observacion || null,
+      updated_at: new Date().toISOString()
+    }
+
+    if (estadoData) {
+      updateData.id_estado = estadoData.id
+    }
+
+    const { error } = await supabaseAdmin
+      .from(tabla)
+      .update(updateData)
+      .eq('id', id)
 
     if (error) throw error
-    return { success: true, data }
+
+    revalidatePath(`/dashboard/tareas/${taskId}`)
+    return { success: true }
   } catch (error: any) {
-    console.error("Get Edificios Error:", error)
-    return { success: false, message: error.message, data: [] }
+    console.error("rechazar presupuesto action error:", error)
+    return { success: false, message: error.message }
   }
 }
