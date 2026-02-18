@@ -84,3 +84,33 @@ export async function getPresupuestosBase(params: {
 
     return data || []
 }
+
+// --- Bridge Protocol: Detalle Presupuesto Base ---
+export async function getPresupuestoBaseById(id: string) {
+    const { validateSessionAndGetUser } = await import("@/lib/auth-bridge");
+
+    // 1. Validar sesión (Bridge)
+    const user = await validateSessionAndGetUser();
+
+    // 2. Consulta segura usando la vista completa
+    const { data, error } = await supabaseAdmin
+        .from('vista_presupuestos_base_completa')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error) {
+        console.error("Error fetching PB:", error);
+        return null;
+    }
+
+    // 3. Validación de seguridad manual (RBAC)
+    if (user.rol === 'supervisor') {
+        if (data.id_supervisor !== user.id) {
+            console.error("Acceso denegado: Supervisor intentando ver presupuesto ajeno");
+            return null;
+        }
+    }
+
+    return data as PresupuestoBase;
+}
