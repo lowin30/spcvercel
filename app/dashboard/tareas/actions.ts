@@ -691,7 +691,7 @@ export async function createPresupuestoBaseAction(data: any) {
     const insertData = {
       ...data,
       materiales,
-      mano_obra,
+      mano_obra: manoObra,
       total,
       // aseguramos que el supervisor sea el correcto si viene null
       id_supervisor: data.id_supervisor || user.id,
