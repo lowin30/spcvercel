@@ -24,6 +24,7 @@ import { ItemPresupuestoModal } from "./item-presupuesto-modal"
 import { EsMaterialCheckbox } from "@/app/dashboard/presupuestos-finales/editar/[id]/es-material-checkbox"
 import { toast as sonnerToast } from "sonner"
 import { convertirPresupuestoADosFacturas } from "@/app/dashboard/presupuestos-finales/actions-factura"
+import { getTaskForFinalBudgetAction } from "@/app/dashboard/tareas/actions"
 
 interface Tarea {
   id: number
@@ -32,7 +33,7 @@ interface Tarea {
   descripcion?: string
   id_edificio?: number
   id_administrador?: string | number
-  edificios?: { 
+  edificios?: {
     nombre?: string
     id_administrador?: string | number
   }
@@ -45,15 +46,19 @@ interface PresupuestoBase {
   mano_obra: number
   total: number
   aprobado: boolean
-  id_edificio?: number 
+  id_edificio?: number
   id_tarea?: number
   id_administrador?: string | number // Asumiendo que puede ser string (UUID) o number
-  tareas?: { 
+  tareas?: {
     code?: string
     titulo?: string
-    edificios?: { 
+    edificios?: {
       nombre?: string
     }
+  }
+  edificios?: {
+    id?: number
+    nombre?: string
   }
   // Campos opcionales de la vista completa (para compatibilidad)
   titulo_tarea?: string
@@ -133,7 +138,7 @@ export function BudgetForm({
   // Estados para la selección en cascada de administrador-edificio
   const [administradores, setAdministradores] = useState<any[]>([])
   const [edificios, setEdificios] = useState<any[]>([])
-  const [selectedAdministrador, setSelectedAdministrador] = useState<string>("") 
+  const [selectedAdministrador, setSelectedAdministrador] = useState<string>("")
   const [selectedEdificio, setSelectedEdificio] = useState<string>("")
   const [loadingEdificios, setLoadingEdificios] = useState<boolean>(false)
 
@@ -147,7 +152,7 @@ export function BudgetForm({
   };
   const [newItem, setNewItem] = useState<NewItemFormState>(initialNewItemFormState);
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // Estados para el modal de ítems
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null)
@@ -181,7 +186,7 @@ export function BudgetForm({
           setSelectedAdministrador(adminIdStr);
           await cargarEdificiosPorAdministrador(adminIdStr);
         }
-        
+
         if (presupuestoAEditar.id_edificio) {
           setSelectedEdificio(presupuestoAEditar.id_edificio.toString());
         }
@@ -192,16 +197,14 @@ export function BudgetForm({
       const tareaId = presupuestoBase?.id_tarea || (idTarea ? parseInt(idTarea) : null);
 
       if (tareaId) {
-        const { data: tareaCompleta, error } = await supabase
-          .from('vista_tareas_completa')
-          .select('id_administrador, id_edificio')
-          .eq('id', tareaId)
-          .single();
+        const res = await getTaskForFinalBudgetAction(tareaId);
 
-        if (error) {
-          console.error('Error al obtener datos de la tarea para preseleccionar:', error);
+        if (!res.success) {
+          console.error('Error al obtener datos de la tarea para preseleccionar:', res.message);
           return;
         }
+
+        const tareaCompleta = res.data;
 
         if (tareaCompleta) {
           if (tareaCompleta.id_administrador) {
@@ -218,9 +221,9 @@ export function BudgetForm({
     };
 
     preseleccionarDesdeTarea();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [presupuestoBase, idTarea, presupuestoAEditar, supabase]);
-  
+
   // Cargar lista de administradores al iniciar el formulario
   useEffect(() => {
     const cargarAdministradores = async () => {
@@ -230,22 +233,22 @@ export function BudgetForm({
             .from("administradores")
             .select("*")
             .order("nombre", { ascending: true });
-            
+
           if (error) {
             console.error("Error al cargar administradores:", error);
             return;
           }
-          
+
           setAdministradores(data || []);
         } catch (error) {
           console.error("Error al cargar administradores:", error);
         }
       }
     };
-    
+
     cargarAdministradores();
   }, [tipo, supabase, presupuestoBase, tareaSeleccionada]);
-  
+
   // Función para cargar edificios según el administrador seleccionado
   const cargarEdificiosPorAdministrador = async (idAdministrador: string) => {
     if (!idAdministrador) {
@@ -253,21 +256,21 @@ export function BudgetForm({
       setSelectedEdificio("");
       return;
     }
-    
+
     setLoadingEdificios(true);
-    
+
     try {
       const { data, error } = await supabase
         .from("edificios")
         .select("*")
         .eq("id_administrador", idAdministrador)
         .order("nombre", { ascending: true });
-        
+
       if (error) {
         console.error("Error al cargar edificios:", error);
         return;
       }
-      
+
       setEdificios(data || []);
       setLoadingEdificios(false);
     } catch (error) {
@@ -321,8 +324,8 @@ export function BudgetForm({
       return
     }
 
-    setItems([...items, { 
-      ...newItem, 
+    setItems([...items, {
+      ...newItem,
       precio: parseFloat(String(newItem.precio)) // Convert precio to number before adding to items list
     }])
 
@@ -354,11 +357,11 @@ export function BudgetForm({
       (acc, item) => {
         const itemTotal = item.cantidad * item.precio
         const descripcionLower = item.descripcion.toLowerCase()
-        
+
         // Identificar mano de obra basado en las palabras clave en la descripción
         const esManoDeObra = [
-          'mano de obra', 
-          'm.o', 
+          'mano de obra',
+          'm.o',
           'mano obra',
           'instalación',
           'instalacion',
@@ -368,7 +371,7 @@ export function BudgetForm({
           'colocación',
           'colocacion'
         ].some(keyword => descripcionLower.includes(keyword))
-        
+
         // Identificar materiales basado en palabras clave
         const esMaterial = [
           'material',
@@ -378,7 +381,7 @@ export function BudgetForm({
           'equipo',
           'herramienta'
         ].some(keyword => descripcionLower.includes(keyword))
-        
+
         // Decisión final basada en prioridades:
         // 1. Si explícitamente menciona mano de obra, es mano de obra
         // 2. Si explícitamente menciona material, es material
@@ -396,7 +399,7 @@ export function BudgetForm({
             acc.mano_obra += itemTotal
           }
         }
-        
+
         acc.total += itemTotal
         return acc
       },
@@ -413,7 +416,7 @@ export function BudgetForm({
       try {
         // Comprobamos si el presupuesto cambió de no aprobado a aprobado
         const estaAprobandoPorPrimeraVez = aprobado && !presupuestoAEditar.aprobado;
-        
+
         const { total, materiales, mano_obra } = calculateTotals();
 
         // 1. Actualizar el registro principal del presupuesto final
@@ -455,12 +458,12 @@ export function BudgetForm({
             // Excluimos el objeto 'producto' y preparamos los datos para la DB
             const { producto, id, ...itemData } = item;
             const updateData = {
-                descripcion: itemData.descripcion,
-                cantidad: itemData.cantidad,
-                precio: itemData.precio,
-                producto_id: itemData.producto_id || null,
-                // NO incluimos es_material aquí porque se maneja separadamente con EsMaterialCheckbox
-                // Esto evita sobrescribir el valor cuando se guarda el presupuesto
+              descripcion: itemData.descripcion,
+              cantidad: itemData.cantidad,
+              precio: itemData.precio,
+              producto_id: itemData.producto_id || null,
+              // NO incluimos es_material aquí porque se maneja separadamente con EsMaterialCheckbox
+              // Esto evita sobrescribir el valor cuando se guarda el presupuesto
             };
             return supabase
               .from('items')
@@ -469,7 +472,7 @@ export function BudgetForm({
           });
           const results = await Promise.all(updates);
           for (const result of results) {
-              if (result.error) throw result.error;
+            if (result.error) throw result.error;
           }
         }
 
@@ -500,7 +503,7 @@ export function BudgetForm({
             const result = await convertirPresupuestoADosFacturas(presupuestoAEditar.id);
             if (result.success) {
               sonnerToast.success(result.message || "Facturas creadas con éxito");
-              
+
               // Después de un breve retraso, redirigir a la página de facturas
               toast({ title: 'Éxito', description: 'Presupuesto final aprobado y facturas creadas.' });
               setTimeout(() => {
@@ -516,7 +519,7 @@ export function BudgetForm({
             sonnerToast.error(`Error al crear las facturas: ${(facturaError as Error).message}`);
           }
         }
-        
+
         toast({ title: 'Éxito', description: 'Presupuesto final actualizado correctamente.' });
         router.push(`/dashboard/presupuestos-finales/${presupuestoAEditar.id}`);
 
@@ -565,7 +568,7 @@ export function BudgetForm({
 
         // Obtener la tarea seleccionada si existe
         const selectedTareaObj = selectedTarea ? tareas?.find(t => t.id === Number(selectedTarea)) : null;
-        
+
         // Validar que se ha seleccionado un administrador y edificio si estamos en modo selección en cascada
         if (!presupuestoBase && !selectedTarea) {
           // Solo validamos si estamos creando un presupuesto desde cero
@@ -577,7 +580,7 @@ export function BudgetForm({
             })
             return
           }
-          
+
           if (!selectedEdificio) {
             toast({
               title: "Error",
@@ -587,7 +590,7 @@ export function BudgetForm({
             return
           }
         }
-        
+
         // Obtener el administrador según la prioridad:
         // 1. El seleccionado por el usuario en el formulario
         // 2. Del presupuesto base
@@ -595,7 +598,7 @@ export function BudgetForm({
         // 4. Del edificio de la tarea
         // 5. null como último recurso
         let administradorId = selectedAdministrador || null;
-        
+
         if (!administradorId && selectedTareaObj) {
           if (selectedTareaObj.id_administrador) {
             administradorId = selectedTareaObj.id_administrador.toString();
@@ -603,27 +606,27 @@ export function BudgetForm({
             administradorId = selectedTareaObj.edificios.id_administrador.toString();
           }
         }
-        
+
         // Como respaldo final, usar el administrador del presupuesto base
         if (!administradorId && presupuestoBase?.id_administrador) {
           administradorId = presupuestoBase.id_administrador.toString();
         }
-        
+
         // Determinar el id_edificio según la misma lógica de prioridad
         const edificioId = selectedEdificio || presupuestoBase?.id_edificio || selectedTareaObj?.id_edificio || null;
-        
+
         // Asegurarnos que todos los IDs sean del tipo correcto para Supabase
         // id_edificio debe ser number o null
         const idEdificio = edificioId ? Number(edificioId) : null;
-        
+
         // id_tarea debe ser number o null
-        const idTarea = presupuestoBase?.id_tarea ? Number(presupuestoBase.id_tarea) : 
-                      (selectedTarea ? Number(selectedTarea) : null);
-        
+        const idTarea = presupuestoBase?.id_tarea ? Number(presupuestoBase.id_tarea) :
+          (selectedTarea ? Number(selectedTarea) : null);
+
         // Para administradorId, verificar el tipo y convertir adecuadamente
         // La tabla administradores probablemente usa UUID (string)
         const idAdministrador = administradorId ? administradorId.toString() : null;
-        
+
         const presupuestoFinalData: any = {
           // Si idPadre está vacío, usamos null en lugar de 0 (que es lo que Number("") devuelve)
           id_presupuesto_base: idPadre ? Number(idPadre) : null,
@@ -641,7 +644,7 @@ export function BudgetForm({
           // Usar el id_administrador determinado en la selección en cascada
           id_administrador: idAdministrador
         };
-        
+
         // Debug
         console.log('Creando presupuesto final con datos:', {
           selectedTarea,
@@ -649,7 +652,7 @@ export function BudgetForm({
           administradorId,
           presupuestoFinalData
         });
-        
+
 
         const { data: insertedData, error: insertError } = await supabase
           .from("presupuestos_finales")
@@ -718,7 +721,7 @@ export function BudgetForm({
         router.push(`/dashboard/presupuestos/${presupuesto.id}`);
       } else {
         // Fallback redirection, e.g., to a general list or dashboard
-        router.push('/dashboard/presupuestos'); 
+        router.push('/dashboard/presupuestos');
       }
       router.refresh();
     } catch (error) {
@@ -776,8 +779,8 @@ export function BudgetForm({
                     {presupuestoAEditar?.titulo_tarea || presupuestoBase?.tareas?.titulo || 'Título no disponible'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {presupuestoAEditar?.edificio_info?.cuit 
-                      ? presupuestoAEditar.edificio_info.cuit 
+                    {presupuestoAEditar?.edificio_info?.cuit
+                      ? presupuestoAEditar.edificio_info.cuit
                       : (presupuestoAEditar?.nombre_edificio || presupuestoBase?.edificios?.nombre || 'Edificio no especificado')}
                   </p>
                 </div>
@@ -805,20 +808,20 @@ export function BudgetForm({
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Selección en cascada de Administrador y Edificio - Solo para presupuestos nuevos */}
                 {!presupuestoAEditar && (
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="administrador">Administrador</Label>
-                      <Select 
-                        value={selectedAdministrador} 
+                      <Select
+                        value={selectedAdministrador}
                         onValueChange={(value) => {
                           setSelectedAdministrador(value);
                           cargarEdificiosPorAdministrador(value);
                           // Al cambiar de administrador, reseteamos el edificio seleccionado
                           setSelectedEdificio("");
-                        }} 
+                        }}
                         disabled={isSubmitting}
                       >
                         <SelectTrigger>
@@ -833,12 +836,12 @@ export function BudgetForm({
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="edificio">Edificio</Label>
-                      <Select 
-                        value={selectedEdificio} 
-                        onValueChange={setSelectedEdificio} 
+                      <Select
+                        value={selectedEdificio}
+                        onValueChange={setSelectedEdificio}
                         disabled={isSubmitting || !selectedAdministrador || loadingEdificios}
                       >
                         <SelectTrigger>
@@ -871,16 +874,16 @@ export function BudgetForm({
             <div className="space-y-2">
               <div className="flex justify-between w-full items-center">
                 <Label>Ítems del Presupuesto</Label>
-                <Button 
-                  type="button" 
-                  onClick={handleOpenAddItemModal} 
+                <Button
+                  type="button"
+                  onClick={handleOpenAddItemModal}
                   disabled={isSubmitting}
                   className="flex gap-1 items-center"
                 >
                   <Plus className="h-4 w-4" /> Añadir ítem
                 </Button>
               </div>
-              
+
               {/* Modal para añadir/editar ítems */}
               <ItemPresupuestoModal
                 open={isModalOpen}
@@ -919,7 +922,7 @@ export function BudgetForm({
               <p className="text-center py-4 text-muted-foreground">No hay ítems agregados</p>
             ) : (
               <div className="rounded-md border overflow-hidden">
-                <Table style={{minWidth: '400px'}}>
+                <Table style={{ minWidth: '400px' }}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descripción</TableHead>
@@ -958,18 +961,18 @@ export function BudgetForm({
                         <TableCell className="text-right">{item.cantidad}</TableCell>
                         <TableCell className="text-right">{formatCurrency(item.precio)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(item.cantidad * item.precio)}</TableCell>
-                        
+
                         {tipo === "final" && (
                           <TableCell>
                             {presupuestoAEditar && item.id ? (
-                              <EsMaterialCheckbox 
-                                itemId={item.id} 
-                                initialValue={!!item.es_material} 
+                              <EsMaterialCheckbox
+                                itemId={item.id}
+                                initialValue={!!item.es_material}
                                 presupuestoId={presupuestoAEditar.id}
                               />
                             ) : (
                               <div className="flex items-center space-x-2">
-                                <Checkbox 
+                                <Checkbox
                                   checked={!!item.es_material}
                                   disabled={true}
                                 />
@@ -980,7 +983,7 @@ export function BudgetForm({
                             )}
                           </TableCell>
                         )}
-                        
+
                         <TableCell>
                           <div className="flex space-x-1">
                             <Button
@@ -992,8 +995,8 @@ export function BudgetForm({
                               title="Editar ítem"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
-                                <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-                                <path d="m15 5 4 4"/>
+                                <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                <path d="m15 5 4 4" />
                               </svg>
                             </Button>
                             <Button

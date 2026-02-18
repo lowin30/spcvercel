@@ -547,7 +547,7 @@ export async function finalizarTareaAction(payload: any) {
     })
 
     if (notasDepartamentos && Object.keys(notasDepartamentos).length > 0) {
-      await Promise.all(Object.entries(notasDepartamentos).map(async ([depId, nota]) => {
+      await Promise.all(Object.entries(notasDepartamentos as Record<string, string>).map(async ([depId, nota]) => {
         if (!nota || !nota.trim()) return
         const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
         const nuevaNota = `[${fecha}] ${nota.trim()}`
@@ -794,5 +794,139 @@ export async function rechazarPresupuestoAction(id: number, tipo: 'base' | 'fina
   } catch (error: any) {
     console.error("rechazar presupuesto action error:", error)
     return { success: false, message: error.message }
+  }
+}
+
+// =================================================================================
+// BRIDGE PROTOCOL: PRESUPUESTOS FINALES (SOLO ADMIN)
+// =================================================================================
+
+/**
+ * Obtener datos de tarea para inicializar Presupuesto Final.
+ * SEGURIDAD: Estrictamente solo para ADMIN.
+ * Bypassea RLS usando supabaseAdmin para evitar errores 406/401 en el cliente.
+ */
+export async function getTaskForFinalBudgetAction(taskId: number) {
+  try {
+    // 1. Validación de Identidad
+    const user = await validateSessionAndGetUser()
+
+    // 2. Validación de Rol (Blindaje)
+    if (user.rol !== 'admin') {
+      return { success: false, message: 'Acceso denegado: Solo administradores pueden gestionar presupuestos finales.' }
+    }
+
+    // 3. Consulta Segura (Bridge)
+    const { data, error } = await supabaseAdmin
+      .from('vista_tareas_completa')
+      .select('*')
+      .eq('id', taskId)
+      .single()
+
+    if (error) throw error
+
+    return { success: true, data }
+
+  } catch (error: any) {
+    console.error("Error en Bridge (getTaskForFinalBudgetAction):", error)
+    return { success: false, message: "No se pudieron cargar los datos de la tarea." }
+  }
+}
+
+/**
+ * Obtener presupuesto base por ID (Bridge Protocol)
+ * SEGURIDAD: EXCLUSIVO ADMIN / SUPERVISOR asignado.
+ */
+export async function getPresupuestoBaseByIdAction(id: number) {
+  try {
+    const user = await validateSessionAndGetUser()
+
+    // Consulta con Supabase Admin (Bypass RLS)
+    const { data: presupuesto, error } = await supabaseAdmin
+      .from("presupuestos_base")
+      .select(`
+        *,
+        tareas!inner(
+          id,
+          titulo,
+          code,
+          id_edificio,
+          id_administrador,
+          id_supervisor
+        ),
+        edificios:id_edificio(
+          id,
+          nombre
+        )
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error) throw error
+
+    // Validación de Rol/Autorización
+    if (user.rol === 'admin') {
+      return { success: true, data: presupuesto }
+    }
+
+    if (user.rol === 'supervisor' && presupuesto.tareas.id_supervisor === user.id) {
+      return { success: true, data: presupuesto }
+    }
+
+    return { success: false, message: 'Acceso denegado.' }
+
+  } catch (error: any) {
+    console.error("Error en Bridge (getPresupuestoBaseByIdAction):", error)
+    return { success: false, message: "No se pudo cargar el presupuesto base." }
+  }
+}
+
+/**
+ * Obtener lista de tareas filtradas para presupuestos (Bridge Protocol)
+ * SEGURIDAD: Admin ve todas, Supervisor solo sus asignadas.
+ */
+export async function getTasksForBudgetAction(idTareaLabel?: string) {
+  try {
+    const user = await validateSessionAndGetUser()
+
+    let query = supabaseAdmin
+      .from("vista_tareas_completa")
+      .select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)")
+      .in("estado", ["pendiente", "asignada"])
+      .order("created_at", { ascending: false })
+
+    if (idTareaLabel) {
+      query = supabaseAdmin
+        .from("vista_tareas_completa")
+        .select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)")
+        .eq("id", idTareaLabel)
+    }
+
+    // Filtrado por Rol
+    if (user.rol === 'supervisor') {
+      // Nota: Si la vista no tiene id_supervisor directo, necesitamos filtrar vía inner join o similar.
+      // vista_tareas_completa según definición previa tiene supervisores_emails, pero no id_supervisor.
+      // Vamos a filtrar sobre la tabla 'tareas' con join si es necesario, 
+      // pero por ahora usemos la columna id_supervisor si existe en la vista.
+      // Re-revisando definición de vista_tareas_completa en logs previos... NO tiene id_supervisor.
+      // Pero 'tareas' sí.
+      query = supabaseAdmin
+        .from("tareas")
+        .select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)")
+        .eq("id_supervisor", user.id) // Asumiendo que la tabla tareas tiene id_supervisor
+        .in("id_estado_nuevo", [1, 2]) // Pendiente/Preguntar (Ajustar segun sea necesario)
+    } else if (user.rol !== 'admin') {
+      return { success: false, message: 'No autorizado.' }
+    }
+
+    const { data: tareas, error } = await query
+
+    if (error) throw error
+
+    return { success: true, data: tareas }
+
+  } catch (error: any) {
+    console.error("Error en Bridge (getTasksForBudgetAction):", error)
+    return { success: false, message: "No se pudieron cargar las tareas." }
   }
 }

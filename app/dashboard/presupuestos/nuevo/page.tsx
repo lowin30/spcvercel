@@ -6,12 +6,13 @@ import { BudgetForm } from "@/components/budget-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase-client"
+import { getPresupuestoBaseByIdAction, getTasksForBudgetAction } from "../../tareas/actions"
 
 export default function NuevoPresupuestoPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userDetails, setUserDetails] = useState<any>(null)
@@ -19,13 +20,13 @@ export default function NuevoPresupuestoPage() {
   const [presupuestoBase, setPresupuestoBase] = useState<any>(null)
   const [itemsBase, setItemsBase] = useState<any[]>([])
   const [tareaSingle, setTareaSingle] = useState<any>(null)
-  
+
   // Obtener parámetros de la URL
   const tipo = searchParams.get('tipo')
   const tipoPresupuesto = tipo === "final" ? "final" : "base"
   const idTarea = searchParams.get('id_tarea') || ""
   const idPadre = searchParams.get('id_padre') || ""
-  
+
   useEffect(() => {
     const fetchData = async () => {
       if (!supabase) {
@@ -35,30 +36,30 @@ export default function NuevoPresupuestoPage() {
       }
       try {
         setLoading(true);
-        setError(null); // Ya se resetea el error, lo cual es bueno
-        setPresupuestoBase(null); // Asegurar que el presupuesto base anterior se limpia
-        setItemsBase([]);         // Asegurar que los items base anteriores se limpian
-        
+        setError(null);
+        setPresupuestoBase(null);
+        setItemsBase([]);
+
         // Verificar sesión de usuario
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) {
           router.push('/login')
           return
         }
-        
+
         // Obtener detalles del usuario
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
           .eq("id", user.id)
           .single()
-          
+
         if (userError) {
           console.error("Error al obtener datos del usuario:", userError)
           router.push('/login')
           return
         }
-        
+
         setUserDetails(userData)
 
         // Solo supervisores y admins pueden crear presupuestos
@@ -72,68 +73,38 @@ export default function NuevoPresupuestoPage() {
           router.push("/dashboard/presupuestos")
           return
         }
-        
+
         // Si es un presupuesto final, cargar datos del presupuesto base
         if (tipoPresupuesto === "final" && idTarea && idPadre) {
-          const { data: presupuestoBaseData, error: presupuestoBaseError } = await supabase
-            .from("presupuestos_base")
-            .select(`
-              *,
-              tareas!inner(
-                id,
-                titulo,
-                code,
-                id_edificio,
-                id_administrador
-              ),
-              edificios:id_edificio(
-                id,
-                nombre
-              )
-            `)
-            .eq("id", idPadre)
-            .single();
+          const res = await getPresupuestoBaseByIdAction(Number(idPadre));
 
-          if (presupuestoBaseError) {
-            console.error("Error al obtener presupuesto base de referencia:", presupuestoBaseError);
+          if (!res.success) {
+            console.error("Error al obtener presupuesto base de referencia:", res.message);
             setError("No se pudo cargar el presupuesto base de referencia.");
-            // setLoading(false); // setLoading se maneja en el finally
             return;
           }
-          
+
+          const presupuestoBaseData = res.data;
           setPresupuestoBase(presupuestoBaseData);
-          // Para un presupuesto final nuevo, los ítems se añaden desde cero.
-          // El presupuesto base rápido no tiene ítems detallados para copiar.
-          setItemsBase([]); 
+          setItemsBase([]);
 
         } else {
-          // Para presupuestos base, obtener tareas con más información
-          let tareasQuery = supabase
-            .from("vista_tareas_completa")
-            .select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)")
-            .in("estado", ["pendiente", "asignada"])
-            .order("created_at", { ascending: false })
+          // Para presupuestos base o finales sin padre, obtener lista de tareas
+          const resTareas = await getTasksForBudgetAction(idTarea || undefined);
 
-          // Si se proporciona un id_tarea en la URL, filtrar solo esa tarea
-          if (idTarea) {
-            tareasQuery = supabase.from("vista_tareas_completa").select("id, code, titulo, id_edificio, id_administrador, edificios(id, nombre, id_administrador)").eq("id", idTarea)
-          }
-          
-          const { data: tareasData, error: tareasError } = await tareasQuery
-          
-          if (tareasError) {
-            console.error("Error al obtener tareas:", tareasError)
+          if (!resTareas.success) {
+            console.error("Error al obtener tareas:", resTareas.message)
             setError("No se pudieron cargar las tareas")
             return
           }
-          
+
+          const tareasData = resTareas.data;
           setTareas(tareasData || [])
-          
+
           // Si se proporcionó un id_tarea, obtener los detalles de esa tarea
           if (idTarea && tareasData && tareasData.length > 0) {
             setTareaSingle(tareasData[0])
           }
-          // Asegurar que para otros casos (ej. presupuesto base nuevo) los items también empiecen vacíos
           setPresupuestoBase(null);
           setItemsBase([]);
         }
@@ -145,10 +116,10 @@ export default function NuevoPresupuestoPage() {
         setLoading(false)
       }
     }
-    
+
     fetchData()
   }, [idPadre, idTarea, tipoPresupuesto, router, supabase])
-  
+
   if (loading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -159,7 +130,7 @@ export default function NuevoPresupuestoPage() {
       </div>
     )
   }
-  
+
   if (error) {
     return (
       <div className="container mx-auto py-6">
@@ -172,15 +143,15 @@ export default function NuevoPresupuestoPage() {
       </div>
     )
   }
-  
+
   // Renderizar interfaz para presupuesto final
   if (tipo === "final" && idTarea && idPadre && presupuestoBase) {
     return (
       <div className="space-y-6">
         <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="mr-2"
             onClick={() => router.push(`/dashboard/tareas/${idTarea}`)}
           >
@@ -204,9 +175,9 @@ export default function NuevoPresupuestoPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center">
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="mr-2"
           onClick={() => {
             if (idTarea) {
