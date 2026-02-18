@@ -942,6 +942,15 @@ export async function saveBudgetAction(params: {
       return { success: false, message: 'Solo los administradores pueden gestionar presupuestos finales.' };
     }
 
+    // Asegurar campos obligatorios (Constraint Audit v93.3.4)
+    if (tipo === 'final') {
+      budgetData.ajuste_admin = budgetData.ajuste_admin ?? 0;
+      budgetData.total_base = budgetData.total_base ?? 0;
+      budgetData.materiales = budgetData.materiales ?? 0;
+      budgetData.mano_obra = budgetData.mano_obra ?? 0;
+      budgetData.total = budgetData.total ?? 0;
+    }
+
     let savedBudget: any;
 
     if (isEditing && budgetId) {

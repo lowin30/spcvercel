@@ -449,6 +449,7 @@ export function BudgetForm({
           mano_obra,
           total,
           total_base: presupuestoBase ? presupuestoBase.materiales + presupuestoBase.mano_obra : (presupuestoAEditar && 'total_base' in presupuestoAEditar ? (presupuestoAEditar as any).total_base : 0),
+          ajuste_admin: presupuestoAEditar && 'ajuste_admin' in presupuestoAEditar ? (presupuestoAEditar as any).ajuste_admin : 0,
           id_edificio: edificioId ? Number(edificioId) : null,
           id_tarea: presupuestoBase?.id_tarea || (selectedTarea ? Number(selectedTarea) : (presupuestoAEditar?.id_tarea || null)),
           id_administrador: administradorId,

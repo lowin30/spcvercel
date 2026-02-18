@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -47,16 +47,16 @@ export function ItemPresupuestoModal({
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | undefined>(undefined)
   const [esProducto, setEsProducto] = useState(false)
   const [esMaterial, setEsMaterial] = useState(false)
-  
+
   // Estado para las pestañas
   const [activeTab, setActiveTab] = useState<string>("manual")
-  
+
   // Calcular subtotal en tiempo real
   const subtotal = cantidad * precio
-  
+
   // Validación
   const isValid = descripcion.trim() !== "" && cantidad > 0 && precio >= 0
-  
+
   // Efecto para cargar datos del ítem a editar
   useEffect(() => {
     if (editingItem) {
@@ -69,7 +69,7 @@ export function ItemPresupuestoModal({
       setProductoSeleccionado(editingItem.producto)
       setEsProducto(!!editingItem.es_producto)
       setEsMaterial(!!editingItem.es_material)
-      
+
       // Si el ítem es un producto, cambiar a la pestaña de producto
       if (editingItem.es_producto && editingItem.producto_id) {
         setActiveTab("producto")
@@ -89,7 +89,7 @@ export function ItemPresupuestoModal({
       setActiveTab("manual")
     }
   }, [editingItem, open])
-  
+
   // Manejar la selección de un producto
   const handleProductSelect = (producto: Producto) => {
     setProductoSeleccionado(producto)
@@ -101,7 +101,7 @@ export function ItemPresupuestoModal({
     setEsProducto(true)
     setActiveTab("manual") // Cambiar a la pestaña manual para editar
   }
-  
+
   const handlePrecioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value
     const numericValue = parseInt(rawValue.replace(/\D/g, ""), 10)
@@ -128,7 +128,7 @@ export function ItemPresupuestoModal({
     })
     setOpen(false)
   }
-  
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[425px]">
@@ -136,20 +136,23 @@ export function ItemPresupuestoModal({
           <DialogTitle>
             {editingItem ? "Editar ítem" : "Añadir ítem"}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Este modal permite gestionar los ítems (materiales y mano de obra) vinculados al presupuesto.
+          </DialogDescription>
         </DialogHeader>
-        
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="producto">Seleccionar Producto</TabsTrigger>
             <TabsTrigger value="manual">Ingreso Manual</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="producto" className="space-y-4 pt-4">
-            <ProductoPicker 
-              onSelect={handleProductSelect} 
-              buttonLabel="Buscar Producto" 
+            <ProductoPicker
+              onSelect={handleProductSelect}
+              buttonLabel="Buscar Producto"
             />
-            
+
             {productoSeleccionado && (
               <div className="rounded-md border p-3 mt-2">
                 <p className="font-medium">{productoSeleccionado.nombre}</p>
@@ -160,7 +163,7 @@ export function ItemPresupuestoModal({
                 </div>
               </div>
             )}
-            
+
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
                 <Label htmlFor="cantidad-producto">Cantidad</Label>
@@ -173,9 +176,9 @@ export function ItemPresupuestoModal({
                   onChange={(e) => setCantidad(Number(e.target.value) || 1)}
                 />
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <Checkbox
                   id="es-material-producto"
                   checked={esMaterial}
                   onCheckedChange={(checked) => setEsMaterial(Boolean(checked))}
@@ -186,7 +189,7 @@ export function ItemPresupuestoModal({
               </div>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="manual" className="space-y-4 pt-4">
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
@@ -199,7 +202,7 @@ export function ItemPresupuestoModal({
                   rows={3}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="cantidad">Cantidad</Label>
@@ -224,9 +227,9 @@ export function ItemPresupuestoModal({
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <Checkbox
                   id="es-material-manual"
                   checked={esMaterial}
                   onCheckedChange={(checked) => setEsMaterial(Boolean(checked))}
@@ -238,13 +241,13 @@ export function ItemPresupuestoModal({
             </div>
           </TabsContent>
         </Tabs>
-        
+
         {/* Subtotal */}
         <div className="flex justify-between items-center border-t pt-3 mt-2">
           <span className="font-medium">Subtotal:</span>
           <span className="text-lg font-bold">{formatCurrency(subtotal)}</span>
         </div>
-        
+
         <DialogFooter>
           <Button
             type="button"
