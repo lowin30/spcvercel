@@ -1,17 +1,19 @@
 "use server"
 
-import { createSsrServerClient } from '@/lib/ssr-server'
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin'
+import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
 
 // Función para actualizar el campo es_material de un ítem de presupuesto final
 export async function updateItemEsMaterial(itemId: number, esMaterial: boolean, presupuestoId: number) {
-  if (!itemId) {
-    return { success: false, message: 'ID de ítem no proporcionado.' }
-  }
-
-  const supabase = await createSsrServerClient()
-
   try {
+    // Seguridad: Validar sesión y rol
+    await validateSessionAndGetUser();
+
+    if (!itemId) {
+      return { success: false, message: 'ID de ítem no proporcionado.' }
+    }
+
     // Actualizar el campo es_material del ítem
     const { error } = await supabase
       .from('items')

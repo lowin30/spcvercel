@@ -1,6 +1,6 @@
 "use server"
 
-import { createSsrServerClient } from '@/lib/ssr-server'
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin'
 import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
 
@@ -22,8 +22,6 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
 
         // Validacion input
         if (!presupuestoId) throw new Error('ID de presupuesto no proporcionado.');
-
-        const supabase = await createSsrServerClient()
 
         // 1. Data Fetching (Snapshot Source)
         // Obtener Presupuesto + Tarea + Edificio + Items
@@ -137,7 +135,7 @@ export async function deleteInvoice(invoiceId: number) {
         await _checkRole('admin');
 
         if (!invoiceId) throw new Error('ID requerido');
-        const supabase = await createSsrServerClient();
+        // Usamos el cliente administrativo importado como 'supabase'
 
         // 1. Checks constraints
         const { count: pagosCount } = await supabase.from('pagos_facturas').select('*', { count: 'exact', head: true }).eq('id_factura', invoiceId);
