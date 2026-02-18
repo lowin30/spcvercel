@@ -28,21 +28,8 @@ export async function getPresupuestosFinales(rol: string, userId: string) {
     }
 
     let query = supabaseAdmin
-        .from('presupuestos_finales')
-        .select(`
-            *,
-            tareas!id_tarea(
-                id,
-                titulo,
-                code,
-                id_edificio,
-                edificios(nombre)
-            ),
-            presupuestos_base(
-                id,
-                code
-            )
-        `)
+        .from('vista_presupuestos_finales_completa')
+        .select('*')
         .order('created_at', { ascending: false })
 
     // Filtrado por Rol
@@ -51,23 +38,9 @@ export async function getPresupuestosFinales(rol: string, userId: string) {
         // Necesitamos filtrar por tareas.id_supervisor = userId
         // Esto requiere un !inner join si filtramos por columna de relacion
         query = supabaseAdmin
-            .from('presupuestos_finales')
-            .select(`
-                *,
-                tareas!inner(
-                    id,
-                    titulo,
-                    code,
-                    id_edificio,
-                    id_supervisor,
-                    edificios(nombre)
-                ),
-                presupuestos_base(
-                    id,
-                    code
-                )
-            `)
-            .eq('tareas.id_supervisor', userId)
+            .from('vista_presupuestos_finales_completa')
+            .select('*')
+            .eq('id_supervisor', userId)
             .order('created_at', { ascending: false })
     }
 
