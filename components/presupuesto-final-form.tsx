@@ -84,6 +84,7 @@ export default function PresupuestoFinalForm({
                 id_edificio: presupuestoFinal?.id_edificio || presupuestoBase?.tareas?.id_edificio,
                 id_administrador: presupuestoFinal?.id_administrador || presupuestoBase?.id_administrador, // Ojo con este campo, validar origen
                 notas,
+                observaciones_admin: notas,
                 items
             }
 

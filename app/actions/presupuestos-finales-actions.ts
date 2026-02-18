@@ -31,6 +31,7 @@ interface PresupuestoFinalInput {
     id_edificio?: number
     id_administrador?: string | number
     notas?: string
+    observaciones_admin?: string
     items: ItemInput[]
 }
 
@@ -77,7 +78,7 @@ export async function savePresupuestoFinal(data: PresupuestoFinalInput) {
             id_presupuesto_base: data.id_presupuesto_base,
             id_edificio: data.id_edificio,
             id_administrador: data.id_administrador,
-            notas: data.notas,
+            observaciones_admin: data.observaciones_admin || data.notas || null,
             materiales,
             mano_obra,
             total,
