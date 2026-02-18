@@ -75,6 +75,18 @@ export async function createPayment(prevState: State, formData: FormData): Promi
       };
     }
 
+    /*
+     - [x] v94.5: Auditoría de Registro de Pagos e Inconsistencia RLS (Factura 212)
+      - [x] Diagnóstico de error PGRST116.
+      - [x] Aplicación de `supabaseAdmin` en `createPayment`.
+      - [x] Flexibilización de tipado `facturaId` en Zod.
+      - [x] Verificación de lógica atómica de recálculo de saldo.
+    - [x] v94.8: Cambio de Cerradura - Bridge Protocol en Ajustes
+      - [x] Separación de `AjustesClient` (UI Logic).
+      - [x] Implementación de Gatekeeper en `page.tsx`.
+      - [x] Eliminación de verificación redundante de sesión en cliente.
+    */
+
     // 4. Registrar el Pago (Bypass RLS)
     const { error: insertError } = await supabaseAdmin
       .from('pagos_facturas')
