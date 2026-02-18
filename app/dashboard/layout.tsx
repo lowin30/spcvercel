@@ -41,18 +41,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           return
         }
 
-        // buscar usuario por email de descope (no por supabase auth)
-        // loguear objeto completo para debug
-        console.log('spc: descopeUser object', descopeUser)
+        // buscar usuario por email de descope
+        if (descopeUser) {
+          // Solo loguear si hay algo util para debug pero reducir el ruido
+          // console.log('spc: descopeUser object', descopeUser)
+        }
 
         let email = descopeUser?.email?.toLowerCase().trim()
         if (!email && descopeUser?.loginIds && descopeUser.loginIds.length > 0) {
-          console.log('spc: usando loginId como fallback email', descopeUser.loginIds[0])
           email = descopeUser.loginIds[0].toLowerCase().trim()
         }
 
         if (!email) {
-          console.log('spc: esperando email de descope...')
+          // console.log('spc: esperando email de descope...')
           setLoading(false)
           return
         }

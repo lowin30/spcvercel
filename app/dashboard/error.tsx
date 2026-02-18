@@ -15,11 +15,17 @@ export default function Error({
         console.error("Dashboard Error Boundary caught:", error)
     }, [error])
 
+    const isChunkError = error.name === 'ChunkLoadError' || error.message?.includes('Loading chunk')
+
     return (
         <div className="flex h-[80vh] w-full flex-col items-center justify-center gap-4 p-4 text-center">
-            <h2 className="text-2xl font-bold tracking-tight text-red-600">¡Algo salió mal!</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-red-600">
+                {isChunkError ? "Actualización Necesaria" : "¡Algo salió mal!"}
+            </h2>
             <p className="text-muted-foreground max-w-[500px]">
-                Ocurrió un error inesperado al cargar esta página.
+                {isChunkError
+                    ? "Hemos actualizado el sistema. Por favor, recarga la página para continuar."
+                    : "Ocurrió un error inesperado al cargar esta página."}
             </p>
 
             {error.message && (
