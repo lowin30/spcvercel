@@ -843,22 +843,8 @@ export async function getPresupuestoBaseByIdAction(id: number) {
 
     // Consulta con Supabase Admin (Bypass RLS)
     const { data: presupuesto, error } = await supabaseAdmin
-      .from("presupuestos_base")
-      .select(`
-        *,
-        tareas!inner(
-          id,
-          titulo,
-          code,
-          id_edificio,
-          id_administrador,
-          id_supervisor
-        ),
-        edificios:id_edificio(
-          id,
-          nombre
-        )
-      `)
+      .from("vista_presupuestos_base_completa")
+      .select("*")
       .eq("id", id)
       .single();
 
@@ -869,7 +855,7 @@ export async function getPresupuestoBaseByIdAction(id: number) {
       return { success: true, data: presupuesto }
     }
 
-    if (user.rol === 'supervisor' && presupuesto.tareas.id_supervisor === user.id) {
+    if (user.rol === 'supervisor' && presupuesto.id_supervisor === user.id) {
       return { success: true, data: presupuesto }
     }
 
