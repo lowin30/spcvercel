@@ -24,7 +24,7 @@ import { ItemPresupuestoModal } from "./item-presupuesto-modal"
 import { EsMaterialCheckbox } from "@/app/dashboard/presupuestos-finales/editar/[id]/es-material-checkbox"
 import { toast as sonnerToast } from "sonner"
 import { convertirPresupuestoADosFacturas } from "@/app/dashboard/presupuestos-finales/actions-factura"
-import { getTaskForFinalBudgetAction } from "@/app/dashboard/tareas/actions"
+import { getTaskForFinalBudgetAction, saveBudgetAction } from "@/app/dashboard/tareas/actions"
 
 interface Tarea {
   id: number
@@ -410,331 +410,112 @@ export function BudgetForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Lógica de Edición para Presupuesto Final
-    if (presupuestoAEditar && tipo === 'final') {
-      setIsSubmitting(true);
-      try {
-        // Comprobamos si el presupuesto cambió de no aprobado a aprobado
-        const estaAprobandoPorPrimeraVez = aprobado && !presupuestoAEditar.aprobado;
-
-        const { total, materiales, mano_obra } = calculateTotals();
-
-        // 1. Actualizar el registro principal del presupuesto final
-        const { data: updatedPresupuesto, error: updateError } = await supabase
-          .from('presupuestos_finales')
-          .update({
-            total,
-            aprobado,
-            materiales,
-            mano_obra,
-          })
-          .eq('id', presupuestoAEditar.id)
-          .select()
-          .single();
-
-        if (updateError) throw updateError;
-
-        // 2. Sincronizar ítems
-        const originalItems = itemsBase || [];
-        const currentItems = items;
-
-        const originalItemIds = new Set(originalItems.map(item => item.id));
-        const currentItemIds = new Set(currentItems.filter(item => item.id).map(item => item.id));
-
-        // Ítems a eliminar: están en el original pero no en el actual
-        const itemsToDelete = originalItems.filter(item => !currentItemIds.has(item.id));
-        if (itemsToDelete.length > 0) {
-          const { error: deleteError } = await supabase
-            .from('items')
-            .delete()
-            .in('id', itemsToDelete.map(item => item.id));
-          if (deleteError) throw deleteError;
-        }
-
-        // Ítems a actualizar: están en ambos
-        const itemsToUpdate = currentItems.filter(item => item.id && originalItemIds.has(item.id));
-        if (itemsToUpdate.length > 0) {
-          const updates = itemsToUpdate.map(item => {
-            // Excluimos el objeto 'producto' y preparamos los datos para la DB
-            const { producto, id, ...itemData } = item;
-            const updateData = {
-              descripcion: itemData.descripcion,
-              cantidad: itemData.cantidad,
-              precio: itemData.precio,
-              producto_id: itemData.producto_id || null,
-              // NO incluimos es_material aquí porque se maneja separadamente con EsMaterialCheckbox
-              // Esto evita sobrescribir el valor cuando se guarda el presupuesto
-            };
-            return supabase
-              .from('items')
-              .update(updateData)
-              .eq('id', item.id!);
-          });
-          const results = await Promise.all(updates);
-          for (const result of results) {
-            if (result.error) throw result.error;
-          }
-        }
-
-        // Ítems a insertar: son nuevos (sin id)
-        const itemsToInsert = currentItems
-          .filter(item => !item.id)
-          .map(item => {
-            // Excluimos el objeto 'producto' y preparamos los datos para la DB
-            const { producto, ...itemData } = item;
-            return {
-              descripcion: itemData.descripcion,
-              cantidad: itemData.cantidad,
-              precio: itemData.precio,
-              id_presupuesto: presupuestoAEditar.id,
-              producto_id: itemData.producto_id || null,
-              es_material: itemData.es_material || false
-            };
-          });
-
-        if (itemsToInsert.length > 0) {
-          const { error: insertError } = await supabase.from('items').insert(itemsToInsert);
-          if (insertError) throw insertError;
-        }
-
-        // 4. Si el presupuesto pasó a estar aprobado, creamos las facturas automáticamente
-        if (estaAprobandoPorPrimeraVez) {
-          try {
-            const result = await convertirPresupuestoADosFacturas(presupuestoAEditar.id);
-            if (result.success) {
-              sonnerToast.success(result.message || "Facturas creadas con éxito");
-
-              // Después de un breve retraso, redirigir a la página de facturas
-              toast({ title: 'Éxito', description: 'Presupuesto final aprobado y facturas creadas.' });
-              setTimeout(() => {
-                router.push("/dashboard/facturas");
-              }, 1500);
-              return; // Terminamos aquí para evitar la redirección estándar
-            } else {
-              sonnerToast.error(result.message || "Error al crear las facturas");
-              console.error("Error al crear facturas:", result.message);
-            }
-          } catch (facturaError) {
-            console.error("Error al crear facturas:", facturaError);
-            sonnerToast.error(`Error al crear las facturas: ${(facturaError as Error).message}`);
-          }
-        }
-
-        toast({ title: 'Éxito', description: 'Presupuesto final actualizado correctamente.' });
-        router.push(`/dashboard/presupuestos-finales/${presupuestoAEditar.id}`);
-
-      } catch (error) {
-        console.error('Error actualizando presupuesto final:', error);
-        toast({ title: 'Error', description: (error as Error).message, variant: 'destructive' });
-      } finally {
-        setIsSubmitting(false);
-      }
-      return; // Termina la ejecución para no pasar a la lógica de creación
-    }
-
-    // --- Lógica de Creación (la que ya existía) ---
-
-    e.preventDefault()
-
-    if (tipo === "base" && !selectedTarea) {
-      toast({
-        title: "Error",
-        description: "Por favor selecciona una tarea",
-        variant: "destructive",
-      })
-      return
+    // 1. Validaciones básicas
+    if (tipo === "base" && !selectedTarea && !presupuestoAEditar) {
+      toast({ title: "Error", description: "Por favor selecciona una tarea", variant: "destructive" });
+      return;
     }
 
     if (items.length === 0) {
-      toast({
-        title: "Error",
-        description: "Por favor agrega al menos un ítem al presupuesto",
-        variant: "destructive",
-      })
-      return
+      toast({ title: "Error", description: "Por favor agrega al menos un ítem", variant: "destructive" });
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
-
-      // Calcular totales
       const { total, materiales, mano_obra } = calculateTotals();
 
-      let presupuesto: any;
-      let supabaseError: any; // Renamed to avoid conflict with JS error object in catch block
+      // 2. Preparar payload de presupuesto
+      let budgetPayload: any = {};
 
       if (tipo === "final") {
-
-        // Obtener la tarea seleccionada si existe
         const selectedTareaObj = selectedTarea ? tareas?.find(t => t.id === Number(selectedTarea)) : null;
 
-        // Validar que se ha seleccionado un administrador y edificio si estamos en modo selección en cascada
-        if (!presupuestoBase && !selectedTarea) {
-          // Solo validamos si estamos creando un presupuesto desde cero
-          if (!selectedAdministrador) {
-            toast({
-              title: "Error",
-              description: "Por favor selecciona un administrador",
-              variant: "destructive",
-            })
-            return
-          }
-
-          if (!selectedEdificio) {
-            toast({
-              title: "Error",
-              description: "Por favor selecciona un edificio",
-              variant: "destructive",
-            })
-            return
-          }
-        }
-
-        // Obtener el administrador según la prioridad:
-        // 1. El seleccionado por el usuario en el formulario
-        // 2. Del presupuesto base
-        // 3. De la tarea seleccionada
-        // 4. Del edificio de la tarea
-        // 5. null como último recurso
+        // Prioridad de Identidades (Admin/Edificio)
         let administradorId = selectedAdministrador || null;
-
         if (!administradorId && selectedTareaObj) {
-          if (selectedTareaObj.id_administrador) {
-            administradorId = selectedTareaObj.id_administrador.toString();
-          } else if (selectedTareaObj.edificios && selectedTareaObj.edificios.id_administrador) {
-            administradorId = selectedTareaObj.edificios.id_administrador.toString();
-          }
+          administradorId = selectedTareaObj.id_administrador?.toString() || selectedTareaObj.edificios?.id_administrador?.toString() || null;
         }
-
-        // Como respaldo final, usar el administrador del presupuesto base
         if (!administradorId && presupuestoBase?.id_administrador) {
           administradorId = presupuestoBase.id_administrador.toString();
         }
 
-        // Determinar el id_edificio según la misma lógica de prioridad
         const edificioId = selectedEdificio || presupuestoBase?.id_edificio || selectedTareaObj?.id_edificio || null;
 
-        // Asegurarnos que todos los IDs sean del tipo correcto para Supabase
-        // id_edificio debe ser number o null
-        const idEdificio = edificioId ? Number(edificioId) : null;
-
-        // id_tarea debe ser number o null
-        const idTarea = presupuestoBase?.id_tarea ? Number(presupuestoBase.id_tarea) :
-          (selectedTarea ? Number(selectedTarea) : null);
-
-        // Para administradorId, verificar el tipo y convertir adecuadamente
-        // La tabla administradores probablemente usa UUID (string)
-        const idAdministrador = administradorId ? administradorId.toString() : null;
-
-        const presupuestoFinalData: any = {
-          // Si idPadre está vacío, usamos null en lugar de 0 (que es lo que Number("") devuelve)
-          id_presupuesto_base: idPadre ? Number(idPadre) : null,
+        budgetPayload = {
+          id_presupuesto_base: idPadre ? Number(idPadre) : (presupuestoAEditar && 'id_presupuesto_base' in presupuestoAEditar ? presupuestoAEditar.id_presupuesto_base : null),
           materiales,
           mano_obra,
           total,
-          total_base: presupuestoBase ? presupuestoBase.materiales + presupuestoBase.mano_obra : 0,
-          ajuste_admin: 0, // Default or from form if available
-          id_estado: 1, // Asumiendo 1 como estado inicial (ej. 'Pendiente'). Ajusta si es necesario.
-          // Generar un código único para el presupuesto final
-          code: `PF-${new Date().getTime().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-          // Usar edificio seleccionado en cascada o los valores previos como respaldo
-          id_edificio: idEdificio,
-          id_tarea: idTarea,
-          // Usar el id_administrador determinado en la selección en cascada
-          id_administrador: idAdministrador
+          total_base: presupuestoBase ? presupuestoBase.materiales + presupuestoBase.mano_obra : (presupuestoAEditar && 'total_base' in presupuestoAEditar ? (presupuestoAEditar as any).total_base : 0),
+          id_edificio: edificioId ? Number(edificioId) : null,
+          id_tarea: presupuestoBase?.id_tarea || (selectedTarea ? Number(selectedTarea) : (presupuestoAEditar?.id_tarea || null)),
+          id_administrador: administradorId,
+          aprobado: aprobado,
         };
 
-        // Debug
-        console.log('Creando presupuesto final con datos:', {
-          selectedTarea,
-          selectedTareaObj,
-          administradorId,
-          presupuestoFinalData
-        });
-
-
-        const { data: insertedData, error: insertError } = await supabase
-          .from("presupuestos_finales")
-          .insert(presupuestoFinalData)
-          .select()
-          .single();
-        presupuesto = insertedData;
-        supabaseError = insertError;
-      } else { // tipo === "base" (from this specific form)
-
-        const presupuestoBaseData = {
-          id_tarea: Number(selectedTarea) || Number(idTarea),
+        if (!presupuestoAEditar) {
+          budgetPayload.code = `PF-${new Date().getTime().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+          budgetPayload.id_estado = 1;
+        }
+      } else {
+        // Tipo Base
+        budgetPayload = {
+          id_tarea: Number(selectedTarea) || Number(idTarea) || presupuestoAEditar?.id_tarea,
           materiales,
           mano_obra,
           aprobado: false,
-          // Generar un código único para el presupuesto base
-          code: `PB-${new Date().getTime().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-          id_edificio: tareas?.find(t => t.id === Number(selectedTarea))?.id_edificio, // Obtener id_edificio de la tarea seleccionada
+          id_edificio: tareas?.find(t => t.id === Number(selectedTarea))?.id_edificio || presupuestoAEditar?.id_edificio,
         };
-        const { data: insertedData, error: insertError } = await supabase
-          .from("presupuestos_base") // <-- CORREGIDO: Apuntar a la tabla correcta
-          .insert(presupuestoBaseData)
-          .select()
-          .single();
-        presupuesto = insertedData;
-        supabaseError = insertError;
+        if (!presupuestoAEditar) {
+          budgetPayload.code = `PB-${new Date().getTime().toString().slice(-6)}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        }
       }
 
-      if (supabaseError) {
-        console.error("Error al guardar presupuesto en Supabase:", supabaseError);
-        throw new Error(`Error al guardar presupuesto: ${supabaseError.message}`);
-      }
+      // 3. Llamar a la Bridge Action
+      const res = await saveBudgetAction({
+        tipo,
+        budgetData: budgetPayload,
+        items,
+        isEditing: !!presupuestoAEditar,
+        budgetId: presupuestoAEditar?.id,
+      });
 
-      if (!presupuesto) {
-        console.error("No se recibieron datos del presupuesto después de la inserción, aunque no hubo error explícito de Supabase.");
-        throw new Error("Error crítico: No se pudo obtener el ID del presupuesto guardado. Verifica RLS o constraints en DB.");
-      }
+      if (!res.success) throw new Error(res.message);
 
-      // Crear ítems
-      const itemsData = items.map((item) => ({
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio: item.precio,
-        id_presupuesto: presupuesto.id,
-        producto_id: item.producto_id || null,
-        es_material: item.es_material || false
-      }))
-
-      const { error: itemsError } = await supabase.from("items").insert(itemsData)
-
-      if (itemsError) {
-        throw new Error(itemsError.message)
-      }
-
+      // 4. Éxito y Redirección
       toast({
-        title: "Presupuesto creado",
-        description: `El presupuesto ${tipo === "base" ? "base" : "final"} ha sido creado correctamente`,
-      })
+        title: presupuestoAEditar ? "Presupuesto actualizado" : "Presupuesto creado",
+        description: `El presupuesto ha sido guardado correctamente.`,
+      });
 
-      // Redirection logic
-      if (tipo === "final" && idTarea) {
-        router.push(`/dashboard/tareas/${idTarea}`);
-      } else if (tipo === "base" && idTarea) {
-        router.push(`/dashboard/tareas/${idTarea}`);
-      } else if (tipo === "base" && presupuesto?.id) {
-        router.push(`/dashboard/presupuestos/${presupuesto.id}`);
+      // Lógica de redirección post-aprobación o estándar
+      if (tipo === "final" && aprobado && !presupuestoAEditar?.aprobado) {
+        sonnerToast.success("Presupuesto aprobado. Redirigiendo a facturas...");
+        setTimeout(() => router.push("/dashboard/facturas"), 1500);
       } else {
-        // Fallback redirection, e.g., to a general list or dashboard
-        router.push('/dashboard/presupuestos');
+        const redirectId = budgetPayload.id_tarea || res.data.id_tarea;
+        if (redirectId) {
+          router.push(`/dashboard/tareas/${redirectId}`);
+        } else {
+          router.push('/dashboard/presupuestos');
+        }
       }
+
       router.refresh();
-    } catch (error) {
-      console.error("Error al crear presupuesto:", error)
+
+    } catch (error: any) {
+      console.error("Error al guardar presupuesto:", error);
       toast({
         title: "Error",
-        description: "No se pudo crear el presupuesto",
+        description: error.message || "No se pudo guardar el presupuesto",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit}>

@@ -6,6 +6,7 @@ import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { revalidatePath } from 'next/cache'
 import { sanitizeText } from '@/lib/utils'
 import { createClient } from '@supabase/supabase-js'
+import { convertirPresupuestoADosFacturas } from '../presupuestos-finales/actions-factura'
 
 // --- bridge protocol: inicializacion segura ---
 // instanciamos el cliente aqui mismo para garantizar el acceso a la service_role_key.
@@ -914,5 +915,123 @@ export async function getTasksForBudgetAction(idTareaLabel?: string) {
   } catch (error: any) {
     console.error("Error en Bridge (getTasksForBudgetAction):", error)
     return { success: false, message: "No se pudieron cargar las tareas." }
+  }
+}
+
+/**
+ * Guardar Presupuesto (Bridge Protocol)
+ * Maneja creación y actualización de presupuestos base y finales.
+ */
+export async function saveBudgetAction(params: {
+  tipo: "base" | "final";
+  budgetData: any;
+  items: any[];
+  isEditing: boolean;
+  budgetId?: number;
+}) {
+  try {
+    const user = await validateSessionAndGetUser();
+    const { tipo, budgetData, items, isEditing, budgetId } = params;
+
+    // 1. Validación de Seguridad
+    if (user.rol !== 'admin' && user.rol !== 'supervisor') {
+      return { success: false, message: 'No tienes permisos para realizar esta acción.' };
+    }
+
+    if (tipo === 'final' && user.rol !== 'admin') {
+      return { success: false, message: 'Solo los administradores pueden gestionar presupuestos finales.' };
+    }
+
+    let savedBudget: any;
+
+    if (isEditing && budgetId) {
+      // --- Lógica de Edición ---
+      const table = tipo === "base" ? "presupuestos_base" : "presupuestos_finales";
+
+      const { data, error } = await supabaseAdmin
+        .from(table)
+        .update(budgetData)
+        .eq("id", budgetId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      savedBudget = data;
+
+      // Sincronización de ítems
+      const { data: existingItems } = await supabaseAdmin
+        .from("items")
+        .select("id")
+        .eq("id_presupuesto", budgetId);
+
+      const existingIds = existingItems?.map(i => i.id) || [];
+      const incomingIds = items.filter(i => i.id).map(i => i.id);
+
+      const toDelete = existingIds.filter(id => !incomingIds.includes(id));
+      if (toDelete.length > 0) {
+        await supabaseAdmin.from("items").delete().in("id", toDelete);
+      }
+
+      for (const item of items) {
+        const { producto, id, ...itemClean } = item;
+        const itemPayload = {
+          ...itemClean,
+          id_presupuesto: budgetId,
+          producto_id: itemClean.producto_id || null
+        };
+
+        if (item.id) {
+          await supabaseAdmin.from("items").update(itemPayload).eq("id", item.id);
+        } else {
+          await supabaseAdmin.from("items").insert(itemPayload);
+        }
+      }
+
+    } else {
+      // --- Lógica de Creación ---
+      const table = tipo === "base" ? "presupuestos_base" : "presupuestos_finales";
+
+      const { data, error } = await supabaseAdmin
+        .from(table)
+        .insert(budgetData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      savedBudget = data;
+
+      const itemsPayload = items.map(item => {
+        const { producto, id, ...itemClean } = item;
+        return {
+          ...itemClean,
+          id_presupuesto: savedBudget.id,
+          producto_id: itemClean.producto_id || null
+        };
+      });
+
+      const { error: itemsError } = await supabaseAdmin.from("items").insert(itemsPayload);
+      if (itemsError) throw itemsError;
+    }
+
+    // 3. Post-Procesamiento: Aprobación -> Facturas
+    if (tipo === "final" && savedBudget.aprobado) {
+      try {
+        await convertirPresupuestoADosFacturas(savedBudget.id);
+      } catch (e) {
+        console.error("Error al disparar creación de facturas post-save:", e);
+      }
+    }
+
+    revalidatePath(`/dashboard/presupuestos`);
+    revalidatePath(`/dashboard/presupuestos-finales`);
+    if (savedBudget.id_tarea) {
+      revalidatePath(`/dashboard/tareas/${savedBudget.id_tarea}`);
+    }
+
+    return { success: true, data: savedBudget };
+
+  } catch (error: any) {
+    console.error("Error en Bridge (saveBudgetAction):", error);
+    return { success: false, message: error.message || "Error al procesar el presupuesto." };
   }
 }
