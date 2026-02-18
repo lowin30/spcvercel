@@ -986,12 +986,16 @@ export async function saveBudgetAction(params: {
       }
 
       for (const item of items) {
-        const { producto, id, ...itemClean } = item;
-        const itemPayload = {
-          ...itemClean,
+        // Sanitizar: solo columnas válidas de la tabla 'items'
+        const itemPayload: any = {
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precio: typeof item.precio === 'string' ? parseFloat(item.precio) : item.precio,
           id_presupuesto: budgetId,
-          producto_id: itemClean.producto_id || null
+          producto_id: item.producto_id || null,
+          es_material: item.es_material ?? (item.es_producto ? false : false),
         };
+        if (item.code) itemPayload.code = item.code;
 
         if (item.id) {
           await supabaseAdmin.from("items").update(itemPayload).eq("id", item.id);
@@ -1013,18 +1017,21 @@ export async function saveBudgetAction(params: {
       if (error) throw error;
       savedBudget = data;
 
-      const itemsPayload = items.map(item => {
-        const { producto, id, ...itemClean } = item;
-        return {
-          ...itemClean,
-          id_presupuesto: savedBudget.id,
-          producto_id: itemClean.producto_id || null
-        };
-      });
+      // Sanitizar: solo columnas válidas de la tabla 'items'
+      const itemsPayload = items.map(item => ({
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        precio: typeof item.precio === 'string' ? parseFloat(item.precio) : item.precio,
+        id_presupuesto: savedBudget.id,
+        producto_id: item.producto_id || null,
+        es_material: item.es_material ?? (item.es_producto ? false : false),
+        ...(item.code ? { code: item.code } : {}),
+      }));
 
       const { error: itemsError } = await supabaseAdmin.from("items").insert(itemsPayload);
       if (itemsError) throw itemsError;
     }
+
 
     // 3. Post-Procesamiento: Aprobación -> Facturas
     if (tipo === "final" && savedBudget.aprobado) {
