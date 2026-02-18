@@ -686,16 +686,13 @@ export async function createPresupuestoBaseAction(data: any) {
     // calculo de seguridad para 'total' si no viene (materiales + mano_obra)
     const materiales = Number(data.materiales || 0)
     const manoObra = Number(data.mano_obra || 0)
-    const total = Number(data.total || (materiales + manoObra))
-
     const insertData = {
       ...data,
       materiales,
       mano_obra: manoObra,
-      total,
-      // aseguramos que el supervisor sea el correcto si viene null
+      // la columna 'total' es GENERATED ALWAYS, Postgres la calcula sola.
       id_supervisor: data.id_supervisor || user.id,
-      aprobado: false // siempre nace false
+      aprobado: false
     }
 
     const { error, data: insertedData } = await supabaseAdmin
