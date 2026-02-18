@@ -38,7 +38,7 @@ interface Invoice {
   extras_total?: number | string;
   total_incl_extras?: number | string;
   tiene_extras?: boolean;
-  
+
   // Datos del edificio/cliente
   nombre_edificio?: string | null;
   direccion_edificio?: string | null;
@@ -56,7 +56,7 @@ interface Invoice {
   } | null;
 
   // Para el enlace "Generar Liquidación"
-  id_presupuesto_base_calculado?: number; 
+  id_presupuesto_base_calculado?: number;
 }
 
 interface InvoiceListProps {
@@ -128,9 +128,9 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
       if (result.success) {
         toast.success(result.message || "Factura marcada como enviada")
         // Actualizar la lista de facturas localmente
-        setInvoices(prevInvoices => 
-          prevInvoices.map(inv => 
-            inv.id === invoiceId 
+        setInvoices(prevInvoices =>
+          prevInvoices.map(inv =>
+            inv.id === invoiceId
               ? { ...inv, enviada: true, fecha_envio: new Date().toISOString() }
               : inv
           )
@@ -187,201 +187,209 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
               ) : (
                 filteredInvoices.map((invoice: any) => {
                   // Calcular el saldo pendiente
-                  const saldoPendiente = typeof invoice.saldo_pendiente === 'string' 
-                    ? parseFloat(invoice.saldo_pendiente) 
+                  const saldoPendiente = typeof invoice.saldo_pendiente === 'string'
+                    ? parseFloat(invoice.saldo_pendiente)
                     : (invoice.saldo_pendiente || 0);
-                  
+
                   return (
-                  <TableRow 
-                    key={invoice.id}
-                    onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    {/* 1. NOMBRE DE FACTURA */}
-                    <TableCell>
-                      <div>
-                        <div className="font-semibold">
-                          {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
-                        </div>
-                        <div className="text-xs font-mono mt-1">
-                          {(() => {
-                            const suma = Number((invoice as any).gastos_sum_incl_extras || 0)
-                            if (invoice.tiene_extras) {
-                              return (
-                                <span className="text-red-600 font-semibold">
-                                  adicional {suma > 0 && <span className="ml-1">{formatCurrency(suma)}</span>}
-                                </span>
-                              )
-                            }
-                            // Sin extras: opción 2 => mostrar solo $<suma> si > 0; si no, fallback al code
-                            return suma > 0 ? (
-                              <span className="font-semibold">{formatCurrency(suma)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">{invoice.code}</span>
-                            )
-                          })()}
-                        </div>
-                      </div>
-                    </TableCell>
-
-                    {/* 2. AFIP */}
-                    <TableCell>
-                      <span className="font-mono text-sm">
-                        {invoice.datos_afip || 'N/A'}
-                      </span>
-                    </TableCell>
-
-                    {/* 3. ESTADO */}
-                    <TableCell>
-                      {(() => {
-                        const estadoActual = estadosFactura.find(e => e.id === invoice.id_estado_nuevo);
-                        return estadoActual ? (
-                          <EstadoBadge estado={estadoActual} />
-                        ) : (
-                          <span className="text-muted-foreground">Sin estado</span>
-                        );
-                      })()}
-                    </TableCell>
-
-                    {/* 4. TOTAL (valor de la factura) */}
-                    <TableCell className="text-right">
-                      <div className="font-semibold tabular-nums">
-                        {formatCurrency(invoice.total as any)}
-                      </div>
-                    </TableCell>
-
-                    {/* 5. SALDO PENDIENTE */}
-                    <TableCell className="text-right">
-                      <div className={`font-semibold tabular-nums ${
-                        saldoPendiente === 0 
-                          ? 'text-green-600' 
-                          : 'text-red-600'
-                      }`}>
-                        {formatCurrency(saldoPendiente)}
-                        {saldoPendiente === 0 && <span className="ml-1">✓</span>}
-                        {saldoPendiente > 0 && <span className="ml-1">⚠️</span>}
-                      </div>
-                    </TableCell>
-
-                    {/* 6. AJUSTE */}
-                    <TableCell className="text-right">
-                      {(() => {
-                        // Usar total_ajustes_todos para mostrar TODOS los ajustes
-                        const totalAjustes = typeof invoice.total_ajustes_todos === 'string' 
-                          ? parseFloat(invoice.total_ajustes_todos) 
-                          : (invoice.total_ajustes_todos || 0);
-                        
-                        // Calcular cada categoría para el badge
-                        const calculados = typeof invoice.total_ajustes_calculados === 'string'
-                          ? parseFloat(invoice.total_ajustes_calculados)
-                          : (invoice.total_ajustes_calculados || 0);
-                        
-                        const pendientes = typeof invoice.total_ajustes_pendientes === 'string'
-                          ? parseFloat(invoice.total_ajustes_pendientes)
-                          : (invoice.total_ajustes_pendientes || 0);
-                        
-                        const liquidados = typeof invoice.total_ajustes_liquidados === 'string'
-                          ? parseFloat(invoice.total_ajustes_liquidados)
-                          : (invoice.total_ajustes_liquidados || 0);
-                        
-                        return (
-                          <div className="space-y-1">
-                            {/* Monto total */}
-                            <div className={`font-semibold tabular-nums ${
-                              totalAjustes > 0 ? 'text-orange-600' : 'text-muted-foreground'
-                            }`}>
-                              {formatCurrency(totalAjustes)}
-                            </div>
-                            
-                            {/* Badge de estado */}
-                            {totalAjustes > 0 && (
-                              <div className="flex justify-end">
-                                {calculados > 0 && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                    🟡 Calculados
-                                  </span>
-                                )}
-                                {pendientes > 0 && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                    🟠 Pendientes
-                                  </span>
-                                )}
-                                {liquidados > 0 && !calculados && !pendientes && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    ✅ Liquidados
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                    <TableRow
+                      key={invoice.id}
+                      onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
+                      className="cursor-pointer hover:bg-muted/50"
+                    >
+                      {/* 1. NOMBRE DE FACTURA */}
+                      <TableCell>
+                        <div>
+                          <div className="font-semibold">
+                            {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
                           </div>
-                        );
-                      })()}
-                    </TableCell>
+                          <div className="text-xs font-mono mt-1">
+                            {(() => {
+                              const suma = Number((invoice as any).gastos_sum_incl_extras || 0)
+                              if (invoice.tiene_extras) {
+                                return (
+                                  <span className="text-red-600 font-semibold">
+                                    adicional {suma > 0 && <span className="ml-1">{formatCurrency(suma)}</span>}
+                                  </span>
+                                )
+                              }
+                              // Sin extras: opción 2 => mostrar solo $<suma> si > 0; si no, fallback al code
+                              return suma > 0 ? (
+                                <span className="font-semibold">{formatCurrency(suma)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">{invoice.code}</span>
+                              )
+                            })()}
+                          </div>
+                        </div>
+                      </TableCell>
 
-                    {/* 7. ACCIONES */}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        {/* PDF */}
-                        {invoice.pdf_url && (
-                          <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Descargar PDF">
-                            <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        )}
-                        
-                        {/* Pago (solo si no está pagada) */}
-                        {!invoice.pagada && (
-                          <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Generar Pago">
-                            <Link href={`/dashboard/pagos/nuevo?factura_id=${invoice.id}`}>
-                              <CreditCard className="h-4 w-4" />
+                      {/* 2. AFIP */}
+                      <TableCell>
+                        <span className="font-mono text-sm">
+                          {invoice.datos_afip || 'N/A'}
+                        </span>
+                      </TableCell>
+
+                      {/* 3. ESTADO */}
+                      <TableCell>
+                        {(() => {
+                          const estadoActual = estadosFactura.find(e => e.id === invoice.id_estado_nuevo);
+                          return estadoActual ? (
+                            <EstadoBadge estado={estadoActual} />
+                          ) : (
+                            <span className="text-muted-foreground">Sin estado</span>
+                          );
+                        })()}
+                      </TableCell>
+
+                      {/* 4. TOTAL (valor de la factura) */}
+                      <TableCell className="text-right">
+                        <div className="font-semibold tabular-nums">
+                          {formatCurrency(invoice.total as any)}
+                        </div>
+                      </TableCell>
+
+                      {/* 5. SALDO PENDIENTE */}
+                      <TableCell className="text-right">
+                        <div className={`font-semibold tabular-nums ${saldoPendiente === 0
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                          }`}>
+                          {formatCurrency(saldoPendiente)}
+                          {saldoPendiente === 0 && <span className="ml-1">✓</span>}
+                          {saldoPendiente > 0 && <span className="ml-1">⚠️</span>}
+                        </div>
+                      </TableCell>
+
+                      {/* 6. AJUSTE */}
+                      <TableCell className="text-right">
+                        {(() => {
+                          // Usar total_ajustes_todos para mostrar TODOS los ajustes
+                          const totalAjustes = typeof invoice.total_ajustes_todos === 'string'
+                            ? parseFloat(invoice.total_ajustes_todos)
+                            : (invoice.total_ajustes_todos || 0);
+
+                          // Calcular cada categoría para el badge
+                          const calculados = typeof invoice.total_ajustes_calculados === 'string'
+                            ? parseFloat(invoice.total_ajustes_calculados)
+                            : (invoice.total_ajustes_calculados || 0);
+
+                          const pendientes = typeof invoice.total_ajustes_pendientes === 'string'
+                            ? parseFloat(invoice.total_ajustes_pendientes)
+                            : (invoice.total_ajustes_pendientes || 0);
+
+                          const liquidados = typeof invoice.total_ajustes_liquidados === 'string'
+                            ? parseFloat(invoice.total_ajustes_liquidados)
+                            : (invoice.total_ajustes_liquidados || 0);
+
+                          return (
+                            <div className="space-y-1">
+                              {/* Monto total */}
+                              <div className={`font-semibold tabular-nums ${totalAjustes > 0 ? 'text-orange-600' : 'text-muted-foreground'
+                                }`}>
+                                {formatCurrency(totalAjustes)}
+                              </div>
+
+                              {/* Badge de estado */}
+                              {totalAjustes > 0 && (
+                                <div className="flex justify-end">
+                                  {calculados > 0 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      🟡 Calculados
+                                    </span>
+                                  )}
+                                  {pendientes > 0 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                      🟠 Pendientes
+                                    </span>
+                                  )}
+                                  {liquidados > 0 && !calculados && !pendientes && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                      ✅ Liquidados
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </TableCell>
+
+                      {/* 7. ACCIONES */}
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {/* PDF */}
+                          {invoice.pdf_url && (
+                            <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Descargar PDF">
+                              <a href={invoice.pdf_url} target="_blank" rel="noopener noreferrer">
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          )}
+
+                          {/* Pago (solo si no está pagada) */}
+                          {!invoice.pagada && (
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Generar Pago"
+                              onClick={(e) => {
+                                // 🛑 ESTA ES LA CLAVE: Detiene la propagación hacia la fila
+                                e.stopPropagation();
+                              }}
+                            >
+                              <Link href={`/dashboard/pagos/nuevo?factura_id=${invoice.id}`}>
+                                <CreditCard className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          )}
+
+                          {/* Enviar (solo si no enviada) */}
+                          {!invoice.enviada && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleMarcarComoEnviada(invoice.id)}
+                              title="Marcar como Enviada"
+                              disabled={enviandoId === invoice.id}
+                            >
+                              {enviandoId === invoice.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+
+                          {/* Editar */}
+                          <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Editar">
+                            <Link href={`/dashboard/facturas/editar/${invoice.id}`}>
+                              <Pencil className="h-4 w-4" />
                             </Link>
                           </Button>
-                        )}
-                        
-                        {/* Enviar (solo si no enviada) */}
-                        {!invoice.enviada && (
+
+                          {/* Eliminar */}
                           <Button
                             variant="outline"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => handleMarcarComoEnviada(invoice.id)}
-                            title="Marcar como Enviada"
-                            disabled={enviandoId === invoice.id}
+                            onClick={() => handleDelete(invoice.id)}
+                            title="Eliminar"
+                            disabled={deletingId === invoice.id}
                           >
-                            {enviandoId === invoice.id ? (
+                            {deletingId === invoice.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <Send className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             )}
                           </Button>
-                        )}
-                        
-                        {/* Editar */}
-                        <Button asChild variant="outline" size="icon" className="h-8 w-8" title="Editar">
-                          <Link href={`/dashboard/facturas/editar/${invoice.id}`}>
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        
-                        {/* Eliminar */}
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDelete(invoice.id)}
-                          title="Eliminar"
-                          disabled={deletingId === invoice.id}
-                        >
-                          {deletingId === invoice.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
                 })
               )}
@@ -397,14 +405,14 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
             </div>
           ) : (
             filteredInvoices.map((invoice: any) => {
-              const saldoPendiente = typeof invoice.saldo_pendiente === 'string' 
-                ? parseFloat(invoice.saldo_pendiente) 
+              const saldoPendiente = typeof invoice.saldo_pendiente === 'string'
+                ? parseFloat(invoice.saldo_pendiente)
                 : (invoice.saldo_pendiente || 0);
               const estadoActual = estadosFactura.find(e => e.id === invoice.id_estado_nuevo);
 
               return (
-                <Card 
-                  key={invoice.id} 
+                <Card
+                  key={invoice.id}
                   className="cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => router.push(`/dashboard/facturas/${invoice.id}`)}
                 >
@@ -453,9 +461,8 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                     {/* Saldo */}
                     <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
                       <span className="text-sm font-medium">Saldo Pendiente</span>
-                      <span className={`font-bold text-base ${
-                        saldoPendiente === 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-bold text-base ${saldoPendiente === 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {formatCurrency(saldoPendiente)}
                         {saldoPendiente === 0 ? ' ✓' : ' ⚠️'}
                       </span>
@@ -463,10 +470,10 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
 
                     {/* Ajuste */}
                     {(() => {
-                      const totalAjustes = typeof invoice.total_ajustes === 'string' 
-                        ? parseFloat(invoice.total_ajustes) 
+                      const totalAjustes = typeof invoice.total_ajustes === 'string'
+                        ? parseFloat(invoice.total_ajustes)
                         : (invoice.total_ajustes || 0);
-                      
+
                       if (totalAjustes > 0) {
                         return (
                           <div className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded-md border border-orange-200 dark:border-orange-800">
@@ -491,7 +498,16 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                         </Button>
                       )}
                       {!invoice.pagada && (
-                        <Button asChild variant="outline" size="sm" className="flex-1">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            // 🛑 ESTA ES LA CLAVE: Detiene la propagación hacia la fila
+                            e.stopPropagation();
+                          }}
+                        >
                           <Link href={`/dashboard/pagos/nuevo?factura_id=${invoice.id}`}>
                             <CreditCard className="h-4 w-4 mr-1" />
                             Pago

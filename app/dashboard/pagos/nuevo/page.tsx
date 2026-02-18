@@ -1,278 +1,155 @@
-"use client";
+import { Suspense } from "react"
+import { redirect, notFound } from "next/navigation"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+import { PaymentForm } from "@/components/payment-form"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { ArrowLeft, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
-export const dynamic = 'force-dynamic';
+// Loader de servidor para datos de la factura
+async function getInvoiceForPayment(facturaId: string) {
+  // Intentar búsqueda por UUID original
+  const { data, error } = await supabaseAdmin
+    .from('facturas')
+    .select(`
+      id, 
+      code, 
+      total, 
+      total_pagado,
+      saldo_pendiente,
+      presupuestos_finales (
+        id,
+        edificios (
+          nombre
+        )
+      )
+    `)
+    .eq('id', facturaId)
+    .single()
 
-import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { createClient } from "@/lib/supabase-client";
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { PaymentForm } from '@/components/payment-form';
-
-// El tipo local para la página, asegurando que `total` es un número.
-interface PagoAnterior {
-  monto_pagado: number;
-  fecha_pago: string;
-  modalidad_pago: string;
+  if (error || !data) {
+    // Si falla, intentar por ID numérico si aplica (algunas tablas usan integer)
+    const idNum = parseInt(facturaId)
+    if (!isNaN(idNum)) {
+      const { data: dataNum } = await supabaseAdmin
+        .from('facturas')
+        .select(`
+          id, 
+          code, 
+          total, 
+          total_pagado,
+          saldo_pendiente,
+          presupuestos_finales (
+            id,
+            edificios (
+              nombre
+            )
+          )
+        `)
+        .eq('id', idNum)
+        .single()
+      if (dataNum) return dataNum
+    }
+    return null
+  }
+  return data
 }
 
-interface Factura {
-  id: string;
-  code: string;
-  total: number;
-  total_pagado?: number;
-  saldo_pendiente?: number;
-  pagosAnteriores?: PagoAnterior[];
-}
-
-export default function NewPaymentPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const factura_id = searchParams.get('factura_id');
-
-  const [factura, setFactura] = useState<Factura | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-
-      if (!factura_id) {
-        setError("No se ha especificado un ID de factura.");
-        setLoading(false);
-        return;
-      }
-      
-      const supabase = createClient();
-      
-      // Verificar que supabase se haya inicializado correctamente
-      if (!supabase) {
-        console.error('Error: No se pudo inicializar el cliente de Supabase');
-        setError('Error de conexión: No se pudo inicializar el cliente de Supabase.');
-        setLoading(false);
-        return;
-      }
-      
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/login');
-        return;
-      }
-
-      // Intentamos encontrar la factura primero con el ID tal como viene
-      let facturaExists;
-      let existsError;
-      
-      // Primera búsqueda con el ID original
-      const resultOriginal = await supabase
-        .from('facturas')
-        .select('id')
-        .eq('id', factura_id)
-        .maybeSingle();
-      
-      facturaExists = resultOriginal.data;
-      existsError = resultOriginal.error;
-      
-      // Si no encontramos resultados, intentamos con una conversión de tipo
-      if (!facturaExists && !existsError) {
-        const idNumerico = Number(factura_id);
-        
-        const resultNum = await supabase
-          .from('facturas')
-          .select('id')
-          .eq('id', idNumerico)
-          .maybeSingle();
-          
-        facturaExists = resultNum.data;
-        existsError = resultNum.error;
-      }
-
-      if (existsError) {
-        console.error('Error al verificar la existencia de la factura:', existsError);
-        setError(`Error al buscar la factura con ID ${factura_id}: ${existsError.message}`);
-        setLoading(false);
-        return;
-      }
-      
-      if (!facturaExists) {
-        console.error(`La factura con ID ${factura_id} no existe.`);
-        setError(`La factura con ID ${factura_id} no existe en la base de datos.`);
-        setLoading(false);
-        return;
-      }
-
-      // Obtener datos completos de la factura usando el ID que ya verificamos que existe
-      // Usamos el ID que nos devolvió la verificación anterior
-      const facturaId = facturaExists?.id;
-      
-      const { data: facturaData, error: facturaError } = await supabase
-        .from('facturas')
-        .select('id, code, total, total_pagado, saldo_pendiente')
-        .eq('id', facturaId)
-        .single();
-
-      if (facturaError || !facturaData) {
-        setError(`No se pudo encontrar la factura con ID ${factura_id}.`);
-        setLoading(false);
-        return;
-      }
-      
-      // Obtener historial de pagos - usamos el mismo ID que verificamos
-      const { data: pagosAnteriores, error: pagosError } = await supabase
-        .from('pagos_facturas')
-        .select('monto_pagado, fecha_pago, modalidad_pago')
-        .eq('id_factura', facturaId)
-        .order('fecha_pago', { ascending: false });
-        
-      if (pagosError) {
-        console.error('Error al obtener pagos anteriores:', pagosError);
-        // No bloqueamos el flujo, solo logueamos el error
-      }
-      
-      // Aserción de tipo para informar a TypeScript sobre la forma de los datos.
-      const typedFacturaData = facturaData as { 
-        id: string; 
-        code: string; 
-        total: string | number;
-        total_pagado: string | number | null;
-        saldo_pendiente: string | number | null;
-      };
-      
-      // Convertir todos los valores a números para trabajar con ellos
-      const totalNumerico = Number(typedFacturaData.total || 0);
-      const totalPagadoNumerico = Number(typedFacturaData.total_pagado || 0);
-      
-      // El saldo pendiente debe ser calculado como total - total_pagado si no está presente
-      // o si parece incorrecto (por ejemplo, si es igual al total cuando total_pagado > 0)
-      let saldoPendienteNumerico;
-      if (typedFacturaData.saldo_pendiente !== null && typedFacturaData.saldo_pendiente !== undefined) {
-        saldoPendienteNumerico = Number(typedFacturaData.saldo_pendiente);
-      } else {
-        saldoPendienteNumerico = Math.max(0, totalNumerico - totalPagadoNumerico);
-      }
-      
-      // Verificación de coherencia: si hay un total pagado mayor que cero pero el saldo pendiente es igual al total,
-      // probablemente hay un error en los datos
-      if (totalPagadoNumerico > 0 && Math.abs(saldoPendienteNumerico - totalNumerico) < 0.001) {
-        console.warn('Posible inconsistencia: total_pagado > 0 pero saldo_pendiente = total');
-        saldoPendienteNumerico = Math.max(0, totalNumerico - totalPagadoNumerico);
-      }
-      
-      setFactura({
-        id: typedFacturaData.id,
-        code: typedFacturaData.code,
-        total: totalNumerico,
-        total_pagado: totalPagadoNumerico,
-        saldo_pendiente: saldoPendienteNumerico,
-        pagosAnteriores: pagosAnteriores || []
-      });
-
-      setLoading(false);
-    };
-
-    loadData();
-  }, [factura_id, router]);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Cargando datos del pago...</span>
-      </div>
-    );
+export default async function NewPaymentPage({
+  searchParams,
+}: {
+  searchParams: { factura_id?: string }
+}) {
+  // 1. Gatekeeper: Solo Admin (Protocolo SPC v82.1)
+  const user = await validateSessionAndGetUser()
+  if (user.rol !== 'admin') {
+    redirect("/dashboard?error=acceso_restringido_pagos")
   }
 
-  if (error) {
-    return (
-      <div className="p-4">
-        <p className="text-red-500">Error: {error}</p>
-        <Button asChild variant="outline" className="mt-4">
-          <Link href="/dashboard/facturas">Volver a Facturas</Link>
-        </Button>
-      </div>
-    );
+  const { factura_id } = await searchParams
+
+  if (!factura_id) {
+    redirect("/dashboard/facturas")
   }
 
-  if (!factura) {
-    return (
-      <div className="p-4">
-        <p className="text-red-500">No se pudo cargar la información de la factura.</p>
-        <Button asChild variant="outline" className="mt-4">
-          <Link href="/dashboard/facturas">Volver a Facturas</Link>
-        </Button>
-      </div>
-    );
+  // 2. Fetch de Datos en el Servidor
+  const facturaData = await getInvoiceForPayment(factura_id)
+
+  if (!facturaData) {
+    return notFound()
   }
+
+  // Normalizar datos para el formulario
+  const total = Number(facturaData.total || 0)
+  const totalPagado = Number(facturaData.total_pagado || 0)
+  const saldoPendiente = facturaData.saldo_pendiente !== null
+    ? Number(facturaData.saldo_pendiente)
+    : Math.max(0, total - totalPagado)
+
+  // Extraer nombre del edificio de la relación anidada
+  const pf = Array.isArray(facturaData.presupuestos_finales)
+    ? facturaData.presupuestos_finales[0]
+    : facturaData.presupuestos_finales
+
+  const edificioNombre = pf?.edificios?.nombre || "N/A"
 
   return (
-    <div className="space-y-6" suppressHydrationWarning>
-        <div className="flex items-center">
-            <Button variant="ghost" size="sm" asChild className="mr-2">
-              <Link href={`/dashboard/facturas/${factura.id}`}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> Volver a la Factura
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-bold tracking-tight">Registrar Pago para Factura {factura.code}</h1>
+    <div className="space-y-6 max-w-4xl mx-auto p-4 md:p-8">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="sm" asChild className="mr-2">
+          <Link href={`/dashboard/facturas/${facturaData.id}`}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Volver a la Factura
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Registrar Pago</h1>
+          <p className="text-muted-foreground">
+            Factura {facturaData.code} - {edificioNombre}
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Nuevo Pago</CardTitle>
+          <CardDescription>
+            Registre la transacción para saldar la factura {facturaData.code}.
+          </CardDescription>
+        </CardHeader>
+
+        <div className="p-6 border-t border-gray-100 bg-muted/10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Monto total</p>
+              <p className="text-xl font-bold">${total.toLocaleString('es-AR')}</p>
+            </div>
+            <div className="space-y-1 border-x border-gray-100">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total pagado</p>
+              <p className="text-xl font-bold text-green-600">${totalPagado.toLocaleString('es-AR')}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Saldo pendiente</p>
+              <p className="text-xl font-bold text-blue-600">${saldoPendiente.toLocaleString('es-AR')}</p>
+            </div>
+          </div>
         </div>
 
-        <Card>
-            <CardHeader>
-                <CardTitle>Nuevo Pago</CardTitle>
-                <CardDescription>Complete el formulario para registrar un nuevo pago para la factura {factura.code}.</CardDescription>
-            </CardHeader>
-            
-            <div className="p-6 border-t border-gray-100">
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Monto total</p>
-                        <p className="text-lg font-semibold">${factura.total.toLocaleString('es-AR')}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Total pagado</p>
-                        <p className="text-lg font-semibold">${(factura.total_pagado || 0).toLocaleString('es-AR')}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Saldo pendiente</p>
-                        <p className="text-lg font-semibold text-blue-600">
-                            ${(factura.saldo_pendiente !== undefined && factura.saldo_pendiente !== null 
-                              ? factura.saldo_pendiente 
-                              : factura.total).toLocaleString('es-AR')}
-                        </p>
-                    </div>
-                </div>
-                
-                {factura.pagosAnteriores && factura.pagosAnteriores.length > 0 && (
-                    <div className="mt-4">
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Pagos anteriores</h3>
-                        <div className="bg-gray-50 rounded-md p-3">
-                            <ul className="divide-y divide-gray-200">
-                                {factura.pagosAnteriores.map((pago, index) => (
-                                    <li key={index} className="py-2 flex justify-between">
-                                        <span className="text-sm">
-                                            {new Date(pago.fecha_pago).toLocaleDateString('es-AR')}
-                                        </span>
-                                        <span className="text-sm font-medium">
-                                            ${Number(pago.monto_pagado).toLocaleString('es-AR')}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                )}
+        <div className="p-6 pt-2">
+          <Suspense fallback={
+            <div className="flex justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-            
-            <PaymentForm 
-                facturaId={factura.id} 
-                montoTotalFactura={factura.total}
-                saldoPendiente={factura.saldo_pendiente}
+          }>
+            <PaymentForm
+              facturaId={facturaData.id.toString()}
+              montoTotalFactura={total}
+              saldoPendiente={saldoPendiente}
             />
-        </Card>
+          </Suspense>
+        </div>
+      </Card>
     </div>
-  );
+  )
 }
