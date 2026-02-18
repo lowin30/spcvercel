@@ -98,7 +98,16 @@ interface BudgetFormProps {
   presupuestoBase?: PresupuestoBase
   itemsBase?: Item[]
   presupuestoAEditar?: PresupuestoFinal | PresupuestoBase // Añadimos para modo edición
+  // v93.9: Bridge Protocol Injection
+  initialData?: any
+  userId?: string
+  listas?: {
+    administradores: any[]
+    edificios: any[]
+    productos: any[]
+  }
 }
+
 
 // Definimos un tipo más explícito para PresupuestoFinal que puede ser editado
 interface PresupuestoFinal {
@@ -130,7 +139,11 @@ export function BudgetForm({
   idTarea,
   presupuestoBase,
   itemsBase,
+  initialData,
+  userId,
+  listas,
 }: BudgetFormProps) {
+
   const [aprobado, setAprobado] = useState(presupuestoAEditar?.aprobado || false);
   const [selectedTarea, setSelectedTarea] = useState(idTarea || tareaSeleccionada?.id?.toString() || "")
   const [items, setItems] = useState<Item[]>(itemsBase || [])
@@ -672,7 +685,9 @@ export function BudgetForm({
                 setOpen={setIsModalOpen}
                 onSave={handleSaveItemFromModal}
                 editingItem={editingItemIndex !== null ? items[editingItemIndex] : { ...newItem, precio: typeof newItem.precio === 'string' ? parseFloat(newItem.precio) || 0 : newItem.precio }}
+                productosInyectados={listas?.productos}
               />
+
             </div>
           </CardContent>
           <CardFooter className="flex justify-between items-center">

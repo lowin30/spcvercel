@@ -22,14 +22,24 @@ import { Badge } from "@/components/ui/badge"
 interface ProductoPickerProps {
   onSelect: (producto: Producto) => void
   buttonLabel?: string
+  productosInyectados?: any[]
+  categoriasInyectadas?: any[]
 }
 
-export function ProductoPicker({ onSelect, buttonLabel = "Seleccionar Producto" }: ProductoPickerProps) {
+
+export function ProductoPicker({
+  onSelect,
+  buttonLabel = "Seleccionar Producto",
+  productosInyectados,
+  categoriasInyectadas
+}: ProductoPickerProps) {
+
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoriaFilter, setCategoriaFilter] = useState("all")
-  const [productos, setProductos] = useState<Producto[]>([])
-  const [categorias, setCategorias] = useState<{ id: string; nombre: string }[]>([])
+  const [productos, setProductos] = useState<Producto[]>(productosInyectados || [])
+  const [categorias, setCategorias] = useState<{ id: string; nombre: string }[]>(categoriasInyectadas || [])
+
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -37,11 +47,12 @@ export function ProductoPicker({ onSelect, buttonLabel = "Seleccionar Producto" 
 
   // Cargar productos y categorías al abrir el diálogo
   useEffect(() => {
-    if (open) {
+    if (open && !productosInyectados) {
       loadProductos()
       loadCategorias()
     }
-  }, [open])
+  }, [open, productosInyectados])
+
 
   // Filtrar productos cuando cambian los filtros
   useEffect(() => {

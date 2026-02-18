@@ -30,14 +30,18 @@ interface ItemPresupuestoModalProps {
   setOpen: (open: boolean) => void
   onSave: (item: Omit<ItemPresupuesto, "id">) => void
   editingItem?: ItemPresupuesto
+  productosInyectados?: any[]
 }
+
 
 export function ItemPresupuestoModal({
   open,
   setOpen,
   onSave,
-  editingItem
+  editingItem,
+  productosInyectados
 }: ItemPresupuestoModalProps) {
+
   // Estado para los campos del formulario
   const [descripcion, setDescripcion] = useState("")
   const [cantidad, setCantidad] = useState(1)
@@ -151,7 +155,9 @@ export function ItemPresupuestoModal({
             <ProductoPicker
               onSelect={handleProductSelect}
               buttonLabel="Buscar Producto"
+              productosInyectados={productosInyectados}
             />
+
 
             {productoSeleccionado && (
               <div className="rounded-md border p-3 mt-2">

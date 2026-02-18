@@ -1,126 +1,107 @@
-import { redirect } from "next/navigation"
+import { Suspense } from "react"
+import { notFound, redirect } from "next/navigation"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
+import {
+  getTaskForFinalBudgetAction,
+  getPresupuestoBaseForCloneAction,
+  getBudgetStaticDataAction
+} from "@/app/dashboard/tareas/actions"
 import { BudgetForm } from "@/components/budget-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { getPresupuestoBaseByIdAction, getTasksForBudgetAction } from "../../tareas/actions"
 
 export const dynamic = 'force-dynamic'
 
-export default async function NuevoPresupuestoPage({
+export default async function NewBudgetPage({
   searchParams,
 }: {
   searchParams: Promise<{ tipo?: string; id_tarea?: string; id_padre?: string }>
 }) {
-  // 1. Identidad Segura (Bridge Protocol)
+  // 1. Seguridad Blindada (Bridge Protocol)
   const user = await validateSessionAndGetUser()
-  const { rol } = user
+  if (user.rol !== 'admin' && user.rol !== 'supervisor') {
+    redirect("/dashboard?error=acceso_denegado")
+  }
 
   // 2. Parámetros
   const params = await searchParams
-  const tipo = params.tipo
-  const tipoPresupuesto = tipo === "final" ? "final" : "base"
-  const idTarea = params.id_tarea || ""
-  const idPadre = params.id_padre || ""
+  const tipo = params.tipo === "final" ? "final" : "base"
+  const idTarea = params.id_tarea
+  const idPadre = params.id_padre
 
-  // 3. Validación de Acceso
-  if (rol !== "supervisor" && rol !== "admin") {
-    redirect("/dashboard")
-  }
-
-  if (tipoPresupuesto === "final" && rol !== "admin") {
-    redirect("/dashboard/presupuestos")
-  }
-
-  // 4. Obtención de Datos (Bridge Action)
-  let presupuestoBase = null
-  let tareas: any[] = []
-  let tareaSingle = null
-  let errorMsg = null
-
-  try {
-    if (tipoPresupuesto === "final" && idTarea && idPadre) {
-      const res = await getPresupuestoBaseByIdAction(Number(idPadre))
-      if (res.success) {
-        presupuestoBase = res.data
-      } else {
-        errorMsg = "No se pudo cargar el presupuesto base de referencia."
-      }
-    } else {
-      const resTareas = await getTasksForBudgetAction(idTarea || undefined)
-      if (resTareas.success) {
-        tareas = resTareas.data || []
-        if (idTarea && tareas.length > 0) {
-          tareaSingle = tareas[0]
-        }
-      } else {
-        errorMsg = "No se pudieron cargar las tareas necesarias."
-      }
-    }
-  } catch (error) {
-    console.error("Error cargando datos para nuevo presupuesto:", error)
-    errorMsg = "Error inesperado al cargar datos."
-  }
-
-  // 5. Renderizado de Error (si aplica)
-  if (errorMsg) {
+  if (!idTarea) {
     return (
-      <div className="container mx-auto py-6">
-        <div className="rounded-md bg-destructive/15 p-4 text-center">
-          <p className="text-destructive font-medium">{errorMsg}</p>
-          <Button variant="outline" className="mt-4" asChild>
-            <Link href="/dashboard/presupuestos">Volver a presupuestos</Link>
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // 6. Vista para Presupuesto Final
-  if (tipo === "final" && idTarea && idPadre && presupuestoBase) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center">
-          <Button variant="ghost" size="sm" className="mr-2" asChild>
-            <Link href={`/dashboard/tareas/${idTarea}`}>
-              <ArrowLeft className="h-4 w-4 mr-1" /> Volver a la Tarea
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold tracking-tight">Nuevo Presupuesto Final</h1>
-        </div>
-
-        <BudgetForm
-          tipo="final"
-          idPadre={idPadre}
-          idTarea={idTarea}
-          presupuestoBase={presupuestoBase}
-          itemsBase={[]} // Se inicializa vacío, el form lo manejará
-        />
-      </div>
-    )
-  }
-
-  // 7. Vista para Presupuesto Base o Final sin padre
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center">
-        <Button variant="ghost" size="sm" className="mr-2" asChild>
-          <Link href={idTarea ? `/dashboard/tareas/${idTarea}` : "/dashboard/presupuestos"}>
-            <ArrowLeft className="h-4 w-4 mr-1" /> Volver
-          </Link>
+      <div className="container mx-auto py-6 text-center">
+        <p className="text-destructive font-medium">Falta el ID de la Tarea para crear el presupuesto.</p>
+        <Button variant="outline" className="mt-4" asChild>
+          <Link href="/dashboard/presupuestos">Volver</Link>
         </Button>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Nuevo Presupuesto {tipoPresupuesto === "final" ? "Final" : "Base"}
-        </h1>
+      </div>
+    )
+  }
+
+  // 3. Fetching Paralelo (Velocidad "Mobile First")
+  const [taskRes, baseRes, staticRes] = await Promise.all([
+    getTaskForFinalBudgetAction(parseInt(idTarea)),
+    idPadre ? getPresupuestoBaseForCloneAction(parseInt(idPadre)) : Promise.resolve({ success: true, data: null }),
+    getBudgetStaticDataAction()
+  ])
+
+  if (!taskRes.success || !taskRes.data) return notFound()
+
+  const tarea = taskRes.data
+  const base = baseRes.success ? baseRes.data : null
+  const catalogos = staticRes.data || { administradores: [], edificios: [], productos: [] }
+
+  // 4. Inyección de Datos (El "Lego" completo para universalidad)
+  const initialData = {
+    tipo: tipo,
+    id_tarea: parseInt(idTarea),
+    id_presupuesto_base: base?.id || null,
+    titulo: `${tipo === 'final' ? 'Presupuesto Final' : 'Presupuesto Base'} - ${tarea.titulo}`,
+    id_edificio: tarea.id_edificio,
+    id_administrador: tarea.id_administrador || tarea.edificios?.id_administrador,
+    // Totales y items listos
+    materiales: base?.materiales || 0,
+    mano_obra: base?.mano_obra || 0,
+    total: base?.total || 0,
+    items: base?.items || []
+  }
+
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-6 max-w-5xl mx-auto pb-20">
+      {/* Header Móvil */}
+      <div className="flex items-center gap-3 mb-6">
+        <Link href={`/dashboard/tareas/${idTarea}`}>
+          <Button variant="ghost" size="icon" className="h-10 w-10">
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">
+            Nuevo Presupuesto {tipo === 'final' ? 'Final' : 'Base'}
+          </h1>
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {tarea.edificios?.nombre || 'Sin edificio'} - {tarea.titulo}
+          </p>
+        </div>
       </div>
 
-      <BudgetForm
-        tipo={tipoPresupuesto}
-        tareas={tareas}
-        tareaSeleccionada={tareaSingle}
-        idTarea={idTarea}
-      />
+      <Suspense fallback={<div className="p-12 text-center animate-pulse text-muted-foreground">Inicializando editor seguro...</div>}>
+        <BudgetForm
+          tipo={tipo}
+          initialData={initialData}
+          userId={user.id}
+          listas={catalogos}
+          // Para retrocompatibilidad mientras refactorizamos el componente
+          tareas={[tarea]}
+          tareaSeleccionada={tarea}
+          idTarea={idTarea}
+          presupuestoBase={base}
+          itemsBase={base?.items}
+        />
+      </Suspense>
     </div>
   )
 }

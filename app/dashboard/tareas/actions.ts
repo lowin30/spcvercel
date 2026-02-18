@@ -1044,3 +1044,71 @@ export async function saveBudgetAction(params: {
     return { success: false, message: error.message || "Error al procesar el presupuesto." };
   }
 }
+
+// =================================================================================
+// BRIDGE PROTOCOL: DATOS ESTÁTICOS Y CLONADO (MOBILE OPTIMIZED)
+// =================================================================================
+
+/**
+ * Obtiene listas desplegables (Admins, Edificios) sin bloqueo RLS.
+ * Inyecta datos limpios al formulario.
+ */
+export async function getBudgetStaticDataAction() {
+  try {
+    const user = await validateSessionAndGetUser()
+    // Permitimos acceso a admin y supervisor
+    if (!['admin', 'supervisor'].includes(user.rol)) return { success: false, data: null }
+
+    // Consultas en paralelo para máxima velocidad
+    const [admins, edificios, productosRes] = await Promise.all([
+      supabaseAdmin.from('administradores').select('id, nombre').order('nombre'),
+      supabaseAdmin.from('edificios').select('id, nombre, direccion').order('nombre'),
+      supabaseAdmin.from('productos').select('*, categorias_productos(id, nombre)').order('nombre')
+    ])
+
+    return {
+      success: true,
+      data: {
+        administradores: admins.data || [],
+        edificios: edificios.data || [],
+        productos: productosRes.data || []
+      }
+    }
+  } catch (error: any) {
+    console.error("Error fetching static data:", error)
+    return { success: false, data: null }
+  }
+}
+
+/**
+ * Obtiene un Presupuesto Base COMPLETO (con items) para clonar.
+ * Clave para que la lista de items no llegue vacía.
+ */
+export async function getPresupuestoBaseForCloneAction(id: number) {
+  try {
+    await validateSessionAndGetUser()
+
+    // Traemos el presupuesto Y sus items en un solo viaje
+    const { data, error } = await supabaseAdmin
+      .from('presupuestos_base')
+      .select(`
+        *,
+        items (*)
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+
+    // Mapeo consistente de items_presupuesto a items si es necesario
+    const formattedData = {
+      ...data,
+      items: data.items || []
+    }
+
+    return { success: true, data: formattedData }
+  } catch (error: any) {
+    console.error("Error en getPresupuestoBaseForCloneAction:", error)
+    return { success: false, message: error.message }
+  }
+}
