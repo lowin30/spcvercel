@@ -131,7 +131,7 @@ export async function saveInvoice(
 
     // Actualizar o insertar items
     if (items.length > 0) {
-      const itemsToUpsert = items.map(item => {
+      const allItemsMapped = items.map(item => {
         const obj: any = {
           id_factura: facturaId,
           descripcion: item.descripcion,
@@ -143,10 +143,27 @@ export async function saveInvoice(
         if (item.id) obj.id = item.id;
         return obj;
       });
-      const { error: upsertError } = await supabaseAdmin
-        .from('items_factura')
-        .upsert(itemsToUpsert);
-      if (upsertError) throw upsertError;
+
+      const newItems = allItemsMapped.filter(i => !i.id);
+      const existingItems = allItemsMapped.filter(i => i.id);
+
+      // 1. Insertar items nuevos (sin ID en el payload para trigger de identity)
+      if (newItems.length > 0) {
+        // Removemos la propiedad id por si acaso
+        const cleanNewItems = newItems.map(({ id, ...rest }) => rest);
+        const { error: insertError } = await supabaseAdmin
+          .from('items_factura')
+          .insert(cleanNewItems);
+        if (insertError) throw insertError;
+      }
+
+      // 2. Upsert de items existentes
+      if (existingItems.length > 0) {
+        const { error: upsertError } = await supabaseAdmin
+          .from('items_factura')
+          .upsert(existingItems);
+        if (upsertError) throw upsertError;
+      }
     }
 
     return { success: true, message: 'Factura guardada con éxito.' };
