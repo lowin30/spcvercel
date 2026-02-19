@@ -1,6 +1,7 @@
 "use server"
 
 import { createSsrServerClient } from '@/lib/ssr-server';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { z } from 'zod';
 
 // Esquema de validación para los datos que vienen del formulario
@@ -24,6 +25,20 @@ export async function saveInvoice(
 ) {
   const supabase = await createSsrServerClient();
 
+  // SECURITY SHIELD: Validar ADMIN antes de usar supabaseAdmin
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error('Usuario no autenticado');
+
+  const { data: usuario } = await supabaseAdmin
+    .from('usuarios')
+    .select('rol')
+    .eq('id', user.id)
+    .single();
+
+  if (usuario?.rol !== 'admin') {
+    throw new Error('No autorizado: Operación permitida solo para administradores');
+  }
+
   try {
     // 1. CREAR O EDITAR FACTURA
     let facturaId: number;
@@ -31,12 +46,18 @@ export async function saveInvoice(
     if (facturaIdToEdit) {
       facturaId = facturaIdToEdit;
 
-      const updatePayload: any = { total: data.total };
+      const updatePayload: any = {
+        total: data.total,
+        updated_at: new Date().toISOString()
+      };
+
       if (typeof data.id_presupuesto === 'string' && data.id_presupuesto.trim() !== '') {
-        updatePayload.id_presupuesto = Number(data.id_presupuesto);
+        const bdId = Number(data.id_presupuesto);
+        updatePayload.id_presupuesto = bdId;
+        updatePayload.id_presupuesto_final = bdId; // Sincronización Protocolo v112.1
       }
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('facturas')
         .update(updatePayload)
         .eq('id', facturaId);
@@ -81,11 +102,12 @@ export async function saveInvoice(
 
       const dataToInsert = {
         id_presupuesto: Number(data.id_presupuesto),
+        id_presupuesto_final: Number(data.id_presupuesto), // Sincronización Protocolo v112.1
         total: data.total,
         pagada: false,
         id_empresa_asignada: idEmpresaAsignada,
       };
-      const { data: newFactura, error } = await supabase
+      const { data: newFactura, error } = await supabaseAdmin
         .from('facturas')
         .insert(dataToInsert)
         .select('id')
@@ -98,16 +120,19 @@ export async function saveInvoice(
     // Obtener los IDs de los items iniciales si estamos editando
     let initialItemIds = new Set<number>();
     if (facturaIdToEdit) {
-        const { data: initialItemsData } = await supabase.from('items_factura').select('id').eq('id_factura', facturaIdToEdit);
-        initialItemIds = new Set(initialItemsData?.map(i => i.id) || []);
+      const { data: initialItemsData } = await supabase.from('items_factura').select('id').eq('id_factura', facturaIdToEdit);
+      initialItemIds = new Set(initialItemsData?.map(i => i.id) || []);
     }
-    
+
     const currentItemIds = new Set(items.map(item => item.id).filter((id): id is number => id !== undefined));
 
     // Eliminar items que ya no están
     const idsToDelete = [...initialItemIds].filter(id => !currentItemIds.has(id));
     if (idsToDelete.length > 0) {
-      const { error: deleteError } = await supabase.from('items_factura').delete().in('id', idsToDelete);
+      const { error: deleteError } = await supabaseAdmin
+        .from('items_factura')
+        .delete()
+        .in('id', idsToDelete);
       if (deleteError) throw deleteError;
     }
 
@@ -120,8 +145,11 @@ export async function saveInvoice(
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
         subtotal_item: item.subtotal_item,
+        es_material: false, // Integridad Protocolo v112.1
       }));
-      const { error: upsertError } = await supabase.from('items_factura').upsert(itemsToUpsert);
+      const { error: upsertError } = await supabaseAdmin
+        .from('items_factura')
+        .upsert(itemsToUpsert);
       if (upsertError) throw upsertError;
     }
 
