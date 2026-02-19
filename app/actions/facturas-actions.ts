@@ -208,3 +208,61 @@ export async function deleteInvoice(invoiceId: number) {
         return { success: false, message: error.message };
     }
 }
+
+/**
+ * Desaprueba un presupuesto final de forma segura.
+ * Solo permitido si NO tiene facturas asociadas.
+ */
+export async function desaprobarPresupuesto(presupuestoId: number) {
+    try {
+        await _checkRole('admin');
+
+        if (!presupuestoId) throw new Error('ID requerido');
+
+        // 1. Verificar existencia de facturas
+        const { count, error: countError } = await supabase
+            .from('facturas')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_presupuesto_final', presupuestoId);
+
+        if (countError) throw new Error(`Error verificando facturas: ${countError.message}`);
+
+        if (count && count > 0) {
+            throw new Error('No se puede desaprobar un presupuesto que ya tiene facturas. Elimine las facturas primero desde el panel de facturación.');
+        }
+
+        // 2. Obtener estado 'enviado' (2) como destino para revisión
+        const targetEstadoId = 2; // Enviado
+
+        // 3. Update Budget
+        const { error: updateError } = await supabase
+            .from('presupuestos_finales')
+            .update({
+                aprobado: false,
+                rechazado: false,
+                id_estado: targetEstadoId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', presupuestoId);
+
+        if (updateError) throw new Error(`Error al actualizar presupuesto: ${updateError.message}`);
+
+        // 4. Update Tarea state if needed
+        const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea').eq('id', presupuestoId).single();
+        if (pf?.id_tarea) {
+            const { data: estadoTarea } = await supabase.from('estados_tareas').select('id').eq('codigo', 'presupuestado').single();
+            if (estadoTarea) {
+                await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea);
+            }
+        }
+
+        revalidatePath('/dashboard/presupuestos', 'layout');
+        if (pf?.id_tarea) revalidatePath(`/dashboard/tareas/${pf.id_tarea}`, 'layout');
+
+        return { success: true, message: 'Presupuesto desaprobado correctamente.' };
+
+    } catch (error: any) {
+        console.error('[DESAPROBAR] ERROR:', error);
+        return { success: false, message: error.message };
+    }
+}
