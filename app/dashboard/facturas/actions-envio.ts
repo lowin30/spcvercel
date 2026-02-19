@@ -1,6 +1,7 @@
 "use server"
 
-import { createSsrServerClient } from "@/lib/ssr-server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { revalidatePath } from "next/cache"
 
 /**
@@ -8,48 +9,24 @@ import { revalidatePath } from "next/cache"
  * Actualiza enviada = true y registra fecha_envio
  */
 export async function marcarFacturaComoEnviada(facturaId: number) {
+  // SECURITY SHIELD v2.0
+  const user = await validateSessionAndGetUser();
+  if (user.rol !== 'admin' && user.rol !== 'supervisor') {
+    throw new Error('No autorizado: Operación permitida solo para administradores o supervisores');
+  }
+
   try {
-    const supabase = await createSsrServerClient()
-    
-    // Verificar autenticación
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return {
-        success: false,
-        message: "No autenticado"
-      }
-    }
-    
-    // Verificar que el usuario es admin o supervisor
-    const { data: userData, error: userError } = await supabase
-      .from("usuarios")
-      .select("rol")
-      .eq("id", user.id)
-      .single()
-    
-    if (userError || !userData) {
-      return {
-        success: false,
-        message: "Error al verificar permisos"
-      }
-    }
-    
-    if (userData.rol !== "admin" && userData.rol !== "supervisor") {
-      return {
-        success: false,
-        message: "No tienes permisos para realizar esta acción"
-      }
-    }
-    
+
+
     // Obtener el ID del estado "enviado"
-    const { data: estadoEnviado } = await supabase
+    const { data: estadoEnviado } = await supabaseAdmin
       .from("estados_facturas")
       .select("id")
       .eq("codigo", "enviado")
       .single()
-    
+
     // Actualizar la factura como enviada y cambiar su estado
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("facturas")
       .update({
         enviada: true,
@@ -58,7 +35,7 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
       })
       .eq("id", facturaId)
       .select()
-    
+
     if (error) {
       console.error("Error al marcar factura como enviada:", error)
       return {
@@ -66,22 +43,22 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
         message: `Error: ${error.message}`
       }
     }
-    
+
     if (!data || data.length === 0) {
       return {
         success: false,
         message: "Factura no encontrada"
       }
     }
-    
+
     let tareaIdFromPf: number | null = null
-    
+
     // Intentar actualizar el Presupuesto Final relacionado a estado 'facturado'
     try {
       const pfIdDirect = (data?.[0] as any)?.id_presupuesto_final
       let pfId = pfIdDirect
       if (!pfId) {
-        const { data: row } = await supabase
+        const { data: row } = await supabaseAdmin
           .from('facturas')
           .select('id_presupuesto_final')
           .eq('id', facturaId)
@@ -89,19 +66,19 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
         pfId = (row as any)?.id_presupuesto_final
       }
       if (pfId) {
-        const { data: pfRow } = await supabase
+        const { data: pfRow } = await supabaseAdmin
           .from('presupuestos_finales')
           .select('id_tarea')
           .eq('id', pfId)
           .maybeSingle()
         tareaIdFromPf = (pfRow as any)?.id_tarea ?? null
-        const { data: estadoFacturado } = await supabase
+        const { data: estadoFacturado } = await supabaseAdmin
           .from('estados_presupuestos')
           .select('id')
           .eq('codigo', 'facturado')
           .maybeSingle()
         if (estadoFacturado?.id) {
-          const { error: updPfErr } = await supabase
+          const { error: updPfErr } = await supabaseAdmin
             .from('presupuestos_finales')
             .update({ id_estado: estadoFacturado.id, updated_at: new Date().toISOString() })
             .eq('id', pfId)
@@ -109,13 +86,13 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
             console.error('Error al actualizar presupuesto_final a facturado:', updPfErr)
           }
           if (tareaIdFromPf) {
-            const { data: estadoTareaFacturado } = await supabase
+            const { data: estadoTareaFacturado } = await supabaseAdmin
               .from('estados_tareas')
               .select('id')
               .eq('codigo', 'facturado')
               .maybeSingle()
             if (estadoTareaFacturado?.id) {
-              const { error: updTareaErr } = await supabase
+              const { error: updTareaErr } = await supabaseAdmin
                 .from('tareas')
                 .update({ id_estado_nuevo: estadoTareaFacturado.id, updated_at: new Date().toISOString() })
                 .eq('id', tareaIdFromPf)
@@ -129,7 +106,7 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
     } catch (e) {
       console.error('Error al sincronizar estado de presupuesto/tarea tras enviar factura:', e)
     }
-    
+
     // Revalidar las páginas relevantes
     revalidatePath("/dashboard/facturas")
     revalidatePath(`/dashboard/facturas/${facturaId}`)
@@ -138,7 +115,7 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
     if (tareaIdFromPf) {
       revalidatePath(`/dashboard/tareas/${tareaIdFromPf}`)
     }
-    
+
     return {
       success: true,
       message: "Factura marcada como enviada exitosamente"
