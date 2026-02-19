@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { createClient } from "@/lib/supabase-client"
+import { createDepartamentoAction } from "@/app/dashboard/tareas/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -113,123 +114,60 @@ export function QuickDeptCreateForm({
         }
 
         setIsSubmitting(true)
-        const supabase = createClient()
 
         try {
-            // 1. Check Department Duplicate (Pre-check)
-            const { data: existingDept } = await supabase
-                .from("departamentos")
-                .select("id")
-                .eq("edificio_id", selectedEdificioId)
-                .eq("codigo", codigo.trim())
-                .maybeSingle()
-
-            if (existingDept) {
-                toast.error(`Ya existe un departamento con el código "${codigo}"`)
-                setIsSubmitting(false)
-                return
+            // 1. Prepare Unified Payload
+            const deptPayload = {
+                deptData: {
+                    edificio_id: selectedEdificioId,
+                    codigo: codigo.trim()
+                },
+                contactosData: contactos
+                    .filter(c => c.nombre.trim() !== "")
+                    .map(c => ({
+                        nombre: c.nombre,
+                        relacion: c.relacion,
+                        numero: c.numero,
+                        sin_telefono: c.sin_telefono
+                    }))
             }
 
-            // 2. Insert Department
-            const { data: newDept, error: deptError } = await supabase
-                .from("departamentos")
-                .insert({
-                    edificio_id: selectedEdificioId,
-                    codigo: codigo.trim().toUpperCase(),
-                    // Notas/Propietario are optional/omitted in this quick form
-                })
-                .select()
-                .single()
+            // 2. Execute Unified Server Action (The Shield)
+            const result = await createDepartamentoAction(deptPayload)
 
-            if (deptError) throw deptError
+            if (!result.success) {
+                throw new Error(result.error?.message || "Error al crear el departamento")
+            }
 
-            // 3. Insert Contacts (if any valid data)
-            const validContacts = contactos.filter(c => c.nombre.trim() !== "")
+            const newDept = result.data
 
+            // 3. Google Sync (Client Side Flow - Fire and Forget)
+            const validContacts = deptPayload.contactosData
             if (validContacts.length > 0) {
-                // Fetch Building Name for Slugs (Once)
+                // Fetch Building Name for Slugs (Once) - We need edName for Google Sync
+                const supabase = createClient()
                 const { data: edData } = await supabase.from("edificios").select("nombre").eq("id", selectedEdificioId).single()
                 const edName = edData?.nombre || "Edificio"
                 const depCode = newDept.codigo
 
-                // Prepare Insert Promises
-                const contactPayloads = await Promise.all(validContacts.map(async (c, index) => {
-                    const nombreSanitized = sanitizeText(c.nombre)
-                    const relacionSanitized = sanitizeText(c.relacion) || "Otro"
-
-                    // Slug Generation Logic (Copied from UnifiedDeptContactForm)
-                    const normalizeForSlug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, 'n').replace(/\s+/g, '-')
-                    const slugBase = `${normalizeForSlug(edName)}-${normalizeForSlug(depCode)}-${normalizeForSlug(nombreSanitized)}`
-
-                    // Check duplicate slug
-                    const { data: existingSlug } = await supabase.from("contactos").select("id").eq("nombre", slugBase).maybeSingle()
-
-                    let finalSlug = slugBase
-                    if (existingSlug) {
-                        finalSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`
-                    } else if (index > 0) {
-                        // If we are inserting multiple same names in same batch (rare but possible: 'Juan' and 'Juan'),
-                        // the raw slugBase would be identical.
-                        // We should probably append index or random if batching.
-                        // Let's just append random always for batch safety if names are identical?
-                        // Or just checking db is enough? DB check might valid for first, but second in batch hasn't hit DB yet?
-                        // Actually, 'insert' accepts array. But checking duplicates one by one vs batch is tricky.
-                        // Let's do sequential or Map check.
-                        // Simplest: If map sees duplicate slug base, append index.
-                    }
-
-                    return {
-                        nombre: finalSlug,
-                        nombreReal: nombreSanitized,
-                        telefono: c.sin_telefono ? null : c.numero.replace(/\D/g, ''),
-                        tipo_padre: 'edificio',
-                        id_padre: selectedEdificioId,
-                        departamento: depCode,
-                        departamento_id: newDept.id,
-                        relacion: relacionSanitized,
-                        es_principal: index === 0, // First one is main by default
-                        notas: "",
-                        updated_at: new Date().toISOString()
-                    }
-                }))
-
-                // Handle basic batch collision (same name twice in list)
-                const usedSlugs = new Set()
-                const uniquePayloads = contactPayloads.map(p => {
-                    let s = p.nombre
-                    while (usedSlugs.has(s)) {
-                        s = `${s}-${Math.random().toString(36).substring(2, 5)}`
-                    }
-                    usedSlugs.add(s)
-                    return { ...p, nombre: s }
-                })
-
-                const { error: contactsError } = await supabase.from("contactos").insert(uniquePayloads)
-                if (contactsError) {
-                    console.error("Error saving contacts", contactsError)
-                    toast.error("El departamento se creó, pero hubo error al guardar contactos.")
-                    // Don't blocking flow, department exists.
-                } else {
-                    // Trigger Google Sync for each contact? Or batch?
-                    // Sync loop (Fire and forget)
-                    uniquePayloads.forEach(p => {
-                        if (p.telefono) {
-                            const googlePayload = {
-                                edificio: edName,
-                                depto: depCode,
-                                nombre: p.nombreReal,
-                                relacion: p.relacion,
-                                telefonos: [p.telefono],
-                                emails: []
-                            }
-                            fetch('/api/contactos/sync-google', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ contactData: googlePayload })
-                            }).catch(err => console.error("Sync silent fail", err))
+                validContacts.forEach(c => {
+                    const tel = c.sin_telefono ? null : c.numero.replace(/\D/g, '')
+                    if (tel) {
+                        const googlePayload = {
+                            edificio: edName,
+                            depto: depCode,
+                            nombre: c.nombre,
+                            relacion: c.relacion,
+                            telefonos: [tel],
+                            emails: []
                         }
-                    })
-                }
+                        fetch('/api/contactos/sync-google', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contactData: googlePayload })
+                        }).catch(err => console.error("Sync silent fail", err))
+                    }
+                })
             }
 
             toast.success(`Departamento ${newDept.codigo} creado exitosamente`)

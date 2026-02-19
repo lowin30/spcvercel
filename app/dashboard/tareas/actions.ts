@@ -445,6 +445,16 @@ export async function createDepartamentoAction(payload: any) {
 
     const cleanCodigo = deptData.codigo.trim().replace(/\s+/g, ' ').toUpperCase();
 
+    // 1. Obtener nombre del edificio para slugs de contactos
+    const { data: edData } = await supabaseAdmin
+      .from("edificios")
+      .select("nombre")
+      .eq("id", deptData.edificio_id)
+      .single()
+
+    const edName = edData?.nombre || "Edificio"
+
+    // 2. Insertar Departamento
     const { data: newDept, error: deptError } = await supabaseAdmin
       .from("departamentos")
       .insert({
@@ -456,23 +466,44 @@ export async function createDepartamentoAction(payload: any) {
       .select()
       .single()
 
-    if (deptError) throw new Error(deptError.message)
+    if (deptError) {
+      if (deptError.code === '23505') throw new Error(`Ya existe un departamento con el código "${cleanCodigo}"`)
+      throw new Error(deptError.message)
+    }
 
+    // 3. Insertar Contactos (si hay)
     if (contactosData && contactosData.length > 0) {
-      const contactosPayload = contactosData.map((c: any) => ({
-        nombre: sanitizeText(c.nombre),
-        nombreReal: sanitizeText(c.nombreReal),
-        telefono: c.telefono ? sanitizeText(c.telefono) : null,
-        id_padre: deptData.edificio_id,
-        tipo_padre: 'edificio',
-        departamento: newDept.codigo,
-        departamento_id: newDept.id,
-        relacion: c.relacion ? sanitizeText(c.relacion) : 'Otro',
-        es_principal: !!c.es_principal,
-        updated_at: new Date().toISOString()
+      const normalizeForSlug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, 'n').replace(/\s+/g, '-')
+
+      const contactosPayload = await Promise.all(contactosData.map(async (c: any, index: number) => {
+        const nombreSanitized = sanitizeText(c.nombre)
+        const relacionSanitized = sanitizeText(c.relacion) || "Otro"
+
+        // Generación de Slug (Backend side)
+        const slugBase = `${normalizeForSlug(edName)}-${normalizeForSlug(newDept.codigo)}-${normalizeForSlug(nombreSanitized)}`
+
+        // Verificar duplicado de slug de forma básica (pueden haber colisiones en lote si son nombres idénticos)
+        let finalSlug = slugBase
+        if (index > 0) {
+          finalSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`
+        }
+
+        return {
+          nombre: finalSlug,
+          nombreReal: nombreSanitized,
+          telefono: c.sin_telefono ? null : (c.numero || '').replace(/\D/g, ''),
+          id_padre: deptData.edificio_id,
+          tipo_padre: 'edificio',
+          departamento: newDept.codigo,
+          departamento_id: newDept.id,
+          relacion: relacionSanitized,
+          es_principal: index === 0,
+          updated_at: new Date().toISOString()
+        }
       }))
 
-      await supabaseAdmin.from("contactos").insert(contactosPayload)
+      const { error: contactsError } = await supabaseAdmin.from("contactos").insert(contactosPayload)
+      if (contactsError) console.error("Error inserting contacts in server action:", contactsError)
     }
 
     revalidatePath('/dashboard/tareas')
