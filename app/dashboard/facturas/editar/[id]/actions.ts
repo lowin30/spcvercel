@@ -41,8 +41,7 @@ export async function saveInvoice(
       facturaId = facturaIdToEdit;
 
       const updatePayload: any = {
-        total: data.total,
-        updated_at: new Date().toISOString()
+        total: data.total
       };
 
       if (typeof data.id_presupuesto === 'string' && data.id_presupuesto.trim() !== '') {
