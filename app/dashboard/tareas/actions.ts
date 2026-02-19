@@ -773,25 +773,39 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
 
     // logica para generar facturas si es presupuesto final
     if (tipo === 'final') {
-      console.log("server action: generando facturas para pf", id)
+      console.log(`[APPROVE] PF ${id} aprobado. Iniciando conversión a facturas...`)
       const { convertirPresupuestoADosFacturas } = await import("@/app/dashboard/presupuestos-finales/actions-factura")
-      const result = await convertirPresupuestoADosFacturas(id)
 
-      if (result && !result.success) {
-        // ROLLBACK approval if invoice creation fails to maintain consistency
-        await supabaseAdmin
-          .from(tabla)
-          .update({ aprobado: false })
-          .eq('id', id)
+      try {
+        const result = await convertirPresupuestoADosFacturas(id)
+        console.log(`[APPROVE] Resultado conversión PF ${id}:`, result)
 
-        return { success: false, message: `Facturación fallida: ${result.message}` }
+        if (!result || result.success === false) {
+          const errMsg = result?.message || "Error desconocido en conversión"
+          console.error(`[APPROVE] Conversión fallida para PF ${id}: ${errMsg}. Realizando ROLLBACK...`)
+
+          // ROLLBACK approval if invoice creation fails to maintain consistency
+          await supabaseAdmin
+            .from(tabla)
+            .update({ aprobado: false })
+            .eq('id', id)
+
+          return { success: false, message: `Facturación fallida: ${errMsg}` }
+        }
+
+        console.log(`[APPROVE] PF ${id} facturado exitosamente.`)
+      } catch (convError: any) {
+        console.error(`[APPROVE] Excepción crítica durante conversión de PF ${id}:`, convError)
+        // Rollback safety
+        await supabaseAdmin.from(tabla).update({ aprobado: false }).eq('id', id)
+        throw convError // Rethrow to main catch
       }
     }
 
     revalidatePath(`/dashboard/tareas/${taskId}`)
     return { success: true }
   } catch (error: any) {
-    console.error("aprobar presupuesto action error:", error)
+    console.error("aprobar presupuesto action error fatal:", error)
     return { success: false, message: error.message }
   }
 }

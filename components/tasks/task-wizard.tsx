@@ -228,8 +228,8 @@ export function TaskWizard({
 
             if (deptosCodes) newTitle += ` ${deptosCodes}`
 
-            // Solo actualizar si el título está vacío o empieza con el nombre del edificio (para no borrar ediciones manuales completas)
             setFormData(prev => {
+                // Solo actualizar si el título está vacío o empieza con el nombre del edificio
                 if (!prev.titulo || prev.titulo.startsWith(edificio?.nombre || '')) {
                     if (prev.titulo === newTitle) return prev
                     return { ...prev, titulo: newTitle }

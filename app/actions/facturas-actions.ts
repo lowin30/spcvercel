@@ -111,21 +111,38 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         if (!facRegular && !facMaterial) throw new Error('No se generaron facturas (sin items validos).');
 
         // 5. Update State
-        // Buscar estado 'facturado' por codigo si es posible, o usar ID conocido (hardcoded fallback to prevent lookup fail blocking flow if seeds exist)
-        // Better: fetch id
-        const { data: estadoFacturado } = await supabase.from('estados_presupuestos').select('id').eq('codigo', 'facturado').single();
-        if (estadoFacturado) {
-            await supabase.from('presupuestos_finales').update({ id_estado: estadoFacturado.id, aprobado: true }).eq('id', presupuestoId);
+        console.log(`[CONVERT] Buscando estado 'facturado'...`);
+        const { data: estadoFacturado, error: stateFetchError } = await supabase.from('estados_presupuestos').select('id').eq('codigo', 'facturado').single();
+
+        if (stateFetchError || !estadoFacturado) {
+            console.warn(`[CONVERT] No se encontró el estado 'facturado' en la DB. Saltando actualización de estado del presupuesto.`);
+        } else {
+            console.log(`[CONVERT] Actualizando estado del PF ${presupuestoId} a 'facturado' (ID: ${estadoFacturado.id})...`);
+            const { error: pfUpdateError } = await supabase.from('presupuestos_finales')
+                .update({
+                    id_estado: estadoFacturado.id,
+                    aprobado: true,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', presupuestoId);
+
+            if (pfUpdateError) {
+                console.error(`[CONVERT] Error actualizando estado del PF: ${pfUpdateError.message}`);
+                // No lanzamos error para no romper la facturación si ya se crearon las facturas, 
+                // pero lo reportamos en el log.
+            }
         }
 
         // 6. Revalidate
+        console.log(`[CONVERT] Revalidando rutas...`);
         revalidatePath('/dashboard/presupuestos', 'layout');
         revalidatePath('/dashboard/facturas', 'layout');
+        revalidatePath(`/dashboard/tareas/${presupuesto.id_tarea}`, 'layout');
 
         return { success: true, message: 'Facturas generadas y calculadas correctamente.' };
 
     } catch (error: any) {
-        console.error('SERVER ACTION ERROR:', error);
+        console.error('[CONVERT] SERVER ACTION ERROR CRITICO:', error);
         return { success: false, message: error.message };
     }
 }
