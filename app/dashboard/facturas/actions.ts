@@ -1,6 +1,8 @@
 "use server"
 
 import { createSsrServerClient } from '@/lib/ssr-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
 
 // Función para actualizar el campo es_material de un ítem de factura
@@ -35,11 +37,15 @@ export async function deleteInvoice(invoiceId: number) {
     return { success: false, message: 'ID de factura no proporcionado.' }
   }
 
-  const supabase = await createSsrServerClient()
+  // SECURITY SHIELD v2.0
+  const user = await validateSessionAndGetUser();
+  if (user.rol !== 'admin') {
+    throw new Error('No autorizado: Operación permitida solo para administradores');
+  }
 
   try {
     // 1. Verificar si hay pagos asociados
-    const { data: payments, error: paymentsError } = await supabase
+    const { data: payments, error: paymentsError } = await supabaseAdmin
       .from('pagos_facturas')
       .select('id')
       .eq('id_factura', invoiceId)
@@ -55,7 +61,7 @@ export async function deleteInvoice(invoiceId: number) {
     }
 
     // Obtener el ID del presupuesto final asociado a esta factura
-    const { data: facturaData, error: facturaError } = await supabase
+    const { data: facturaData, error: facturaError } = await supabaseAdmin
       .from('facturas')
       .select('id_presupuesto_final')
       .eq('id', invoiceId)
@@ -63,13 +69,13 @@ export async function deleteInvoice(invoiceId: number) {
 
     if (facturaError) {
       console.error('Error al obtener datos de la factura:', facturaError)
-      return { success: false, message: 'Error al obtener datos de la factura.' }
+      return { success: false, message: 'Error al obtener datos de la factura (PGRST116).' }
     }
 
     const idPresupuestoFinal = facturaData?.id_presupuesto_final
 
     // 2. Obtener primero los IDs de los ítems de la factura para eliminar sus ajustes
-    const { data: itemsData, error: itemsQueryError } = await supabase
+    const { data: itemsData, error: itemsQueryError } = await supabaseAdmin
       .from('items_factura')
       .select('id')
       .eq('id_factura', invoiceId)
@@ -83,7 +89,7 @@ export async function deleteInvoice(invoiceId: number) {
     if (itemsData && itemsData.length > 0) {
       const itemIds = itemsData.map(item => item.id)
 
-      const { error: ajustesError } = await supabase
+      const { error: ajustesError } = await supabaseAdmin
         .from('ajustes_facturas')
         .delete()
         .in('id_item', itemIds)
@@ -95,7 +101,7 @@ export async function deleteInvoice(invoiceId: number) {
     }
 
     // 4. Ahora sí eliminar los items de la factura
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdmin
       .from('items_factura')
       .delete()
       .eq('id_factura', invoiceId)
@@ -106,7 +112,7 @@ export async function deleteInvoice(invoiceId: number) {
     }
 
     // 3. Eliminar la factura principal
-    const { error: invoiceError } = await supabase
+    const { error: invoiceError } = await supabaseAdmin
       .from('facturas')
       .delete()
       .eq('id', invoiceId)
@@ -119,7 +125,7 @@ export async function deleteInvoice(invoiceId: number) {
     // 4. Si hay un presupuesto asociado, verificar si quedan otras facturas
     if (idPresupuestoFinal) {
       // Verificar si quedan otras facturas asociadas al mismo presupuesto
-      const { data: facturasRestantes, error: facturasRestantesError } = await supabase
+      const { data: facturasRestantes, error: facturasRestantesError } = await supabaseAdmin
         .from('facturas')
         .select('id')
         .eq('id_presupuesto_final', idPresupuestoFinal)
@@ -132,7 +138,7 @@ export async function deleteInvoice(invoiceId: number) {
       const quedanFacturas = facturasRestantes && facturasRestantes.length > 0
 
       // Obtener la tarea asociada al presupuesto
-      const { data: presupuestoData, error: presupuestoError } = await supabase
+      const { data: presupuestoData, error: presupuestoError } = await supabaseAdmin
         .from('presupuestos_finales')
         .select('id_tarea')
         .eq('id', idPresupuestoFinal)
@@ -146,7 +152,7 @@ export async function deleteInvoice(invoiceId: number) {
         // 4.1 Actualizar el estado del presupuesto según si quedan facturas
         if (!quedanFacturas) {
           // Si NO quedan facturas, volver a estado "presupuestado" y desaprobar
-          const { error: updateError } = await supabase
+          const { error: updateError } = await supabaseAdmin
             .from('presupuestos_finales')
             .update({
               id_estado: 3,      // Estado "presupuestado"
@@ -165,7 +171,7 @@ export async function deleteInvoice(invoiceId: number) {
 
           // 4.2 Actualizar el estado de la tarea si existe
           if (idTarea) {
-            const { error: tareaError } = await supabase
+            const { error: tareaError } = await supabaseAdmin
               .from('tareas')
               .update({ id_estado_nuevo: 3 }) // Estado "presupuestado" (id: 3)
               .eq('id', idTarea)
@@ -218,14 +224,13 @@ export async function createFacturaAction(formData: {
   }[];
   notas?: string;
 }) {
-  const supabase = await createSsrServerClient()
+  // SECURITY SHIELD v2.0
+  const user = await validateSessionAndGetUser();
+  if (user.rol !== 'admin') {
+    throw new Error('No autorizado: Operación permitida solo para administradores');
+  }
 
   try {
-    // 1. Validar sesión
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { success: false, message: 'Usuario no autenticado' }
-    }
 
     // 2. Recalcular total en el servidor (Seguridad Crítica)
     // No confiamos en el total enviado por el cliente.
@@ -246,7 +251,7 @@ export async function createFacturaAction(formData: {
     }
 
     // 4. Insertar factura
-    const { data: facturaInsertada, error: invoiceError } = await supabase
+    const { data: facturaInsertada, error: invoiceError } = await supabaseAdmin
       .from('facturas')
       .insert(nuevaFactura)
       .select()
@@ -268,7 +273,7 @@ export async function createFacturaAction(formData: {
         es_material: item.es_material || false
       }))
 
-      const { error: itemsError } = await supabase
+      const { error: itemsError } = await supabaseAdmin
         .from('items_factura')
         .insert(itemsFactura)
 
