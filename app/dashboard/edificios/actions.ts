@@ -1,9 +1,15 @@
 'use server'
 
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
 import { sanitizeText, cleanCuit } from '@/lib/utils'
+
+/**
+ * EDIFICIOS ACTIONS v108.0 (Server-Side con supabaseAdmin)
+ * Usa supabaseAdmin (Service Role) para INSERT/UPDATE.
+ * Auth via validateSessionAndGetUser() (Descope).
+ */
 
 /**
  * Crea un nuevo edificio con sanitización estricta.
@@ -18,17 +24,16 @@ export async function createBuilding(data: {
     latitud?: string | number | null
     longitud?: string | number | null
 }) {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
-    )
-
-    // Validar sesión
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Validar sesión con Descope (reemplaza supabase.auth.getUser())
+    let user
+    try {
+        user = await validateSessionAndGetUser()
+    } catch {
         return { success: false, error: 'No autorizado' }
+    }
+
+    if (user.rol !== 'admin') {
+        return { success: false, error: 'Solo admins pueden crear edificios' }
     }
 
     try {
@@ -45,7 +50,7 @@ export async function createBuilding(data: {
             adminId = Number(data.id_administrador)
         }
 
-        const { data: newBuilding, error } = await supabase.from('edificios').insert({
+        const { data: newBuilding, error } = await supabaseAdmin.from('edificios').insert({
             nombre: nombreLimpio,
             direccion: direccionLimpia,
             estado: data.estado,
@@ -81,16 +86,16 @@ export async function updateBuilding(id: number, data: {
     latitud?: string | number | null
     longitud?: string | number | null
 }) {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get(name: string) { return cookieStore.get(name)?.value } } }
-    )
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Validar sesión con Descope
+    let user
+    try {
+        user = await validateSessionAndGetUser()
+    } catch {
         return { success: false, error: 'No autorizado' }
+    }
+
+    if (user.rol !== 'admin') {
+        return { success: false, error: 'Solo admins pueden actualizar edificios' }
     }
 
     try {
@@ -104,7 +109,7 @@ export async function updateBuilding(id: number, data: {
             adminId = Number(data.id_administrador)
         }
 
-        const { error } = await supabase.from('edificios').update({
+        const { error } = await supabaseAdmin.from('edificios').update({
             nombre: nombreLimpio,
             direccion: direccionLimpia,
             estado: data.estado,
