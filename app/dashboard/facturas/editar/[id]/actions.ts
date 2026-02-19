@@ -2,6 +2,7 @@
 
 import { createSsrServerClient } from '@/lib/ssr-server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { validateSessionAndGetUser } from '@/lib/auth-bridge';
 import { z } from 'zod';
 
 // Esquema de validación para los datos que vienen del formulario
@@ -23,21 +24,14 @@ export async function saveInvoice(
   items: z.infer<typeof itemSchema>[],
   facturaIdToEdit?: number
 ) {
-  const supabase = await createSsrServerClient();
+  // SECURITY SHIELD v2.0: Usar el Bridge Protocol de Descope
+  const user = await validateSessionAndGetUser();
 
-  // SECURITY SHIELD: Validar ADMIN antes de usar supabaseAdmin
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) throw new Error('Usuario no autenticado');
-
-  const { data: usuario } = await supabaseAdmin
-    .from('usuarios')
-    .select('rol')
-    .eq('id', user.id)
-    .single();
-
-  if (usuario?.rol !== 'admin') {
+  if (user.rol !== 'admin') {
     throw new Error('No autorizado: Operación permitida solo para administradores');
   }
+
+  const supabase = await createSsrServerClient();
 
   try {
     // 1. CREAR O EDITAR FACTURA
