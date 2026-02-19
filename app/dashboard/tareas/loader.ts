@@ -112,15 +112,16 @@ export async function getTareasData(filters?: TareasFilterParams) {
                 switch (view) {
                     case 'activas':
                         // organizar, preguntar, presupuestado, aprobado, facturado, reclamado, posible (1, 2, 3, 5, 6, 8, 10)
-                        query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]);
+                        // Excluir tareas marcadas como finalizadas
+                        query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]).eq('finalizada', false);
                         break;
                     case 'enviadas':
                         // enviado (4)
                         query = query.eq('id_estado_nuevo', 4);
                         break;
                     case 'finalizadas':
-                        // terminado, liquidada (7, 9)
-                        query = query.in('id_estado_nuevo', [7, 9]);
+                        // terminado, liquidada (7, 9) O cualquier tarea marcada finalizada por supervisor
+                        query = query.or('id_estado_nuevo.in.(7,9),finalizada.eq.true');
                         break;
                     case 'todas':
                         // No aplicamos filtro de estado adicional (pero respetamos seguridades de rol arriba)
@@ -172,8 +173,8 @@ export async function getTareasData(filters?: TareasFilterParams) {
                 query = query.or(`titulo.ilike.%${term}%,code.ilike.%${term}%,descripcion.ilike.%${term}%,nombre_edificio.ilike.%${term}%`)
             }
         } else {
-            // DEFAULT: Si no hay filtros en absoluto, mostrar ACTIVAS
-            query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]);
+            // DEFAULT: Si no hay filtros en absoluto, mostrar ACTIVAS (excluyendo finalizadas)
+            query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]).eq('finalizada', false);
         }
 
         const { data: tareas, error: dataError } = await query;
@@ -217,7 +218,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
         // Reutilizamos la lógica de filtrado base (sin el filtro de 'view' ni 'estado')
         let query = supabaseAdmin
             .from('vista_tareas_completa')
-            .select('id_estado_nuevo');
+            .select('id_estado_nuevo, finalizada');
 
         // Aplicamos seguridad por rol
         if (rol === 'admin') {
@@ -276,9 +277,16 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         tareas.forEach(t => {
             const id = t.id_estado_nuevo
-            if ([1, 2, 3, 5, 6, 8, 10].includes(id)) counts.activas++
-            else if (id === 4) counts.enviadas++
-            else if ([7, 9].includes(id)) counts.finalizadas++
+            // Si el supervisor la marcó como finalizada, va a "finalizadas" sin importar el estado
+            if (t.finalizada === true) {
+                counts.finalizadas++
+            } else if ([1, 2, 3, 5, 6, 8, 10].includes(id)) {
+                counts.activas++
+            } else if (id === 4) {
+                counts.enviadas++
+            } else if ([7, 9].includes(id)) {
+                counts.finalizadas++
+            }
         })
 
         return counts
