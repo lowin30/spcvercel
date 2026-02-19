@@ -18,6 +18,7 @@ async function _checkRole(requiredRole: string) {
  */
 export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     try {
+        console.log(`[ACTION] Iniciando facturación para presupuesto ID: ${presupuestoId}`);
         await _checkRole('admin') // SECURITY HARDENING
 
         // Validacion input
@@ -30,30 +31,32 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
             .select(`
         *,
         items (*),
-        tareas:id_tarea (titulo, edificios:id_edificio (nombre))
+        tareas:id_tarea (titulo, id_administrador, edificios:id_edificio (nombre))
       `)
             .eq('id', presupuestoId)
             .single()
 
-        if (pfError || !presupuesto) throw new Error(`Error al obtener presupuesto: ${pfError?.message || 'No encontrado'}`)
+        if (pfError) throw new Error(`Error de base de datos al obtener presupuesto ${presupuestoId}: ${pfError.message}`);
+        if (!presupuesto) throw new Error(`Presupuesto final #${presupuestoId} no encontrado.`);
+
+        console.log(`[ACTION] Datos cargados. Código: ${presupuesto.code}. Items: ${presupuesto.items?.length || 0}`);
 
         // Verificar si ya existen facturas
-        const { count } = await supabase.from('facturas').select('*', { count: 'exact', head: true }).eq('id_presupuesto_final', presupuestoId)
-        if (count && count > 0) throw new Error('Este presupuesto ya fue facturado.')
+        const { count, error: countError } = await supabase.from('facturas').select('*', { count: 'exact', head: true }).eq('id_presupuesto_final', presupuestoId)
+        if (countError) throw new Error(`Error verificando existencia de facturas: ${countError.message}`);
+        if (count && count > 0) throw new Error(`Este presupuesto (#${presupuestoId}) ya fue facturado anteriormente.`);
 
         const items = presupuesto.items || []
-        if (items.length === 0) throw new Error('El presupuesto no tiene ítems.')
+        if (items.length === 0) throw new Error(`El presupuesto #${presupuestoId} no tiene ítems cargados.`);
 
         // 2. Logic splitting (Regular vs Materiales)
         const itemsRegulares = items.filter((i: any) => !i.es_material)
         const itemsMateriales = items.filter((i: any) => i.es_material === true)
 
-        // 3. Admin lookup
-        let idAdministrador = null;
-        if (presupuesto.id_tarea) {
-            const { data: tarea } = await supabase.from('vista_tareas_completa').select('id_administrador').eq('id', presupuesto.id_tarea).single()
-            idAdministrador = tarea?.id_administrador
-        }
+        // 3. Admin lookup (Optimized: already fetched in the initial query join)
+        const idAdministrador = presupuesto.tareas?.id_administrador || presupuesto.id_administrador;
+
+        console.log(`[ACTION] Admin ID: ${idAdministrador}. Items Regulares: ${itemsRegulares.length}, Materiales: ${itemsMateriales.length}`);
 
         // Naming & Codes
         const nombreBase = presupuesto.tareas?.titulo || (presupuesto.tareas?.edificios?.nombre ? `Trabajo en ${presupuesto.tareas.edificios.nombre}` : `Presupuesto ${presupuesto.code}`);

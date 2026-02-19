@@ -15,7 +15,7 @@ const supabaseAdmin = createClient(
   }
 )
 
-export async function approvePresupuestoBase(id: number) {
+export async function aprobarPresupuestoBase(id: number) {
   try {
     const user = await validateSessionAndGetUser()
     const { rol } = user
@@ -32,12 +32,6 @@ export async function approvePresupuestoBase(id: number) {
         .eq('id', id)
         .single()
 
-      // Fix type error: pb.tareas is an array or object depending on relationship. 
-      // Assuming 1:1 or N:1, it implies an object.
-      // But Typescript might complain if it thinks it's an array.
-      // supabase-js logic: select('tareas(...)') -> tareas: { ... } or [...]
-      // Let's cast to any to avoid friction or verify structure. 
-      // Assuming standard relationship:
       const tareaSupId = (pb as any)?.tareas?.id_supervisor
 
       if (!pb || tareaSupId !== user.id) {

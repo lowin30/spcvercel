@@ -315,7 +315,10 @@ export function QuickDeptCreateForm({
                         id="dept-code"
                         value={codigo}
                         onChange={(e) => setCodigo(e.target.value)}
-                        onBlur={(e) => setCodigo(sanitizeText(e.target.value))}
+                        onBlur={() => {
+                            const cleaned = codigo.trim().replace(/\s+/g, ' ').toUpperCase();
+                            setCodigo(cleaned);
+                        }}
                         placeholder="Ej: 1A, PB, LOCAL-3"
                         className={isChatVariant ? "text-base font-medium h-9" : "text-lg font-medium h-12"}
                         autoFocus

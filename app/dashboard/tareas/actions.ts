@@ -438,18 +438,20 @@ export async function createDepartamentoAction(payload: any) {
 
     const { deptData, contactosData } = payload
 
-    if (!deptData || !deptData.nombre || !deptData.id_edificio) {
+    // Sanitización agresiva (El Escudo)
+    if (!deptData || !deptData.codigo || !deptData.edificio_id) {
       throw new Error("datos del departamento incompletos")
     }
+
+    const cleanCodigo = deptData.codigo.trim().replace(/\s+/g, ' ').toUpperCase();
 
     const { data: newDept, error: deptError } = await supabaseAdmin
       .from("departamentos")
       .insert({
-        nombre: sanitizeText(deptData.nombre),
-        id_edificio: deptData.id_edificio,
-        code: sanitizeText(deptData.code || ''),
-        piso: deptData.piso ? sanitizeText(deptData.piso) : null,
-        departamento: deptData.departamento ? sanitizeText(deptData.departamento) : null
+        edificio_id: deptData.edificio_id,
+        codigo: cleanCodigo,
+        propietario: deptData.propietario ? sanitizeText(deptData.propietario) : null,
+        notas: deptData.notas ? sanitizeText(deptData.notas) : null
       })
       .select()
       .single()
@@ -460,16 +462,13 @@ export async function createDepartamentoAction(payload: any) {
       const contactosPayload = contactosData.map((c: any) => ({
         nombre: sanitizeText(c.nombre),
         nombreReal: sanitizeText(c.nombreReal),
-        email: c.email ? sanitizeText(c.email) : null,
         telefono: c.telefono ? sanitizeText(c.telefono) : null,
-        id_tipo_contacto: c.id_tipo_contacto || 1,
-        id_edificio: deptData.id_edificio,
-        id_departamento: newDept.id,
-        relacion: c.relacion ? sanitizeText(c.relacion) : null,
-        es_principal: !!c.es_principal,
+        id_padre: deptData.edificio_id,
         tipo_padre: 'edificio',
-        id_padre: deptData.id_edificio,
         departamento: newDept.codigo,
+        departamento_id: newDept.id,
+        relacion: c.relacion ? sanitizeText(c.relacion) : 'Otro',
+        es_principal: !!c.es_principal,
         updated_at: new Date().toISOString()
       }))
 
@@ -477,11 +476,11 @@ export async function createDepartamentoAction(payload: any) {
     }
 
     revalidatePath('/dashboard/tareas')
-    return { data: newDept, error: null }
+    return { success: true, data: newDept, error: null }
 
   } catch (error: any) {
     console.error("create dept action error:", error)
-    return { data: null, error: { message: error.message } }
+    return { success: false, data: null, error: { message: error.message } }
   }
 }
 
@@ -657,10 +656,12 @@ export async function getDepartamentosAction(edificioId?: number) {
     return { success: true, data };
   } catch (e: any) { return { success: false, message: e.message, data: [] } }
 }
-export async function getEdificiosAction() {
+export async function getEdificiosAction(adminId?: number) {
   try {
     await validateSessionAndGetUser();
-    const { data, error } = await supabaseAdmin.from('edificios').select('id, nombre, direccion').order('nombre');
+    let q = supabaseAdmin.from('edificios').select('id, nombre, direccion');
+    if (adminId) q = q.eq('id_administrador', adminId);
+    const { data, error } = await q.order('nombre');
     if (error) throw error;
     return { success: true, data };
   } catch (e: any) { return { success: false, message: e.message, data: [] } }
@@ -743,7 +744,17 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
     if (tipo === 'final') {
       console.log("server action: generando facturas para pf", id)
       const { convertirPresupuestoADosFacturas } = await import("@/app/dashboard/presupuestos-finales/actions-factura")
-      await convertirPresupuestoADosFacturas(id)
+      const result = await convertirPresupuestoADosFacturas(id)
+
+      if (result && !result.success) {
+        // ROLLBACK approval if invoice creation fails to maintain consistency
+        await supabaseAdmin
+          .from(tabla)
+          .update({ aprobado: false })
+          .eq('id', id)
+
+        return { success: false, message: `Facturación fallida: ${result.message}` }
+      }
     }
 
     revalidatePath(`/dashboard/tareas/${taskId}`)
