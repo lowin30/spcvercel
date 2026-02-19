@@ -28,7 +28,7 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
     const [filtroAdmin, setFiltroAdmin] = useState<number | null>(null)
     const [filtroEdificio, setFiltroEdificio] = useState<number | null>(null)
     const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
-    const [vistaActual, setVistaActual] = useState<'todas' | 'pendientes' | 'pagadas' | 'vencidas'>('pendientes')
+    const [vistaActual, setVistaActual] = useState<'borrador' | 'pendientes' | 'pagadas' | 'todas'>('borrador')
 
     // Derived Data (Client-side filtering of the server dataset)
     // NOTE: For large datasets, this should be server-side params. Assuming fit-in-memory for now per Protocol "Bridge" phase 1.
@@ -43,19 +43,14 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
     const filteredFacturas = useMemo(() => {
         return safeFacturas.filter(invoice => {
             // 1. Tab Logic
-            if (vistaActual === 'pendientes') {
-                if (invoice.pagada) return false;
+            if (vistaActual === 'borrador') {
+                if (invoice.id_estado_nuevo !== 1) return false;
+            } else if (vistaActual === 'pendientes') {
                 if ((invoice.saldo_pendiente ?? 0) <= 0) return false;
-                if (!filtroEstado && invoice.id_estado_nuevo === 5) return false; // Hide 'Pagado' state if no specific filter
             } else if (vistaActual === 'pagadas') {
-                if (!invoice.pagada) return false;
-            } else if (vistaActual === 'vencidas') {
-                if (invoice.id_estado_nuevo !== 4) return false;
-            } else if (vistaActual === 'todas') {
-                if (invoice.pagada) return false;
-                if ((invoice.saldo_pendiente ?? 0) <= 0) return false;
-                if (!filtroEstado && invoice.id_estado_nuevo === 5) return false;
+                if ((invoice.saldo_pendiente ?? 0) > 0) return false;
             }
+            // 'todas' → sin filtro de tab
 
             // 2. Admin Filter
             if (filtroAdmin && invoice.id_administrador !== filtroAdmin) return false;
@@ -85,11 +80,11 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
     }, [safeFacturas, vistaActual, filtroAdmin, filtroEdificio, filtroEstado, searchQuery]);
 
     // Totals
+    const totalBorrador = safeFacturas.filter(f => f.id_estado_nuevo === 1).length
+    const totalPendientes = safeFacturas.filter(f => (f.saldo_pendiente ?? 0) > 0).length
+    const totalPagadas = safeFacturas.filter(f => (f.saldo_pendiente ?? 0) <= 0).length
     const totalFacturas = safeFacturas.length
-    const totalPendientes = safeFacturas.filter(f => !f.pagada).length
-    const totalPagadas = safeFacturas.filter(f => f.pagada).length
-    const totalVencidas = safeFacturas.filter(f => f.id_estado_nuevo === 4).length
-    const saldoTotalPendiente = filteredFacturas.filter(f => !f.pagada).reduce((sum, f) => sum + (f.saldo_pendiente || 0), 0)
+    const saldoTotalPendiente = filteredFacturas.filter(f => (f.saldo_pendiente ?? 0) > 0).reduce((sum, f) => sum + (parseFloat(String(f.saldo_pendiente)) || 0), 0)
 
     // Export Data formatting
     const facturasExport = filteredFacturas.map(f => ({
@@ -158,11 +153,19 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
 
             {/* Tabs */}
             <Tabs value={vistaActual} onValueChange={(v: any) => setVistaActual(v)}>
-                <TabsList className="w-full grid grid-cols-2 sm:flex">
-                    <TabsTrigger value="todas">📋 Todas <span className="ml-1 text-xs bg-muted rounded-full px-2">{totalFacturas}</span></TabsTrigger>
-                    <TabsTrigger value="pendientes">⏳ Pendientes <span className="ml-1 text-xs bg-yellow-100 text-yellow-800 rounded-full px-2">{totalPendientes}</span></TabsTrigger>
-                    <TabsTrigger value="pagadas">✅ Pagadas <span className="ml-1 text-xs bg-green-100 text-green-800 rounded-full px-2">{totalPagadas}</span></TabsTrigger>
-                    <TabsTrigger value="vencidas">⚠️ Vencidas <span className="ml-1 text-xs bg-red-100 text-red-800 rounded-full px-2">{totalVencidas}</span></TabsTrigger>
+                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4">
+                    <TabsTrigger value="borrador" className="text-xs sm:text-sm">
+                        Borrador <span className="ml-1 text-[10px] sm:text-xs bg-muted dark:bg-muted/50 rounded-full px-1.5 sm:px-2">{totalBorrador}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="pendientes" className="text-xs sm:text-sm">
+                        Pendientes <span className="ml-1 text-[10px] sm:text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full px-1.5 sm:px-2">{totalPendientes}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="pagadas" className="text-xs sm:text-sm">
+                        Pagadas <span className="ml-1 text-[10px] sm:text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full px-1.5 sm:px-2">{totalPagadas}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="todas" className="text-xs sm:text-sm">
+                        Todas <span className="ml-1 text-[10px] sm:text-xs bg-muted dark:bg-muted/50 rounded-full px-1.5 sm:px-2">{totalFacturas}</span>
+                    </TabsTrigger>
                 </TabsList>
             </Tabs>
 
