@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { createClient } from "@/lib/supabase-client"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { AjustesList } from "@/components/ajustes-list"
 import { Search, Loader2, DollarSign, FileText, CheckCircle, Clock, CreditCard } from "lucide-react"
@@ -48,13 +47,15 @@ interface Administrador {
     nombre: string
 }
 
-export default function AjustesClient({ user }: { user: any }) {
-    // Estados principales
-    const [facturasBase, setFacturasBase] = useState<FacturaConAjuste[]>([])
-    const [todasLasFacturas, setTodasLasFacturas] = useState<FacturaConAjuste[]>([])
-    const [administradores, setAdministradores] = useState<Administrador[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+interface AjustesClientProps {
+    user: any
+    initialFacturas: FacturaConAjuste[]
+    initialAdministradores: Administrador[]
+}
+
+export default function AjustesClient({ user, initialFacturas, initialAdministradores }: AjustesClientProps) {
+    // Estados principales — inicializados con datos del Server Component
+    const [administradores] = useState<Administrador[]>(initialAdministradores)
     const [pagandoAjustes, setPagandoAjustes] = useState(false)
     const [exportandoPDF, setExportandoPDF] = useState(false)
     const [seleccionOpen, setSeleccionOpen] = useState(false)
@@ -66,104 +67,51 @@ export default function AjustesClient({ user }: { user: any }) {
     const [searchQuery, setSearchQuery] = useState<string>("")
     const [vistaActual, setVistaActual] = useState<'pendientes' | 'liquidadas' | 'calculados' | 'todas'>('pendientes')
 
-    // Cargar datos iniciales
-    useEffect(() => {
-        cargarDatos()
-    }, [filtroAdmin, vistaActual])
-
-    async function cargarDatos() {
-        try {
-            setLoading(true)
-            setError(null)
-            const supabase = createClient()
-
-            // ---------------------------------------------------------
-            // LIMPIEZA: La sesión ya fue validada por el Server Component
-            // ---------------------------------------------------------
-
-            // Cargar administradores (solo activos)
-            const { data: adminsData, error: adminsError } = await supabase
-                .from('administradores')
-                .select('id, nombre')
-                .eq('estado', 'activo')
-                .order('nombre')
-
-            if (adminsError) {
-                console.error("Error al cargar administradores:", adminsError)
-            } else {
-                setAdministradores(adminsData || [])
-            }
-
-            // Cargar facturas desde vista_facturas_completa
-            let query = supabase
-                .from('vista_facturas_completa')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .range(0, 99)
-
-            if (filtroAdmin && filtroAdmin !== 0) {
-                query = query.eq('id_administrador', filtroAdmin)
-            }
-
-            const { data: facturasData, error: facturasError } = await query
-
-            if (facturasError) {
-                console.error("Error al cargar facturas:", facturasError)
-                setError("Error al cargar las facturas")
-                setFacturasBase([])
-                setTodasLasFacturas([])
-                return
-            }
-
-            if (!facturasData || facturasData.length === 0) {
-                setFacturasBase([])
-                setTodasLasFacturas([])
-                return
-            }
-
-            setTodasLasFacturas(facturasData)
-
-            let facturasFiltradas = facturasData || []
-
-            if (vistaActual === 'pendientes') {
-                facturasFiltradas = facturasFiltradas.filter((f: any) => {
-                    const pendientes = typeof f.total_ajustes_pendientes === 'string'
-                        ? parseFloat(f.total_ajustes_pendientes)
-                        : f.total_ajustes_pendientes
-                    return pendientes > 0
-                })
-            } else if (vistaActual === 'liquidadas') {
-                facturasFiltradas = facturasFiltradas.filter((f: any) => {
-                    const liquidados = typeof f.total_ajustes_liquidados === 'string'
-                        ? parseFloat(f.total_ajustes_liquidados)
-                        : f.total_ajustes_liquidados
-                    return liquidados > 0
-                })
-            } else if (vistaActual === 'calculados') {
-                facturasFiltradas = facturasFiltradas.filter((f: any) => {
-                    const calculados = typeof f.total_ajustes_calculados === 'string'
-                        ? parseFloat(f.total_ajustes_calculados)
-                        : f.total_ajustes_calculados
-                    return calculados > 0
-                })
-            } else {
-                facturasFiltradas = facturasFiltradas.filter((f: any) => {
-                    const todos = typeof f.total_ajustes_todos === 'string'
-                        ? parseFloat(f.total_ajustes_todos)
-                        : f.total_ajustes_todos
-                    return todos > 0
-                })
-            }
-
-            setFacturasBase(facturasFiltradas)
-
-        } catch (err) {
-            console.error("Error inesperado:", err)
-            setError("Ocurrió un error inesperado")
-        } finally {
-            setLoading(false)
+    // --- DATOS: Todo el filtrado es client-side sobre los datos precargados del servidor ---
+    const todasLasFacturas = useMemo(() => {
+        let resultado = initialFacturas || []
+        // Filtro por administrador
+        if (filtroAdmin && filtroAdmin !== 0) {
+            resultado = resultado.filter(f => f.id_administrador === filtroAdmin)
         }
-    }
+        return resultado
+    }, [initialFacturas, filtroAdmin])
+
+    const facturasBase = useMemo(() => {
+        let facturasFiltradas = todasLasFacturas
+
+        if (vistaActual === 'pendientes') {
+            facturasFiltradas = facturasFiltradas.filter((f: any) => {
+                const pendientes = typeof f.total_ajustes_pendientes === 'string'
+                    ? parseFloat(f.total_ajustes_pendientes)
+                    : f.total_ajustes_pendientes
+                return pendientes > 0
+            })
+        } else if (vistaActual === 'liquidadas') {
+            facturasFiltradas = facturasFiltradas.filter((f: any) => {
+                const liquidados = typeof f.total_ajustes_liquidados === 'string'
+                    ? parseFloat(f.total_ajustes_liquidados)
+                    : f.total_ajustes_liquidados
+                return liquidados > 0
+            })
+        } else if (vistaActual === 'calculados') {
+            facturasFiltradas = facturasFiltradas.filter((f: any) => {
+                const calculados = typeof f.total_ajustes_calculados === 'string'
+                    ? parseFloat(f.total_ajustes_calculados)
+                    : f.total_ajustes_calculados
+                return calculados > 0
+            })
+        } else {
+            facturasFiltradas = facturasFiltradas.filter((f: any) => {
+                const todos = typeof f.total_ajustes_todos === 'string'
+                    ? parseFloat(f.total_ajustes_todos)
+                    : f.total_ajustes_todos
+                return todos > 0
+            })
+        }
+
+        return facturasFiltradas
+    }, [todasLasFacturas, vistaActual])
 
     const totalCalculados = todasLasFacturas.reduce((sum, f) => {
         const val = typeof f.total_ajustes_calculados === 'string' ? parseFloat(f.total_ajustes_calculados) : f.total_ajustes_calculados
@@ -318,7 +266,7 @@ export default function AjustesClient({ user }: { user: any }) {
                     document.body.removeChild(link)
                 } finally {
                     setSeleccionOpen(false)
-                    cargarDatos()
+                    router.refresh() // Re-ejecuta el Server Component para recargar datos frescos
                 }
             } else {
                 toast.error(result.error || "Error al pagar ajustes seleccionados")
@@ -572,17 +520,7 @@ export default function AjustesClient({ user }: { user: any }) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {loading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    ) : error ? (
-                        <div className="bg-red-50 text-red-800 p-4 rounded-md text-center">
-                            {error}
-                        </div>
-                    ) : (
-                        <AjustesList facturas={facturas} />
-                    )}
+                    <AjustesList facturas={facturas} />
                 </CardContent>
             </Card>
         </div>
