@@ -131,15 +131,18 @@ export async function saveInvoice(
 
     // Actualizar o insertar items
     if (items.length > 0) {
-      const itemsToUpsert = items.map(item => ({
-        id: item.id,
-        id_factura: facturaId,
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario,
-        subtotal_item: item.subtotal_item,
-        es_material: false, // Integridad Protocolo v112.1
-      }));
+      const itemsToUpsert = items.map(item => {
+        const obj: any = {
+          id_factura: facturaId,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          subtotal_item: item.subtotal_item,
+          es_material: false, // Integridad Protocolo v112.1
+        };
+        if (item.id) obj.id = item.id;
+        return obj;
+      });
       const { error: upsertError } = await supabaseAdmin
         .from('items_factura')
         .upsert(itemsToUpsert);
