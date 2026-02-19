@@ -111,20 +111,16 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
                 switch (view) {
                     case 'activas':
-                        // organizar, preguntar, presupuestado, reclamado, posible (1, 2, 3, 8, 10)
-                        query = query.in('id_estado_nuevo', [1, 2, 3, 8, 10]);
-                        break;
-                    case 'aprobadas':
-                        // aprobado (5)
-                        query = query.eq('id_estado_nuevo', 5);
+                        // organizar, preguntar, presupuestado, aprobado, facturado, reclamado, posible (1, 2, 3, 5, 6, 8, 10)
+                        query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]);
                         break;
                     case 'enviadas':
                         // enviado (4)
                         query = query.eq('id_estado_nuevo', 4);
                         break;
                     case 'finalizadas':
-                        // facturado, terminado, liquidada (6, 7, 9)
-                        query = query.in('id_estado_nuevo', [6, 7, 9]);
+                        // terminado, liquidada (7, 9)
+                        query = query.in('id_estado_nuevo', [7, 9]);
                         break;
                     case 'todas':
                         // No aplicamos filtro de estado adicional (pero respetamos seguridades de rol arriba)
@@ -177,7 +173,7 @@ export async function getTareasData(filters?: TareasFilterParams) {
             }
         } else {
             // DEFAULT: Si no hay filtros en absoluto, mostrar ACTIVAS
-            query = query.in('id_estado_nuevo', [1, 2, 3, 8, 10]);
+            query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]);
         }
 
         const { data: tareas, error: dataError } = await query;
@@ -202,7 +198,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
     const cookieStore = await cookies()
     const sessionToken = cookieStore.get("DS")?.value
 
-    if (!sessionToken) return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+    if (!sessionToken) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
 
     try {
         const authInfo = await descopeClient.validateSession(sessionToken)
@@ -214,7 +210,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
             .ilike('email', email)
             .single()
 
-        if (!usuario) return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        if (!usuario) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
 
         const { id: userId, rol } = usuario
 
@@ -233,7 +229,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
                 .eq('id_supervisor', userId)
             const ids = asignaciones?.map(a => a.id_tarea) || []
             if (ids.length > 0) query = query.in('id', ids)
-            else return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+            else return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
         } else if (rol === 'trabajador') {
             const { data: asignaciones } = await supabaseAdmin
                 .from('trabajadores_tareas')
@@ -241,7 +237,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
                 .eq('id_trabajador', userId)
             const ids = asignaciones?.map(a => a.id_tarea) || []
             if (ids.length > 0) query = query.in('id', ids)
-            else return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+            else return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
         }
 
         // Aplicamos filtros globales (admin, edificio, supervisor, search)
@@ -259,7 +255,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
                     .eq('id_supervisor', filters.id_supervisor)
                 const ids = tSup?.map(t => t.id_tarea) || []
                 if (ids.length > 0) query = query.in('id', ids)
-                else return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+                else return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
             }
             if (filters.search) {
                 query = query.or(`titulo.ilike.%${filters.search}%,code.ilike.%${filters.search}%,descripcion.ilike.%${filters.search}%,nombre_edificio.ilike.%${filters.search}%`)
@@ -268,12 +264,11 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         const { data: tareas } = await query
 
-        if (!tareas) return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        if (!tareas) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
 
         // Agrupamos y contamos en JS (eficiente para el volumen esperado)
         const counts = {
             activas: 0,
-            aprobadas: 0,
             enviadas: 0,
             finalizadas: 0,
             todas: tareas.length
@@ -281,16 +276,15 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         tareas.forEach(t => {
             const id = t.id_estado_nuevo
-            if ([1, 2, 3, 8, 10].includes(id)) counts.activas++
-            else if (id === 5) counts.aprobadas++
+            if ([1, 2, 3, 5, 6, 8, 10].includes(id)) counts.activas++
             else if (id === 4) counts.enviadas++
-            else if ([6, 7, 9].includes(id)) counts.finalizadas++
+            else if ([7, 9].includes(id)) counts.finalizadas++
         })
 
         return counts
     } catch (e) {
         console.error("Error calculating counts:", e)
-        return { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
     }
 }
 

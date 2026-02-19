@@ -24,7 +24,7 @@ type Props = {
     initialUserDetails: any
     initialRecordatorios: any[]
     initialPresupuestosBase?: Record<string, any>
-    initialCounts: { activas: number, aprobadas: number, enviadas: number, finalizadas: number, todas: number }
+    initialCounts: { activas: number, enviadas: number, finalizadas: number, todas: number }
     crearPresupuestoMode: boolean
     catalogs?: {
         administradores: any[]
@@ -131,7 +131,6 @@ export default function TareasClientPage({
             >
                 <TabsList className="bg-slate-100 dark:bg-slate-900 p-1 border rounded-lg h-auto flex-wrap">
                     <TabsTrigger value="activas" className="px-4 py-2">activas [{initialCounts.activas}]</TabsTrigger>
-                    <TabsTrigger value="aprobadas" className="px-4 py-2">aprobadas [{initialCounts.aprobadas}]</TabsTrigger>
                     <TabsTrigger value="enviadas" className="px-4 py-2">enviadas [{initialCounts.enviadas}]</TabsTrigger>
                     <TabsTrigger value="finalizadas" className="px-4 py-2">finalizadas [{initialCounts.finalizadas}]</TabsTrigger>
                     <TabsTrigger value="todas" className="px-4 py-2">todas [{initialCounts.todas}]</TabsTrigger>
