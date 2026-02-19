@@ -18,7 +18,10 @@ export async function getFacturaById(id: string): Promise<FacturaLoaderData | nu
                 presupuestos_finales!inner (
                     id, code, id_tarea, id_edificio, total,
                     tareas (id, titulo, code),
-                    edificios (id, nombre, direccion, cuit, id_administrador)
+                    edificios (
+                        id, nombre, direccion, cuit, id_administrador,
+                        administradores (aplica_ajustes, porcentaje_default)
+                    )
                 )
             `)
             .eq('id', id)

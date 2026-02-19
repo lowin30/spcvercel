@@ -18,14 +18,15 @@ interface AjustesFacturaSectionProps {
     id_administrador?: number
   }
   esFacturaMateriales: boolean
+  adminConfigProp?: { aplica_ajustes: boolean; porcentaje_default: number } | null
 }
 
-export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesFacturaSectionProps) {
+export function AjustesFacturaSection({ factura, esFacturaMateriales, adminConfigProp }: AjustesFacturaSectionProps) {
   const [ajustes, setAjustes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const supabase = createClient()
-  const [adminConfig, setAdminConfig] = useState<{ aplica_ajustes: boolean; porcentaje_default: number } | null>(null)
+  const [adminConfig, setAdminConfig] = useState<{ aplica_ajustes: boolean; porcentaje_default: number } | null>(adminConfigProp || null)
 
   // Cargar ajustes existentes
   useEffect(() => {
@@ -35,11 +36,14 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
         .select("*")
         .eq("id_factura", factura.id)
         .order("created_at", { ascending: false })
-      
+
       if (!error && data) {
         setAjustes(data)
       }
-      if (factura.id_administrador) {
+
+      // Si no recibimos el config por props, intentamos cargar por compatibilidad
+      // Pero idealmente vendrá de props para evitar 406
+      if (!adminConfigProp && factura.id_administrador) {
         const { data: admin, error: adminError } = await supabase
           .from('administradores')
           .select('aplica_ajustes, porcentaje_default')
@@ -50,16 +54,13 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
             aplica_ajustes: !!admin.aplica_ajustes,
             porcentaje_default: Number(admin.porcentaje_default || 0)
           })
-        } else {
-          setAdminConfig({ aplica_ajustes: false, porcentaje_default: 0 })
         }
-      } else {
-        setAdminConfig({ aplica_ajustes: false, porcentaje_default: 0 })
       }
+
       setLoading(false)
     }
     cargarAjustes()
-  }, [factura.id, supabase])
+  }, [factura.id, factura.id_administrador, adminConfigProp, supabase])
 
   // Si es factura de materiales, no mostrar ajustes
   if (esFacturaMateriales) {
@@ -75,15 +76,15 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
   const totalCalculados = ajustes
     .filter(a => !a.aprobado && !a.pagado)
     .reduce((sum, a) => sum + parseFloat(a.monto_ajuste || 0), 0)
-  
+
   const totalPendientes = ajustes
     .filter(a => a.aprobado && !a.pagado)
     .reduce((sum, a) => sum + parseFloat(a.monto_ajuste || 0), 0)
-  
+
   const totalLiquidados = ajustes
     .filter(a => a.pagado)
     .reduce((sum, a) => sum + parseFloat(a.monto_ajuste || 0), 0)
-  
+
   const totalTodos = ajustes.reduce((sum, a) => sum + parseFloat(a.monto_ajuste || 0), 0)
 
   const tieneAjustes = ajustes.length > 0
@@ -105,7 +106,7 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
               Gestión de ajustes por mano de obra ({(adminConfig?.porcentaje_default ?? 0)}% sobre el total)
             </CardDescription>
           </div>
-          
+
           {/* Botón para generar ajustes */}
           {!tieneAjustes && (
             <Button
@@ -132,7 +133,7 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
                 No hay ajustes generados
               </div>
               <div className="text-sm text-muted-foreground mt-1">
-                {factura.pagada 
+                {factura.pagada
                   ? "Esta factura está pagada. Los ajustes se aprobarán automáticamente al generarlos."
                   : "Genera ajustes cuando la factura esté lista. Se aprobarán automáticamente cuando se pague la factura."}
               </div>
@@ -220,7 +221,7 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales }: AjustesF
               </div>
               <div className="space-y-2">
                 {ajustes.map((ajuste) => (
-                  <div 
+                  <div
                     key={ajuste.id}
                     className="flex items-center justify-between p-3 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
                   >

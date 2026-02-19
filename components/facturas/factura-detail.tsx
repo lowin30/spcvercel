@@ -501,6 +501,17 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                             ? (presupuestoFinal as any)?.edificios?.[0]?.id_administrador
                             : (presupuestoFinal as any)?.edificios?.id_administrador
                     ) ?? (edificio as any)?.id_administrador
+                    const adminData = (
+                        Array.isArray((presupuestoFinal as any)?.edificios)
+                            ? (presupuestoFinal as any)?.edificios?.[0]?.administradores
+                            : (presupuestoFinal as any)?.edificios?.administradores
+                    ) ?? (edificio as any)?.administradores;
+
+                    const adminConfig = adminData ? {
+                        aplica_ajustes: !!adminData.aplica_ajustes,
+                        porcentaje_default: Number(adminData.porcentaje_default || 0)
+                    } : null;
+
                     return (
                         <AjustesFacturaSection
                             factura={{
@@ -512,6 +523,7 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                                 id_administrador: idAdminDerivado
                             }}
                             esFacturaMateriales={esFacturaMateriales}
+                            adminConfigProp={adminConfig}
                         />
                     )
                 })()}
