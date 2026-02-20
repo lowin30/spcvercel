@@ -1012,11 +1012,13 @@ export async function saveBudgetAction(params: {
       delete budgetData.total;
     }
 
-    // Set approval date if marked as approved
-    if (budgetData.aprobado) {
-      budgetData.fecha_aprobacion = new Date().toISOString();
-    } else {
-      budgetData.fecha_aprobacion = null;
+    // Set approval date if marked as approved (Only for Base Budgets, as Final Budgets don't have this column)
+    if (tipo === 'base') {
+      if (budgetData.aprobado) {
+        budgetData.fecha_aprobacion = new Date().toISOString();
+      } else {
+        budgetData.fecha_aprobacion = null;
+      }
     }
 
     let savedBudget: any;
