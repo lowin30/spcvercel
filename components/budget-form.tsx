@@ -424,7 +424,8 @@ export function BudgetForm({
         const edificioId = selectedEdificio || presupuestoBase?.id_edificio || selectedTareaObj?.id_edificio || null;
 
         budgetPayload = {
-          id_presupuesto_base: idPadre ? Number(idPadre) : (presupuestoAEditar && 'id_presupuesto_base' in presupuestoAEditar ? presupuestoAEditar.id_presupuesto_base : null),
+          // Hardened Fallback: Unificando la fuente de verdad.
+          id_presupuesto_base: initialData?.id_presupuesto_base || presupuestoBase?.id || (idPadre ? Number(idPadre) : (presupuestoAEditar && 'id_presupuesto_base' in presupuestoAEditar ? presupuestoAEditar.id_presupuesto_base : null)),
           materiales,
           mano_obra,
           total,
