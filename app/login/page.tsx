@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { Fingerprint, Mail, Chrome } from 'lucide-react'
+import { Mail, Chrome } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 
@@ -13,34 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loadingEmail, setLoadingEmail] = useState(false)
   const [loadingGoogle, setLoadingGoogle] = useState(false)
-  const [loadingPasskey, setLoadingPasskey] = useState(false)
-
-  // 1. Iniciar con WebAuthn (Passkeys / Huella)
-  const handlePasskeyLogin = async () => {
-    setLoadingPasskey(true)
-    try {
-      const { data, error } = await supabase.auth.signInWithWebAuthn()
-      if (error) {
-        if (error.message.includes("not registered") || error.message.includes("not found")) {
-          toast.message('Primera Vez', {
-            description: 'Tu huella no está registrada. Usa Google o Correo para entrar por primera vez y configurar tu huella.',
-            duration: 5000,
-          })
-        } else {
-          toast.error(error.message)
-        }
-      } else {
-        router.push('/dashboard')
-        router.refresh()
-      }
-    } catch (err) {
-      toast.error("Tu dispositivo no soporta FaceID/Huella")
-    } finally {
-      setLoadingPasskey(false)
-    }
-  }
-
-  // 2. Iniciar con Google Flow
+  // 1. Iniciar con Google Flow
   const handleGoogleLogin = async () => {
     setLoadingGoogle(true)
     const { error } = await supabase.auth.signInWithOAuth({
@@ -81,9 +54,14 @@ export default function LoginPage() {
 
       {/* HEADER MINIMALISTA */}
       <div className="w-full max-w-sm text-center mb-10">
-        <div className="w-20 h-20 bg-white rounded-3xl shadow-sm border border-gray-100 flex items-center justify-center mx-auto mb-6 overflow-hidden relative">
-          {/* Si tienes un logo real en public/logo.png, úsalo. Si no, quita Image */}
-          <span className="text-[#F26522] font-black text-3xl italic tracking-tighter">SPC</span>
+        <div className="w-24 h-24 bg-white rounded-3xl shadow-sm border border-gray-100 flex items-center justify-center mx-auto mb-6 overflow-hidden relative p-2">
+          <Image
+            src="/images/solo-logo-grande-frente.png"
+            alt="SPC Logo"
+            fill
+            className="object-contain p-2"
+            priority
+          />
         </div>
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900 mb-2">Bienvenido</h1>
         <p className="text-gray-500 font-medium">Acceso seguro al sistema</p>
@@ -91,37 +69,22 @@ export default function LoginPage() {
 
       <div className="w-full max-w-sm space-y-4">
 
-        {/* BOTÓN PRIMARIO: HUELLA (GIGANTE) */}
+        {/* BOTÓN PRIMARIO: GOOGLE */}
         <button
-          onClick={handlePasskeyLogin}
-          disabled={loadingPasskey || loadingGoogle || loadingEmail}
+          onClick={handleGoogleLogin}
+          disabled={loadingGoogle || loadingEmail}
           className="w-full h-16 bg-gray-900 text-white rounded-[2rem] flex items-center justify-center space-x-3 text-lg font-medium shadow-lg hover:bg-gray-800 transition-all active:scale-[0.98] disabled:opacity-70"
         >
-          {loadingPasskey ? (
+          {loadingGoogle ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
             <>
-              <Fingerprint className="w-7 h-7" strokeWidth={1.5} />
-              <span>Entrar con Huella</span>
-            </>
-          )}
-        </button>
-
-        {/* BOTÓN SECUNDARIO: GOOGLE */}
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loadingPasskey || loadingGoogle || loadingEmail}
-          className="w-full h-14 bg-white text-gray-700 border border-gray-200 rounded-2xl flex items-center justify-center space-x-3 font-medium shadow-sm hover:bg-gray-50 transition-all active:scale-[0.98] disabled:opacity-70"
-        >
-          {loadingGoogle ? (
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-          ) : (
-            <>
-              <Chrome className="w-5 h-5 text-gray-600" />
+              <Chrome className="w-7 h-7" strokeWidth={1.5} />
               <span>Continuar con Google</span>
             </>
           )}
         </button>
+
 
         {/* SEPARADOR SUTIL */}
         <div className="relative py-4">
@@ -140,14 +103,14 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="correo@ejemplo.com"
-            disabled={loadingPasskey || loadingGoogle || loadingEmail}
+            disabled={loadingGoogle || loadingEmail}
             className="w-full h-14 bg-white border border-gray-200 rounded-2xl px-5 text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-[#F26522]/20 focus:border-[#F26522] transition-all"
             required
             autoComplete="email"
           />
           <button
             type="submit"
-            disabled={loadingPasskey || loadingGoogle || loadingEmail || !email}
+            disabled={loadingGoogle || loadingEmail || !email}
             className="w-full h-14 bg-gray-100 text-gray-600 rounded-2xl flex items-center justify-center space-x-2 font-medium hover:bg-gray-200 transition-all active:scale-[0.98] disabled:opacity-50"
           >
             {loadingEmail ? (
@@ -162,6 +125,6 @@ export default function LoginPage() {
         </form>
 
       </div>
-    </div>
+    </div >
   )
 }
