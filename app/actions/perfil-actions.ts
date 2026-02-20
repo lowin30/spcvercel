@@ -1,49 +1,22 @@
 "use server"
 
-import { cookies } from "next/headers"
-import { createClient } from "@supabase/supabase-js"
-import { descopeClient } from "@/lib/descope-client"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
+
 // --- Helper Privado ---
 async function _getValidatedUserEmail(): Promise<string | null> {
-    const cookieStore = cookies()
-    const sessionToken = cookieStore.get("DS")?.value
-
-    if (!sessionToken) return null
-
-    let descopeUserEmail: string | undefined
-
     try {
-        if (descopeClient) {
-            const authInfo = await descopeClient.validateSession(sessionToken)
-            const payload = authInfo as any
-            descopeUserEmail = payload.email || payload.sub?.email || payload.linkId
-        }
+        const user = await validateSessionAndGetUser()
+        return user.email
     } catch (error) {
         console.error("[PerfilAction] Session validation failed", error)
         return null
     }
-
-    // Fallback signature-less decode (only if validation passed or simple bridge check)
-    // Note: In strict production, rely ONLY on validateSession output.
-    if (!descopeUserEmail) {
-        try {
-            const tokenParts = sessionToken.split('.')
-            if (tokenParts.length === 3) {
-                const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
-                descopeUserEmail = payload.email || payload.sub
-            }
-        } catch (e) {
-            console.error("JWT Parse Error", e)
-        }
-    }
-
-    return descopeUserEmail || null
 }
 
 // --- Actions Públicas ---

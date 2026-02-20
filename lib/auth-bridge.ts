@@ -1,7 +1,5 @@
 import "server-only"
-import { descopeClient } from "@/lib/descope-client"
-import { supabaseAdmin } from "@/lib/supabase-admin"
-import { cookies } from "next/headers"
+import { getSupabaseServer } from "@/lib/supabase-server"
 import { redirect } from "next/navigation"
 
 export type SPCUser = {
@@ -11,53 +9,42 @@ export type SPCUser = {
 }
 
 /**
- * IDENTITY BRIDGE v2.0
- * Valida la sesión de Descope y recupera el usuario de Supabase (Service Role)
+ * IDENTITY BRIDGE v3.0 (Supabase Native OIDC)
+ * Valida la sesión nativa de Supabase y recupera el usuario
  * @throws Error si el usuario no esta registrado o error interno.
  * @redirects /login si no hay sesion valida.
  */
 export async function validateSessionAndGetUser(): Promise<SPCUser> {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get("DS")?.value
-
-    if (!sessionToken) {
-        // Log para debuguear bugs de Vercel (cookie missing)
-        console.error("Auth Bridge: No Session Token (DS Cookie missing). Cookies:", cookieStore.getAll().map(c => c.name))
+    const supabase = await getSupabaseServer()
+    if (!supabase) {
         redirect('/login')
     }
 
-    let authInfo;
-    try {
-        // 1. Validar Token Descope
-        authInfo = await descopeClient.validateSession(sessionToken)
-    } catch (error) {
-        console.error("Auth Bridge: Session Validation Failed (Expired/Invalid)", error)
-        // No redirect here to avoid swallowing NEXT_REDIRECT
-    }
+    // Usar supabase.auth.getUser() en lugar de getSession() por seguridad real backend
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    if (!authInfo) {
+    if (authError || !user) {
+        console.error("Auth Bridge: Session Validation Failed (No Supabase User)", authError)
         redirect('/login')
     }
 
-    // 2. Extraer Email
-    const email = authInfo.token.email || authInfo.token.sub
+    const email = user.email
     if (!email) {
-        console.error("Auth Bridge: No email in token")
+        console.error("Auth Bridge: No email in auth.users")
         redirect('/login')
     }
 
-    // 3. Buscar Usuario en DB (Bypass RLS)
-    const { data: usuario, error } = await supabaseAdmin
+    // 3. Buscar Usuario en DB
+    // Ahora que usamos Supabase Auth, read directo con el Supabase Server Auth client (aplica RLS localmente)
+    const { data: usuario, error } = await supabase
         .from('usuarios')
         .select('id, rol, email')
-        .ilike('email', email)
+        .eq('id', user.id)
         .single()
 
     if (error || !usuario) {
-        console.error(`Auth Bridge: User not found in DB for email ${email}`, error)
-        // En este caso lanzamos error porque el usuario ESTA logueado en Descope pero no tiene acceso al sistema SPC.
-        // Redirigir al login seria un loop infinito si Descope sigue validando la sesion ok.
-        throw new Error("Usuario no registrado en el sistema. Contacte al administrador.")
+        console.error(`Auth Bridge: User not found in public.usuarios DB for id ${user.id} (${email})`, error)
+        throw new Error("Su cuenta no tiene acceso al sistema operativo SPC. Contacte al administrador.")
     }
 
     return usuario as SPCUser

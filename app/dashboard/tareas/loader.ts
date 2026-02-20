@@ -1,7 +1,6 @@
 import "server-only"
-import { descopeClient } from "@/lib/descope-client"
 import { supabaseAdmin } from "@/lib/supabase-admin"
-import { cookies } from "next/headers"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 
 // Tipos base para los datos retornados
 export type Tarea = {
@@ -38,32 +37,8 @@ export type TareasFilterParams = {
 }
 
 export async function getTareasData(filters?: TareasFilterParams) {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get("DS")?.value
-
-    // 1. Validar Sesión con Descope
-    if (!sessionToken) {
-        throw new Error("No hay sesión activa (DS Cookie missing)")
-    }
-
     try {
-        const authInfo = await descopeClient.validateSession(sessionToken)
-        const email = authInfo.token.email || authInfo.token.sub; // Fallback
-
-        if (!email) throw new Error("No se pudo identificar el email del usuario en el token Descope")
-
-        // 2. Mapeo Identity: Email -> Usuario (DB)
-        const { data: usuario, error: userError } = await supabaseAdmin
-            .from('usuarios')
-            .select('id, rol, id_delegacion, email')
-            .ilike('email', email) // Case insensitive match
-            .single();
-
-        if (userError || !usuario) {
-            console.error("Identity Bridge Error: Usuario no encontrado en tabla publica.usuarios", email);
-            throw new Error("Usuario no registrado en el sistema SPC");
-        }
-
+        const usuario = await validateSessionAndGetUser()
         const { id: userId, rol } = usuario;
 
         // 3. Service Role Query (Bypass RLS) con Filtro Manual por Rol
@@ -196,21 +171,8 @@ export async function getTareasData(filters?: TareasFilterParams) {
 }
 
 export async function getTareasCounts(filters?: TareasFilterParams) {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get("DS")?.value
-
-    if (!sessionToken) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
-
     try {
-        const authInfo = await descopeClient.validateSession(sessionToken)
-        const email = authInfo.token.email || authInfo.token.sub
-
-        const { data: usuario } = await supabaseAdmin
-            .from('usuarios')
-            .select('id, rol')
-            .ilike('email', email)
-            .single()
-
+        const usuario = await validateSessionAndGetUser()
         if (!usuario) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
 
         const { id: userId, rol } = usuario
@@ -397,23 +359,9 @@ export async function getTareasParaPresupuesto() {
 }
 
 export async function getTareaDetail(id: string) {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get("DS")?.value
-
-    if (!sessionToken) throw new Error("No hay sesión activa")
-
     try {
-        const authInfo = await descopeClient.validateSession(sessionToken)
-        const email = authInfo.token.email || authInfo.token.sub
-
-        // 1. Obtener usuario actual
-        const { data: usuario, error: userError } = await supabaseAdmin
-            .from('usuarios')
-            .select('*')
-            .ilike('email', email)
-            .single()
-
-        if (userError || !usuario) throw new Error("Usuario no encontrado")
+        const usuario = await validateSessionAndGetUser()
+        if (!usuario) throw new Error("Usuario no encontrado")
 
         const tareaId = parseInt(id)
         if (isNaN(tareaId)) throw new Error("ID de tarea inválido")
@@ -600,37 +548,17 @@ export async function getTareaDetail(id: string) {
 }
 
 export async function getCatalogsForWizard() {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get("DS")?.value
-    let currentUserRol = null
-
-    if (sessionToken) {
-        try {
-            const authInfo = await descopeClient.validateSession(sessionToken)
-            const email = authInfo.token.email || authInfo.token.sub
-            if (email) {
-                const { data: usuario } = await supabaseAdmin.from('usuarios').select('id, rol').ilike('email', email).single()
-                currentUserRol = usuario?.rol
-                // Also capture ID
-                if (usuario?.id) {
-                    // We need to return currentUserId to the page
-                }
-            }
-        } catch { }
-    }
-
-    // Reuse the logic to get currentUserId properly
+    let currentUserRol = null;
     let currentUserId = null;
-    if (sessionToken) {
-        const authInfo = await descopeClient.validateSession(sessionToken);
-        const email = authInfo.token.email || authInfo.token.sub;
-        if (email) {
-            const { data: u } = await supabaseAdmin.from('usuarios').select('id, rol').ilike('email', email).single();
-            if (u) {
-                currentUserRol = u.rol;
-                currentUserId = u.id;
-            }
+
+    try {
+        const usuario = await validateSessionAndGetUser();
+        if (usuario) {
+            currentUserRol = usuario.rol;
+            currentUserId = usuario.id;
         }
+    } catch (e) {
+        console.error("Error validando sesion en catalogos:", e);
     }
 
     const [adminsRes, supervisorsRes, workersRes] = await Promise.all([

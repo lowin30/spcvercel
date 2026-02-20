@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/toaster"
 import { SupabaseProvider } from "@/lib/supabase-provider"
 import SWRegister from "@/components/sw-register"
 import { AiChatWidget } from "@/components/ai-chat-widget"
-import { AuthProvider } from "@descope/nextjs-sdk"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,20 +37,14 @@ export default function RootLayout({
         <meta charSet="UTF-8" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <AuthProvider
-          projectId={process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID || "P39Y887u1otOQcg8nI38s878J2nT"}
-          baseUrl="https://api.descope.com"
-          sessionTokenViaCookie
-        >
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-            <SupabaseProvider>
-              {children}
-              <Toaster />
-              <SWRegister />
-              <AiChatWidget />
-            </SupabaseProvider>
-          </ThemeProvider>
-        </AuthProvider>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <SupabaseProvider>
+            {children}
+            <Toaster />
+            <SWRegister />
+            <AiChatWidget />
+          </SupabaseProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

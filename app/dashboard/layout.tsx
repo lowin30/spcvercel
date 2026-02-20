@@ -5,8 +5,8 @@ import { Toaster } from "sonner"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
 import { AIAssistantGroq } from "@/components/ai-assistant-groq"
-import { useSession, useUser, useDescope } from "@descope/nextjs-sdk/client"
 import { Button } from "@/components/ui/button"
+import { PasskeyEnroller } from "@/components/passkey-enroller"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -17,21 +17,8 @@ const ENABLE_AI_ASSISTANT = false
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [loading, setLoading] = useState(true)
   const [userDetails, setUserDetails] = useState<any>(null)
-  const { isAuthenticated, isSessionLoading } = useSession()
-  const { user: descopeUser, isUserLoading } = useUser()
-  const sdk = useDescope()
 
   useEffect(() => {
-    // esperar a que descope termine de cargar la sesion
-    if (isSessionLoading) return
-
-    // si no esta autenticado, el middleware ya se encarga de redirigir
-    // no hacemos router.push('/login') para evitar bucles
-    if (!isAuthenticated) {
-      setLoading(false)
-      return
-    }
-
     async function fetchUserDetails() {
       try {
         const supabase = createClient()
@@ -41,55 +28,40 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           return
         }
 
-        // buscar usuario por email de descope
-        if (descopeUser) {
-          // Solo loguear si hay algo util para debug pero reducir el ruido
-          // console.log('spc: descopeUser object', descopeUser)
-        }
+        // Obtener usuario actual desde Supabase Auth (App Router Nativo)
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-        let email = descopeUser?.email?.toLowerCase().trim()
-        if (!email && descopeUser?.loginIds && descopeUser.loginIds.length > 0) {
-          email = descopeUser.loginIds[0].toLowerCase().trim()
-        }
-
-        if (!email) {
-          // console.log('spc: esperando email de descope...')
+        if (authError || !user) {
+          console.log('spc: no hay sesion activa en supabase auth')
+          // El middleware redirigirá, no hacemos push manually
           setLoading(false)
           return
         }
 
+        // Obtener datos detallados del usuario desde 'usuarios'
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
-          .ilike("email", email)
-          .limit(1)
-          .maybeSingle()
+          .eq("id", user.id)
+          .single()
 
-        if (userError) {
-          console.error('spc: error obteniendo usuario', userError.message)
-          setLoading(false)
-          return
+        if (userError || !userData) {
+          console.error('spc: error obteniendo datos del usuario DB', userError?.message)
+        } else {
+          setUserDetails(userData)
         }
 
-        if (!userData) {
-          console.log('spc: usuario no encontrado en tabla local, sync pendiente')
-          setLoading(false)
-          return
-        }
-
-        setUserDetails(userData)
-        setLoading(false)
       } catch (err) {
-        console.error('spc: error en dashboard layout', err)
+        console.error('spc: error en dashboard layout (fetchUserDetails)', err)
+      } finally {
         setLoading(false)
       }
     }
 
     fetchUserDetails()
-  }, [isSessionLoading, isUserLoading, isAuthenticated, descopeUser])
+  }, [])
 
-  // skeleton mientras descope carga la sesion o buscamos datos del usuario
-  if (isSessionLoading || isUserLoading || loading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -102,34 +74,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  // si no esta autenticado, mostrar mensaje (middleware redirigira)
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center text-gray-500">redirigiendo al login...</div>
-      </div>
-    )
-  }
-
-  // Si termino de cargar session y user, pero no tenemos usuario valido o email
-  // Mostramos boton de salir para evitar loop infinito
-  if (!isSessionLoading && !isUserLoading && !loading && (!descopeUser || !userDetails)) {
+  // Si termino de cargar session pero no tenemos usuario valido
+  // Mostramos boton de salir
+  if (!loading && !userDetails) {
     return (
       <div className="flex min-h-screen items-center justify-center flex-col p-4">
-        <div className="bg-red-50 text-red-800 p-6 rounded-lg shadow-md max-w-md text-center">
-          <h2 className="text-lg font-bold mb-2">Error de Sesión</h2>
-          <p className="mb-4">No se pudo cargar la información del usuario.</p>
-          <div className="text-xs text-left bg-gray-100 p-2 rounded mb-4 overflow-auto max-h-32">
-            DEBUG: User={descopeUser ? 'OK' : 'NULL'}, Email={descopeUser?.email || 'NULL'}
-          </div>
+        <div className="bg-red-50 text-red-800 p-6 rounded-lg shadow-md max-w-md text-center border border-red-200">
+          <h2 className="text-lg font-bold mb-2">Acceso Denegado</h2>
+          <p className="mb-4 text-sm">No pudimos validar tu acceso al sistema SPC. Puede que tu cuenta no esté registrada en la plataforma operativa.</p>
           <Button
             onClick={async () => {
-              await sdk.logout()
+              const supabase = createClient()
+              await supabase.auth.signOut()
               window.location.href = '/login'
             }}
             variant="destructive"
+            className="w-full"
           >
-            Cerrar Sesión y Reintentar
+            Cerrar Sesión
           </Button>
         </div>
       </div>
@@ -139,6 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <>
       <DashboardShell userDetails={userDetails}>
+        <PasskeyEnroller />
         {children}
         {ENABLE_AI_ASSISTANT && userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
       </DashboardShell>

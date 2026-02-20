@@ -8,7 +8,7 @@ import { getDashboardStats } from "./actions"
 import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 import { TaskStatusBadge } from "./tasks-badge"
-import { useUser } from "@descope/nextjs-sdk/client"
+import { TaskStatusBadge } from "./tasks-badge"
 
 // Importar componentes específicos por rol
 import { AdminDashboard } from "./admin-dashboard"
@@ -38,7 +38,6 @@ type BuildingType = {
 
 export default function DashboardPage() {
   const supabase = createClient()
-  const { user: descopeUser } = useUser()
 
   // Estados generales
   const [stats, setStats] = useState<StatsType | null>(null)
@@ -66,21 +65,8 @@ export default function DashboardPage() {
           return
         }
 
-        // obtener email de descope (no de supabase auth)
-        console.log('spc: dashboard page user', descopeUser)
-        let email = descopeUser?.email?.toLowerCase().trim()
-
-        if (!email && descopeUser?.loginIds && descopeUser.loginIds.length > 0) {
-          email = descopeUser.loginIds[0].toLowerCase().trim()
-        }
-
-        if (!email) {
-          console.log('spc: esperando email de descope para dashboard...')
-          return // no setear error, esperar al siguiente render
-        }
-
-        // Usar Server Action para obtener datos (bypass RLS)
-        const { stats: dashboardStats, userDetails: userData, error: serverError } = await getDashboardStats(email)
+        // Usar Server Action para obtener datos (lee el JWT automáticamente)
+        const { stats: dashboardStats, userDetails: userData, error: serverError } = await getDashboardStats()
 
         if (serverError || !userData) {
           console.error('spc: error server side', serverError)
@@ -398,7 +384,7 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData()
-  }, [descopeUser?.email])
+  }, [])
 
   // Estado de carga
   if (loading) {

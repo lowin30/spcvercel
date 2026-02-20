@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { useDescope } from "@descope/nextjs-sdk/client"
+import { createClient } from "@/lib/supabase-client"
 import {
   Building2,
   Users,
@@ -59,12 +59,12 @@ interface DashboardNavProps {
 export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: DashboardNavProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const sdk = useDescope()
+  const supabase = createClient()
 
   const handleLogout = async () => {
     try {
-      await sdk.logout()
-      console.log('spc: sesion cerrada')
+      await supabase.auth.signOut()
+      console.log('spc: sesion cerrada con supabase')
       router.push('/login')
     } catch (err) {
       console.error('spc: error al cerrar sesion', err)

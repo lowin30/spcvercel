@@ -28,7 +28,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
       } catch {
-        // descope maneja auth, supabase session puede no existir
+        // Ignorar errores de sesión
       }
       setLoading(false);
     };
@@ -38,7 +38,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
       setLoading(false);
-      // no redirigir en SIGNED_OUT — descope maneja la sesion
     });
 
     return () => {

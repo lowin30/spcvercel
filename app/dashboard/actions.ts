@@ -1,31 +1,33 @@
 "use server"
 
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseServer } from '@/lib/supabase-server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-export async function getDashboardStats(email: string) {
-    if (!supabaseUrl || !serviceKey) {
-        throw new Error('Variables de entorno Supabase no configuradas')
+export async function getDashboardStats() {
+    const supabase = await getSupabaseServer()
+    if (!supabase) {
+        throw new Error('Variables de entorno Supabase no configuradas o cliente no inicializado')
     }
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-        auth: { persistSession: false }
-    })
-
     try {
-        // 1. Obtener usuario y rol
+        // 1. Obtener usuario de auth.users usando JWT validado
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !authUser) {
+            console.error('spc: error obteniendo usuario auth en getDashboardStats', authError)
+            return { error: 'No autenticado' }
+        }
+
+        // 2. Obtener rol y datos de la vista pública
         const { data: user, error: userError } = await supabase
             .from('usuarios')
             .select('id, rol, nombre, color_perfil, email, activo')
-            .ilike('email', email)
+            .eq('id', authUser.id)
             .limit(1)
             .maybeSingle()
 
         if (userError || !user) {
-            console.error('spc: error obteniendo usuario en getDashboardStats', userError)
-            return { error: 'Usuario no encontrado' }
+            console.error('spc: error obteniendo usuario public en getDashboardStats', userError)
+            return { error: 'Usuario no encontrado en base de datos' }
         }
 
         const { id: userId, rol } = user
