@@ -1089,7 +1089,21 @@ export async function saveBudgetAction(params: {
     }
 
 
-    // 3. Post-Procesamiento: Aprobación -> Facturas
+    // 3. Post-Procesamiento: Auto-Aprobación de PB (Regla de Negocio v116)
+    if (tipo === "final" && savedBudget.id_presupuesto_base) {
+      try {
+        const { error: pbError } = await supabaseAdmin
+          .from("presupuestos_base")
+          .update({ aprobado: true })
+          .eq("id", savedBudget.id_presupuesto_base);
+
+        if (pbError) console.error("Error auto-aprobando presupuesto base padre:", pbError);
+      } catch (e) {
+        console.error("Excepción al auto-aprobar PB:", e);
+      }
+    }
+
+    // 4. Post-Procesamiento: Aprobación -> Facturas
     if (tipo === "final" && savedBudget.aprobado) {
       try {
         await convertirPresupuestoADosFacturas(savedBudget.id);
