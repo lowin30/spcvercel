@@ -6,7 +6,7 @@ import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
 import { AIAssistantGroq } from "@/components/ai-assistant-groq"
 import { Button } from "@/components/ui/button"
-import { PasskeyEnroller } from "@/components/passkey-enroller"
+
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -101,7 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <>
       <DashboardShell userDetails={userDetails}>
-        <PasskeyEnroller />
+
         {children}
         {ENABLE_AI_ASSISTANT && userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
       </DashboardShell>
