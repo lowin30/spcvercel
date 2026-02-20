@@ -760,12 +760,14 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
     }
 
     const tabla = tipo === 'base' ? 'presupuestos_base' : 'presupuestos_finales'
+    const now = new Date().toISOString();
     const { error } = await supabaseAdmin
       .from(tabla)
       .update({
         aprobado: true,
         rechazado: false,
-        updated_at: new Date().toISOString()
+        fecha_aprobacion: now,
+        updated_at: now
       })
       .eq('id', id)
 
@@ -1010,6 +1012,12 @@ export async function saveBudgetAction(params: {
       delete budgetData.total;
     }
 
+    // Set approval date if marked as approved
+    if (budgetData.aprobado) {
+      budgetData.fecha_aprobacion = new Date().toISOString();
+    } else {
+      budgetData.fecha_aprobacion = null;
+    }
 
     let savedBudget: any;
 
@@ -1094,7 +1102,10 @@ export async function saveBudgetAction(params: {
       try {
         const { error: pbError } = await supabaseAdmin
           .from("presupuestos_base")
-          .update({ aprobado: true })
+          .update({
+            aprobado: true,
+            fecha_aprobacion: new Date().toISOString()
+          })
           .eq("id", savedBudget.id_presupuesto_base);
 
         if (pbError) console.error("Error auto-aprobando presupuesto base padre:", pbError);
@@ -1102,7 +1113,6 @@ export async function saveBudgetAction(params: {
         console.error("Excepción al auto-aprobar PB:", e);
       }
     }
-
     // 4. Post-Procesamiento: Aprobación -> Facturas
     if (tipo === "final" && savedBudget.aprobado) {
       try {
