@@ -1,14 +1,12 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
 // GET: Recuperar historial reciente
 export async function GET(req: Request) {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-    const { data: { session } } = await supabase.auth.getSession()
+    const supabase = await createServerClient()
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-    if (!session) {
+    if (sessionError || !session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -32,11 +30,10 @@ export async function GET(req: Request) {
 
 // POST: Guardar un nuevo mensaje
 export async function POST(req: Request) {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-    const { data: { session } } = await supabase.auth.getSession()
+    const supabase = await createServerClient()
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-    if (!session) {
+    if (sessionError || !session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

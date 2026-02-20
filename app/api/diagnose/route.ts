@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createServerClient } from '@/lib/supabase-server';
 
 export async function GET(request: Request) {
   try {
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createServerClient();
 
     // Diagnóstico: obtener estructura de factura 43
     const { data: factura43, error: factura43Error } = await supabase
