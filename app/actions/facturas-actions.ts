@@ -25,12 +25,11 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
         if (!presupuestoId) throw new Error('ID de presupuesto no proporcionado.');
 
         // 1. Data Fetching (Snapshot Source)
-        // Obtener Presupuesto + Tarea + Edificio + Items
+        // Obtener Presupuesto + Tarea + Edificio
         const { data: presupuesto, error: pfError } = await supabase
             .from('presupuestos_finales')
             .select(`
         *,
-        items (*),
         tareas:id_tarea (titulo, id_administrador, edificios:id_edificio (nombre))
       `)
             .eq('id', presupuestoId)
@@ -38,6 +37,15 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
 
         if (pfError) throw new Error(`Error de base de datos al obtener presupuesto ${presupuestoId}: ${pfError.message}`);
         if (!presupuesto) throw new Error(`Presupuesto final #${presupuestoId} no encontrado.`);
+
+        const { data: itemsFetch, error: itemsError } = await supabase
+            .from('items')
+            .select('*')
+            .eq('id_presupuesto', presupuestoId);
+
+        if (itemsError) throw itemsError;
+
+        presupuesto.items = itemsFetch || [];
 
         console.log(`[ACTION] Datos cargados. Código: ${presupuesto.code}. Items: ${presupuesto.items?.length || 0}`);
 
