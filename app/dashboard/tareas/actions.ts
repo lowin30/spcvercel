@@ -1181,17 +1181,28 @@ export async function getPresupuestoBaseForCloneAction(id: number) {
   try {
     await validateSessionAndGetUser()
 
-    // Traemos el presupuesto Y sus items en un solo viaje
-    const { data, error } = await supabaseAdmin
+    // Traemos el presupuesto primero
+    const { data: baseData, error: baseError } = await supabaseAdmin
       .from('presupuestos_base')
-      .select(`
-        *,
-        items (*)
-      `)
+      .select('*')
       .eq('id', id)
       .single()
 
-    if (error) throw error
+    if (baseError) throw baseError
+
+    // Traemos los items manualmente ya que no hay FK directa en la DB para queries anidadas
+    const { data: itemsData, error: itemsError } = await supabaseAdmin
+      .from('items')
+      .select('*')
+      .eq('id_presupuesto', id)
+
+    if (itemsError) throw itemsError
+
+    // Unimos los datos
+    const data = {
+      ...baseData,
+      items: itemsData || []
+    }
 
     // Mapeo consistente de items_presupuesto a items si es necesario
     const formattedData = {
