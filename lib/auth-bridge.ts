@@ -34,8 +34,23 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
         redirect('/login')
     }
 
-    // 3. Buscar Usuario en DB
-    // Ahora que usamos Supabase Auth, read directo con el Supabase Server Auth client (aplica RLS localmente)
+    // 3. Extraer Rol desde el JWT (The Platinum Standard)
+    // Supabase permite inyectar custom claims en app_metadata a través de Auth Hooks.
+    // Esto evita una consulta N+1 a la tabla public.usuarios y hace volar al servidor.
+    const jwtRol = user.app_metadata?.rol;
+
+    if (jwtRol) {
+        return {
+            id: user.id,
+            email: email,
+            rol: jwtRol
+        } as SPCUser
+    }
+
+    // 4. FALLBACK de Seguridad (Por si el JWT aún no tiene el claim inyectado)
+    // Esto solo ocurrirá en la transición antes de configurar el Hook en Supabase
+    // o si de pronto el Hook falla temporalmente.
+    console.warn(`Auth Bridge: JWT Claim 'rol' no encontrado para ${email}. Realizando consulta Fallback a BD.`);
     const { data: usuario, error } = await supabase
         .from('usuarios')
         .select('id, rol, email')
