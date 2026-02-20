@@ -8,7 +8,6 @@ import { getDashboardStats } from "./actions"
 import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 import { TaskStatusBadge } from "./tasks-badge"
-import { TaskStatusBadge } from "./tasks-badge"
 
 // Importar componentes específicos por rol
 import { AdminDashboard } from "./admin-dashboard"
