@@ -1,6 +1,8 @@
 import "server-only"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
+import { createServerClient } from "@/lib/supabase-server"
+import { executeSecureQuery } from "@/lib/rls-error-handler"
 
 // Tipos base para los datos retornados
 export type Tarea = {
@@ -41,125 +43,64 @@ export async function getTareasData(filters?: TareasFilterParams) {
         const usuario = await validateSessionAndGetUser()
         const { id: userId, rol } = usuario;
 
-        // 3. Service Role Query (Bypass RLS) con Filtro Manual por Rol
-        let query = supabaseAdmin
+        // 1. Instanciamos el cliente User-bound (NO admin) para aprovechar el RLS V2
+        const supabase = await createServerClient();
+        if (!supabase) throw new Error("No Supabase Client");
+
+        // 3. Query principal normalizada
+        // RLS y PostgreSQL se encargan de filtar la base según el rol ahora.
+        let query = supabase
             .from('vista_tareas_completa')
             .select('*')
             .order('created_at', { ascending: false });
 
-        // 4. Aplicar Filtros de Seguridad (ACL)
-        if (rol === 'admin') {
-            query = query.neq('id_estado_nuevo', 9);
-        }
-        else if (rol === 'supervisor') {
-            // Replicamos logica manual de asignación
-            const { data: asignaciones } = await supabaseAdmin
-                .from('supervisores_tareas')
-                .select('id_tarea')
-                .eq('id_supervisor', userId);
-
-            const idsAsignados = asignaciones?.map(a => a.id_tarea) || [];
-
-            if (idsAsignados.length > 0) {
-                query = query.in('id', idsAsignados);
-            } else {
-                return []; // Supervisor sin tareas
-            }
-        }
-        else if (rol === 'trabajador') {
-            const { data: asignaciones } = await supabaseAdmin
-                .from('trabajadores_tareas')
-                .select('id_tarea')
-                .eq('id_trabajador', userId);
-
-            const ids = asignaciones?.map(a => a.id_tarea) || [];
-            if (ids.length === 0) return []; // Sin tareas
-            query = query.in('id', ids);
-        }
-
-        // 5. Aplicar Filtros de Usuario (Search Params)
+        // 5. Aplicar Filtros Dinámicos (Search Params)
         if (filters) {
-            // Filtro por VISTA (Smart Tabs v88.1)
-            // Solo aplicamos si no hay un filtro de estado específico seleccionado
             if (!filters.estado || filters.estado === '_todos_') {
                 const view = filters.view || 'activas';
-
                 switch (view) {
                     case 'activas':
-                        // organizar, preguntar, presupuestado, aprobado, facturado, reclamado, posible (1, 2, 3, 5, 6, 8, 10)
-                        // Excluir tareas marcadas como finalizadas
                         query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]).eq('finalizada', false);
                         break;
                     case 'enviadas':
-                        // enviado (4)
                         query = query.eq('id_estado_nuevo', 4);
                         break;
                     case 'finalizadas':
-                        // terminado, liquidada (7, 9) O cualquier tarea marcada finalizada por supervisor
                         query = query.or('id_estado_nuevo.in.(7,9),finalizada.eq.true');
-                        break;
-                    case 'todas':
-                        // No aplicamos filtro de estado adicional (pero respetamos seguridades de rol arriba)
                         break;
                 }
             }
 
-            // Filtro Administrador
             if (filters.id_administrador && filters.id_administrador !== '_todos_') {
                 query = query.eq('id_administrador', filters.id_administrador)
             }
-
-            // Filtro Edificio
             if (filters.id_edificio && filters.id_edificio !== '_todos_') {
                 query = query.eq('id_edificio', filters.id_edificio)
             }
-
-            // Filtro Estado Especifico (Sobreescribe la Vista)
             if (filters.estado && filters.estado !== '_todos_') {
                 const estadoId = parseInt(filters.estado)
                 if (!isNaN(estadoId)) {
                     query = query.eq('id_estado_nuevo', estadoId)
                 }
             }
-
-            // Filtro Supervisor (Email o ID?)
-            if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
-                if (filters.id_supervisor.includes('@')) {
-                    query = query.ilike('supervisores_emails', `%${filters.id_supervisor}%`)
-                } else {
-                    const { data: tareasSup } = await supabaseAdmin
-                        .from('supervisores_tareas')
-                        .select('id_tarea')
-                        .eq('id_supervisor', filters.id_supervisor)
-
-                    const idsSup = tareasSup?.map(t => t.id_tarea) || []
-                    if (idsSup.length > 0) {
-                        query = query.in('id', idsSup)
-                    } else {
-                        // Si no tiene tareas, devolvemos vacío directamente
-                        return []
-                    }
-                }
-            }
-
-            // Busqueda de Texto
             if (filters.search) {
                 const term = filters.search;
                 query = query.or(`titulo.ilike.%${term}%,code.ilike.%${term}%,descripcion.ilike.%${term}%,nombre_edificio.ilike.%${term}%`)
             }
         } else {
-            // DEFAULT: Si no hay filtros en absoluto, mostrar ACTIVAS (excluyendo finalizadas)
             query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]).eq('finalizada', false);
         }
 
-        const { data: tareas, error: dataError } = await query;
+        // 🛡️ Envolver en el Escudo RLS (Captura silenciosa 42501)
+        const result = await executeSecureQuery(query);
 
-        if (dataError) {
-            console.error("Error fetching tareas via Service Role:", dataError);
-            throw new Error("Error al cargar datos del sistema");
+        if (!result.success) {
+            console.warn("🛡️ Pilot RLS Blocked Tareas query para user:", userId);
+            // El usuario carece de los permisos RLS indicados
+            return [];
         }
 
-        return tareas || [];
+        return result.data || [];
 
     } catch (error) {
         console.error("Loader Error:", error);
