@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { createServerClient } from '@/lib/supabase-server'
 import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
 import { sanitizeText, cleanCuit } from '@/lib/utils'
@@ -50,7 +50,7 @@ export async function createBuilding(data: {
             adminId = Number(data.id_administrador)
         }
 
-        const { data: newBuilding, error } = await supabaseAdmin.from('edificios').insert({
+        const { data: newBuilding, error } = await (await createServerClient()).from('edificios').insert({
             nombre: nombreLimpio,
             direccion: direccionLimpia,
             estado: data.estado,
@@ -109,7 +109,7 @@ export async function updateBuilding(id: number, data: {
             adminId = Number(data.id_administrador)
         }
 
-        const { error } = await supabaseAdmin.from('edificios').update({
+        const { error } = await (await createServerClient()).from('edificios').update({
             nombre: nombreLimpio,
             direccion: direccionLimpia,
             estado: data.estado,

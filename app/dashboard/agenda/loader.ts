@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 /**
  * AGENDA LOADER v109.0 (Server-Side Data Loading)

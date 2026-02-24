@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 export type PresupuestoFinalLoaderData = {
     presupuesto: any // Se tipará mejor si hay types definidos, por ahora any para compatibilidad

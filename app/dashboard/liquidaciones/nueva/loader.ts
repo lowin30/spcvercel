@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 export interface CandidateTaskDTO {
     id: number // ID del Presupuesto Base

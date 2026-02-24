@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 export async function getFacturas(rol: string, userId: string) {
     let query = supabaseAdmin
@@ -36,12 +36,12 @@ export async function getInvoiceKPIs(rol: string) {
         pfBorradorResponse,
         pfEnviadoResponse
     ] = await Promise.all([
-        supabaseAdmin.from('vista_finanzas_admin').select('*').single(),
-        supabaseAdmin.from('vista_admin_liquidaciones_sin_pf').select('*').order('created_at', { ascending: false }).limit(5),
-        supabaseAdmin.from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(5),
-        supabaseAdmin.from('vista_admin_pb_finalizada_sin_pf').select('*').limit(5),
-        supabaseAdmin.from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(5),
-        supabaseAdmin.from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(5)
+        (await createServerClient()).from('vista_finanzas_admin').select('*').single(),
+        (await createServerClient()).from('vista_admin_liquidaciones_sin_pf').select('*').order('created_at', { ascending: false }).limit(5),
+        (await createServerClient()).from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(5),
+        (await createServerClient()).from('vista_admin_pb_finalizada_sin_pf').select('*').limit(5),
+        (await createServerClient()).from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(5),
+        (await createServerClient()).from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(5)
     ]);
 
     return {
@@ -58,9 +58,9 @@ export async function getFiltrosData(rol: string) {
     if (rol !== 'admin') return { administradores: [], edificios: [], estados: [] };
 
     const [adminsRes, edificiosRes, estadosRes] = await Promise.all([
-        supabaseAdmin.from("administradores").select("id, nombre").eq('estado', 'activo'),
-        supabaseAdmin.from("edificios").select("id, nombre, id_administrador").order('nombre'),
-        supabaseAdmin.from("estados_facturas").select("*").order("id")
+        (await createServerClient()).from("administradores").select("id, nombre").eq('estado', 'activo'),
+        (await createServerClient()).from("edificios").select("id, nombre, id_administrador").order('nombre'),
+        (await createServerClient()).from("estados_facturas").select("*").order("id")
     ]);
 
     return {

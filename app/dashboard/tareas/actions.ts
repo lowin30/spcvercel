@@ -2,7 +2,7 @@
 
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 // eliminamos la importacion externa que estaba fallando
-// import { supabaseAdmin } from "@/lib/supabase-admin"
+// import { createServerClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { sanitizeText } from '@/lib/utils'
 import { createClient } from '@supabase/supabase-js'
@@ -69,9 +69,9 @@ export async function deleteTask(taskId: number) {
     }
 
     // 3. eliminar asignaciones
-    await supabaseAdmin.from('trabajadores_tareas').delete().eq('id_tarea', taskId)
-    await supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId)
-    await supabaseAdmin.from('departamentos_tareas').delete().eq('id_tarea', taskId)
+    await (await createServerClient()).from('trabajadores_tareas').delete().eq('id_tarea', taskId)
+    await (await createServerClient()).from('supervisores_tareas').delete().eq('id_tarea', taskId)
+    await (await createServerClient()).from('departamentos_tareas').delete().eq('id_tarea', taskId)
 
     // 4. eliminar la tarea
     const { error: taskError } = await supabaseAdmin
@@ -153,7 +153,7 @@ export async function cloneTask(taskId: number) {
           id_departamento: dept.id_departamento
         }))
 
-        await supabaseAdmin.from('departamentos_tareas').insert(departamentosInserts)
+        await (await createServerClient()).from('departamentos_tareas').insert(departamentosInserts)
       }
     }
 
@@ -199,9 +199,9 @@ export async function updateTask(taskId: number, data: any) {
 
     // updates de relaciones
     if (data.id_supervisor !== undefined) {
-      await supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId)
+      await (await createServerClient()).from('supervisores_tareas').delete().eq('id_tarea', taskId)
       if (data.id_supervisor) {
-        await supabaseAdmin.from('supervisores_tareas').insert({
+        await (await createServerClient()).from('supervisores_tareas').insert({
           id_tarea: taskId,
           id_supervisor: data.id_supervisor
         })
@@ -209,9 +209,9 @@ export async function updateTask(taskId: number, data: any) {
     }
 
     if (data.id_asignado !== undefined) {
-      await supabaseAdmin.from('trabajadores_tareas').delete().eq('id_tarea', taskId)
+      await (await createServerClient()).from('trabajadores_tareas').delete().eq('id_tarea', taskId)
       if (data.id_asignado) {
-        await supabaseAdmin.from('trabajadores_tareas').insert({
+        await (await createServerClient()).from('trabajadores_tareas').insert({
           id_tarea: taskId,
           id_trabajador: data.id_asignado
         })
@@ -219,13 +219,13 @@ export async function updateTask(taskId: number, data: any) {
     }
 
     if (data.departamentos_ids !== undefined) {
-      await supabaseAdmin.from('departamentos_tareas').delete().eq('id_tarea', taskId)
+      await (await createServerClient()).from('departamentos_tareas').delete().eq('id_tarea', taskId)
       if (data.departamentos_ids.length > 0) {
         const depts = data.departamentos_ids.map((d: any) => ({
           id_tarea: taskId,
           id_departamento: d
         }))
-        await supabaseAdmin.from('departamentos_tareas').insert(depts)
+        await (await createServerClient()).from('departamentos_tareas').insert(depts)
       }
     }
 
@@ -297,7 +297,7 @@ export async function createTask(data: any) {
     }
 
     // usamos supabaseadmin para ejecutar el rpc con privilegios
-    const { data: result, error } = await supabaseAdmin.rpc('crear_tarea_con_asignaciones', rpcParams)
+    const { data: result, error } = await (await createServerClient()).rpc('crear_tarea_con_asignaciones', rpcParams)
 
     if (error) throw error
 
@@ -333,9 +333,9 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
     }
 
     const [superRel, workRel, deptRel] = await Promise.all([
-      supabaseAdmin.from('supervisores_tareas').select('id_supervisor').eq('id_tarea', taskId).maybeSingle(),
-      supabaseAdmin.from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', taskId).maybeSingle(),
-      supabaseAdmin.from('departamentos_tareas').select('id_departamento').eq('id_tarea', taskId)
+      (await createServerClient()).from('supervisores_tareas').select('id_supervisor').eq('id_tarea', taskId).maybeSingle(),
+      (await createServerClient()).from('trabajadores_tareas').select('id_trabajador').eq('id_tarea', taskId).maybeSingle(),
+      (await createServerClient()).from('departamentos_tareas').select('id_departamento').eq('id_tarea', taskId)
     ])
 
     const parentSupervisorId = superRel.data?.id_supervisor
@@ -401,14 +401,14 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
     }
 
     if (parentSupervisorId) {
-      await supabaseAdmin.from("supervisores_tareas").insert({
+      await (await createServerClient()).from("supervisores_tareas").insert({
         id_tarea: nuevaTarea.id,
         id_supervisor: parentSupervisorId
       })
     }
 
     if (parentTrabajadorId) {
-      await supabaseAdmin.from("trabajadores_tareas").insert({
+      await (await createServerClient()).from("trabajadores_tareas").insert({
         id_tarea: nuevaTarea.id,
         id_trabajador: parentTrabajadorId
       })
@@ -419,7 +419,7 @@ export async function quickCloneTask(taskId: number, rubros: string[]) {
         id_tarea: nuevaTarea.id,
         id_departamento: idDep
       }))
-      await supabaseAdmin.from("departamentos_tareas").insert(deptoRelations)
+      await (await createServerClient()).from("departamentos_tareas").insert(deptoRelations)
     }
 
     revalidatePath('/dashboard/tareas')
@@ -502,7 +502,7 @@ export async function createDepartamentoAction(payload: any) {
         }
       }))
 
-      const { error: contactsError } = await supabaseAdmin.from("contactos").insert(contactosPayload)
+      const { error: contactsError } = await (await createServerClient()).from("contactos").insert(contactosPayload)
       if (contactsError) console.error("Error inserting contacts in server action:", contactsError)
     }
 
@@ -571,7 +571,7 @@ export async function finalizarTareaAction(payload: any) {
       }
     }
 
-    await supabaseAdmin.from("comentarios").insert({
+    await (await createServerClient()).from("comentarios").insert({
       contenido: `${huboTrabajo ? "tarea finalizada" : "tarea cerrada sin trabajo"}\n\nresumen: ${resumen.trim()}`,
       id_tarea: taskId,
       id_usuario: userId,
@@ -582,9 +582,9 @@ export async function finalizarTareaAction(payload: any) {
         if (!nota || !nota.trim()) return
         const fecha = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
         const nuevaNota = `[${fecha}] ${nota.trim()}`
-        const { data: current } = await supabaseAdmin.from("departamentos").select("notas").eq("id", depId).single()
+        const { data: current } = await (await createServerClient()).from("departamentos").select("notas").eq("id", depId).single()
         const notasActualizadas = current?.notas ? `${current.notas}\n\n${nuevaNota}` : nuevaNota
-        await supabaseAdmin.from("departamentos").update({ notas: notasActualizadas }).eq("id", depId)
+        await (await createServerClient()).from("departamentos").update({ notas: notasActualizadas }).eq("id", depId)
       }))
     }
 
@@ -601,7 +601,7 @@ export async function finalizarTareaAction(payload: any) {
 export async function postCommentAction(payload: any) {
   try {
     const { id: userId } = await validateSessionAndGetUser()
-    const { error } = await supabaseAdmin.from("comentarios").insert({
+    const { error } = await (await createServerClient()).from("comentarios").insert({
       contenido: payload.content,
       id_tarea: payload.taskId,
       id_usuario: userId,
@@ -619,7 +619,7 @@ export async function postCommentAction(payload: any) {
 export async function updateTaskDateAction(taskId: number, dateString: string | null) {
   try {
     await validateSessionAndGetUser()
-    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('actualizar_fecha_tarea', {
+    const { data: rpcResult, error: rpcError } = await (await createServerClient()).rpc('actualizar_fecha_tarea', {
       tarea_id: taskId,
       nueva_fecha: dateString
     });
@@ -644,7 +644,7 @@ export async function updateTaskDateAction(taskId: number, dateString: string | 
 export async function updateBuildingNotesAction(buildingId: number, notes: string | null) {
   try {
     await validateSessionAndGetUser();
-    await supabaseAdmin.from('edificios').update({ notas: notes }).eq('id', buildingId);
+    await (await createServerClient()).from('edificios').update({ notas: notes }).eq('id', buildingId);
     revalidatePath('/dashboard/tareas');
     return { success: true };
   } catch (e: any) { return { success: false, message: e.message } }
@@ -652,10 +652,10 @@ export async function updateBuildingNotesAction(buildingId: number, notes: strin
 export async function updateSupervisorAction(taskId: number, supervisorEmail: string | null) {
   try {
     await validateSessionAndGetUser();
-    await supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId);
+    await (await createServerClient()).from('supervisores_tareas').delete().eq('id_tarea', taskId);
     if (supervisorEmail) {
-      const { data: user } = await supabaseAdmin.from('usuarios').select('id').eq('email', supervisorEmail).single();
-      if (user) await supabaseAdmin.from('supervisores_tareas').insert({ id_tarea: taskId, id_supervisor: user.id });
+      const { data: user } = await (await createServerClient()).from('usuarios').select('id').eq('email', supervisorEmail).single();
+      if (user) await (await createServerClient()).from('supervisores_tareas').insert({ id_tarea: taskId, id_supervisor: user.id });
     }
     revalidatePath(`/dashboard/tareas/${taskId}`);
     return { success: true };
@@ -664,7 +664,7 @@ export async function updateSupervisorAction(taskId: number, supervisorEmail: st
 export async function assignWorkerAction(taskId: number, workerId: string) {
   try {
     await validateSessionAndGetUser();
-    await supabaseAdmin.from("trabajadores_tareas").insert({ id_tarea: taskId, id_trabajador: workerId });
+    await (await createServerClient()).from("trabajadores_tareas").insert({ id_tarea: taskId, id_trabajador: workerId });
     revalidatePath(`/dashboard/tareas/${taskId}`);
     return { success: true };
   } catch (e: any) { return { success: false, message: e.message } }
@@ -672,7 +672,7 @@ export async function assignWorkerAction(taskId: number, workerId: string) {
 export async function removeWorkerAction(taskId: number, workerId: string) {
   try {
     await validateSessionAndGetUser();
-    await supabaseAdmin.from("trabajadores_tareas").delete().eq("id_tarea", taskId).eq("id_trabajador", workerId);
+    await (await createServerClient()).from("trabajadores_tareas").delete().eq("id_tarea", taskId).eq("id_trabajador", workerId);
     revalidatePath(`/dashboard/tareas/${taskId}`);
     return { success: true };
   } catch (e: any) { return { success: false, message: e.message } }
@@ -680,7 +680,7 @@ export async function removeWorkerAction(taskId: number, workerId: string) {
 export async function getDepartamentosAction(edificioId?: number) {
   try {
     await validateSessionAndGetUser();
-    let q = supabaseAdmin.from('departamentos').select('id, codigo, edificio_id, propietario');
+    let q = (await createServerClient()).from('departamentos').select('id, codigo, edificio_id, propietario');
     if (edificioId) q = q.eq('edificio_id', edificioId);
     const { data, error } = await q.order('codigo');
     if (error) throw error;
@@ -690,7 +690,7 @@ export async function getDepartamentosAction(edificioId?: number) {
 export async function getEdificiosAction(adminId?: number) {
   try {
     await validateSessionAndGetUser();
-    let q = supabaseAdmin.from('edificios').select('id, nombre, direccion');
+    let q = (await createServerClient()).from('edificios').select('id, nombre, direccion');
     if (adminId) q = q.eq('id_administrador', adminId);
     const { data, error } = await q.order('nombre');
     if (error) throw error;
@@ -799,7 +799,7 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
       } catch (convError: any) {
         console.error(`[APPROVE] Excepción crítica durante conversión de PF ${id}:`, convError)
         // Rollback safety
-        await supabaseAdmin.from(tabla).update({ aprobado: false }).eq('id', id)
+        await (await createServerClient()).from(tabla).update({ aprobado: false }).eq('id', id)
         throw convError // Rethrow to main catch
       }
     }
@@ -1046,7 +1046,7 @@ export async function saveBudgetAction(params: {
 
       const toDelete = existingIds.filter(id => !incomingIds.includes(id));
       if (toDelete.length > 0) {
-        await supabaseAdmin.from("items").delete().in("id", toDelete);
+        await (await createServerClient()).from("items").delete().in("id", toDelete);
       }
 
       for (const item of items) {
@@ -1062,9 +1062,9 @@ export async function saveBudgetAction(params: {
         if (item.code) itemPayload.code = item.code;
 
         if (item.id) {
-          await supabaseAdmin.from("items").update(itemPayload).eq("id", item.id);
+          await (await createServerClient()).from("items").update(itemPayload).eq("id", item.id);
         } else {
-          await supabaseAdmin.from("items").insert(itemPayload);
+          await (await createServerClient()).from("items").insert(itemPayload);
         }
       }
 
@@ -1092,7 +1092,7 @@ export async function saveBudgetAction(params: {
         ...(item.code ? { code: item.code } : {}),
       }));
 
-      const { error: itemsError } = await supabaseAdmin.from("items").insert(itemsPayload);
+      const { error: itemsError } = await (await createServerClient()).from("items").insert(itemsPayload);
       if (itemsError) throw itemsError;
     }
 
@@ -1152,9 +1152,9 @@ export async function getBudgetStaticDataAction() {
 
     // Consultas en paralelo para máxima velocidad
     const [admins, edificios, productosRes] = await Promise.all([
-      supabaseAdmin.from('administradores').select('id, nombre').order('nombre'),
-      supabaseAdmin.from('edificios').select('id, nombre, direccion').order('nombre'),
-      supabaseAdmin.from('productos').select('*, categorias_productos(id, nombre)').order('nombre')
+      (await createServerClient()).from('administradores').select('id, nombre').order('nombre'),
+      (await createServerClient()).from('edificios').select('id, nombre, direccion').order('nombre'),
+      (await createServerClient()).from('productos').select('*, categorias_productos(id, nombre)').order('nombre')
     ])
 
     return {

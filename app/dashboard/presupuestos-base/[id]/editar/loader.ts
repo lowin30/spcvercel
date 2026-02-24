@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 export async function getPresupuestoBaseEditData(id: string, userId: string, rol: string) {
     // 1. Cargar Presupuesto

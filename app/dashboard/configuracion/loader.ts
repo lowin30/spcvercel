@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 /**
  * CONFIGURACIÓN LOADER v106.0 (Server-Side Data Loading)
@@ -84,7 +84,7 @@ export async function getConfiguracionData() {
 
     // 6. Administradores con conteo de edificios (RPC)
     let administradoresData: any[] = []
-    const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('obtener_administradores_con_edificios')
+    const { data: rpcData, error: rpcError } = await (await createServerClient()).rpc('obtener_administradores_con_edificios')
 
     if (rpcError) {
         console.error("Error al cargar administradores con RPC:", rpcError)

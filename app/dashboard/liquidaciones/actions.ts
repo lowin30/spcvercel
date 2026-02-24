@@ -1,6 +1,6 @@
 'use server'
 
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 import { revalidatePath } from "next/cache"
 
 export type CreateLiquidacionState = {
@@ -56,7 +56,7 @@ export async function createLiquidacionAction(prevState: any, formData: FormData
         // 2. Ejecutar RPC de liquidación de gastos (si aplica)
         // Nota: La RPC original 'liquidar_gastos_supervision' usualmente corre con privilegios security definer
         // o requiere permisos del usuario. Al hacerlo desde server action, usamos supabaseAdmin.
-        const { error: rpcError } = await supabaseAdmin.rpc('liquidar_gastos_supervision', {
+        const { error: rpcError } = await (await createServerClient()).rpc('liquidar_gastos_supervision', {
             p_id_tarea: payload.id_tarea,
             p_id_liquidacion: data.id
         })

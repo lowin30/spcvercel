@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 export async function getPresupuestos(rol: string) {
     if (rol !== 'admin') {
@@ -46,13 +46,13 @@ export async function getKpisAdmin(rol: string) {
         pfEnviadoRes,
         pfAprobadoRes
     ] = await Promise.all([
-        supabaseAdmin.from('vista_finanzas_admin').select('*').single(),
-        supabaseAdmin.from('vista_admin_pb_finalizada_sin_pf').select('*').order('created_at', { ascending: false }).limit(50),
-        supabaseAdmin.from('vista_admin_pb_sin_aprobar').select('*').order('created_at', { ascending: false }).limit(50),
-        supabaseAdmin.from('vista_admin_pf_enviado_sin_actividad').select('*').order('dias_desde_envio', { ascending: false }).limit(50),
-        supabaseAdmin.from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(50),
-        supabaseAdmin.from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(50),
-        supabaseAdmin.from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(50)
+        (await createServerClient()).from('vista_finanzas_admin').select('*').single(),
+        (await createServerClient()).from('vista_admin_pb_finalizada_sin_pf').select('*').order('created_at', { ascending: false }).limit(50),
+        (await createServerClient()).from('vista_admin_pb_sin_aprobar').select('*').order('created_at', { ascending: false }).limit(50),
+        (await createServerClient()).from('vista_admin_pf_enviado_sin_actividad').select('*').order('dias_desde_envio', { ascending: false }).limit(50),
+        (await createServerClient()).from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(50),
+        (await createServerClient()).from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(50),
+        (await createServerClient()).from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(50)
     ]);
 
     return {

@@ -1,5 +1,5 @@
 import "server-only"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 export type PagosFilterParams = {
     q?: string
@@ -109,8 +109,8 @@ export async function getPagos(filters?: PagosFilterParams): Promise<PagoEnrique
  */
 export async function getFiltrosMetadata() {
     const [adminsRes, edificiosRes] = await Promise.all([
-        supabaseAdmin.from('administradores').select('id, nombre').order('nombre'),
-        supabaseAdmin.from('edificios').select('id, nombre, id_administrador').order('nombre')
+        (await createServerClient()).from('administradores').select('id, nombre').order('nombre'),
+        (await createServerClient()).from('edificios').select('id, nombre, id_administrador').order('nombre')
     ]);
 
     return {

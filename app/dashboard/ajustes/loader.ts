@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 
 /**
  * AJUSTES LOADER v105.0 (Server-Side Data Loading)

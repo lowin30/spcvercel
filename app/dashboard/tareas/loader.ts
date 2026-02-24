@@ -1,5 +1,5 @@
 import "server-only"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from '@/lib/supabase-server'
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { createServerClient } from "@/lib/supabase-server"
 import { executeSecureQuery } from "@/lib/rls-error-handler"
@@ -218,7 +218,7 @@ async function getTareasFromView(viewName: string, userId: string) {
     const idsAsignados = asignaciones?.map(a => a.id_tarea) || [];
 
     // 2. Query a la vista de estados (que filtra por flujo de negocio)
-    let query = supabaseAdmin.from(viewName).select('*');
+    let query = (await createServerClient()).from(viewName).select('*');
 
     // 3. Aplicar interseccion: Tareas del flujo (vista) AND Asignadas al supervisor
 
@@ -503,9 +503,9 @@ export async function getCatalogsForWizard() {
     }
 
     const [adminsRes, supervisorsRes, workersRes] = await Promise.all([
-        supabaseAdmin.from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
-        supabaseAdmin.from('usuarios').select('id, email, code').eq('rol', 'supervisor'),
-        supabaseAdmin.from('usuarios').select('id, email, code').eq('rol', 'trabajador')
+        (await createServerClient()).from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
+        (await createServerClient()).from('usuarios').select('id, email, code').eq('rol', 'supervisor'),
+        (await createServerClient()).from('usuarios').select('id, email, code').eq('rol', 'trabajador')
     ])
 
     return {
