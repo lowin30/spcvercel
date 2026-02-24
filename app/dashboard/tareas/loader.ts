@@ -1,7 +1,7 @@
 import "server-only"
 import { createServerClient } from '@/lib/supabase-server'
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-import { createServerClient } from "@/lib/supabase-server"
+
 import { executeSecureQuery } from "@/lib/rls-error-handler"
 
 // Tipos base para los datos retornados

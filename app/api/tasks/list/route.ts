@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
     try {
-        const supabase = await createSupabaseServerClient()
+        const supabase = await createServerClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         // Aunque no haya usuario, podríamos querer listar tareas públicas si existieran,

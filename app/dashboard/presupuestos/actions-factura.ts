@@ -1,6 +1,6 @@
 "use server"
 
-import { createSsrServerClient } from '@/lib/ssr-server'
+import { createServerClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 
 /**
@@ -16,7 +16,7 @@ export async function convertirPresupuestoAFactura(presupuestoId: number) {
     }
   }
 
-  const supabase = await createSsrServerClient()
+  const supabase = await createServerClient()
 
   try {
     // 1. Verificar si el presupuesto ya está facturado

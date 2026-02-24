@@ -1,6 +1,6 @@
 "use server"
 
-import { createSsrServerClient } from "@/lib/ssr-server"
+import { createServerClient } from '@/lib/supabase-server'
 import { revalidatePath } from "next/cache"
 
 /**
@@ -14,7 +14,7 @@ import { revalidatePath } from "next/cache"
  */
 export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
   try {
-    const supabase = await createSsrServerClient()
+    const supabase = await createServerClient()
 
     // Verificar autenticación
     const { data: { user }, error: authError } = await supabase.auth.getUser()

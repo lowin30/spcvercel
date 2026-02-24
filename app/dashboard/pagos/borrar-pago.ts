@@ -1,10 +1,10 @@
 'use server'
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 
 export async function deletePayment(paymentId: string): Promise<{ message: string; error?: boolean }> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createServerClient();
 
   try {
     // 1. Obtener los detalles del pago a eliminar para saber qué factura actualizar
