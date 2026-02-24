@@ -1,6 +1,6 @@
 "use server"
 
-import { createSsrServerClient } from '@/lib/ssr-server'
+import { createServerClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 import { revalidatePath } from 'next/cache'
@@ -11,7 +11,7 @@ export async function updateItemEsMaterial(itemId: number, esMaterial: boolean) 
     return { success: false, message: 'ID de ítem no proporcionado.' }
   }
 
-  const supabase = await createSsrServerClient()
+  const supabase = await createServerClient()
 
   try {
     // Actualizar el campo es_material del ítem

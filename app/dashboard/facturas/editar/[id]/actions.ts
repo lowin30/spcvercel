@@ -1,6 +1,6 @@
 "use server"
 
-import { createSsrServerClient } from '@/lib/ssr-server';
+import { createServerClient } from '@/lib/supabase-server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { validateSessionAndGetUser } from '@/lib/auth-bridge';
 import { z } from 'zod';
@@ -31,7 +31,7 @@ export async function saveInvoice(
     throw new Error('No autorizado: Operación permitida solo para administradores');
   }
 
-  const supabase = await createSsrServerClient();
+  const supabase = await createServerClient();
 
   try {
     // 1. CREAR O EDITAR FACTURA
