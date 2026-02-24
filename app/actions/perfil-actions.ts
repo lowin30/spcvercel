@@ -2,45 +2,28 @@
 
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-
-// --- Helper Privado ---
-async function _getValidatedUserEmail(): Promise<string | null> {
-    try {
-        const user = await validateSessionAndGetUser()
-        return user.email
-    } catch (error) {
-        console.error("[PerfilAction] Session validation failed", error)
-        return null
-    }
-}
+import { createServerClient } from "@/lib/supabase-server"
 
 // --- Actions Públicas ---
 
 export async function obtenerPerfilUsuario() {
-    const email = await _getValidatedUserEmail()
-
-    if (!email) {
-        console.log("[obtenerPerfilUsuario] No valid session/email")
+    let user
+    try {
+        user = await validateSessionAndGetUser()
+    } catch {
         redirect("/login")
     }
 
-    console.log(`[obtenerPerfilUsuario] Fetching for: ${email}`)
+    const supabase = await createServerClient()
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-    })
-
-    // ilike email to match case insensitive
+    // RLS Policy: [V2] Usuario Propio CRUD - perfil → id = auth.uid()
+    // El usuario solo puede leer su propia fila, así que es seguro usar select("*")
     const { data: userData, error } = await supabase
         .from("usuarios")
         .select("*")
-        .ilike("email", email)
-        .maybeSingle()
+        .eq("id", user.id)
+        .single()
 
     if (error) throw new Error("Error de base de datos")
 
@@ -52,34 +35,26 @@ export async function obtenerPerfilUsuario() {
 }
 
 export async function actualizarAparienciaUsuario(color: string) {
-    const email = await _getValidatedUserEmail()
-
-    if (!email) {
+    let user
+    try {
+        user = await validateSessionAndGetUser()
+    } catch {
         return { ok: false, error: "Sesión inválida" }
     }
 
-    console.log(`[actualizarAparienciaUsuario] Updating color to ${color} for ${email}`)
+    const supabase = await createServerClient()
 
-    const supabase = createClient(supabaseUrl, serviceKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-    })
-
-    // Update using email filter (secure via service role)
-    // We first need to find the user to ensure it exists (optional but safer)
-    // Or just update directly where email matches.
-
+    // RLS Policy: [V2] Usuario Propio CRUD - perfil → id = auth.uid()
     const { error } = await supabase
         .from("usuarios")
         .update({ color_perfil: color })
-        .ilike("email", email)
+        .eq("id", user.id)
 
     if (error) {
         console.error("[actualizarAparienciaUsuario] DB Error:", error)
         return { ok: false, error: "Error al actualizar base de datos" }
     }
 
-    // Revalidar el path para que el layout/page refleje cambios si es necesario (server components)
     revalidatePath('/dashboard/perfil')
-
     return { ok: true }
 }
