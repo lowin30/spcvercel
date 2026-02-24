@@ -40,6 +40,7 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
     const jwtRol = user.app_metadata?.rol;
 
     if (jwtRol) {
+        console.log(`[AUTH-BRIDGE-DEBUG] Resolving JWT app_metadata.rol: ${jwtRol} for user ${email}`);
         return {
             id: user.id,
             email: email,
@@ -62,5 +63,6 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
         throw new Error("Su cuenta no tiene acceso al sistema operativo SPC. Contacte al administrador.")
     }
 
+    console.log(`[AUTH-BRIDGE-DEBUG] Resolving DB Fallback rol: ${usuario.rol} for user ${email}`);
     return usuario as SPCUser
 }

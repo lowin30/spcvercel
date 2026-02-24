@@ -1,35 +1,41 @@
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { createServerClient } from "@/lib/supabase-server"
+import { executeSecureQuery } from "@/lib/rls-error-handler"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 
 /**
- * EDIFICIOS LOADER v107.0 (Server-Side Data Loading)
- * Usa supabaseAdmin (Service Role) para bypassear RLS.
- * Patrón idéntico al de Facturas, Ajustes y Configuración.
+ * EDIFICIOS LOADER v140.0 (Protocolo Triple Barrera)
+ * Retorna datos sanitizados RLS y un objeto 'permissions' explícito.
  */
-
 export async function getEdificiosData() {
-    // 1. Cargar edificios desde vista optimizada
-    const { data: edificiosData, error: edificiosError } = await supabaseAdmin
-        .from("vista_edificios_completa")
-        .select('*')
-        .order("created_at", { ascending: false })
+    const supabase = await createServerClient()
+    const user = await validateSessionAndGetUser()
 
-    if (edificiosError) {
-        console.error("Error al obtener edificios:", edificiosError)
-        throw new Error("Error al cargar edificios")
-    }
+    // 1. Cargar edificios (Filtrado automático por RLS)
+    const edificiosRes = await executeSecureQuery(
+        supabase
+            .from("vista_edificios_completa")
+            .select('*')
+            .order("created_at", { ascending: false })
+    )
 
-    // 2. Cargar administradores para filtro dropdown
-    const { data: adminsData, error: adminsError } = await supabaseAdmin
-        .from('administradores')
-        .select('id, nombre')
-        .order('nombre')
+    // 2. Cargar administradores para filtro dropdown 
+    const adminsRes = await executeSecureQuery(
+        supabase
+            .from('administradores')
+            .select('id, nombre')
+            .order('nombre')
+    )
 
-    if (adminsError) {
-        console.error("Error al cargar administradores:", adminsError)
+    // 3. 🛡️ Construcción de la Primera Barrera (Permissions Object)
+    const permissions = {
+        canCreateBuilding: user.rol === 'admin',
+        canEditBuilding: user.rol === 'admin' || user.rol === 'supervisor',
+        canManageDepartments: user.rol === 'admin' || user.rol === 'supervisor'
     }
 
     return {
-        edificios: edificiosData || [],
-        administradores: adminsData || [],
+        edificios: edificiosRes.success ? (edificiosRes.data || []) : [],
+        administradores: adminsRes.success ? (adminsRes.data || []) : [],
+        permissions
     }
 }

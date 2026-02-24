@@ -24,10 +24,21 @@ export default function EditarEdificioPage() {
       try {
         setLoading(true)
 
-        // Verificar sesión del usuario
+        // 1. Verificar sesión del usuario y obtener JWT payload
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) {
           router.push('/login')
+          return
+        }
+
+        // 🛡️ SEGUNDA BARRERA: Extracción del Rol desde el JWT Claim
+        const access_token = session.access_token
+        const payload = JSON.parse(atob(access_token.split('.')[1]))
+        const userRol = payload.user_metadata?.rol || 'trabajador' // fallback seguro
+
+        if (userRol === 'trabajador') {
+          console.warn(`[SEGUNDA BARRERA] Acceso denegado a Edición para Trabajador (${session.user.email})`)
+          router.push('/dashboard/edificios')
           return
         }
 

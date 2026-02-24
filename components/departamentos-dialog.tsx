@@ -23,6 +23,7 @@ interface DepartamentosDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDepartamentosUpdated?: () => void
+  readonly?: boolean
 }
 
 export function DepartamentosDialog({
@@ -30,7 +31,8 @@ export function DepartamentosDialog({
   edificioNombre,
   open,
   onOpenChange,
-  onDepartamentosUpdated
+  onDepartamentosUpdated,
+  readonly = false
 }: DepartamentosDialogProps) {
   const supabase = createClient()
 
@@ -45,6 +47,10 @@ export function DepartamentosDialog({
     notas: '',
     telefonos: []
   })
+
+  // === DEBUG FLAG PROPS ===
+  console.log('[DEBUG UI FLAG] DepartamentosDialog renderizado con readonly:', readonly, '- edificioId:', edificioId);
+
 
   const fetchDepartamentos = async () => {
     setLoading(true)
@@ -285,14 +291,16 @@ export function DepartamentosDialog({
                       )}
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditarDepartamento(depto)}
-                      className="flex-shrink-0"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
+                    {!readonly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditarDepartamento(depto)}
+                        className="flex-shrink-0"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -301,38 +309,40 @@ export function DepartamentosDialog({
         </div>
 
         {/* FORMULARIO */}
-        <div className="border-t border-border pt-4" id="departamento-form-section">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            {editandoId ? '✏️ EDITAR DEPARTAMENTO' : '➕ AGREGAR NUEVO DEPARTAMENTO'}
-          </h3>
+        {!readonly && (
+          <div className="border-t border-border pt-4" id="departamento-form-section">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              {editandoId ? '✏️ EDITAR DEPARTAMENTO' : '➕ AGREGAR NUEVO DEPARTAMENTO'}
+            </h3>
 
-          <DepartamentoForm
-            formData={formData}
-            onChange={setFormData}
-            onSubmit={handleGuardarDepartamento}
-            onCancel={editandoId ? limpiarFormulario : undefined}
-            isLoading={saving}
-            submitLabel={editandoId ? 'Actualizar Datos Departamento' : 'Crear Departamento'}
-            hidePhones={true} // SPC v18.2: Use Unified Form
-          />
+            <DepartamentoForm
+              formData={formData}
+              onChange={setFormData}
+              onSubmit={handleGuardarDepartamento}
+              onCancel={editandoId ? limpiarFormulario : undefined}
+              isLoading={saving}
+              submitLabel={editandoId ? 'Actualizar Datos Departamento' : 'Crear Departamento'}
+              hidePhones={true} // SPC v18.2: Use Unified Form
+            />
 
-          {editandoId && (
-            <div className="mt-8 border-t pt-4">
-              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                📞 GESTIONAR CONTACTOS
-              </h4>
-              <UnifiedDeptContactForm
-                edificioId={edificioId}
-                edificioNombre={edificioNombre}
-                departamentoId={editandoId!}
-                departamentoCodigo={formData.codigo}
-                onSuccess={() => {
-                  fetchDepartamentos() // Refresh list
-                }}
-              />
-            </div>
-          )}
-        </div>
+            {editandoId && (
+              <div className="mt-8 border-t pt-4">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  📞 GESTIONAR CONTACTOS
+                </h4>
+                <UnifiedDeptContactForm
+                  edificioId={edificioId}
+                  edificioNombre={edificioNombre}
+                  departamentoId={editandoId!}
+                  departamentoCodigo={formData.codigo}
+                  onSuccess={() => {
+                    fetchDepartamentos() // Refresh list
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -54,7 +54,7 @@ export default function EdificioPage() {
     try {
       setLoading(true)
       const supabase = createClient()
-      
+
       if (!supabase) {
         setError("No se pudo inicializar el cliente de Supabase")
         return
@@ -62,32 +62,32 @@ export default function EdificioPage() {
 
       // Verificar sesión de usuario
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       if (!session) {
         router.push("/login")
         return
       }
-      
+
       // Consulta usando la vista optimizada para datos del edificio
       const { data: edificioData, error: edificioError } = await supabase
         .from("vista_edificios_completa")
         .select('*')
         .eq("id", edificioId)
         .single()
-      
+
       if (edificioError) {
         console.error("Error cargando el edificio:", edificioError.message)
         setError("No se pudo cargar el edificio. Por favor, intente nuevamente.")
         setLoading(false)
         return
       }
-      
+
       // Consulta separada para los departamentos
       const { data: departamentosData, error: departamentosError } = await supabase
         .from("departamentos")
         .select('id, codigo, propietario, notas, edificio_id')
         .eq("edificio_id", edificioId)
-      
+
       if (departamentosError) {
         console.error("Error cargando departamentos:", departamentosError.message)
         toast({
@@ -96,20 +96,20 @@ export default function EdificioPage() {
           variant: "destructive"
         })
       }
-      
+
       // Cargar teléfonos para todos los departamentos
       let departamentosConTelefonos = departamentosData || [];
-      
+
       if (departamentosData && departamentosData.length > 0) {
         // Obtener todos los IDs de departamentos
         const idsDepartamentos = departamentosData.map((d: any) => d.id);
-        
+
         // Consultar todos los teléfonos de estos departamentos
         const { data: telefonosData, error: telefonosError } = await supabase
           .from("telefonos_departamento")
           .select('*')
           .in("departamento_id", idsDepartamentos);
-        
+
         if (telefonosError) {
           console.error("Error cargando teléfonos:", telefonosError.message);
           toast({
@@ -125,7 +125,7 @@ export default function EdificioPage() {
           }));
         }
       }
-      
+
       // Combinar los resultados
       const data = {
         ...edificioData,
@@ -150,15 +150,15 @@ export default function EdificioPage() {
   // Función para ordenar departamentos según reglas específicas
   const ordenarDepartamentos = (departamentos: any[]) => {
     if (!departamentos) return [];
-    
+
     return [...departamentos].sort((a, b) => {
       const codigoA = a.codigo.toLowerCase();
       const codigoB = b.codigo.toLowerCase();
-      
+
       // Porterías primero
       if (codigoA.startsWith('port') && !codigoB.startsWith('port')) return -1;
       if (!codigoA.startsWith('port') && codigoB.startsWith('port')) return 1;
-      
+
       // Plantas bajas después de porterías
       const esPBA = codigoA.startsWith('pb');
       const esPBB = codigoB.startsWith('pb');
@@ -168,36 +168,56 @@ export default function EdificioPage() {
         // Si ambos son PB, ordenar por la letra
         return codigoA.localeCompare(codigoB);
       }
-      
+
       // Extraer el número y la letra (si existe) de cada código
       const matchA = codigoA.match(/^(\d+)([a-z]*)$/);
       const matchB = codigoB.match(/^(\d+)([a-z]*)$/);
-      
+
       if (matchA && matchB) {
         const numA = parseInt(matchA[1]);
         const numB = parseInt(matchB[1]);
-        
+
         // Si los números son diferentes, ordenar por número
         if (numA !== numB) {
           return numA - numB;
         }
-        
+
         // Si los números son iguales, ordenar por letra
         const letraA = matchA[2] || '';
         const letraB = matchB[2] || '';
         return letraA.localeCompare(letraB);
       }
-      
+
       // Si no se puede aplicar lógica específica, usar orden alfabético
       return codigoA.localeCompare(codigoB);
     });
   };
-  
+
   // Cargar edificio al iniciar
   useEffect(() => {
     cargarEdificio()
   }, [edificioId, router])
-  
+
+  // Extraer Rol y construir permissions para UI conditional (Tercera Barrera)
+  const [permissions, setPermissions] = useState({ canEditBuilding: false, canManageDepartments: false })
+  useEffect(() => {
+    const fetchRole = async () => {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const access_token = session.access_token
+        const payload = JSON.parse(atob(access_token.split('.')[1]))
+        // Priorizar app_metadata (Hook) y luego the old user_metadata. Si no hay ninguno, 'trabajador'.
+        const rol = payload.app_metadata?.rol || payload.user_metadata?.rol || 'trabajador'
+        setPermissions({
+          canEditBuilding: rol === 'admin' || rol === 'supervisor',
+          canManageDepartments: rol === 'admin' || rol === 'supervisor'
+        })
+      }
+    }
+    fetchRole()
+  }, [])
+
   // Renderizar estados de carga y error
   if (loading) {
     return (
@@ -210,7 +230,7 @@ export default function EdificioPage() {
       </div>
     )
   }
-  
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
@@ -223,7 +243,7 @@ export default function EdificioPage() {
       </div>
     )
   }
-  
+
   if (!edificio) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
@@ -315,14 +335,24 @@ export default function EdificioPage() {
           <CardTitle className="text-base sm:text-lg">
             Deptos ({edificio.departamentos?.length || 0})
           </CardTitle>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={() => setDepartamentosDialogOpen(true)}
             className="h-8 text-xs"
+            variant={permissions.canManageDepartments ? "default" : "outline"}
           >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            <span className="hidden sm:inline">Gestionar</span>
-            <span className="sm:hidden">Gestionar</span>
+            {permissions.canManageDepartments ? (
+              <>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                <span className="hidden sm:inline">Gestionar</span>
+                <span className="sm:hidden">Gestionar</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Ver Deptos</span>
+                <span className="sm:hidden">Ver Deptos</span>
+              </>
+            )}
           </Button>
         </CardHeader>
 
@@ -332,10 +362,10 @@ export default function EdificioPage() {
               {ordenarDepartamentos(edificio.departamentos).slice(0, 10).map((depto: any) => {
                 const tieneTelefonoPrincipal = depto.telefonos?.some((tel: any) => tel.es_principal);
                 const cantidadTelefonos = depto.telefonos?.length || 0;
-                
+
                 return (
-                  <div 
-                    key={depto.id} 
+                  <div
+                    key={depto.id}
                     className="flex items-center justify-between p-2 sm:p-2.5 border border-border rounded-md hover:bg-muted/50 dark:hover:bg-muted/30 transition-colors"
                   >
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -376,7 +406,7 @@ export default function EdificioPage() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Diálogo completo de Departamentos */}
       <DepartamentosDialog
         edificioId={edificio.id}
@@ -384,14 +414,17 @@ export default function EdificioPage() {
         open={departamentosDialogOpen}
         onOpenChange={setDepartamentosDialogOpen}
         onDepartamentosUpdated={cargarEdificio}
+        readonly={!permissions.canManageDepartments}
       />
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
-        <Link href={`/dashboard/edificios/${edificioId}/editar`}>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-            Editar Edificio
-          </Button>
-        </Link>
+        {permissions.canEditBuilding && (
+          <Link href={`/dashboard/edificios/${edificioId}/editar`}>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              Editar Edificio
+            </Button>
+          </Link>
+        )}
         <Link href="/dashboard/edificios">
           <Button variant="secondary" size="sm" className="w-full sm:w-auto">
             Volver a lista

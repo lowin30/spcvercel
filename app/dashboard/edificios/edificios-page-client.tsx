@@ -12,16 +12,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 
+interface Permissions {
+    canCreateBuilding: boolean;
+    canEditBuilding: boolean;
+    canManageDepartments: boolean;
+}
+
 interface EdificiosPageClientProps {
     initialEdificios: any[]
     initialAdministradores: { id: string; nombre: string }[]
     userRol: string
+    permissions: Permissions
 }
 
 export default function EdificiosPageClient({
     initialEdificios,
     initialAdministradores,
     userRol,
+    permissions
 }: EdificiosPageClientProps) {
     const [searchTerm, setSearchTerm] = useState('')
     const [administradores] = useState(initialAdministradores)
@@ -198,10 +206,10 @@ export default function EdificiosPageClient({
                     <TabsTrigger value="inactivos">Inactivos</TabsTrigger>
                 </TabsList>
                 <TabsContent value="activos" className="mt-4">
-                    <BuildingList buildings={edificiosActivos} onBuildingUpdated={handleBuildingUpdated} />
+                    <BuildingList buildings={edificiosActivos} onBuildingUpdated={handleBuildingUpdated} permissions={permissions} />
                 </TabsContent>
                 <TabsContent value="inactivos" className="mt-4">
-                    <BuildingList buildings={edificiosInactivos} onBuildingUpdated={handleBuildingUpdated} />
+                    <BuildingList buildings={edificiosInactivos} onBuildingUpdated={handleBuildingUpdated} permissions={permissions} />
                 </TabsContent>
             </Tabs>
         </div>
