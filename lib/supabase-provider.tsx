@@ -5,7 +5,7 @@ import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation";
 import { type SupabaseClient, type User, type AuthChangeEvent, type Session } from "@supabase/supabase-js";
-import { createSsrClient } from "./ssr-client"; // Usar el nuevo cliente SSR
+import { createBrowserClient } from "@supabase/ssr";
 
 type SupabaseContext = {
   supabase: SupabaseClient<any, "public", any>; // Corregidas las comillas
@@ -20,7 +20,10 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  const [supabase] = useState(() => createSsrClient());
+  const [supabase] = useState(() => createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  ));
 
   useEffect(() => {
     const getInitialUser = async () => {
