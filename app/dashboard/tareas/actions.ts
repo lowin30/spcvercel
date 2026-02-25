@@ -1,8 +1,7 @@
 "use server"
 
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-// eliminamos la importacion externa que estaba fallando
-// import { createServerClient } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase-server'
 import { revalidatePath } from 'next/cache'
 import { sanitizeText } from '@/lib/utils'
 import { createClient } from '@supabase/supabase-js'

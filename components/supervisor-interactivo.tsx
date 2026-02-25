@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,7 +14,7 @@ import { UserRound } from "lucide-react"
 
 // Tipos
 export interface SupervisorType {
-  id: number
+  id: string
   email: string
   color_perfil?: string
 }
@@ -24,7 +24,7 @@ interface SupervisorInteractivoProps {
   supervisorActual: SupervisorType | null
   supervisoresDisponibles: SupervisorType[]
   onSupervisorChange?: (identificadorSupervisor: string | null) => void
-  userDetailsId?: number 
+  userDetailsId?: string
   className?: string
 }
 
@@ -41,7 +41,7 @@ export function SupervisorInteractivo({
   // Función para obtener las iniciales del email
   const getInitials = (email: string) => {
     if (!email) return "?";
-    
+
     const parts = email.split('@');
     if (parts[0]) {
       return parts[0].charAt(0).toUpperCase();
@@ -52,22 +52,22 @@ export function SupervisorInteractivo({
   // Función para manejar el cambio de supervisor
   const handleSupervisorChange = async (supervisor: SupervisorType | null) => {
     setIsLoading(true);
-    
+
     try {
       // Simular un retraso para la actualización
       await new Promise(resolve => setTimeout(resolve, 600));
-      
+
       console.log('Simulando actualización de supervisor:', {
         tareaId,
         supervisorAnteriorId: supervisorActual?.id || null,
         nuevoSupervisorId: supervisor?.id || null,
         nuevoSupervisorEmail: supervisor?.email || null
       });
-      
+
       toast({
-        title: "Supervisor actualizado", 
-        description: supervisor 
-          ? `La tarea ahora está asignada a ${supervisor.email}` 
+        title: "Supervisor actualizado",
+        description: supervisor
+          ? `La tarea ahora está asignada a ${supervisor.email}`
           : "La tarea ya no tiene supervisor asignado",
       });
 
@@ -94,7 +94,7 @@ export function SupervisorInteractivo({
   // Función para desasignar supervisor
   const handleRemoveSupervisor = async () => {
     if (!supervisorActual) return;
-    
+
     await handleSupervisorChange(null);
   };
 
@@ -102,14 +102,14 @@ export function SupervisorInteractivo({
     <div className={`${className}`}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild disabled={isLoading}>
-          <Badge 
+          <Badge
             variant={supervisorActual ? "outline" : "secondary"}
             className="cursor-pointer hover:opacity-80 transition-all flex items-center gap-1 pl-1 pr-2 py-1"
           >
             {supervisorActual ? (
               <>
                 <Avatar className="h-5 w-5 mr-1">
-                  <AvatarFallback 
+                  <AvatarFallback
                     style={{ backgroundColor: supervisorActual.color_perfil || '#ccc', color: 'white', fontSize: '10px' }}
                   >
                     {getInitials(supervisorActual.email)}
@@ -128,25 +128,24 @@ export function SupervisorInteractivo({
             )}
           </Badge>
         </DropdownMenuTrigger>
-        
+
         <DropdownMenuContent align="start" className="w-[250px]">
           {supervisoresDisponibles.map((supervisor) => (
             <DropdownMenuItem
               key={supervisor.id}
               onClick={() => {
-                // Pasar directamente el ID numérico en lugar del objeto supervisor
-                const supervisorId = Number(supervisor.id);
+                const supervisorId = supervisor.id;
                 console.log('Click en supervisor:', supervisor.email, 'ID:', supervisorId);
                 handleSupervisorChange({
                   ...supervisor,
-                  id: supervisorId // Asegurar que el ID es numérico
+                  id: supervisorId
                 });
               }}
               className="flex items-center gap-2 cursor-pointer"
               disabled={isLoading}
             >
               <Avatar className="h-6 w-6">
-                <AvatarFallback 
+                <AvatarFallback
                   style={{ backgroundColor: supervisor.color_perfil || '#ccc', color: 'white', fontSize: '10px' }}
                 >
                   {getInitials(supervisor.email)}
@@ -158,7 +157,7 @@ export function SupervisorInteractivo({
               </span>
             </DropdownMenuItem>
           ))}
-          
+
           {supervisorActual && (
             <DropdownMenuItem
               onClick={handleRemoveSupervisor}
