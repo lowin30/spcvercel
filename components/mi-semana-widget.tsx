@@ -28,12 +28,12 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
     async function cargarRegistrosSemana() {
       const supabase = createClient()
       if (!supabase) return
-      
+
       try {
         const hoy = new Date()
         const diaSemana = hoy.getDay() // 0 = domingo, 1 = lunes, etc.
         const inicioSemana = new Date(hoy)
-        
+
         // Calcular inicio de semana (lunes)
         const diff = diaSemana === 0 ? -6 : 1 - diaSemana
         inicioSemana.setDate(hoy.getDate() + diff)
@@ -43,16 +43,27 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
         finSemana.setDate(inicioSemana.getDate() + 6)
         finSemana.setHours(23, 59, 59, 999)
 
+        // [MODO DIOS] Usar la Súper Vista Maestra
         const { data, error } = await supabase
-          .from('partes_de_trabajo')
-          .select('fecha, tipo_jornada, id_tarea')
-          .eq('id_trabajador', trabajadorId)
+          .from('vista_actividad_maestra_god_mode')
+          .select('fecha, detalle_tipo, id_tarea, monto')
+          .eq('tipo_evento', 'JORNAL')
+          .eq('id_usuario', trabajadorId)
           .gte('fecha', inicioSemana.toISOString().split('T')[0])
           .lte('fecha', finSemana.toISOString().split('T')[0])
           .order('fecha', { ascending: true })
 
         if (error) throw error
-        setRegistrosSemana(data || [])
+
+        // Mapear al tipo esperado por el componente
+        const mapeados = (data || []).map((d: any) => ({
+          fecha: d.fecha,
+          tipo_jornada: d.detalle_tipo as 'dia_completo' | 'medio_dia',
+          id_tarea: d.id_tarea,
+          monto: d.monto
+        }))
+
+        setRegistrosSemana(mapeados)
       } catch (error) {
         console.error('Error al cargar registros de la semana:', error)
       } finally {
@@ -70,20 +81,20 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
     const hoy = new Date()
     const diaSemana = hoy.getDay()
     const inicioSemana = new Date(hoy)
-    
+
     const diff = diaSemana === 0 ? -6 : 1 - diaSemana
     inicioSemana.setDate(hoy.getDate() + diff)
 
     const dias = []
     const nombres = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-    
+
     for (let i = 0; i < 7; i++) {
       const dia = new Date(inicioSemana)
       dia.setDate(inicioSemana.getDate() + i)
       const fechaStr = dia.toISOString().split('T')[0]
-      
+
       const registro = registrosSemana.find(r => r.fecha === fechaStr)
-      
+
       dias.push({
         nombre: nombres[i],
         fecha: dia,
@@ -92,7 +103,7 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
         esHoy: dia.toDateString() === new Date().toDateString()
       })
     }
-    
+
     return dias
   }
 
@@ -136,23 +147,23 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
             </div>
             <Progress value={Math.min(progreso, 100)} className="h-2" />
           </div>
-          
+
           {/* Días de la semana */}
           <div className="grid grid-cols-7 gap-1">
             {diasSemana.map((dia, index) => (
-              <div 
+              <div
                 key={index}
                 className={cn(
                   "text-center p-2 rounded border transition-colors",
-                  dia.registrado 
-                    ? "bg-green-100 border-green-300 dark:bg-green-900/30 dark:border-green-700" 
+                  dia.registrado
+                    ? "bg-green-100 border-green-300 dark:bg-green-900/30 dark:border-green-700"
                     : "bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700",
                   dia.esHoy && "ring-2 ring-blue-500"
                 )}
               >
                 <p className="text-xs font-medium">{dia.nombre}</p>
                 <p className="text-lg font-bold mt-1">
-                  {dia.registrado 
+                  {dia.registrado
                     ? (dia.tipoJornada === 'dia_completo' ? '✓' : '½')
                     : '-'
                   }
@@ -160,7 +171,7 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
               </div>
             ))}
           </div>
-          
+
           {/* Resumen */}
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
@@ -173,7 +184,7 @@ export function MiSemanaWidget({ trabajadorId, salarioDiario = 0 }: MiSemanaWidg
               {diasCompletos} días completos + {mediosDias} medios días
             </p>
           </div>
-          
+
           {/* Botón de acción */}
           <Button asChild className="w-full">
             <Link href="/dashboard/trabajadores/registro-dias">

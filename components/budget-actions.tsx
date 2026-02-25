@@ -157,7 +157,7 @@ export function BudgetActions({ budget, userRole, hasInvoice }: BudgetActionsPro
 
         {canCreateFinalBudget && (
           <Button asChild className="w-full">
-            <Link href={`/dashboard/presupuestos/nuevo?tipo=final&id_padre=${budget.id}&id_tarea=${budget.id_tarea}`}>
+            <Link href={`/dashboard/presupuestos-finales/nuevo?tipo=final&id_padre=${budget.id}&id_tarea=${budget.id_tarea}`}>
               <PenSquare className="mr-2 h-4 w-4" />
               Crear Presupuesto Final
             </Link>
@@ -194,7 +194,7 @@ export function BudgetActions({ budget, userRole, hasInvoice }: BudgetActionsPro
       </CardContent>
       <CardFooter>
         <Button variant="outline" asChild className="w-full">
-          <Link href={`/dashboard/presupuestos/editar/${budget.id}`}>Editar ítems</Link>
+          <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>Editar ítems</Link>
         </Button>
       </CardFooter>
     </Card>

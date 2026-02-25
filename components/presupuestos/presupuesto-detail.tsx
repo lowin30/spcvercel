@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { marcarPresupuestoComoEnviado } from "@/app/dashboard/presupuestos/actions-envio"
+import { marcarPresupuestoComoEnviado } from "@/app/dashboard/presupuestos-finales/actions"
 
 interface PresupuestoDetailProps {
     presupuesto: any
@@ -96,7 +96,7 @@ export function PresupuestoDetail({ presupuesto, userDetails }: PresupuestoDetai
                     {(userDetails?.rol === "admin" || userDetails?.rol === "supervisor") && !estaAprobado && (
                         <Button
                             variant="outline"
-                            onClick={() => router.push(`/dashboard/presupuestos/${presupuesto.id}/${esFinal ? 'editar-final' : 'editar'}`)} // TODO: Check edit routes
+                            onClick={() => router.push(`/dashboard/presupuestos-finales/editar/${presupuesto.id}`)} // Replaced legacy multi-path edit
                         >
                             Editar
                         </Button>
@@ -143,7 +143,7 @@ export function PresupuestoDetail({ presupuesto, userDetails }: PresupuestoDetai
                             <Button
                                 variant="link"
                                 className="p-0"
-                                onClick={() => router.push(`/dashboard/presupuestos/${presupuesto.id_padre}`)}
+                                onClick={() => router.push(`/dashboard/presupuestos-base/${presupuesto.id_padre}`)} // Redirect to Base if it's parent 
                             >
                                 Ver presupuesto base asociado
                             </Button>
@@ -173,7 +173,7 @@ export function PresupuestoDetail({ presupuesto, userDetails }: PresupuestoDetai
             <div className="flex justify-start">
                 <Button
                     variant="outline"
-                    onClick={() => router.push("/dashboard/presupuestos")}
+                    onClick={() => router.push("/dashboard/presupuestos-finales")}
                 >
                     Volver a Presupuestos
                 </Button>

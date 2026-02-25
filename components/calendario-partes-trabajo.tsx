@@ -70,32 +70,44 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
   }>({ date: null, isLoading: false, parteExistente: null, cargaTotalDia: 0, jornadaSeleccionada: '', partesEnOtrasTareas: [] })
 
   const fetchPartes = useCallback(async () => {
-    // Optimización: Solo seleccionar campos necesarios (id, id_tarea, fecha, tipo_jornada)
-    // Esto reduce ~60% el tamaño de los datos transferidos
+    // [MODO DIOS] Usar la Súper Vista Maestra para la visualización
     let query = supabase
-      .from('partes_de_trabajo')
-      .select('id, id_tarea, fecha, tipo_jornada, tareas(code, titulo)')
+      .from('vista_actividad_maestra_god_mode')
+      .select('*')
+      .eq('tipo_evento', 'JORNAL')
 
-    // Para trabajadores: Mostrar TODOS sus partes (de todas las tareas)
-    // Para admin/supervisor: Solo de esta tarea y este trabajador
+    // Para trabajadores: Mostrar TODOS sus partes
+    // Para admin/supervisor: Filtrar por tarea y trabajador
     if (usuarioActual.rol === 'trabajador') {
-      query = query.eq('id_trabajador', trabajadorId)
+      query = query.eq('id_usuario', trabajadorId)
     } else {
-      query = query.eq('id_tarea', parseInt(tareaId)).eq('id_trabajador', trabajadorId)
+      query = query.eq('id_tarea', parseInt(tareaId)).eq('id_usuario', trabajadorId)
     }
 
     const { data, error } = await query
-    if (error) console.error('Error fetching partes:', error)
+    if (error) console.error('Error fetching partes (Modo Dios):', error)
     else {
-      setPartes(data || [])
+      // Mapear campos de la vista a la estructura esperada por el componente
+      const partesMapeados = (data || []).map((a: any) => ({
+        id: a.event_id,
+        id_tarea: a.id_tarea,
+        fecha: a.fecha,
+        tipo_jornada: a.detalle_tipo,
+        tareas: {
+          code: a.codigo_tarea,
+          titulo: a.titulo_tarea
+        }
+      }))
+
+      setPartes(partesMapeados as any)
 
       // Construir mapa de tareas para referencia rápida
       const tareasMap: Record<number, { codigo: string, titulo: string }> = {}
-      data?.forEach((p: any) => {
-        if (p.id_tarea && p.tareas) {
+      partesMapeados.forEach((p: any) => {
+        if (p.id_tarea) {
           tareasMap[p.id_tarea] = {
-            codigo: p.tareas.code || 'N/A',
-            titulo: p.tareas.titulo || 'Sin título'
+            codigo: p.tareas.code,
+            titulo: p.tareas.titulo
           }
         }
       })
@@ -482,8 +494,8 @@ export default function CalendarioPartesTrabajo({ tareaId, trabajadorId, usuario
               {/* Banner Consolidado Compacto */}
               {(modalState.parteExistente || modalState.partesEnOtrasTareas.length > 0) && (
                 <div className={`text-xs sm:text-sm p-2.5 rounded-lg border flex items-start gap-2.5 ${diaCompletoOcupadoEnOtrasTareas
-                    ? 'bg-red-50/50 border-red-200 text-red-800'
-                    : 'bg-blue-50/50 border-blue-200 text-blue-800'
+                  ? 'bg-red-50/50 border-red-200 text-red-800'
+                  : 'bg-blue-50/50 border-blue-200 text-blue-800'
                   }`}>
                   {diaCompletoOcupadoEnOtrasTareas ? <AlertTriangle className="h-4 w-4 mt-0.5" /> : <InfoIcon className="h-4 w-4 mt-0.5" />}
                   <div className="w-full">

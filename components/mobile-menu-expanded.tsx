@@ -113,7 +113,7 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
       role: ["admin", "supervisor"],
     },
     {
-      href: "/dashboard/presupuestos",
+      href: "/dashboard/presupuestos-finales",
       icon: FileText,
       title: "presupuestos",
       role: ["admin"],

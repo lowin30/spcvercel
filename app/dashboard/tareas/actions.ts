@@ -1121,7 +1121,7 @@ export async function saveBudgetAction(params: {
       }
     }
 
-    revalidatePath(`/dashboard/presupuestos`);
+    revalidatePath(`/dashboard/presupuestos-finales`);
     revalidatePath(`/dashboard/presupuestos-finales`);
     if (savedBudget.id_tarea) {
       revalidatePath(`/dashboard/tareas/${savedBudget.id_tarea}`);

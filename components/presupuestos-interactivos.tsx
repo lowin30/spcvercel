@@ -19,6 +19,9 @@ import {
   aprobarPresupuestoAction,
   rechazarPresupuestoAction
 } from "@/app/dashboard/tareas/actions"
+import {
+  marcarPresupuestoComoEnviado
+} from "@/app/dashboard/presupuestos-finales/actions"
 
 // Tipos
 export interface PresupuestoType {
@@ -369,7 +372,7 @@ export function PresupuestosInteractivos({
             <CardContent className="py-3 flex justify-center">
               <Button asChild size="sm">
                 {/* URL corregida y parámetros según especificación */}
-                <Link href={`/dashboard/presupuestos/nuevo?tipo=final&id_padre=${presupuestoBaseLocal.id}&id_tarea=${tareaId}`}>
+                <Link href={`/dashboard/presupuestos-finales/nuevo?tipo=final&id_padre=${presupuestoBaseLocal.id}&id_tarea=${tareaId}`}>
                   <FileText className="mr-2 h-4 w-4" />
                   Crear Presupuesto Final
                 </Link>

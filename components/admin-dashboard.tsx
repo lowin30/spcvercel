@@ -154,7 +154,7 @@ export function AdminDashboard() {
                   <div key={presupuesto.id} className="flex items-start space-x-2 border-b pb-2">
                     <div className="flex-1">
                       <p className="font-medium">
-                        <Link href={`/dashboard/presupuestos/${presupuesto.id}`} className="hover:underline">
+                        <Link href={`/dashboard/presupuestos-finales/${presupuesto.id}`} className="hover:underline">
                           Presupuesto {presupuesto.code}
                         </Link>
                       </p>
@@ -169,7 +169,7 @@ export function AdminDashboard() {
                   </div>
                 ))}
                 <div className="pt-2">
-                  <Link href="/dashboard/presupuestos">
+                  <Link href="/dashboard/presupuestos-finales">
                     <Button variant="outline" size="sm" className="w-full">
                       Ver todos los presupuestos
                     </Button>

@@ -49,38 +49,49 @@ export function HistorialJornalesTarea({ tareaId, userRole = 'trabajador', userI
 
   const cargarJornales = async () => {
     try {
+      // [MODO DIOS] Usar la Súper Vista Maestra para centralizar datos
       let query = supabase
-        .from("partes_de_trabajo")
-        .select(`
-          *,
-          usuarios!partes_de_trabajo_id_trabajador_fkey (
-            email, 
-            color_perfil,
-            configuracion_trabajadores (salario_diario)
-          )
-        `)
+        .from("vista_actividad_maestra_god_mode")
+        .select("*")
         .eq("id_tarea", tareaId)
+        .eq("tipo_evento", "JORNAL")
         .order("fecha", { ascending: false })
 
       // Filtrar por trabajador si es rol trabajador
       if (userRole === 'trabajador' && userId) {
-        query = query.eq('id_trabajador', userId)
+        query = query.eq('id_usuario', userId)
       }
 
       const { data, error } = await query
 
       if (error) throw error
-      
-      const partesData = data as ParteTrabajo[] || []
-      setPartes(partesData)
 
-      // Calcular resumen por trabajador
+      // Mapear al tipo esperado por el componente
+      const partesMapeados = (data || []).map((a: any) => ({
+        id: a.event_id,
+        fecha: a.fecha,
+        tipo_jornada: a.detalle_tipo as 'dia_completo' | 'medio_dia',
+        id_trabajador: a.id_usuario,
+        created_at: a.fecha, // Usar fecha como aproximación si created_at no es crítico aquí
+        usuarios: {
+          email: a.usuario_nombre || 'N/A', // O email si la vista tiene email
+          color_perfil: a.ui_metadata.color || '#CBD5E1',
+          configuracion_trabajadores: {
+            salario_diario: (a.monto / (a.detalle_tipo === 'medio_dia' ? 0.5 : 1))
+          }
+        }
+      })) as ParteTrabajo[]
+
+      setPartes(partesMapeados)
+
+      // Calcular resumen por trabajador usando montos directos de la vista
       const resumen: Record<string, ResumenTrabajador> = {}
-      
-      partesData.forEach(parte => {
+
+      partesMapeados.forEach((parte, index) => {
+        const raw = data[index]
         const trabajadorId = parte.id_trabajador
-        const salarioDiario = parte.usuarios.configuracion_trabajadores?.salario_diario || 0
-        
+        const monto = raw.monto
+
         if (!resumen[trabajadorId]) {
           resumen[trabajadorId] = {
             trabajador_id: trabajadorId,
@@ -89,25 +100,24 @@ export function HistorialJornalesTarea({ tareaId, userRole = 'trabajador', userI
             total_dias: 0,
             dias_completos: 0,
             medios_dias: 0,
-            salario_diario: salarioDiario,
+            salario_diario: parte.usuarios.configuracion_trabajadores?.salario_diario || 0,
             total_jornales: 0
           }
         }
-        
+
         if (parte.tipo_jornada === 'dia_completo') {
           resumen[trabajadorId].dias_completos++
           resumen[trabajadorId].total_dias += 1
-          resumen[trabajadorId].total_jornales += salarioDiario
         } else {
           resumen[trabajadorId].medios_dias++
           resumen[trabajadorId].total_dias += 0.5
-          resumen[trabajadorId].total_jornales += salarioDiario * 0.5
         }
+        resumen[trabajadorId].total_jornales += monto
       })
-      
+
       setResumenPorTrabajador(Object.values(resumen))
     } catch (error: any) {
-      console.error("Error cargando jornales:", error)
+      console.error("Error cargando jornales (Modo Dios):", error)
       toast.error("❌ Error al cargar jornales")
     } finally {
       setLoading(false)
@@ -116,7 +126,7 @@ export function HistorialJornalesTarea({ tareaId, userRole = 'trabajador', userI
 
   useEffect(() => {
     cargarJornales()
-    
+
     // Suscripción en tiempo real
     try {
       const channel = supabase.channel('jornales-tarea-realtime')
@@ -140,7 +150,7 @@ export function HistorialJornalesTarea({ tareaId, userRole = 'trabajador', userI
       const interval = setInterval(() => {
         cargarJornales()
       }, 30000)
-      
+
       return () => {
         clearInterval(interval)
         channel?.unsubscribe()
@@ -150,7 +160,7 @@ export function HistorialJornalesTarea({ tareaId, userRole = 'trabajador', userI
       const interval = setInterval(() => {
         cargarJornales()
       }, 15000)
-      
+
       return () => {
         clearInterval(interval)
       }
@@ -271,10 +281,10 @@ export function HistorialJornalesTarea({ tareaId, userRole = 'trabajador', userI
                   const salario = parte.usuarios.configuracion_trabajadores?.salario_diario || 0
                   const monto = parte.tipo_jornada === 'dia_completo' ? salario : salario * 0.5
                   const fecha = new Date(parte.fecha)
-                  const fechaFormateada = fecha.toLocaleDateString('es-CL', { 
-                    day: '2-digit', 
-                    month: 'short', 
-                    year: 'numeric' 
+                  const fechaFormateada = fecha.toLocaleDateString('es-CL', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
                   })
 
                   return (

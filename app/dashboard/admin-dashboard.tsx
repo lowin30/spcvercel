@@ -6,11 +6,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { TaskStatusBadge } from "./tasks-badge"
 import { formatDate } from "@/lib/date-utils"
-import { 
-  FileBarChart, 
-  CreditCard, 
-  TrendingUp, 
-  AlertTriangle, 
+import {
+  FileBarChart,
+  CreditCard,
+  TrendingUp,
+  AlertTriangle,
   AlertCircle,
   FileText
 } from "lucide-react"
@@ -125,7 +125,7 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
             </div>
             <div className="mt-4 flex justify-between gap-2">
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/presupuestos" className="w-full">
+                <Link href="/dashboard/presupuestos-finales" className="w-full">
                   <FileBarChart className="h-4 w-4 mr-2" /> Ver Presupuestos
                 </Link>
               </Button>

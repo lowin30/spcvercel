@@ -481,7 +481,7 @@ export function BudgetForm({
         if (redirectId) {
           router.push(`/dashboard/tareas/${redirectId}`);
         } else {
-          router.push('/dashboard/presupuestos');
+          router.push('/dashboard/presupuestos-finales');
         }
       }
 

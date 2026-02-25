@@ -87,7 +87,7 @@ export function FacturaNuevaForm({
                             <div className="text-center py-8 text-muted-foreground">
                                 <AlertCircle className="h-10 w-10 mx-auto mb-2 text-yellow-500" />
                                 <p>No hay presupuestos aprobados pendientes de facturación.</p>
-                                <Button variant="link" onClick={() => router.push('/dashboard/presupuestos')}>
+                                <Button variant="link" onClick={() => router.push('/dashboard/presupuestos-finales')}>
                                     Ir a Presupuestos
                                 </Button>
                             </div>

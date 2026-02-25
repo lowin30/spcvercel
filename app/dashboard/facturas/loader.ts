@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function getFacturas(rol: string, userId: string) {
     let query = supabaseAdmin

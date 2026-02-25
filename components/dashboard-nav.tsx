@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   { title: "contactos", href: "/dashboard/contactos", icon: Users, roles: ["admin", "supervisor"] },
   { title: "presup base", href: "/dashboard/presupuestos-base", icon: FileText, roles: ["admin", "supervisor"] },
   { title: "gestion de liquidaciones", href: "/dashboard/liquidaciones", icon: Package, roles: ["admin", "supervisor"] },
-  { title: "presupuestos", href: "/dashboard/presupuestos", icon: FileText, roles: ["admin"] },
+  { title: "presupuestos", href: "/dashboard/presupuestos-finales", icon: FileText, roles: ["admin"] },
   { title: "facturas", href: "/dashboard/facturas", icon: Receipt, roles: ["admin"] },
   { title: "ajustes", href: "/dashboard/ajustes", icon: Shield, roles: ["admin"] },
   { title: "pagos", href: "/dashboard/pagos", icon: CreditCard, roles: ["admin"] },

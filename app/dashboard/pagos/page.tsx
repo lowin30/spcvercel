@@ -7,7 +7,7 @@ import { PagosFilterBar } from './pagos-filter-bar';
 export default async function PagosPage({
   searchParams,
 }: {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     desde?: string;
     hasta?: string;
@@ -15,8 +15,11 @@ export default async function PagosPage({
     edificio?: string;
     mod?: string;
     sort?: string;
-  };
+  }>;
 }) {
+  // Await searchParams as required by Next.js 15
+  const resolvedParams = await searchParams;
+
   // 1. Validacion de sesion y rol via bridge (Estandar SPC)
   const user = await validateSessionAndGetUser();
 
@@ -27,13 +30,13 @@ export default async function PagosPage({
   // 2. Carga de datos y metadata en paralelo
   const [rawPayments, metadata] = await Promise.all([
     getPagos({
-      q: searchParams.q,
-      desde: searchParams.desde,
-      hasta: searchParams.hasta,
-      adm: searchParams.adm,
-      edificio: searchParams.edificio,
-      mod: searchParams.mod,
-      sort: searchParams.sort,
+      q: resolvedParams.q,
+      desde: resolvedParams.desde,
+      hasta: resolvedParams.hasta,
+      adm: resolvedParams.adm,
+      edificio: resolvedParams.edificio,
+      mod: resolvedParams.mod,
+      sort: resolvedParams.sort,
     }),
     getFiltrosMetadata()
   ]);

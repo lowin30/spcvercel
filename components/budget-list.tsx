@@ -9,9 +9,7 @@ import { Pencil, Trash2, Loader2, FileText, Send } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { EstadoBadge } from "@/components/estado-badge"
 import { Button } from "@/components/ui/button"
-import { deleteBudget } from "@/app/dashboard/presupuestos/actions"
-import { convertirPresupuestoAFactura } from "@/app/dashboard/presupuestos/actions-factura"
-import { marcarPresupuestoComoEnviado } from "@/app/dashboard/presupuestos/actions-envio"
+import { deleteBudget, marcarPresupuestoComoEnviado, convertirPresupuestoAFactura } from "@/app/dashboard/presupuestos-finales/actions"
 import { toast } from "sonner"
 
 interface Budget {
@@ -130,71 +128,78 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
             filteredBudgets.map((budget) => {
               const codigo = budget.estados_presupuestos?.codigo
               return (
-                <div key={budget.id} className="border rounded-lg p-3">
+                <div key={budget.id} className="bg-background border rounded-xl p-4 shadow-sm hover:shadow-md transition-all active:scale-[0.98] border-l-4" style={{ borderLeftColor: budget.estados_presupuestos?.color || '#ccc' }}>
                   <div className="flex items-start justify-between gap-2">
-                    <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-primary hover:underline font-medium break-words">
-                      {budget.tareas?.titulo || ('Presupuesto #' + budget.id)}
-                    </Link>
+                    <div className="space-y-1">
+                      <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-sm font-bold hover:text-primary transition-colors line-clamp-2">
+                        {budget.tareas?.titulo || ('Presupuesto #' + budget.id)}
+                      </Link>
+                      <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-tighter">
+                        {budget.code || `#${budget.id}`} • {budget.tareas?.edificios?.nombre || 'Sin edificio'}
+                      </p>
+                    </div>
                     <EstadoBadge
                       estado={budget.estados_presupuestos}
                       fallbackText="Sin estado"
                     />
                   </div>
-                  <div className="mt-2 text-right text-lg font-bold">
-                    ${(budget.materiales + budget.mano_obra).toLocaleString()}
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Editar">
-                      <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    {(codigo !== 'enviado' && codigo !== 'facturado' && codigo !== 'rechazado' && (userRole === 'admin' || userRole === 'supervisor')) && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                        onClick={() => handleMarcarComoEnviado(budget.id)}
-                        title="Marcar como Enviado"
-                        disabled={enviandoId === budget.id}
-                      >
-                        {enviandoId === budget.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Send className="h-4 w-4" />
-                        )}
+                  <div className="mt-3 flex items-end justify-between">
+                    <div className="text-2xl font-black tracking-tighter text-foreground/90">
+                      ${(budget.materiales + budget.mano_obra).toLocaleString()}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Editar">
+                        <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Link>
                       </Button>
-                    )}
-                    {budget.aprobado === true && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                        onClick={() => handleConvertirAFactura(budget.id)}
-                        title="Convertir a Factura"
-                        disabled={processingId === budget.id || budget.estados_presupuestos?.codigo === 'facturado'}
-                      >
-                        {processingId === budget.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <FileText className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleDelete(budget.id)}
-                      title="Eliminar"
-                      disabled={deletingId === budget.id}
-                    >
-                      {deletingId === budget.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
+                      {(codigo !== 'enviado' && codigo !== 'facturado' && codigo !== 'rechazado' && (userRole === 'admin' || userRole === 'supervisor')) && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                          onClick={() => handleMarcarComoEnviado(budget.id)}
+                          title="Marcar como Enviado"
+                          disabled={enviandoId === budget.id}
+                        >
+                          {enviandoId === budget.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                      {budget.aprobado === true && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          onClick={() => handleConvertirAFactura(budget.id)}
+                          title="Convertir a Factura"
+                          disabled={processingId === budget.id || budget.estados_presupuestos?.codigo === 'facturado'}
+                        >
+                          {processingId === budget.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleDelete(budget.id)}
+                        title="Eliminar"
+                        disabled={deletingId === budget.id}
+                      >
+                        {deletingId === budget.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )
@@ -273,10 +278,10 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                   // Determinar color y opacidad según estado
                   const codigo = budget.estados_presupuestos?.codigo
                   const color = budget.estados_presupuestos?.color
-                  
+
                   let backgroundColor = 'transparent'
                   let borderLeft = 'none'
-                  
+
                   if (color) {
                     if (codigo === 'borrador') {
                       // Borrador: MÁS intenso (30% opacidad) + borde destacado
@@ -290,93 +295,93 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                       backgroundColor = `${color}15`
                     }
                   }
-                  
+
                   return (
-                  <TableRow 
-                    key={budget.id}
-                    className="cursor-pointer transition-all hover:opacity-90"
-                    style={{ backgroundColor, borderLeft }}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {codigo === 'borrador' && (
-                          <span className="text-red-500 animate-pulse text-lg" title="Acción requerida">
-                            ⚠️
-                          </span>
-                        )}
-                        <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-primary hover:underline">
-                          {budget.tareas?.titulo || 'Presupuesto #' + budget.id}
-                        </Link>
-                      </div>
-                    </TableCell>
-                    <TableCell>{budget.tareas?.edificios?.nombre || 'Sin edificio'}</TableCell>
-                                        <TableCell>
-                      <EstadoBadge
-                        estado={budget.estados_presupuestos}
-                        fallbackText="Sin estado"
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      ${(budget.materiales + budget.mano_obra).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end sm:gap-2">
-                        <Button asChild variant="outline" size="icon" className="h-7 w-7 sm:h-9 sm:w-9" title="Editar">
-                          <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
-                            <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          </Link>
-                        </Button>
-                        {/* Botón Marcar como Enviado */}
-                        {codigo !== 'enviado' && codigo !== 'facturado' && codigo !== 'rechazado' && (userRole === 'admin' || userRole === 'supervisor') && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
-                            onClick={() => handleMarcarComoEnviado(budget.id)}
-                            title="Marcar como Enviado (o Facturado si ya tiene factura)"
-                            disabled={enviandoId === budget.id}
-                          >
-                            {enviandoId === budget.id ? (
-                              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            )}
-                          </Button>
-                        )}
-                        {/* Botón de Convertir a Factura */}
-                        {budget.aprobado === true && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7 sm:h-9 sm:w-9 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                            onClick={() => handleConvertirAFactura(budget.id)}
-                            title="Convertir a Factura"
-                            disabled={processingId === budget.id || budget.estados_presupuestos?.codigo === 'facturado'}
-                          >
-                            {processingId === budget.id ? (
-                              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-                            ) : (
-                              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            )}
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7 sm:h-9 sm:w-9"
-                          onClick={() => handleDelete(budget.id)}
-                          title="Eliminar"
-                          disabled={deletingId === budget.id}
-                        >
-                          {deletingId === budget.id ? (
-                            <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    <TableRow
+                      key={budget.id}
+                      className="cursor-pointer transition-all hover:bg-muted/30 group border-l-4"
+                      style={{ borderLeftColor: budget.estados_presupuestos?.color || 'transparent' }}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {codigo === 'borrador' && (
+                            <span className="text-red-500 animate-pulse text-lg" title="Acción requerida">
+                              ⚠️
+                            </span>
                           )}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                          <Link href={`/dashboard/presupuestos-finales/${budget.id}`} className="text-primary hover:underline">
+                            {budget.tareas?.titulo || 'Presupuesto #' + budget.id}
+                          </Link>
+                        </div>
+                      </TableCell>
+                      <TableCell>{budget.tareas?.edificios?.nombre || 'Sin edificio'}</TableCell>
+                      <TableCell>
+                        <EstadoBadge
+                          estado={budget.estados_presupuestos}
+                          fallbackText="Sin estado"
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        ${(budget.materiales + budget.mano_obra).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end sm:gap-2">
+                          <Button asChild variant="outline" size="icon" className="h-7 w-7 sm:h-9 sm:w-9" title="Editar">
+                            <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
+                              <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            </Link>
+                          </Button>
+                          {/* Botón Marcar como Enviado */}
+                          {codigo !== 'enviado' && codigo !== 'facturado' && codigo !== 'rechazado' && (userRole === 'admin' || userRole === 'supervisor') && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 sm:h-9 sm:w-9 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50"
+                              onClick={() => handleMarcarComoEnviado(budget.id)}
+                              title="Marcar como Enviado (o Facturado si ya tiene factura)"
+                              disabled={enviandoId === budget.id}
+                            >
+                              {enviandoId === budget.id ? (
+                                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              )}
+                            </Button>
+                          )}
+                          {/* Botón de Convertir a Factura */}
+                          {budget.aprobado === true && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7 sm:h-9 sm:w-9 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                              onClick={() => handleConvertirAFactura(budget.id)}
+                              title="Convertir a Factura"
+                              disabled={processingId === budget.id || budget.estados_presupuestos?.codigo === 'facturado'}
+                            >
+                              {processingId === budget.id ? (
+                                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                              ) : (
+                                <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7 sm:h-9 sm:w-9"
+                            onClick={() => handleDelete(budget.id)}
+                            title="Eliminar"
+                            disabled={deletingId === budget.id}
+                          >
+                            {deletingId === budget.id ? (
+                              <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
                 })
               )}

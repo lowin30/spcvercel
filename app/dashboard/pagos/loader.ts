@@ -1,5 +1,6 @@
 import "server-only"
 import { createServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin as dbAdmin } from '@/lib/supabase-admin'
 
 export type PagosFilterParams = {
     q?: string
@@ -36,8 +37,9 @@ export type PagoEnriquecido = {
  * Implementa filtros de servidor precisos y ordenamiento.
  */
 export async function getPagos(filters?: PagosFilterParams): Promise<PagoEnriquecido[]> {
+    console.log("[PAGOS-V105] getPagos executing with dbAdmin:", !!dbAdmin);
     try {
-        let query = supabaseAdmin
+        let query = dbAdmin
             .from('vista_pagos_completa')
             .select('*');
 
@@ -99,7 +101,7 @@ export async function getPagos(filters?: PagosFilterParams): Promise<PagoEnrique
         return (data as PagoEnriquecido[]) || [];
 
     } catch (err) {
-        console.error("error en getPagos loader:", err);
+        console.error("error en getPagos loader [V105]:", err);
         throw err;
     }
 }

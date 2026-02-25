@@ -52,30 +52,30 @@ export function SupervisorDashboard({ userId }: { userId: string }) {
         )
         // Filtramos tareas donde este supervisor está asignado
         .filter('supervisores_emails', 'cs', `{${userId}}`)
-        
+
       if (tareas && !tareasError) {
         // Obtenemos información detallada de los trabajadores asignados a estas tareas
         // Primero extraemos todos los emails de trabajadores de todas las tareas
         const todosEmailsTrabajadores = tareas
           .flatMap((t: any) => t.trabajadores_emails || [])
           .filter((email: string) => !!email);
-          
+
         // Si hay trabajadores, consultamos sus detalles
         if (todosEmailsTrabajadores.length > 0) {
           const { data: usuariosData, error: usuariosError } = await supabase
             .from("usuarios")
             .select("id, email, nombre, color_perfil")
             .in("id", todosEmailsTrabajadores);
-            
+
           if (usuariosData && !usuariosError) {
             // Creamos un mapeo de emails a información de usuarios
             const usuariosPorId: Record<string, any> = {};
             usuariosData.forEach((usuario: any) => {
               usuariosPorId[usuario.id] = usuario;
             });
-            
+
             // Generamos la lista formateada de trabajadores asignados
-            const trabajadoresFormateados = tareas.flatMap((tarea: any) => 
+            const trabajadoresFormateados = tareas.flatMap((tarea: any) =>
               (tarea.trabajadores_emails || []).map((trabajadorId: string) => ({
                 id_tarea: tarea.id,
                 titulo_tarea: tarea.titulo || "Tarea sin título",
@@ -84,7 +84,7 @@ export function SupervisorDashboard({ userId }: { userId: string }) {
                 nombre: usuariosPorId[trabajadorId]?.nombre || "Sin nombre",
               }))
             ).filter((t: any) => !!t.id_trabajador);
-            
+
             setTrabajadoresAsignados(trabajadoresFormateados);
           }
         } else {
@@ -126,7 +126,7 @@ export function SupervisorDashboard({ userId }: { userId: string }) {
                 </div>
               ))}
               <div className="pt-2">
-                <Link href="/dashboard/presupuestos">
+                <Link href="/dashboard/presupuestos-finales">
                   <Button variant="outline" size="sm" className="w-full">
                     Ver todos los presupuestos
                   </Button>

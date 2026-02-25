@@ -1,69 +1,49 @@
-import { createClient } from "@supabase/supabase-js"
+import { createServerClient } from "@/lib/supabase-server"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 
-// Cliente Service Role para bypass de RLS (Manual RBAC)
-// "el servidor debe recalcular ... no confies en el total que mande el cliente"
-// por lo tanto usamos service role para garantizar lecturas y escrituras autorizadas
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-)
-
+/**
+ * Obtener listado de presupuestos finales optimizado
+ */
 export async function getPresupuestosFinales(rol: string, userId: string) {
-    // 1. Validacion de Seguridad (Manual RBAC)
-    // Admin ve todo
-    // Supervisor ve solo lo suyo (si aplica?)
-    // Segun "CORREGIR-SEGURIDAD-PRESUPUESTOS-FINALES-URGENTE.sql": "Solo admin puede leer presupuestos finales"
-    // Pero en la app real, supervisores quizas necesiten ver?
-    // User request: "manual RBAC: solo admin crea/edita finales. supervisor solo ve."
+    const supabase = await createServerClient()
 
     if (rol === 'trabajador') {
-        return [] // Trabajadores no ven
+        return []
     }
 
-    let query = supabaseAdmin
+    // Usamos la vista completa que ya incluye cálculos financieros y relaciones
+    let query = supabase
         .from('vista_presupuestos_finales_completa')
         .select('*')
         .order('created_at', { ascending: false })
 
-    // Filtrado por Rol
     if (rol === 'supervisor') {
-        // Si el supervisor debe ver solo sus tareas:
-        // Necesitamos filtrar por tareas.id_supervisor = userId
-        // Esto requiere un !inner join si filtramos por columna de relacion
-        query = supabaseAdmin
-            .from('vista_presupuestos_finales_completa')
-            .select('*')
-            .eq('id_supervisor', userId)
-            .order('created_at', { ascending: false })
+        query = query.eq('id_supervisor', userId)
     }
 
     const { data, error } = await query
 
     if (error) {
-        console.error("Error fetching presupuestos finales:", error)
+        console.error("error fetching pf:", error)
         throw new Error("No se pudieron cargar los presupuestos finales")
     }
 
     return data || []
 }
 
+/**
+ * Obtener detalle completo de un presupuesto final incluyendo sus items
+ */
 export async function getPresupuestoFinalConItems(id: number) {
-    const user = await validateSessionAndGetUser()
-    const { rol } = user
+    const { rol, id: userId } = await validateSessionAndGetUser()
+    const supabase = await createServerClient()
 
     if (rol !== 'admin' && rol !== 'supervisor') {
         return null
     }
 
-    // Consulta principal: Presupuesto Final
-    const { data: pf, error: pfError } = await supabaseAdmin
+    // 1. Obtener cabecera del presupuesto
+    const { data: pf, error: pfError } = await supabase
         .from('presupuestos_finales')
         .select(`
             *,
@@ -72,6 +52,7 @@ export async function getPresupuestoFinalConItems(id: number) {
                 titulo,
                 code,
                 id_edificio,
+                id_supervisor,
                 edificios(nombre)
             )
         `)
@@ -79,41 +60,78 @@ export async function getPresupuestoFinalConItems(id: number) {
         .single()
 
     if (pfError || !pf) {
-        console.error("Error fetching presupuesto final header:", pfError)
+        console.error("error fetching pf header:", pfError)
         return null
     }
 
-    // Validacion Supervisor (Manual RBAC)
-    if (rol === 'supervisor') {
-        // Verificar si la tarea pertenece al supervisor
-        // Nota: 'tareas' puede ser null si se borró la tarea, pero es required FK.
-        // Si usamos 'tareas(id_supervisor)' arriba podriamos chequearlo directo.
-        // Hacemos fetch extra si es necesario o confiamos en la query initial si trajo id_supervisor.
-        // Vamos a re-verificar por seguridad.
-        const { data: tarea } = await supabaseAdmin
-            .from('tareas')
-            .select('id_supervisor')
-            .eq('id', pf.id_tarea)
-            .single()
-
-        if (!tarea || tarea.id_supervisor !== user.id) {
-            return null // No autorizado
-        }
+    // 2. Validación de seguridad RBAC manual para supervisores
+    if (rol === 'supervisor' && pf.tareas?.id_supervisor !== userId) {
+        return null
     }
 
-    // Consulta Secundaria: Items (Items Bridge)
-    // "hacer un join o query secundario a items filtrando estrictamente por id_presupuesto_final"
-    // Asumimos columna 'id_presupuesto' basado en analisis previo.
-    const { data: items, error: itemsError } = await supabaseAdmin
+    // 3. Obtener items asociados
+    const { data: items, error: itemsError } = await supabase
         .from('items')
         .select('*')
-        .eq('id_presupuesto', id) // Usamos id_presupuesto como FK a presupuestos_finales
+        .eq('id_presupuesto', id)
+        .order('id', { ascending: true })
 
     if (itemsError) {
-        console.error("Error fetching items for presupuesto final:", itemsError)
-        // Retornamos PF sin items? O fallamos? Mejor fallar o retornar array vacio.
+        console.error("error fetching items:", itemsError)
         return { ...pf, items: [] }
     }
 
     return { ...pf, items: items || [] }
+}
+
+/**
+ * Obtener administradores activos para filtros
+ */
+export async function getAdministradores(rol: string) {
+    if (rol !== 'admin') return []
+    const supabase = await createServerClient()
+
+    const { data } = await supabase
+        .from("vista_administradores")
+        .select("id, nombre, estado")
+        .eq('estado', 'activo')
+        .order("nombre")
+
+    return data || []
+}
+
+/**
+ * Obtener KPIs y recordatorios de administración (Solo Admin)
+ */
+export async function getKpisAdmin(rol: string) {
+    if (rol !== 'admin') return null;
+    const supabase = await createServerClient()
+
+    const [
+        kpisRes,
+        pbSinPfRes,
+        pbSinAprobarRes,
+        pfAgingRes,
+        pfBorradorRes,
+        pfEnviadoRes,
+        pfAprobadoRes
+    ] = await Promise.all([
+        supabase.from('vista_finanzas_admin').select('*').maybeSingle(),
+        supabase.from('vista_admin_pb_finalizada_sin_pf').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('vista_admin_pb_sin_aprobar').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('vista_admin_pf_enviado_sin_actividad').select('*').order('dias_desde_envio', { ascending: false }).limit(50),
+        supabase.from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(50),
+        supabase.from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(50),
+        supabase.from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(50)
+    ]);
+
+    return {
+        kpis: kpisRes.data || null,
+        pbSinPf: pbSinPfRes.data || [],
+        pbSinAprobar: pbSinAprobarRes.data || [],
+        pfAging: pfAgingRes.data || [],
+        pfBorrador: pfBorradorRes.data || [],
+        pfEnviado: pfEnviadoRes.data || [],
+        pfAprobado: pfAprobadoRes.data || []
+    };
 }
