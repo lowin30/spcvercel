@@ -1,7 +1,8 @@
+```
 import { redirect } from "next/navigation"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-import PresupuestoFinalFormWrapper from "./form-wrapper"
 import { createServerClient } from "@/lib/supabase-server"
+import { BudgetForm } from "@/components/budget-form"
 
 export const dynamic = 'force-dynamic'
 
@@ -22,53 +23,74 @@ export default async function NuevoPresupuestoFinalPage({
 
   const supabase = await createServerClient();
 
-  // Obtener Presupuestos Base de la vista completa
-  // Se filtran los aprobados y que NO tengan presupuesto final
-  const { data: todosBase, error } = await supabase
-    .from('vista_presupuestos_base_completa')
-    .select('*');
+  // 1. Obtener Presupuesto Base Específico (si viene id_tarea)
+  let presupuestoBase = null;
+  let itemsBase = [];
 
-  if (error) {
-    console.error("Error fetching from vista_presupuestos_base_completa:", error);
-  }
+  if (initialTaskId) {
+    const { data: pbData, error: pbError } = await supabase
+      .from('vista_presupuestos_base_completa')
+      .select('*')
+      .eq('id_tarea', initialTaskId)
+      .maybeSingle();
 
-  // Si la vista no devuelve 'aprobado' directamente, sino 'pb_aprobado' u otro nombre,
-  // y si no devuelve 'tiene_presupuesto_final' sino algo más,
-  // hacemos un fallback defensivo para asegurar que no se rompe.
-  // Pero según el pedido, asumimos que existen esas columnas o las extraemos.
-  const presupuestosDisponibles = (todosBase || []).filter(pb => {
-    // Si existe p.aprobado (viejo formato) o p.pb_aprobado (nuevo formato)
-    const isAproved = pb.aprobado === true || pb.pb_aprobado === true;
+    if (!pbError && pbData) {
+      presupuestoBase = pbData;
 
-    // Si existe p.tiene_presupuesto_final (viejo formato) o usamos pf_aprobado/codigo_estado_pf como fallback
-    const hasFinal = pb.tiene_presupuesto_final === true || pb.codigo_estado_pf !== null;
-
-    return isAproved && !hasFinal;
-  })
-
-  // Si nos pasaron un id_tarea especifico en la URL, asegurarnos de que la busqueda
-  // inicial de pre-llenado se pase al cliente. 
-  // OJO: Si la logica anterior lo filtró equivocadamente, lo inyectamos de vuelta 
-  // si es que existe en toda la base.
-  let targetPB = presupuestosDisponibles.find(p => p.id_tarea?.toString() === initialTaskId)
-
-  if (!targetPB && initialTaskId && todosBase) {
-    const forcedPB = todosBase.find(p => p.id_tarea?.toString() === initialTaskId);
-    if (forcedPB) {
-      // Inyectarlo si por alguna razon el filtro estricto lo sacó pero debería poder presupuestarse
-      presupuestosDisponibles.push(forcedPB);
-      targetPB = forcedPB;
+      // Obtener items del PB para clonarlos si existen
+      const { data: itemsData } = await supabase
+        .from('items_presupuesto_base')
+        .select('*')
+        .eq('id_presupuesto', pbData.id);
+        
+      if (itemsData) {
+        itemsBase = itemsData.map(item => ({
+            ...item,
+            es_material: !!item.es_producto, // Lógica base antigua heredada
+            cantidad: item.cantidad || 1,
+            precio: item.precio || 0,
+        }));
+      }
     }
   }
+
+  // 2. Cargar diccionarios necesarios para el BudgetForm
+  const [edificiosRes, adminsRes, productosRes] = await Promise.all([
+    supabase.from('edificios').select('id, nombre, id_administrador').order('nombre'),
+    supabase.from('administradores').select('id, nombre').order('nombre'),
+    supabase.from('productos').select('*').order('nombre')
+  ]);
+
+  const listas = {
+    edificios: edificiosRes.data || [],
+    administradores: adminsRes.data || [],
+    productos: productosRes.data || []
+  };
 
   return (
     <div className="container mx-auto py-6">
       <h1 className="text-2xl font-bold mb-6">Nuevo Presupuesto Final</h1>
-      <PresupuestoFinalFormWrapper
-        presupuestosBase={presupuestosDisponibles}
-        userId={user.id}
-        initialTaskId={initialTaskId}
-      />
+      {presupuestoBase ? (
+          <BudgetForm
+            tipo="final"
+            idTarea={initialTaskId}
+            presupuestoBase={presupuestoBase}
+            itemsBase={itemsBase}
+            initialData={{
+               id_administrador: presupuestoBase.id_administrador,
+               id_edificio: presupuestoBase.id_edificio,
+               id_presupuesto_base: presupuestoBase.id
+            }}
+            userId={user.id}
+            listas={listas}
+          />
+      ) : (
+          <div className="text-center py-10 bg-muted/20 rounded-lg border border-dashed">
+            <h3 className="text-lg font-medium text-muted-foreground">No se encontró un presupuesto base para asociar.</h3>
+            <p className="text-sm text-muted-foreground mt-2">Asegúrate de haber accedido desde una tarea válida y que su presupuesto base esté aprobado.</p>
+          </div>
+      )}
     </div>
   )
 }
+```

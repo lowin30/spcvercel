@@ -26,37 +26,60 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     const { data: existente } = await supabase.from('facturas').select('id').eq('id_presupuesto_final', presupuestoId).maybeSingle()
     if (existente) return { success: false, message: "Este presupuesto ya tiene una factura asociada" }
 
-    // 3. Crear cabecera de factura
-    const { data: factura, error: fError } = await supabase
-      .from('facturas')
-      .insert({
-        id_presupuesto_final: presupuestoId,
-        id_presupuesto: presupuesto.id_presupuesto_base,
-        id_administrador: presupuesto.id_administrador,
-        total: presupuesto.total,
-        saldo_pendiente: presupuesto.total,
-        total_pagado: 0,
-        id_estado_nuevo: 1, // Borrador/Pendiente
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single()
+    // 3. Separar los items en Materiales y Mano de Obra
+    const itemsMateriales = presupuesto.items?.filter((i: any) => i.es_material === true) || [];
+    const itemsManoObra = presupuesto.items?.filter((i: any) => i.es_material !== true) || [];
 
-    if (fError || !factura) throw fError
+    if (itemsMateriales.length === 0 && itemsManoObra.length === 0) {
+      throw new Error("El presupuesto no tiene items para facturar.");
+    }
 
-    // 4. Clonar items a items_factura
-    if (presupuesto.items && presupuesto.items.length > 0) {
-      const itemsFactura = presupuesto.items.map((item: any) => ({
+    const createdFacturas = [];
+
+    // 4. Función helper para crear la factura y sus items
+    const crearFacturaYClonarItems = async (items: any[], tipoDesc: string) => {
+      const totalFactura = items.reduce((acc, item) => acc + ((item.cantidad || 0) * (item.precio || 0)), 0);
+
+      const { data: factura, error: fError } = await supabase
+        .from('facturas')
+        .insert({
+          id_presupuesto_final: presupuestoId,
+          id_presupuesto: presupuesto.id_presupuesto_base || null,
+          id_administrador: presupuesto.id_administrador,
+          total: totalFactura,
+          saldo_pendiente: totalFactura,
+          total_pagado: 0,
+          id_estado_nuevo: 1, // Borrador/Pendiente
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (fError || !factura) throw fError;
+
+      const itemsFactura = items.map((item: any) => ({
         id_factura: factura.id,
         descripcion: item.descripcion,
         cantidad: item.cantidad,
-        precio_unitario: item.precio,
+        precio_unitario: item.precio, // Es 'precio' en el presupuesto, 'precio_unitario' en la factura
         subtotal_item: (item.cantidad || 0) * (item.precio || 0),
         es_material: item.es_material || false
-      }))
+      }));
 
-      const { error: iError } = await supabase.from('items_factura').insert(itemsFactura)
-      if (iError) console.error("Error clonando items:", iError)
+      const { error: iError } = await supabase.from('items_factura').insert(itemsFactura);
+      if (iError) console.error(`Error clonando items de ${tipoDesc}:`, iError);
+
+      createdFacturas.push(factura.id);
+    };
+
+    // 5. Crear la factura de Materiales si aplica
+    if (itemsMateriales.length > 0) {
+      await crearFacturaYClonarItems(itemsMateriales, "Materiales");
+    }
+
+    // 6. Crear la factura de Mano de Obra si aplica
+    if (itemsManoObra.length > 0) {
+      await crearFacturaYClonarItems(itemsManoObra, "Mano de Obra");
     }
 
     // 5. Actualizar estado del presupuesto a 'facturado' (ID 4 o 5 según tabla)

@@ -94,10 +94,10 @@ interface BudgetFormProps {
   tareas?: Tarea[]
   tareaSeleccionada?: Tarea | null
   idPadre?: string
-  idTarea?: string
-  presupuestoBase?: PresupuestoBase
+  idTarea?: string | number
+  presupuestoBase?: PresupuestoBase | any
   itemsBase?: Item[]
-  presupuestoAEditar?: PresupuestoFinal | PresupuestoBase // Añadimos para modo edición
+  presupuestoAEditar?: PresupuestoFinal | PresupuestoBase | any // Añadimos para modo edición
   // v93.9: Bridge Protocol Injection
   initialData?: any
   userId?: string
@@ -520,7 +520,7 @@ export function BudgetForm({
                     </p>
                   </div>
                 ) : (
-                  <Select value={selectedTarea} onValueChange={setSelectedTarea} disabled={isSubmitting} required>
+                  <Select value={selectedTarea?.toString()} onValueChange={setSelectedTarea} disabled={isSubmitting} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona una tarea" />
                     </SelectTrigger>
