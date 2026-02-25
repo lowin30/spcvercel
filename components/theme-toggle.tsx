@@ -1,128 +1,52 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase-client"
+import { actualizarPreferenciasUsuario } from "@/app/actions/perfil-actions"
+import { useToast } from "@/components/ui/use-toast"
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const { toast } = useToast()
 
-  // Cargar preferencias del usuario
+  // Sincronizar con el estado real del DOM al montar
   useEffect(() => {
-    async function loadUserPreferences() {
-      const supabase = createClient()
-      if (!supabase) {
-        const savedTheme = localStorage.getItem('theme-mode') as 'light' | 'dark' | null
-        const currentTheme = savedTheme || 'light'
-        setTheme(currentTheme)
-        applyTheme(currentTheme)
-        setLoading(false)
-        return
-      }
-
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
-          // Si no hay usuario autenticado, usar localStorage
-          const savedTheme = localStorage.getItem('theme-mode') as 'light' | 'dark' | null
-          const currentTheme = savedTheme || 'light'
-          setTheme(currentTheme)
-          applyTheme(currentTheme)
-          setLoading(false)
-          return
-        }
-
-        // Cargar preferencias desde BD
-        const { data: prefs } = await supabase
-          .from('preferencias_usuarios')
-          .select('tema')
-          .eq('id_usuario', user.id)
-          .maybeSingle()
-
-        let currentTheme: 'light' | 'dark' = 'light'
-        
-        if (prefs?.tema) {
-          if (prefs.tema === 'system') {
-            // Si es system, detectar preferencia del sistema
-            currentTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-          } else {
-            currentTheme = prefs.tema as 'light' | 'dark'
-          }
-        } else {
-          // Si no hay preferencias, usar localStorage
-          const savedTheme = localStorage.getItem('theme-mode') as 'light' | 'dark' | null
-          currentTheme = savedTheme || 'light'
-        }
-
-        setTheme(currentTheme)
-        applyTheme(currentTheme)
-        
-        // Sincronizar con localStorage como fallback
-        localStorage.setItem('theme-mode', currentTheme)
-      } catch (error) {
-        console.error('Error al cargar preferencias:', error)
-        // Fallback a localStorage
-        const savedTheme = localStorage.getItem('theme-mode') as 'light' | 'dark' | null
-        const currentTheme = savedTheme || 'light'
-        setTheme(currentTheme)
-        applyTheme(currentTheme)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadUserPreferences()
+    setMounted(true)
+    const isDark = document.documentElement.classList.contains('dark')
+    setTheme(isDark ? 'dark' : 'light')
   }, [])
-
-  const applyTheme = (newTheme: 'light' | 'dark') => {
-    const root = document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(newTheme)
-  }
 
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'
+
+    // 1. Optimistic UI change
     setTheme(newTheme)
-    applyTheme(newTheme)
-    
-    // Guardar en localStorage inmediatamente (UX rápida)
+    const root = document.documentElement
+    root.classList.remove('light', 'dark')
+    root.classList.add(newTheme)
+
+    // Fallback para CSS variables o legacy code
     localStorage.setItem('theme-mode', newTheme)
 
-    // Guardar en BD en background (no bloqueante)
-    const supabase = createClient()
-    if (!supabase) return
-
+    // 2. Persistir en DB (Background)
+    setIsUpdating(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Upsert en BD (crea o actualiza)
-      await supabase
-        .from('preferencias_usuarios')
-        .upsert({
-          id_usuario: user.id,
-          tema: newTheme,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id_usuario'
-        })
-      
-      // No mostrar toast, cambio silencioso
-    } catch (error) {
-      console.error('Error al guardar tema en BD:', error)
-      // No importa si falla, ya está guardado en localStorage
+      const result = await actualizarPreferenciasUsuario({ tema: newTheme })
+      if (!result.ok) {
+        console.warn("No se pudo persistir el tema en la DB, pero se aplicó localmente.")
+      }
+    } catch (err) {
+      console.error("Error al guardar tema:", err)
+    } finally {
+      setIsUpdating(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="w-9 h-9 flex items-center justify-center">
-        <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
-      </div>
-    )
+  if (!mounted) {
+    return <div className="w-9 h-9" />
   }
 
   return (
@@ -130,12 +54,18 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
-      className="relative"
+      className="relative hover:bg-primary/10 transition-colors"
+      disabled={isUpdating}
       title={theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'}
-      aria-label={theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'}
     >
-      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
+      <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-blue-400" />
+      {isUpdating && (
+        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+        </span>
+      )}
     </Button>
   )
 }

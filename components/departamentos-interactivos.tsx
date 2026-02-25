@@ -400,12 +400,19 @@ export function DepartamentosInteractivos({
 
       // Cargar teléfonos del departamento añadido
       const { data: telefonosNuevos } = await supabase
-        .from("telefonos_departamento")
-        .select("id, numero, nombre_contacto, departamento_id")
+        .from("contactos")
+        .select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id")
         .eq("departamento_id", departamentoSeleccionado)
 
       if (telefonosNuevos && telefonosNuevos.length > 0) {
-        setTelefonos([...telefonos, ...telefonosNuevos])
+        // Formatear para compatibilidad con el estado Telefono
+        const simplifiedPhones = telefonosNuevos.map(t => ({
+          id: String(t.id),
+          numero: t.numero || "",
+          nombre_contacto: t.nombre_contacto || "",
+          departamento_id: t.departamento_id
+        }));
+        setTelefonos([...telefonos, ...simplifiedPhones])
       }
 
       toast({
@@ -1081,25 +1088,37 @@ export function DepartamentosInteractivos({
         )}
       </div>
 
-      {/* Mostrar teléfonos asociados */}
-      {telefonos.length > 0 && (
-        <div className="mt-2 space-y-1">
-          <h4 className="text-xs font-medium text-muted-foreground">Teléfonos:</h4>
-          <div className="flex flex-col gap-2">
-            {telefonos.map(tel => (
-              <div key={tel.id} className="flex items-center justify-between gap-2 text-xs bg-muted px-2 py-1.5 rounded-md">
-                <span className="font-medium text-foreground">
-                  {(() => {
-                    const depCodigo = departamentos.find(d => Number(d.id) === tel.departamento_id)?.codigo
-                    return `${depCodigo ? `[${depCodigo}] ` : ''}${tel.nombre_contacto || 'Contacto'} `
-                  })()}
-                </span>
-                <PhoneActions numero={tel.numero} nombre={tel.nombre_contacto} />
-              </div>
-            ))}
+      {/* Mostrar teléfonos asociados (Filtrados por pertinencia y claridad) */}
+      {(() => {
+        const telefonosFiltrados = telefonos.filter(tel => {
+          const tieneNombre = tel.nombre_contacto && tel.nombre_contacto.trim() !== "";
+          const esDeDeptoVinculado = departamentos.some(d => Number(d.id) === tel.departamento_id);
+          const esGlobalConIdentidad = tel.departamento_id === null && tieneNombre;
+
+          return esDeDeptoVinculado || esGlobalConIdentidad;
+        });
+
+        if (telefonosFiltrados.length === 0) return null;
+
+        return (
+          <div className="mt-2 space-y-1">
+            <h4 className="text-xs font-medium text-muted-foreground">Teléfonos:</h4>
+            <div className="flex flex-col gap-2">
+              {telefonosFiltrados.map(tel => (
+                <div key={tel.id} className="flex items-center justify-between gap-2 text-xs bg-muted px-2 py-1.5 rounded-md">
+                  <span className="font-medium text-foreground">
+                    {(() => {
+                      const depCodigo = departamentos.find(d => Number(d.id) === tel.departamento_id)?.codigo
+                      return `${depCodigo ? `[${depCodigo}] ` : ''}${tel.nombre_contacto || 'Contacto'} `
+                    })()}
+                  </span>
+                  <PhoneActions numero={tel.numero} nombre={tel.nombre_contacto} />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Dialog para notas de departamento */}
       {departamentoNotasActivo && (

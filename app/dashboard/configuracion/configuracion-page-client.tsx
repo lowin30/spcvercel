@@ -4,6 +4,7 @@ import { useState } from "react"
 import ConfiguracionTabs from "@/components/configuracion-tabs"
 
 interface ConfiguracionPageClientProps {
+    user: any
     trabajadores: any[]
     combinedUsers: any[]
     productos: any[]
@@ -15,6 +16,7 @@ interface ConfiguracionPageClientProps {
 }
 
 export default function ConfiguracionPageClient({
+    user,
     trabajadores,
     combinedUsers,
     productos,
@@ -36,6 +38,7 @@ export default function ConfiguracionPageClient({
             </div>
 
             <ConfiguracionTabs
+                user={user}
                 trabajadores={trabajadores}
                 combinedUsers={combinedUsers}
                 productos={productos}

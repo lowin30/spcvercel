@@ -8,23 +8,26 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Moon, Sun, Monitor, Type, Palette } from "lucide-react"
 import { cn } from "@/lib/utils"
-// import { createClient } from "@/lib/supabase-client" // Removed: Client-side write fails due to RLS
 import { useToast } from "@/components/ui/use-toast"
-import { actualizarAparienciaUsuario } from "@/app/actions/perfil-actions"
+import { actualizarAparienciaUsuario, actualizarPreferenciasUsuario } from "@/app/actions/perfil-actions"
 
 interface PersonalAppearanceSettingsProps {
   userId: string
   initialColorPerfil?: string
+  initialPreferencias?: Record<string, any>
 }
 
-export function PersonalAppearanceSettings({ userId, initialColorPerfil }: PersonalAppearanceSettingsProps) {
+export function PersonalAppearanceSettings({ userId, initialColorPerfil, initialPreferencias = {} }: PersonalAppearanceSettingsProps) {
   const router = useRouter()
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
-  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium')
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(
+    (initialPreferencias?.tema as 'light' | 'dark' | 'system') || 'system'
+  )
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>(
+    (initialPreferencias?.font_size as 'small' | 'medium' | 'large') || 'medium'
+  )
   const [colorPerfil, setColorPerfil] = useState<string>(initialColorPerfil || '#3498db')
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
-  // const supabase = createClient() // Removed
 
   const coloresPerfil = [
     { name: 'Azul', value: '#3498db', class: 'bg-blue-600' },
@@ -37,18 +40,11 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
     { name: 'Amarillo', value: '#eab308', class: 'bg-yellow-600' },
   ]
 
-  // Cargar preferencias guardadas
+  // Aplicar preferencias al montar (desde DB, no localStorage)
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme-mode') as 'light' | 'dark' | 'system' | null
-    const savedFontSize = localStorage.getItem('font-size') as 'small' | 'medium' | 'large' | null
-
-    if (savedTheme) setTheme(savedTheme)
-    if (savedFontSize) setFontSize(savedFontSize)
-
-    // Aplicar preferencias actuales
-    applyTheme(savedTheme || 'system')
-    applyFontSize(savedFontSize || 'medium')
-  }, [])
+    applyTheme(theme)
+    applyFontSize(fontSize)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
     const root = document.documentElement
@@ -79,26 +75,32 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
     }
   }
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+  const handleThemeChange = async (newTheme: 'light' | 'dark' | 'system') => {
     setTheme(newTheme)
-    localStorage.setItem('theme-mode', newTheme)
     applyTheme(newTheme)
 
-    toast({
-      title: "Tema actualizado",
-      description: "El tema se ha aplicado correctamente",
-    })
+    // Persistir en DB (reemplaza localStorage)
+    const result = await actualizarPreferenciasUsuario({ tema: newTheme })
+    if (result.ok) {
+      toast({
+        title: "Tema actualizado",
+        description: "El tema se ha guardado en tu cuenta",
+      })
+    }
   }
 
-  const handleFontSizeChange = (size: 'small' | 'medium' | 'large') => {
+  const handleFontSizeChange = async (size: 'small' | 'medium' | 'large') => {
     setFontSize(size)
-    localStorage.setItem('font-size', size)
     applyFontSize(size)
 
-    toast({
-      title: "Tamaño de texto actualizado",
-      description: "El tamaño se ha aplicado correctamente",
-    })
+    // Persistir en DB (reemplaza localStorage)
+    const result = await actualizarPreferenciasUsuario({ font_size: size })
+    if (result.ok) {
+      toast({
+        title: "Tamaño de texto actualizado",
+        description: "El tamaño se ha guardado en tu cuenta",
+      })
+    }
   }
 
   const handleColorPerfilChange = async (color: string) => {
@@ -269,9 +271,9 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
               ))}
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <p className="text-xs md:text-sm text-blue-800 dark:text-blue-200">
-                <strong>💡 Información:</strong> El color de perfil se guarda en tu cuenta y se sincroniza en todos tus dispositivos.
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <p className="text-xs md:text-sm text-green-800 dark:text-green-200">
+                <strong>✅ Sincronizado:</strong> Todas tus preferencias se guardan en tu cuenta y se sincronizan en todos tus dispositivos automáticamente.
               </p>
             </div>
           </div>
@@ -301,11 +303,13 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil }: Perso
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Color de perfil:</span>
               <div className="flex items-center gap-2">
-                <div className={cn(
-                  "h-4 w-4 rounded-full",
-                  coloresPerfil.find(c => c.value === colorPerfil)?.class
-                )} />
-                <span className="font-medium capitalize">{colorPerfil}</span>
+                <div
+                  className="h-4 w-4 rounded-full"
+                  style={{ backgroundColor: colorPerfil }}
+                />
+                <span className="font-medium">
+                  {coloresPerfil.find(c => c.value === colorPerfil)?.name || colorPerfil}
+                </span>
               </div>
             </div>
           </div>

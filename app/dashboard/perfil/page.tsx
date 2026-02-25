@@ -1,9 +1,10 @@
 import { obtenerPerfilUsuario } from "@/app/actions/perfil-actions"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { User, Mail, Shield, Briefcase, Palette } from "lucide-react"
+import { User, Mail, Shield, Briefcase, Palette, Clock } from "lucide-react"
 import { MFASecuritySection } from "@/components/mfa-security-section"
 import { PersonalAppearanceSettings } from "@/components/personal-appearance-settings"
+import { EditableNameField } from "@/components/editable-name-field"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default async function PerfilPage() {
@@ -38,14 +39,48 @@ export default async function PerfilPage() {
     }
   }
 
+  // Formato de fecha relativo
+  const formatRelativeDate = (dateStr: string | null) => {
+    if (!dateStr) return "Nunca"
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 5) return "Hace un momento"
+    if (diffMins < 60) return `Hace ${diffMins} minutos`
+    if (diffHours < 24) return `Hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`
+    if (diffDays < 30) return `Hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'}`
+    return date.toLocaleDateString("es-AR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    })
+  }
+
   return (
     <div className="container mx-auto py-6 md:py-10 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Mi Perfil</h1>
-        <p className="text-muted-foreground">
-          Gestiona tu información personal, seguridad y apariencia
-        </p>
+      {/* Header con avatar */}
+      <div className="flex items-center gap-4">
+        <div
+          className="h-14 w-14 rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md flex-shrink-0"
+          style={{ backgroundColor: userDetails?.color_perfil || '#3498db' }}
+        >
+          {userDetails?.nombre
+            ? userDetails.nombre.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+            : userDetails?.email?.[0]?.toUpperCase() || '?'
+          }
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {userDetails?.nombre || 'Mi Perfil'}
+          </h1>
+          <p className="text-muted-foreground">
+            Gestiona tu información personal, seguridad y apariencia
+          </p>
+        </div>
       </div>
 
       {/* Tabs de perfil */}
@@ -78,6 +113,12 @@ export default async function PerfilPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Nombre editable */}
+              <EditableNameField
+                initialName={userDetails?.nombre || ""}
+                userEmail={userDetails?.email || ""}
+              />
+
               {/* Email */}
               <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50">
                 <Mail className="h-5 w-5 text-muted-foreground" />
@@ -95,6 +136,17 @@ export default async function PerfilPage() {
                   <Badge variant={rolBadgeVariant(userDetails?.rol)}>
                     {rolLabel(userDetails?.rol)}
                   </Badge>
+                </div>
+              </div>
+
+              {/* Último acceso */}
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Último acceso</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatRelativeDate(userDetails?.ultimo_acceso)}
+                  </p>
                 </div>
               </div>
 
@@ -147,6 +199,7 @@ export default async function PerfilPage() {
           <PersonalAppearanceSettings
             userId={userDetails?.id}
             initialColorPerfil={userDetails?.color_perfil}
+            initialPreferencias={userDetails?.preferencias || {}}
           />
         </TabsContent>
       </Tabs>

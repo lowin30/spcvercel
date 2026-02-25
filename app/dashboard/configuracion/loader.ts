@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 /**
  * CONFIGURACIÓN LOADER v106.0 (Server-Side Data Loading)
@@ -64,9 +65,11 @@ export async function getConfiguracionData() {
     const combinedUsersData = usuariosData?.map((dbUser: any) => ({
         id: dbUser.id,
         email: dbUser.email,
+        nombre: dbUser.nombre,
         rol: dbUser.rol || "sin_rol",
         color_perfil: dbUser.color_perfil || "#cccccc",
-        last_sign_in_at: null,
+        ultimo_acceso: dbUser.ultimo_acceso,
+        preferencias: dbUser.preferencias || {},
         created_at: dbUser.created_at
     })) || []
 

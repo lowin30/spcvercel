@@ -35,6 +35,7 @@ export default async function ConfiguracionPage() {
   // 4. PASE VIP con datos precargados
   return (
     <ConfiguracionPageClient
+      user={user}
       trabajadores={trabajadores}
       combinedUsers={combinedUsers}
       productos={productos}

@@ -6,6 +6,7 @@ export type SPCUser = {
     id: string
     rol: string
     email: string
+    preferencias: Record<string, any>
 }
 
 /**
@@ -44,7 +45,8 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
         return {
             id: user.id,
             email: email,
-            rol: jwtRol
+            rol: jwtRol,
+            preferencias: user.user_metadata?.preferencias || {}
         } as SPCUser
     }
 
@@ -54,7 +56,7 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
     console.warn(`Auth Bridge: JWT Claim 'rol' no encontrado para ${email}. Realizando consulta Fallback a BD.`);
     const { data: usuario, error } = await supabase
         .from('usuarios')
-        .select('id, rol, email')
+        .select('id, rol, email, preferencias')
         .eq('id', user.id)
         .single()
 

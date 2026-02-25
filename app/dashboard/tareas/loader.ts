@@ -331,7 +331,23 @@ export async function getTareaDetail(id: string) {
 
         // 6. FILTRADO DE CATÁLOGOS CONTEXTUALES
         const departamentosEdificio = depsDispRes.data?.filter(d => (d as any).edificio_id === tareaData.id_edificio) || [];
-        const contactosEdificio = contactosRes.data?.filter(c => (c as any).id_padre === tareaData.id_edificio) || [];
+
+        // Obtener IDs de departamentos vinculados a la tarea para filtrado selectivo de teléfonos
+        const deptIdsVinculados = (tareaData.departamentos_json || []).map((d: any) => Number(d.id_departamento));
+
+        const contactosEdificio = contactosRes.data?.filter(c => {
+            const contact = c as any;
+            const esMismoEdificio = contact.id_padre === tareaData.id_edificio;
+
+            // Un contacto es pertinente si:
+            // 1. Pertenece a un departamento vinculado a la tarea
+            // 2. O es un contacto "global" (null) PERO tiene un nombre identificado (ej: Portería, Admin)
+            const tieneNombre = contact.nombre_contacto && contact.nombre_contacto.trim() !== "";
+            const esDeDeptoVinculado = deptIdsVinculados.includes(Number(contact.departamento_id));
+            const esGlobalConIdentidad = contact.departamento_id === null && tieneNombre;
+
+            return esMismoEdificio && (esDeDeptoVinculado || esGlobalConIdentidad);
+        }) || [];
 
         // 7. HIDRATACIÓN ATÓMICA DEL SUPERVISOR (NEW - Modo Dios)
         let supervisorData = null;

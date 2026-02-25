@@ -15,11 +15,11 @@ import { ProductosTab } from "@/components/productos-tab"
 import { CategoriasTab } from "@/components/categorias-tab"
 import { AdministradoresTab } from "@/components/administradores-tab"
 import { EstadosTab } from "@/components/estados-tab"
-import { AparienciaTab } from "@/components/apariencia-tab"
 import { CloudinaryDashboard } from "@/components/cloudinary-dashboard-simple"
 import { PromptsManager } from "@/components/admin/prompts-manager"
 
 interface ConfiguracionTabsProps {
+  user: any
   trabajadores: any[]
   combinedUsers: any[]
   productos?: any[]
@@ -31,6 +31,7 @@ interface ConfiguracionTabsProps {
 }
 
 export default function ConfiguracionTabs({
+  user,
   trabajadores,
   combinedUsers,
   productos = [],
@@ -109,10 +110,6 @@ export default function ConfiguracionTabs({
               <span>Sistema</span>
             </SelectItem>
 
-            <SelectItem value="apariencia" className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              <span>Apariencia</span>
-            </SelectItem>
 
             <SelectItem value="productos" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
@@ -164,10 +161,6 @@ export default function ConfiguracionTabs({
             <Database className="mr-2 h-4 w-4 flex-shrink-0" />
             <span className="hidden xl:inline">Configuración del Sistema</span>
             <span className="xl:hidden">Sistema</span>
-          </TabsTrigger>
-          <TabsTrigger value="apariencia" className="flex items-center">
-            <Palette className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>Apariencia</span>
           </TabsTrigger>
           <TabsTrigger value="productos" className="flex items-center">
             <Package className="mr-2 h-4 w-4 flex-shrink-0" />
@@ -263,10 +256,7 @@ export default function ConfiguracionTabs({
         )}
       </TabsContent>
       <TabsContent value="sistema" className="space-y-4 mt-4 mb-4">
-        <SystemSettings />
-      </TabsContent>
-      <TabsContent value="apariencia" className="space-y-4 mt-4 mb-4">
-        <AparienciaTab />
+        <SystemSettings user={user} />
       </TabsContent>
 
       <TabsContent value="productos" className="space-y-4 mt-4 mb-4">
