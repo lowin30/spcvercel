@@ -7,8 +7,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatCurrency } from "@/lib/utils"
 import PresupuestoFinalForm from "@/components/presupuesto-final-form"
 
-export default function PresupuestoFinalFormWrapper({ presupuestosBase, userId }: { presupuestosBase: any[], userId: string }) {
-    const [selectedPB, setSelectedPB] = useState<any>(null)
+export default function PresupuestoFinalFormWrapper({
+    presupuestosBase,
+    userId,
+    initialTaskId
+}: {
+    presupuestosBase: any[],
+    userId: string,
+    initialTaskId?: string
+}) {
+    const [selectedPB, setSelectedPB] = useState<any>(() => {
+        if (initialTaskId) {
+            return presupuestosBase.find(pb => pb.id_tarea?.toString() === initialTaskId) || null;
+        }
+        return null;
+    })
 
     if (selectedPB) {
         return (
