@@ -13,8 +13,9 @@ export interface CandidateTaskDTO {
 }
 
 export async function getCandidateTasks(userId: string, role: string): Promise<CandidateTaskDTO[]> {
+    const supabase = await createServerClient()
     // 1. Obtener Presupuestos Base candidatos (Aprobados + Tarea Finalizada)
-    const { data: presupuestosData, error: pbError } = await supabaseAdmin
+    const { data: presupuestosData, error: pbError } = await supabase
         .from('presupuestos_base')
         .select(`
       id,
@@ -47,7 +48,7 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
     let liquidadas = new Set<number>()
 
     if (taskIds.length > 0) {
-        const { data: liqs } = await supabaseAdmin
+        const { data: liqs } = await supabase
             .from('liquidaciones_nuevas')
             .select('id_tarea')
             .in('id_tarea', taskIds)
@@ -58,18 +59,16 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
     }
 
     // 3. Filtrar Presupuestos Finales Rechazados
-    // (Si el PF fue rechazado, la tarea aunque finalizada no se debería liquidar)
     let tareasRechazadas = new Set<number>()
     if (taskIds.length > 0) {
-        // Buscar ID estado rechazado
-        const { data: estRechazado } = await supabaseAdmin
+        const { data: estRechazado } = await supabase
             .from('estados_presupuestos')
             .select('id')
             .eq('codigo', 'rechazado')
             .single()
 
         if (estRechazado) {
-            const { data: pfRechazados } = await supabaseAdmin
+            const { data: pfRechazados } = await supabase
                 .from('presupuestos_finales')
                 .select('id_tarea')
                 .in('id_tarea', taskIds)
@@ -82,20 +81,14 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
     }
 
     // 4. Enriquecer con Supervisor
-    // Esto es costoso N+1 pero necesario si no hacemos JOIN complejo. 
-    // Optimizacion: Traer todos los supervisores_tareas para estos IDs de una vez.
     let mapSupervisor = new Map<number, { id: string, email: string }>()
     if (taskIds.length > 0) {
-        const { data: relSup } = await supabaseAdmin
+        const { data: relSup } = await supabase
             .from('supervisores_tareas')
             .select('id_tarea, id_supervisor, usuarios!inner(email)')
             .in('id_tarea', taskIds)
-        // Ordenar por created_at desc para tomar el ultimo si hay varios?
-        // SQL no garantiza orden en IN, pero podemos asumir logica de negocio simple.
 
         if (relSup) {
-            // Llenar mapa. Si hay duplicados, el ultimo gana o podriamos mejorar la query.
-            // En este caso simple, asumimos 1 supervisor activo por tarea o tomamos cualquiera.
             relSup.forEach((r: any) => {
                 if (r.id_supervisor) {
                     mapSupervisor.set(r.id_tarea, {
@@ -119,11 +112,9 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
 
         // FILTRO DE ROL
         if (role === 'supervisor') {
-            // Si yo soy supervisor, la tarea debe ser mia
             if (sup?.id !== userId) continue
         }
 
-        // Mapear a DTO
         candidates.push({
             id: p.id,
             code: p.code,
@@ -141,7 +132,8 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
 }
 
 export async function getSupervisores() {
-    const { data, error } = await supabaseAdmin
+    const supabase = await createServerClient()
+    const { data, error } = await supabase
         .from('usuarios')
         .select('id, email')
         .eq('rol', 'supervisor')
@@ -150,3 +142,4 @@ export async function getSupervisores() {
     if (error) return []
     return data
 }
+

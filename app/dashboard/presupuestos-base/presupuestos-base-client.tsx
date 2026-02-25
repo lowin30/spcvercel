@@ -8,7 +8,20 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
-import { Plus, Eye, Search } from "lucide-react"
+import { Plus, Search, Eye, Pencil, Trash } from "lucide-react"
+import { toast } from "sonner"
+import { deletePresupuestoBase } from "./actions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog"
 import { formatCurrency } from "@/lib/utils"
 import type { PresupuestoBase } from "./loader"
 
@@ -22,7 +35,8 @@ export function PresupuestosBaseClient({ presupuestos, userRole, userId }: Presu
   const router = useRouter()
   const searchParams = useSearchParams()
   const [busqueda, setBusqueda] = useState(searchParams.get('q') || '')
-  const tabActual = searchParams.get('tab') || 'todas'
+  const [isDeleting, setIsDeleting] = useState<number | null>(null)
+  const tabActual = searchParams.get('tab') || 'activa'
 
   // actualizar url con searchParams
   const updateUrl = (key: string, value: string) => {
@@ -44,24 +58,55 @@ export function PresupuestosBaseClient({ presupuestos, userRole, userId }: Presu
     updateUrl('tab', tab)
   }
 
-  // calcular estadisticas
-  const stats = {
-    todas: presupuestos.length,
-    pendientes: presupuestos.filter(p => !p.aprobado).length,
-    activas: presupuestos.filter(p => p.aprobado && !p.esta_liquidado).length,
-    pagada: presupuestos.filter(p => p.esta_liquidado).length,
+  const handleEliminar = async () => {
+    if (isDeleting === null) return
+
+    try {
+      const result = await deletePresupuestoBase(isDeleting)
+      if (result.success) {
+        toast.success("Presupuesto eliminado correctamente")
+        router.refresh()
+      } else {
+        toast.error(result.error || "Ocurrió un error al eliminar")
+      }
+    } catch (error) {
+      console.error("Error al eliminar:", error)
+      toast.error("Error inesperado al eliminar")
+    } finally {
+      setIsDeleting(null)
+    }
   }
 
-  // obtener badge de estado
+  // calcular estadisticas inteligentes (siempre sobre el total para que los círculos no desaparezcan)
+  const stats = {
+    todas: presupuestos.length,
+    pendiente: presupuestos.filter(p => p.estado_operativo === 'pendiente').length,
+    activa: presupuestos.filter(p => p.estado_operativo === 'activa').length,
+    pagada: presupuestos.filter(p => p.estado_operativo === 'pagada').length,
+  }
+
+  // filtrar datos para mostrar segun la solapa actual
+  const presupuestosMostrados = hubaraLocalFiltrar(presupuestos, tabActual)
+
+  function hubaraLocalFiltrar(data: PresupuestoBase[], tab: string) {
+    if (tab === 'todas') return data
+    // El tab actual debe coincidir exactamente con el estado_operativo (pendiente, activa, pagada)
+    return data.filter(p => p.estado_operativo === tab)
+  }
+
+  // obtener badge de estado inteligente
   const getEstadoBadge = (pb: PresupuestoBase) => {
     if (pb.esta_liquidado) {
       return <Badge className="bg-green-600 hover:bg-green-700 text-white">liquidado</Badge>
     }
-    if (pb.aprobado && pb.tiene_liquidacion) {
-      return <Badge className="bg-blue-600 hover:bg-blue-700 text-white">en liquidacion</Badge>
+    if (pb.codigo_estado_pf === 'facturado') {
+      return <Badge className="bg-blue-600 hover:bg-blue-700 text-white">facturado</Badge>
     }
-    if (pb.aprobado) {
+    if (pb.estado_operativo === 'activa') {
       return <Badge className="bg-purple-600 hover:bg-purple-700 text-white">activo</Badge>
+    }
+    if (pb.estado_operativo === 'rechazada') {
+      return <Badge variant="destructive">rechazado</Badge>
     }
     return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">pendiente</Badge>
   }
@@ -100,29 +145,29 @@ export function PresupuestosBaseClient({ presupuestos, userRole, userId }: Presu
           <Button type="submit" variant="secondary">buscar</Button>
         </form>
 
-        {/* tabs */}
+        {/* tabs inteligentes */}
         <Tabs value={tabActual} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="todas" className="text-xs sm:text-sm px-2">
-              todas ({stats.todas})
+            <TabsTrigger value="activa" className="text-xs sm:text-sm px-2">
+              activos ({stats.activa})
             </TabsTrigger>
-            <TabsTrigger value="pendientes" className="text-xs sm:text-sm px-2">
-              pendientes ({stats.pendientes})
-            </TabsTrigger>
-            <TabsTrigger value="activas" className="text-xs sm:text-sm px-2">
-              activas ({stats.activas})
+            <TabsTrigger value="pendiente" className="text-xs sm:text-sm px-2">
+              pendientes ({stats.pendiente})
             </TabsTrigger>
             <TabsTrigger value="pagada" className="text-xs sm:text-sm px-2">
-              pagada ({stats.pagada})
+              pagados ({stats.pagada})
+            </TabsTrigger>
+            <TabsTrigger value="todas" className="text-xs sm:text-sm px-2">
+              todos ({stats.todas})
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
       {/* grid de cards */}
-      {presupuestos.length > 0 ? (
+      {presupuestosMostrados.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {presupuestos.map((pb) => (
+          {presupuestosMostrados.map((pb) => (
             <Card key={pb.id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
@@ -147,19 +192,65 @@ export function PresupuestosBaseClient({ presupuestos, userRole, userId }: Presu
                   </div>
                 </div>
 
-                <div className="pt-3 border-t">
-                  <div className="flex items-center justify-between">
+                <div className="pt-3 border-t flex flex-col gap-2">
+                  <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-muted-foreground">total</span>
                     <span className="text-lg font-bold">{formatCurrency(pb.total)}</span>
                   </div>
-                </div>
 
-                <Link href={`/dashboard/presupuestos-base/${pb.id}`}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Eye className="mr-2 h-4 w-4" />
-                    ver detalle
-                  </Button>
-                </Link>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link href={`/dashboard/presupuestos-base/${pb.id}`} className="col-span-2">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Eye className="mr-2 h-4 w-4" />
+                        ver detalle
+                      </Button>
+                    </Link>
+
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={userRole === 'supervisor' && pb.estado_operativo !== 'pendiente'}
+                      asChild
+                    >
+                      <Link href={`/dashboard/presupuestos-base/${pb.id}/editar`}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        editar
+                      </Link>
+                    </Button>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={userRole === 'supervisor' && pb.estado_operativo !== 'pendiente'}
+                          onClick={() => setIsDeleting(pb.id)}
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          eliminar
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente el
+                            presupuesto <strong>{pb.code}</strong> y todos sus datos asociados.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={() => setIsDeleting(null)}>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleEliminar}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))}

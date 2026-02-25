@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowLeft, Edit, Loader2, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Pencil, Loader2, CheckCircle2 } from "lucide-react"
 import { formatDate } from "@/lib/date-utils"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "@/components/ui/use-toast"
@@ -134,7 +134,7 @@ export function PresupuestoDetailClient({ presupuesto }: PresupuestoDetailClient
           {(!presupuesto.aprobado || isAdmin) && (
             <Button variant="outline" className="flex-1 sm:flex-none" asChild>
               <Link href={`/dashboard/presupuestos-base/${presupuesto.id}/editar`}>
-                <Edit className="h-4 w-4 mr-2" /> Editar
+                <Pencil className="h-4 w-4 mr-2" /> Editar
               </Link>
             </Button>
           )}

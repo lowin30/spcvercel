@@ -43,6 +43,9 @@ interface Telefono {
 interface DepartamentosInteractivosProps {
   tareaId: number
   edificioId: number
+  initialDepartamentos?: Departamento[]
+  initialTelefonos?: Telefono[]
+  initialDepartamentosDisponibles?: Departamento[]
   onDepartamentosChange?: (departamentos: Departamento[]) => void
   className?: string
 }
@@ -50,15 +53,18 @@ interface DepartamentosInteractivosProps {
 export function DepartamentosInteractivos({
   tareaId,
   edificioId,
+  initialDepartamentos,
+  initialTelefonos,
+  initialDepartamentosDisponibles,
   onDepartamentosChange,
   className,
 }: DepartamentosInteractivosProps) {
-  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
-  const [telefonos, setTelefonos] = useState<Telefono[]>([])
-  const [loading, setLoading] = useState(true)
+  const [departamentos, setDepartamentos] = useState<Departamento[]>(initialDepartamentos || [])
+  const [telefonos, setTelefonos] = useState<Telefono[]>(initialTelefonos || [])
+  const [loading, setLoading] = useState(!initialDepartamentos)
   const [error, setError] = useState<string | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [departamentosDisponibles, setDepartamentosDisponibles] = useState<Departamento[]>([])
+  const [departamentosDisponibles, setDepartamentosDisponibles] = useState<Departamento[]>(initialDepartamentosDisponibles || [])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -106,6 +112,12 @@ export function DepartamentosInteractivos({
 
   // Cargar departamentos asociados a la tarea
   useEffect(() => {
+    // Si ya tenemos datos iniciales decidimos no hacer el fetch
+    if (initialDepartamentos && initialTelefonos && initialDepartamentosDisponibles) {
+      setLoading(false);
+      return;
+    }
+
     const cargarDepartamentosTarea = async () => {
       if (!tareaId) return
 

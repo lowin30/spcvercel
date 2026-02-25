@@ -1,16 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
-
-// cliente service role para bypass de rls (bridge protocol)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-)
+import { createServerClient } from "@/lib/supabase-server"
 
 export interface PresupuestoBase {
     id: number
@@ -20,10 +8,9 @@ export interface PresupuestoBase {
     materiales: number
     mano_obra: number
     total: number
-    aprobado: boolean
+    pb_aprobado: boolean
     fecha_aprobacion: string | null
     id_supervisor: string
-    email_supervisor: string
     id_edificio: number
     nombre_edificio: string
     id_administrador: number
@@ -31,8 +18,11 @@ export interface PresupuestoBase {
     created_at: string
     updated_at: string
     nota_pb: string | null
-    tiene_liquidacion: boolean
     esta_liquidado: boolean
+    codigo_estado_pf: string | null
+    pf_aprobado: boolean
+    pf_rechazado: boolean
+    estado_operativo: 'pendiente' | 'activa' | 'rechazada' | 'pagada'
 }
 
 export async function getPresupuestosBase(params: {
@@ -42,31 +32,37 @@ export async function getPresupuestosBase(params: {
     tab?: string
 }): Promise<PresupuestoBase[]> {
     const { rol, userId, q, tab } = params;
+    const supabase = await createServerClient()
 
     // validacion de seguridad (manual rbac)
     if (rol === 'trabajador') {
         return []
     }
 
-    // query base usando la vista completa
-    let query = supabaseAdmin
-        .from('vista_presupuestos_base_completa')
+    // Seleccionar la vista correcta según el rol
+    const viewName = rol === 'admin' ? 'vista_pb_admin' : 'vista_pb_supervisor'
+
+    // query base usando la vista específica por rol
+    let query = supabase
+        .from(viewName)
         .select('*')
 
-    // seguridad rbac (supervisor)
+    // seguridad rbac adicional (el filtrado por id_supervisor ya viene en la vista,
+    // pero lo mantenemos por consistencia)
     if (rol === 'supervisor') {
         query = query.eq('id_supervisor', userId)
     }
 
-    // filtrado por tabs
+    // filtrado inteligente por solapas (deshabilitado en servidor para permitir contadores dinámicos en cliente)
+    /*
     if (tab === 'pendientes') {
-        query = query.eq('aprobado', false)
+        query = query.eq('estado_operativo', 'pendiente')
     } else if (tab === 'activas') {
-        query = query.eq('aprobado', true).eq('esta_liquidado', false)
+        query = query.eq('estado_operativo', 'activa')
     } else if (tab === 'pagada') {
-        query = query.eq('esta_liquidado', true)
+        query = query.eq('estado_operativo', 'pagada')
     }
-    // 'todas' no tiene filtros adicionales
+    */
 
     // busqueda inteligente
     if (q) {
@@ -82,19 +78,23 @@ export async function getPresupuestosBase(params: {
         throw new Error("error al cargar presupuestos base")
     }
 
-    return data || []
+    return (data || []) as PresupuestoBase[]
 }
 
 // --- Bridge Protocol: Detalle Presupuesto Base ---
 export async function getPresupuestoBaseById(id: string) {
     const { validateSessionAndGetUser } = await import("@/lib/auth-bridge");
+    const supabase = await createServerClient()
 
     // 1. Validar sesión (Bridge)
     const user = await validateSessionAndGetUser();
 
-    // 2. Consulta segura usando la vista completa
-    const { data, error } = await supabaseAdmin
-        .from('vista_presupuestos_base_completa')
+    // 2. Seleccionar la vista correcta según el rol
+    const viewName = user.rol === 'admin' ? 'vista_pb_admin' : 'vista_pb_supervisor'
+
+    // 3. Consulta segura usando la vista correspondiente
+    const { data, error } = await supabase
+        .from(viewName)
         .select('*')
         .eq('id', id)
         .single();
@@ -102,14 +102,6 @@ export async function getPresupuestoBaseById(id: string) {
     if (error) {
         console.error("Error fetching PB:", error);
         return null;
-    }
-
-    // 3. Validación de seguridad manual (RBAC)
-    if (user.rol === 'supervisor') {
-        if (data.id_supervisor !== user.id) {
-            console.error("Acceso denegado: Supervisor intentando ver presupuesto ajeno");
-            return null;
-        }
     }
 
     return data as PresupuestoBase;

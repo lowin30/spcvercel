@@ -3,7 +3,8 @@ import { PresupuestoDetailClient } from "./presupuesto-detail-client";
 import { notFound, redirect } from "next/navigation";
 import { validateSessionAndGetUser } from "@/lib/auth-bridge";
 
-export default async function PresupuestoBaseDetailPage({ params }: { params: { id: string } }) {
+export default async function PresupuestoBaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   // 1. Seguridad: Verificar sesión válida
   try {
     await validateSessionAndGetUser();
@@ -12,7 +13,7 @@ export default async function PresupuestoBaseDetailPage({ params }: { params: { 
   }
 
   // 2. Fetching de datos (Server-Side)
-  const presupuesto = await getPresupuestoBaseById(params.id);
+  const presupuesto = await getPresupuestoBaseById(id);
 
   if (!presupuesto) {
     return notFound();

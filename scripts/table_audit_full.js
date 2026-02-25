@@ -1,0 +1,46 @@
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+
+const SUPABASE_URL = "https://fodyzgjwoccpsjmfinvm.supabase.co";
+const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvZHl6Z2p3b2NjcHNqbWZpbnZtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzcxNzg3OCwiZXhwIjoyMDYzMjkzODc4fQ.h4ZQjNerFPBSjBLjvsViaLT43ZhRAMMZlfUKKlZsgRM";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+async function listTables() {
+    const commonTables = [
+        'presupuestos_base', 'presupuestos_finales', 'tareas', 'edificios', 'contactos',
+        'administradores', 'supervisores_tareas', 'liquidaciones_nuevas', 'estados_tareas',
+        'estados_presupuestos', 'productos', 'categorias', 'usuarios', 'roles',
+        'departamentos', 'facturas', 'ajustes_facturas', 'pagos', 'configuracion',
+        'logs_audit', 'alertas', 'presupuestos', 'liquidaciones', 'tareas_old', 'contactos_old',
+        'materiales_tarea', 'mano_obra_tarea', 'items_presupuesto', 'historial_estados'
+    ];
+
+    const results = [];
+
+    for (const table of commonTables) {
+        try {
+            const { count, error } = await supabase
+                .from(table)
+                .select('*', { count: 'exact', head: true });
+
+            if (error) {
+                if (error.code === '42P01') {
+                    results.push({ tabla: table, estado: 'Inexistente', registros: 0 });
+                } else {
+                    results.push({ tabla: table, estado: 'Error: ' + error.code, registros: 0 });
+                }
+            } else {
+                results.push({ tabla: table, estado: 'Activa', registros: count || 0 });
+            }
+        } catch (e) {
+            results.push({ tabla: table, estado: 'Exception', registros: 0 });
+        }
+    }
+
+    results.sort((a, b) => b.registros - a.registros);
+    fs.writeFileSync('audit_results.json', JSON.stringify(results, null, 2));
+    console.log('Auditoria completada. Resultados en audit_results.json');
+}
+
+listTables();

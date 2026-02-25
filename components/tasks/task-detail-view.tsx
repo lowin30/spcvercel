@@ -52,6 +52,8 @@ interface TaskDetailViewProps {
         presupuestoFinal: any
         gastos: any[]
         estados: any[]
+        departamentosDisponibles: any[]
+        contactos: any[]
     }
 }
 
@@ -200,10 +202,9 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                 tipoEntidad="tarea"
                                 entidadId={tarea.id}
                                 estadoActualId={estadoActualId}
-                                esFinalizada={esTareaFinalizada}
                                 userRol={userDetails?.rol}
                                 estadosInyectados={estadosCat}
-                                onEstadoChange={(nuevoEstadoId, finalizada) => {
+                                onEstadoChange={(nuevoEstadoId: number, finalizada: boolean) => {
                                     setEstadoActualId(nuevoEstadoId);
                                     setEsTareaFinalizada(finalizada);
                                     refreshData()
@@ -263,6 +264,9 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                             <DepartamentosInteractivos
                                 tareaId={tarea.id}
                                 edificioId={tarea.id_edificio}
+                                initialDepartamentos={tarea.departamentos_json}
+                                initialTelefonos={initialData.contactos}
+                                initialDepartamentosDisponibles={initialData.departamentosDisponibles}
                                 onDepartamentosChange={() => { }}
                             />
                         </div>
@@ -325,10 +329,10 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                         const worker = trabajadoresDisponibles.find(t => t.id === nuevoTrabajadorId)
                                         if (!worker) return
                                         if (trabajadoresAsignados.some(t => t.usuarios?.id === nuevoTrabajadorId)) {
-                                            toast({ title: "Ya asignado", variant: "warning" })
+                                            toast({ title: "Ya asignado" })
                                             return
                                         }
-                                        const res = await assignWorkerAction(tarea.id, nuevoTrabajadorId)
+                                        const res = await assignWorkerAction(tarea.id, String(nuevoTrabajadorId))
                                         if (res.success) {
                                             setTrabajadoresAsignados([...trabajadoresAsignados, { usuarios: worker }])
                                             toast({ title: "Trabajador agregado" })
@@ -337,7 +341,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                         }
                                     }}
                                     onTrabajadorRemove={async (trabajadorId) => {
-                                        const res = await removeWorkerAction(tarea.id, trabajadorId)
+                                        const res = await removeWorkerAction(tarea.id, String(trabajadorId))
                                         if (res.success) {
                                             setTrabajadoresAsignados(trabajadoresAsignados.filter(t => t.usuarios?.id !== trabajadorId))
                                             toast({ title: "Trabajador eliminado" })

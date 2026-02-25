@@ -1,0 +1,252 @@
+[
+  {
+    "nombre": "gastos_tarea",
+    "estado": "Existente",
+    "registros": 266
+  },
+  {
+    "nombre": "vista_gastos_tarea_completa",
+    "estado": "Existente",
+    "registros": 266
+  },
+  {
+    "nombre": "comentarios",
+    "estado": "Existente",
+    "registros": 225
+  },
+  {
+    "nombre": "tareas",
+    "estado": "Existente",
+    "registros": 183
+  },
+  {
+    "nombre": "pagos_facturas",
+    "estado": "Existente",
+    "registros": 183
+  },
+  {
+    "nombre": "vista_tareas_completa",
+    "estado": "Existente",
+    "registros": 179
+  },
+  {
+    "nombre": "supervisores_tareas",
+    "estado": "Existente",
+    "registros": 173
+  },
+  {
+    "nombre": "facturas",
+    "estado": "Existente",
+    "registros": 165
+  },
+  {
+    "nombre": "presupuestos_base",
+    "estado": "Existente",
+    "registros": 163
+  },
+  {
+    "nombre": "presupuestos_finales",
+    "estado": "Existente",
+    "registros": 163
+  },
+  {
+    "nombre": "vista_pb_supervisor",
+    "estado": "Existente",
+    "registros": 163
+  },
+  {
+    "nombre": "vista_pb_admin",
+    "estado": "Existente",
+    "registros": 163
+  },
+  {
+    "nombre": "ajustes_facturas",
+    "estado": "Existente",
+    "registros": 132
+  },
+  {
+    "nombre": "contactos",
+    "estado": "Existente",
+    "registros": 130
+  },
+  {
+    "nombre": "liquidaciones_nuevas",
+    "estado": "Existente",
+    "registros": 111
+  },
+  {
+    "nombre": "departamentos",
+    "estado": "Existente",
+    "registros": 101
+  },
+  {
+    "nombre": "edificios",
+    "estado": "Existente",
+    "registros": 92
+  },
+  {
+    "nombre": "vista_edificios_completa",
+    "estado": "Existente",
+    "registros": 92
+  },
+  {
+    "nombre": "productos",
+    "estado": "Existente",
+    "registros": 67
+  },
+  {
+    "nombre": "trabajadores_tareas",
+    "estado": "Existente",
+    "registros": 37
+  },
+  {
+    "nombre": "vista_tareas_supervisor",
+    "estado": "Existente",
+    "registros": 20
+  },
+  {
+    "nombre": "usuarios",
+    "estado": "Existente",
+    "registros": 12
+  },
+  {
+    "nombre": "estados_tareas",
+    "estado": "Existente",
+    "registros": 11
+  },
+  {
+    "nombre": "administradores",
+    "estado": "Existente",
+    "registros": 9
+  },
+  {
+    "nombre": "estados_presupuestos",
+    "estado": "Existente",
+    "registros": 5
+  },
+  {
+    "nombre": "categorias",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "roles",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "pagos",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "configuracion",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "logs_audit",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "alertas",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "presupuestos",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "liquidaciones",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "tareas_old",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "contactos_old",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "materiales_tarea",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "mano_obra_tarea",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "items_presupuesto",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "historial_estados",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "presupuestos_old",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "facturas_old",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_admin_recordatorios_tareas_unificada",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_sup_recordatorios_tareas_unificada",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_liquidaciones_v2",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_liquidaciones_v3",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_presupuestos_all",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_tareas_v2",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_reporte_mensual",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_liquidacion_supervisor_detallada",
+    "estado": "Existente",
+    "registros": 0
+  },
+  {
+    "nombre": "vista_admin_recordatorios_tareas_unificada",
+    "estado": "Existente",
+    "registros": 0
+  }
+]

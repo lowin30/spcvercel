@@ -61,6 +61,8 @@ interface EstadoInteractivoProps {
   tipoEntidad: "tarea" | "presupuesto" | "factura"
   entidadId: number
   estadoActualId: number | null
+  esFinalizada?: boolean
+  onEstadoChange?: (estadoId: number, esFinalizada: boolean) => void
   onShowFinalizarDialog?: () => void
   userRol?: string
   estadosInyectados?: any[]

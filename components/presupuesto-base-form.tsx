@@ -24,11 +24,12 @@ interface PresupuestoBaseFormProps {
   tareas: Tarea[]
   userId: string
   presupuesto?: any
+  isReadOnly?: boolean
   onSuccess?: (presupuestoData: any) => void
   onCancel?: () => void
 }
 
-export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuccess, onCancel }: PresupuestoBaseFormProps) {
+export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isReadOnly = false, onSuccess, onCancel }: PresupuestoBaseFormProps) {
   const router = useRouter()
   const supabase = createClient() // Still used for creating tasks client-side for now
 
@@ -194,7 +195,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
         </div>
 
         {tareas.length > 0 ? (
-          <Select value={tareaId} onValueChange={setTareaId} disabled={isSubmitting || !!presupuesto}>
+          <Select value={tareaId} onValueChange={setTareaId} disabled={isSubmitting || !!presupuesto || isReadOnly}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona una tarea" />
             </SelectTrigger>
@@ -232,7 +233,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
             type="number"
             value={materiales}
             onChange={(e) => setMateriales(e.target.value)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isReadOnly}
             min="0"
             required
           />
@@ -245,7 +246,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
             type="number"
             value={manoObra}
             onChange={(e) => setManoObra(e.target.value)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isReadOnly}
             min="0"
             required
           />
@@ -257,7 +258,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
         <Input
           id="total"
           type="text"
-          value={totalCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          value={totalCalculado.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           disabled
           className="bg-muted font-semibold"
         />
@@ -271,7 +272,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
           onChange={(e) => setNotaPb(e.target.value)}
           placeholder="Cualquier observación relevante para este presupuesto base..."
           rows={3}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isReadOnly}
         />
         <p className="text-xs text-muted-foreground">Esta información es solo para uso interno.</p>
       </div>
@@ -285,7 +286,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, onSuc
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={isSubmitting || (!presupuesto && !tareaId)}>
+        <Button type="submit" disabled={isSubmitting || (!presupuesto && !tareaId) || isReadOnly}>
           {isSubmitting ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...</>
           ) : presupuesto ? (

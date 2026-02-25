@@ -10,6 +10,7 @@ export type CreateLiquidacionState = {
 }
 
 export async function createLiquidacionAction(prevState: any, formData: FormData): Promise<CreateLiquidacionState> {
+    const supabase = await createServerClient()
     const rawData = Object.fromEntries(formData.entries())
 
     // Parse numeric fields safely
@@ -41,8 +42,8 @@ export async function createLiquidacionAction(prevState: any, formData: FormData
     }
 
     try {
-        // 1. Insertar con Service Role (Bypass RLS)
-        const { data, error } = await supabaseAdmin
+        // 1. Insertar usando el cliente de servidor (Sujeto a RLS si se configuró, o bypass controlado por rol en app)
+        const { data, error } = await supabase
             .from('liquidaciones_nuevas')
             .insert(payload)
             .select('id')
@@ -53,17 +54,14 @@ export async function createLiquidacionAction(prevState: any, formData: FormData
             return { success: false, message: `Error BD: ${error.message}` }
         }
 
-        // 2. Ejecutar RPC de liquidación de gastos (si aplica)
-        // Nota: La RPC original 'liquidar_gastos_supervision' usualmente corre con privilegios security definer
-        // o requiere permisos del usuario. Al hacerlo desde server action, usamos supabaseAdmin.
-        const { error: rpcError } = await (await createServerClient()).rpc('liquidar_gastos_supervision', {
+        // 2. Ejecutar RPC de liquidación de gastos
+        const { error: rpcError } = await supabase.rpc('liquidar_gastos_supervision', {
             p_id_tarea: payload.id_tarea,
             p_id_liquidacion: data.id
         })
 
         if (rpcError) {
             console.error("Error RPC liquidar_gastos_supervision:", rpcError)
-            // No fallamos la liquidacion completa, pero advertimos
             return {
                 success: true,
                 message: "Liquidación creada, pero hubo error al marcar gastos como liquidados.",

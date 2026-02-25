@@ -1,138 +1,29 @@
--- ============================================
--- FILTRADO INTELIGENTE DE PRESUPUESTOS BASE POR ROL
--- ============================================
--- Objetivo: Centralizar la lógica de presupuestos base según rol
--- CRÍTICO: Supervisor NUNCA debe ver información de Presupuestos Finales
---
--- REGLAS DE PRIVACIDAD:
--- - Supervisor: Solo info de PB (código, tarea, monto, aprobación, liquidación)
--- - Admin: Info completa incluyendo flags de PF (tiene_pf, estado_pf)
---
--- AUTOR: Sistema SPC - Automatizaciones Centralizadas
--- FECHA: 2026-01-15
--- ============================================
+-- ====================================================================
+-- SISTEMA DE VISTAS NORMALIZADAS: PRESUPUESTOS BASE (PB) V3.2 (FIX ADMIN NAME)
+-- Soluciona:
+-- 1. Visibilidad dinámica de supervisor (Tarea 197)
+-- 2. Soporte para Solapas Inteligentes (Pendientes, Activas, Pagada)
+-- 3. Estado de PF (Facturado) incluido en flujo operativo
+-- 4. Consistencia de datos entre Supervisor y Admin
+-- 5. FIX: Nombre de administrador obtenido del edificio (e.id_administrador)
+-- ====================================================================
 
 BEGIN;
 
--- ============================================
--- VISTA BASE COMPLETA (solo para referencia interna)
--- ============================================
--- No exponer directamente, usar las vistas específicas por rol
-
-DROP VIEW IF EXISTS vista_pb_completa_interna CASCADE;
-
-CREATE VIEW vista_pb_completa_interna AS
-SELECT 
-  pb.*,
-  t.titulo as titulo_tarea,
-  t.code as code_tarea,
-  t.id_estado_nuevo as id_estado_tarea,
-  et.nombre as estado_tarea,
-  t.id_edificio,
-  e.nombre as nombre_edificio,
-  e.direccion as direccion_edificio,
-  -- Verificar si tiene Presupuesto Final
-  EXISTS (
-    SELECT 1 FROM presupuestos_finales pf 
-    WHERE pf.id_tarea = pb.id_tarea
-  ) as tiene_presupuesto_final,
-  -- Obtener estado del PF si existe
-  (
-    SELECT ep.nombre 
-    FROM presupuestos_finales pf
-    INNER JOIN estados_presupuestos ep ON pf.id_estado = ep.id
-    WHERE pf.id_tarea = pb.id_tarea
-    ORDER BY pf.created_at DESC
-    LIMIT 1
-  ) as estado_pf,
-  -- Verificar si está liquidado
-  EXISTS (
-    SELECT 1 FROM liquidaciones_nuevas ln
-    WHERE ln.id_tarea = pb.id_tarea
-  ) as esta_liquidado,
-  -- Días desde creación
-  EXTRACT(DAY FROM NOW() - pb.created_at)::INTEGER as dias_desde_creacion
-FROM presupuestos_base pb
-LEFT JOIN tareas t ON pb.id_tarea = t.id
-LEFT JOIN estados_tareas et ON t.id_estado_nuevo = et.id
-LEFT JOIN edificios e ON t.id_edificio = e.id;
-
--- ============================================
--- VISTA PARA SUPERVISORES
--- ============================================
--- SIN información de Presupuestos Finales (privacidad estricta)
-
+-- 1. VISTA BASE (Para evitar duplicar lógica)
 DROP VIEW IF EXISTS public.vista_pb_supervisor CASCADE;
-
-CREATE VIEW public.vista_pb_supervisor AS
-SELECT 
-  pb.id,
-  pb.code,
-  pb.id_tarea,
-  pb.nota_pb,
-  pb.materiales,
-  pb.mano_obra,
-  pb.total,
-  pb.aprobado,
-  pb.created_at,
-  pb.updated_at,
-  t.titulo as titulo_tarea,
-  t.code as code_tarea,
-  t.id_estado_nuevo as id_estado_tarea,
-  et.nombre as estado_tarea,
-  t.id_edificio,
-  e.nombre as nombre_edificio,
-  e.direccion as direccion_edificio,
-  EXISTS (
-    SELECT 1 FROM liquidaciones_nuevas ln
-    WHERE ln.id_tarea = pb.id_tarea
-  ) as esta_liquidado,
-  EXTRACT(DAY FROM NOW() - pb.created_at)::INTEGER as dias_desde_creacion
-FROM presupuestos_base pb
-LEFT JOIN tareas t ON pb.id_tarea = t.id
-LEFT JOIN estados_tareas et ON t.id_estado_nuevo = et.id
-LEFT JOIN edificios e ON t.id_edificio = e.id
-WHERE
-  -- NO mostrar si está liquidado
-  NOT EXISTS (
-    SELECT 1 FROM liquidaciones_nuevas ln
-    WHERE ln.id_tarea = pb.id_tarea
-  )
-  AND (
-    -- CASO 1: NO existe PF → Mostrar (supervisor debe trabajar)
-    NOT EXISTS (
-      SELECT 1 FROM presupuestos_finales pf 
-      WHERE pf.id_tarea = pb.id_tarea
-    )
-    
-    OR
-    
-    -- CASO 2: Existe PF pero está APROBADO → Mostrar (reactiva flujo)
-    EXISTS (
-      SELECT 1 FROM presupuestos_finales pf
-      INNER JOIN estados_presupuestos ep ON pf.id_estado = ep.id
-      WHERE pf.id_tarea = pb.id_tarea
-        AND ep.codigo = 'aprobado'
-    )
-    
-    -- OCULTAR si existe PF en Borrador o Enviado (pausa flujo)
-    -- Esto se logra por exclusión: solo mostramos los 2 casos de arriba
-  );
-
-COMMENT ON VIEW public.vista_pb_supervisor IS 
-'PB para supervisores con pausas/reactivaciones inteligentes.
-OCULTA: PB cuando existe PF en Borrador/Enviado (supervisor pausado).
-MUESTRA: PB cuando NO existe PF O PF aprobado (supervisor reactiva).
-NO expone información de PF (privacidad estricta).';
-
--- ============================================
--- VISTA PARA ADMINS
--- ============================================
--- CON toda la información incluyendo flags de PF
-
 DROP VIEW IF EXISTS public.vista_pb_admin CASCADE;
 
-CREATE VIEW public.vista_pb_admin AS
+CREATE VIEW public.vista_pb_supervisor AS
+WITH pf_info AS (
+  SELECT 
+    pf.id_tarea,
+    ep.codigo as estado_pf,
+    pf.aprobado as pf_aprobado,
+    pf.rechazado as pf_rechazado
+  FROM public.presupuestos_finales pf
+  INNER JOIN public.estados_presupuestos ep ON pf.id_estado = ep.id
+)
 SELECT 
   pb.id,
   pb.code,
@@ -141,119 +32,51 @@ SELECT
   pb.materiales,
   pb.mano_obra,
   pb.total,
-  pb.aprobado,
+  pb.aprobado as pb_aprobado,
   pb.created_at,
   pb.updated_at,
+  -- PRIORIDAD DE SUPERVISOR: 
+  -- 1. Asignado actual a la tarea (Supervisores_tareas)
+  -- 2. El que creó el presupuesto (pb.id_supervisor) como fallback
+  COALESCE(st.id_supervisor, pb.id_supervisor) as id_supervisor,
   t.titulo as titulo_tarea,
   t.code as code_tarea,
   t.id_estado_nuevo as id_estado_tarea,
   et.nombre as estado_tarea,
-  t.id_edificio,
+  pb.id_edificio,
   e.nombre as nombre_edificio,
   e.direccion as direccion_edificio,
+  -- FIX: Siempre usar el administrador del edificio para consistencia
+  adm.nombre as nombre_administrador,
+  pfi.estado_pf as codigo_estado_pf,
+  COALESCE(pfi.pf_aprobado, false) as pf_aprobado,
+  COALESCE(pfi.pf_rechazado, false) as pf_rechazado,
   EXISTS (
-    SELECT 1 FROM presupuestos_finales pf 
-    WHERE pf.id_tarea = pb.id_tarea
-  ) as tiene_presupuesto_final,
-  (
-    SELECT pf.id
-    FROM presupuestos_finales pf
-    WHERE pf.id_tarea = pb.id_tarea
-    ORDER BY pf.created_at DESC
-    LIMIT 1
-  ) as id_presupuesto_final,
-  (
-    SELECT ep.codigo
-    FROM presupuestos_finales pf
-    INNER JOIN estados_presupuestos ep ON pf.id_estado = ep.id
-    WHERE pf.id_tarea = pb.id_tarea
-    ORDER BY pf.created_at DESC
-    LIMIT 1
-  ) as codigo_estado_pf,
-  (
-    SELECT ep.nombre 
-    FROM presupuestos_finales pf
-    INNER JOIN estados_presupuestos ep ON pf.id_estado = ep.id
-    WHERE pf.id_tarea = pb.id_tarea
-    ORDER BY pf.created_at DESC
-    LIMIT 1
-  ) as estado_pf,
-  EXISTS (
-    SELECT 1 FROM liquidaciones_nuevas ln
+    SELECT 1 FROM public.liquidaciones_nuevas ln
     WHERE ln.id_tarea = pb.id_tarea
   ) as esta_liquidado,
-  (
-    SELECT ln.id
-    FROM liquidaciones_nuevas ln
-    WHERE ln.id_tarea = pb.id_tarea
-    ORDER BY ln.created_at DESC
-    LIMIT 1
-  ) as id_liquidacion,
-  EXTRACT(DAY FROM NOW() - pb.created_at)::INTEGER as dias_desde_creacion
-FROM presupuestos_base pb
-LEFT JOIN tareas t ON pb.id_tarea = t.id
-LEFT JOIN estados_tareas et ON t.id_estado_nuevo = et.id
-LEFT JOIN edificios e ON t.id_edificio = e.id
-WHERE
-  -- Ocultar solo si está liquidado
-  NOT EXISTS (
-    SELECT 1 FROM liquidaciones_nuevas ln
-    WHERE ln.id_tarea = pb.id_tarea
-  );
+  EXTRACT(DAY FROM NOW() - pb.created_at)::INTEGER as dias_desde_creacion,
+  CASE 
+    WHEN EXISTS (SELECT 1 FROM public.liquidaciones_nuevas ln WHERE ln.id_tarea = pb.id_tarea) THEN 'pagada'
+    WHEN pfi.estado_pf IN ('aprobado', 'facturado') THEN 'activa'
+    WHEN pfi.estado_pf = 'rechazado' THEN 'rechazada'
+    ELSE 'pendiente'
+  END as estado_operativo
+FROM public.presupuestos_base pb
+LEFT JOIN public.tareas t ON pb.id_tarea = t.id
+LEFT JOIN public.estados_tareas et ON t.id_estado_nuevo = et.id
+LEFT JOIN public.edificios e ON pb.id_edificio = e.id
+LEFT JOIN public.administradores adm ON e.id_administrador = adm.id
+LEFT JOIN public.supervisores_tareas st ON pb.id_tarea = st.id_tarea
+LEFT JOIN pf_info pfi ON pb.id_tarea = pfi.id_tarea;
 
-COMMENT ON VIEW public.vista_pb_admin IS 
-'PB para admins con info completa y filtrado por liquidación.
-OCULTA: Solo PB liquidados (flujo terminado).
-INCLUYE: codigo_estado_pf para filtrado inteligente en frontend.';
+-- 2. VISTA PARA ADMINS
+CREATE VIEW public.vista_pb_admin AS SELECT * FROM public.vista_pb_supervisor;
 
--- ============================================
--- PERMISOS
--- ============================================
-
+-- SEGURIDAD Y PERMISOS
 GRANT SELECT ON public.vista_pb_supervisor TO authenticated;
 GRANT SELECT ON public.vista_pb_admin TO authenticated;
-
--- ============================================
--- AUDITORÍA Y DIAGNÓSTICO
--- ============================================
--- Consultas útiles para verificar el comportamiento
-
-/*
--- Ver PB según rol supervisor
-SELECT 
-  code,
-  titulo_tarea,
-  aprobado,
-  esta_liquidado,
-  dias_desde_creacion
-FROM vista_pb_supervisor
-ORDER BY created_at DESC
-LIMIT 10;
-
--- Ver PB según rol admin con info PF
-SELECT 
-  code,
-  titulo_tarea,
-  aprobado,
-  tiene_presupuesto_final,
-  estado_pf,
-  esta_liquidado,
-  dias_desde_creacion
-FROM vista_pb_admin
-ORDER BY created_at DESC
-LIMIT 10;
-
--- Ver PB aprobados sin PF (admin debe actuar)
-SELECT 
-  code,
-  titulo_tarea,
-  total,
-  dias_desde_creacion
-FROM vista_pb_admin
-WHERE aprobado = true 
-  AND tiene_presupuesto_final = false
-  AND esta_liquidado = false
-ORDER BY dias_desde_creacion DESC;
-*/
+ALTER VIEW public.vista_pb_supervisor SET (security_invoker = true);
+ALTER VIEW public.vista_pb_admin SET (security_invoker = true);
 
 COMMIT;

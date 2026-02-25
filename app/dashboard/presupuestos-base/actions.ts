@@ -1,24 +1,14 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createClient } from "@supabase/supabase-js"
+import { createServerClient } from "@/lib/supabase-server"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
 
 export async function aprobarPresupuestoBase(id: number) {
   try {
     const user = await validateSessionAndGetUser()
     const { rol } = user
+    const supabase = await createServerClient()
 
     if (rol !== 'admin' && rol !== 'supervisor') {
       return { success: false, error: "No autorizado" }
@@ -26,9 +16,9 @@ export async function aprobarPresupuestoBase(id: number) {
 
     // Si es supervisor, verificar propiedad (doble check de seguridad)
     if (rol === 'supervisor') {
-      const { data: pb } = await supabaseAdmin
+      const { data: pb } = await supabase
         .from('presupuestos_base')
-        .select('tareas(id_supervisor)')
+        .select('tareas!inner(id_supervisor)')
         .eq('id', id)
         .single()
 
@@ -39,7 +29,7 @@ export async function aprobarPresupuestoBase(id: number) {
       }
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('presupuestos_base')
       .update({ aprobado: true, fecha_aprobacion: new Date() })
       .eq('id', id)
@@ -58,12 +48,13 @@ export async function anularAprobacionPresupuestoBase(id: number) {
   try {
     const user = await validateSessionAndGetUser()
     const { rol } = user
+    const supabase = await createServerClient()
 
     if (rol !== 'admin') {
       return { success: false, error: "Solo administradores pueden anular la aprobación" }
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('presupuestos_base')
       .update({ aprobado: false, fecha_aprobacion: null })
       .eq('id', id)
@@ -80,13 +71,36 @@ export async function anularAprobacionPresupuestoBase(id: number) {
 
 export async function deletePresupuestoBase(id: number) {
   try {
-    const { rol } = await validateSessionAndGetUser()
+    const user = await validateSessionAndGetUser()
+    const { rol, id: userId } = user
+    const supabase = await createServerClient()
 
-    if (rol !== 'admin') {
-      return { success: false, error: "Solo administradores pueden eliminar presupuestos" }
+    if (rol !== 'admin' && rol !== 'supervisor') {
+      return { success: false, error: "No autorizado" }
     }
 
-    const { error } = await supabaseAdmin
+    // Si es supervisor, solo puede borrar si está en 'pendiente'
+    if (rol === 'supervisor') {
+      const { data: pb, error: fetchError } = await supabase
+        .from('vista_pb_supervisor')
+        .select('estado_operativo, id_supervisor')
+        .eq('id', id)
+        .single()
+
+      if (fetchError || !pb) {
+        return { success: false, error: "Presupuesto no encontrado o no autorizado" }
+      }
+
+      if (pb.id_supervisor !== userId) {
+        return { success: false, error: "No tienes permiso para eliminar este presupuesto" }
+      }
+
+      if (pb.estado_operativo !== 'pendiente') {
+        return { success: false, error: `No se puede eliminar un presupuesto en estado ${pb.estado_operativo}` }
+      }
+    }
+
+    const { error } = await supabase
       .from('presupuestos_base')
       .delete()
       .eq('id', id)
@@ -104,18 +118,21 @@ export async function deletePresupuestoBase(id: number) {
 export async function createPresupuestoBase(data: any) {
   try {
     const { rol } = await validateSessionAndGetUser()
+    const supabase = await createServerClient()
+
     if (rol !== 'admin' && rol !== 'supervisor') {
       return { success: false, error: "No autorizado" }
     }
 
-    const { error } = await supabaseAdmin
+    const { data: insertedData, error } = await supabase
       .from('presupuestos_base')
       .insert(data)
+      .select()
 
     if (error) throw error
 
     revalidatePath('/dashboard/presupuestos-base')
-    return { success: true }
+    return { success: true, data: insertedData?.[0] }
   } catch (error: any) {
     console.error("Error creating presupuesto base:", error)
     return { success: false, error: error.message || "Error al crear presupuesto" }
@@ -124,12 +141,36 @@ export async function createPresupuestoBase(data: any) {
 
 export async function updatePresupuestoBase(id: number, data: any) {
   try {
-    const { rol } = await validateSessionAndGetUser()
+    const user = await validateSessionAndGetUser()
+    const { rol, id: userId } = user
+    const supabase = await createServerClient()
+
     if (rol !== 'admin' && rol !== 'supervisor') {
       return { success: false, error: "No autorizado" }
     }
 
-    const { error } = await supabaseAdmin
+    // Si es supervisor, solo puede editar si está en 'pendiente'
+    if (rol === 'supervisor') {
+      const { data: pb, error: fetchError } = await supabase
+        .from('vista_pb_supervisor')
+        .select('estado_operativo, id_supervisor')
+        .eq('id', id)
+        .single()
+
+      if (fetchError || !pb) {
+        return { success: false, error: "Presupuesto no encontrado o no autorizado" }
+      }
+
+      if (pb.id_supervisor !== userId) {
+        return { success: false, error: "No tienes permiso para editar este presupuesto" }
+      }
+
+      if (pb.estado_operativo !== 'pendiente') {
+        return { success: false, error: `No se puede editar un presupuesto en estado ${pb.estado_operativo}` }
+      }
+    }
+
+    const { error } = await supabase
       .from('presupuestos_base')
       .update(data)
       .eq('id', id)
@@ -143,3 +184,4 @@ export async function updatePresupuestoBase(id: number, data: any) {
     return { success: false, error: error.message || "Error al actualizar presupuesto" }
   }
 }
+

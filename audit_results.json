@@ -1,0 +1,147 @@
+[
+  {
+    "tabla": "tareas",
+    "estado": "Activa",
+    "registros": 183
+  },
+  {
+    "tabla": "supervisores_tareas",
+    "estado": "Activa",
+    "registros": 173
+  },
+  {
+    "tabla": "facturas",
+    "estado": "Activa",
+    "registros": 165
+  },
+  {
+    "tabla": "presupuestos_base",
+    "estado": "Activa",
+    "registros": 163
+  },
+  {
+    "tabla": "presupuestos_finales",
+    "estado": "Activa",
+    "registros": 163
+  },
+  {
+    "tabla": "ajustes_facturas",
+    "estado": "Activa",
+    "registros": 132
+  },
+  {
+    "tabla": "contactos",
+    "estado": "Activa",
+    "registros": 130
+  },
+  {
+    "tabla": "liquidaciones_nuevas",
+    "estado": "Activa",
+    "registros": 111
+  },
+  {
+    "tabla": "departamentos",
+    "estado": "Activa",
+    "registros": 101
+  },
+  {
+    "tabla": "edificios",
+    "estado": "Activa",
+    "registros": 92
+  },
+  {
+    "tabla": "productos",
+    "estado": "Activa",
+    "registros": 67
+  },
+  {
+    "tabla": "usuarios",
+    "estado": "Activa",
+    "registros": 12
+  },
+  {
+    "tabla": "estados_tareas",
+    "estado": "Activa",
+    "registros": 11
+  },
+  {
+    "tabla": "administradores",
+    "estado": "Activa",
+    "registros": 9
+  },
+  {
+    "tabla": "estados_presupuestos",
+    "estado": "Activa",
+    "registros": 5
+  },
+  {
+    "tabla": "categorias",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "roles",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "pagos",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "configuracion",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "logs_audit",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "alertas",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "presupuestos",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "liquidaciones",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "tareas_old",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "contactos_old",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "materiales_tarea",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "mano_obra_tarea",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "items_presupuesto",
+    "estado": "Activa",
+    "registros": 0
+  },
+  {
+    "tabla": "historial_estados",
+    "estado": "Activa",
+    "registros": 0
+  }
+]

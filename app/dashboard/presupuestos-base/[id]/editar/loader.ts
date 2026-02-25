@@ -1,9 +1,11 @@
 import { createServerClient } from '@/lib/supabase-server'
 
 export async function getPresupuestoBaseEditData(id: string, userId: string, rol: string) {
-    // 1. Cargar Presupuesto
-    const { data: presupuesto } = await supabaseAdmin
-        .from("presupuestos_base")
+    const supabase = await createServerClient()
+    // 1. Cargar Presupuesto usando la vista correspondiente para obtener metadatos (estado_operativo)
+    const viewName = rol === 'admin' ? 'vista_pb_admin' : 'vista_pb_supervisor'
+    const { data: presupuesto } = await supabase
+        .from(viewName)
         .select("*")
         .eq("id", id)
         .single()
@@ -11,10 +13,7 @@ export async function getPresupuestoBaseEditData(id: string, userId: string, rol
     if (!presupuesto) return null
 
     // 2. Validación de Supervisor (Ownership)
-    // Si es supervisor y el presupuesto no es suyo, retornamos null o error
-    // Nota: id_supervisor existe en la tabla presupuestos_base? Asumimos que sí por lógica anterior.
     if (rol === "supervisor" && presupuesto.id_supervisor !== userId) {
-        // Retornamos null para manejar como 404 o Unauthorized en la pagina
         return null
     }
 
@@ -22,7 +21,7 @@ export async function getPresupuestoBaseEditData(id: string, userId: string, rol
     let tareas: any[] = []
 
     if (rol === "supervisor") {
-        const { data: asignaciones } = await supabaseAdmin
+        const { data: asignaciones } = await supabase
             .from('supervisores_tareas')
             .select('id_tarea')
             .eq('id_supervisor', userId)
@@ -30,7 +29,7 @@ export async function getPresupuestoBaseEditData(id: string, userId: string, rol
         const idsTareas = asignaciones?.map((a: { id_tarea: number }) => a.id_tarea) || [];
 
         if (idsTareas.length > 0) {
-            const { data } = await supabaseAdmin
+            const { data } = await supabase
                 .from('tareas')
                 .select('*')
                 .in('id', idsTareas)
@@ -38,7 +37,7 @@ export async function getPresupuestoBaseEditData(id: string, userId: string, rol
         }
     } else {
         // Admin ve todas
-        const { data } = await supabaseAdmin
+        const { data } = await supabase
             .from('tareas')
             .select('*')
         tareas = data || []

@@ -1,5 +1,6 @@
 import "server-only"
 import { createServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 
 import { executeSecureQuery } from "@/lib/rls-error-handler"
@@ -22,8 +23,12 @@ export type Tarea = {
     direccion_edificio: string
     id_administrador: number
     nombre_administrador: string
-    supervisores: string // CSV o Array de nombres
-    supervisores_emails: string // CSV de emails
+    // Agregaciones Atómicas (Modo Dios)
+    trabajadores_json?: any[]
+    supervisores_json?: any[]
+    departamentos_json?: any[]
+    finanzas_json?: any // Solo Admin
+    gastos_json?: any // Solo Supervisor
     // Flags de permisos (opcional, calculado)
     can_edit: boolean
 }
@@ -199,51 +204,33 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
     }
 }
 
-// Helper para usar vistas especificas si el rol es complejo
-async function getTareasFromView(viewName: string, userId: string) {
-    // Nota: Las vistas SQL suelen depender de auth.uid() si no estan bien hechas.
-    // 'vista_tareas_supervisor' usaba logica pura de estados, no de auth.uid().
-    // EXCEPTO que el supervisor solo ve "sus" tareas?
-    // Revisando el codigo SQL de la vista: NO filtra por supervisor ID, filtra por estados globales.
-    // EL filtrado por supervisor-tarea se hacia en el 'search_path' o RLS policies de la tabla base?
-    // NO. La vista parece ser global.
-    // ENTONCES, debemos filtrar manualmente por asignacion AQUI en el loader.
-
-    // 1. Obtener IDs asignados al supervisor
-    const { data: asignaciones } = await supabaseAdmin
-        .from('supervisores_tareas')
+// Helper para tareas candidatas a presupuesto final (Optimización pendiente a SQL)
+export async function getTareasParaPresupuesto() {
+    /**
+     * @description Retorna tareas activas que aún no tienen un presupuesto final asignado.
+     * @note Candidato a ser una vista SQL dedicada para eliminar el filtrado 'NOT IN' en el cliente.
+     */
+    const { data: conPF } = await supabaseAdmin
+        .from('presupuestos_finales')
         .select('id_tarea')
-        .eq('id_supervisor', userId);
+        .not('id_tarea', 'is', null);
 
-    const idsAsignados = asignaciones?.map(a => a.id_tarea) || [];
+    const idsConPF = conPF?.map(x => x.id_tarea) || [];
 
-    // 2. Query a la vista de estados (que filtra por flujo de negocio)
-    let query = (await createServerClient()).from(viewName).select('*');
+    let query = supabaseAdmin
+        .from('tareas')
+        .select('*')
+        .neq('id_estado_nuevo', 9);
 
-    // 3. Aplicar interseccion: Tareas del flujo (vista) AND Asignadas al supervisor
-
-    // Filtro critico: Solo las asignadas (si es requerimiento de negocio)
-    // El codigo legado parecia mostrar todas las de la delegacion?
-    // Audit `page.tsx`:
-    /*
-      if (userData?.rol === "supervisor") {
-            const supervisorTareasResponse = await supabase.from('supervisores_tareas')...
-            const tareasAsignadas = ...
-            tareasQuery = baseQuery.in("id", tareasAsignadas);
-      }
-    */
-    // SÍ, el codigo legado filtraba por ID explicito.
-    if (idsAsignados.length > 0) {
-        query = query.in('id', idsAsignados);
-    } else {
-        return []; // Supervisor sin tareas asignadas
+    if (idsConPF.length > 0) {
+        query = query.not('id', 'in', `(${idsConPF.join(',')})`);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
+
     if (error) throw error;
     return data || [];
 }
-// ... existing code ...
 
 export async function getRecordatorios(rol: string, userId: string) {
     if (rol === 'admin') {
@@ -256,48 +243,12 @@ export async function getRecordatorios(rol: string, userId: string) {
         const { data } = await supabaseAdmin
             .from('vista_sup_recordatorios_tareas_unificada')
             .select('*')
-            .limit(50); // La vista ya filtra por el "current user"? No, las vistas SQL a veces usan auth.uid().
-        // Audit Report: "vistas dependen de auth.uid()".
-        // Service Role NO tiene auth.uid().
-        // Si la vista usa auth.uid(), devolverá vacio para Service Role.
-        // Necesitamos verificar la definición de `vista_sup_recordatorios_tareas_unificada`.
-        // Si es opaca, riesgo alto.
-        // Asumiremos que por ahora filtramos en memoria o que la vista es global?
-        // "vista_sup_recordatorios_tareas_unificada" suena a que muestra TODO lo de supervisores.
-        // Vamos a intentar filtrar manualmente si trae campo supervisor.
+            .limit(50);
         return data || [];
     }
     return [];
 }
 
-export async function getTareasParaPresupuesto() {
-    // Reemplazo de get_tareas_sin_presupuesto_final
-    // Lógica: Tareas activas (no liquidadas) que NO tienen presupuesto final.
-    // Consulta "negativa" es costosa.
-
-    // 1. Obtener IDs de tareas con PF
-    const { data: conPF } = await supabaseAdmin
-        .from('presupuestos_finales')
-        .select('id_tarea')
-        .not('id_tarea', 'is', null);
-
-    const idsConPF = conPF?.map(x => x.id_tarea) || [];
-
-    // 2. Obtener todas las tareas candidatas (no finalizadas/liquidadas)
-    let query = supabaseAdmin
-        .from('tareas')
-        .select('*')
-        .neq('id_estado_nuevo', 9); // No liquidadas
-
-    if (idsConPF.length > 0) {
-        query = query.not('id', 'in', `(${idsConPF.join(',')})`);
-    }
-
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
-}
 
 export async function getTareaDetail(id: string) {
     try {
@@ -307,184 +258,123 @@ export async function getTareaDetail(id: string) {
         const tareaId = parseInt(id)
         if (isNaN(tareaId)) throw new Error("ID de tarea inválido")
 
-        // 2. Obtener Tarea con Relaciones (Edificio, etc.)
-        const { data: tareaData, error: tareaError } = await supabaseAdmin
-            .from("tareas")
-            .select(`
-          *,
-          edificios!left (id, nombre, direccion, cuit, notas)
-        `)
-            .eq("id", tareaId)
-            .single()
+        const supabase = await createServerClient();
+        const rol = usuario.rol;
 
-        if (tareaError || !tareaData) throw new Error("Tarea no encontrada")
+        // 1. DETERMINAR VISTA SEGÚN ROL (Silo de Seguridad)
+        let primaryView = "vista_tareas_completa";
+        if (rol === 'admin') primaryView = "vista_tareas_admin";
+        else if (rol === 'supervisor') primaryView = "vista_tareas_supervisor";
 
-        // 2.5 Obtener Catálogo de Estados (Public access via Admin for stability)
-        const { data: estadosData } = await supabaseAdmin
-            .from("estados_tareas")
-            .select("id, nombre, codigo, color, orden")
-            .order("orden")
+        // 2. CARGA ATÓMICA (Tarea Detallada + Comentarios Enriquecidos + Catálogos)
+        const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes] = await Promise.all([
+            // La joya de la corona: Datos de la tarea + Finanzas/Gastos inyectados por el SQL
+            supabase.from(primaryView).select("*").eq("id", tareaId).single(),
 
-        // 3. Obtener Supervisores y Trabajadores Asignados
-        // Supervisor (puede ser null si no hay asignado)
-        const { data: supervisorRel } = await supabaseAdmin
-            .from("supervisores_tareas")
-            .select("id_supervisor")
-            .eq("id_tarea", tareaId)
-            .maybeSingle()
+            // Comentarios ya enriquecidos con autor (Zero-Join logic)
+            supabaseAdmin.from("vista_comentarios_detallada").select("*").eq("id_tarea", tareaId).order("created_at", { ascending: false }),
 
-        let supervisorData = null
-        if (supervisorRel?.id_supervisor) {
-            const { data: supUser } = await supabaseAdmin
-                .from("usuarios")
-                .select("id, email, color_perfil")
-                .eq("id", supervisorRel.id_supervisor)
-                .single()
-            if (supUser) supervisorData = { usuarios: supUser }
-        }
+            // Catálogos necesarios para interacción
+            supabaseAdmin.from("estados_tareas").select("*").order("orden"),
+            supabaseAdmin.from("usuarios").select("id, email, color_perfil, code").eq("rol", "supervisor"),
+            supabaseAdmin.from("usuarios").select("id, email, color_perfil, configuracion_trabajadores!inner(activo)").eq("rol", "trabajador").eq("configuracion_trabajadores.activo", true),
 
-        // Trabajadores (puede haber múltiples o ninguno)
-        const { data: trabsRel } = await supabaseAdmin
-            .from("trabajadores_tareas")
-            .select("id_trabajador")
-            .eq("id_tarea", tareaId)
+            // Contexto de la tarea
+            supabaseAdmin.from("departamentos").select("id, codigo, propietario, edificio_id"),
+            supabaseAdmin.from("contactos").select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id, id_padre")
+        ]);
 
-        const trabajadoresAsignados: { usuarios: any }[] = []
-        if (trabsRel && trabsRel.length > 0) {
-            const ids = trabsRel.map(t => t.id_trabajador)
-            const { data: trabsUsers } = await supabaseAdmin
-                .from("usuarios")
-                .select("id, email, color_perfil")
-                .in("id", ids)
+        if (tareaRes.error || !tareaRes.data) throw new Error("Tarea no encontrada");
+        const tareaData = tareaRes.data;
 
-            if (trabsUsers) {
-                trabsUsers.forEach(t => trabajadoresAsignados.push({ usuarios: t }))
+        // 3. EXTRACCIÓN DE DATOS INYECTADOS (Modo Dios)
+
+        // A. Finanzas (Solo Admin)
+        let pbData = null;
+        let pfFinal = null;
+        if (rol === 'admin' && (tareaData as any).finanzas_json) {
+            const finanzas = (tareaData as any).finanzas_json;
+            pbData = finanzas.pb;
+            pfFinal = finanzas.pf;
+            if (pfFinal) {
+                pfFinal.tiene_facturas = finanzas.tiene_facturas;
+                pfFinal.facturas_pagadas = finanzas.facturas_pagadas;
             }
         }
-
-        // 4. Presupuestos (Base y Final)
-        // Base
-        const { data: pbData } = await supabaseAdmin
-            .from("presupuestos_base")
-            .select(`
-          *,
-          tareas!inner (
-            code,
-            titulo,
-            id_edificio,
-            edificios (nombre)
-          )
-        `)
-            .eq("id_tarea", tareaId)
-            .maybeSingle()
-
-        // Final
-        let pfData = null
-        if (pbData?.id) {
-            const { data } = await supabaseAdmin
-                .from("presupuestos_finales")
-                .select("*")
-                .eq("id_presupuesto_base", pbData.id)
-                .maybeSingle()
-            pfData = data
-        } else {
-            // Buscar huérfano
-            const { data } = await supabaseAdmin
-                .from("presupuestos_finales")
-                .select("*")
-                .eq("id_tarea", tareaId)
-                .is("id_presupuesto_base", null)
-                .maybeSingle()
-            pfData = data
+        // B. Gastos y PB (Supervisor)
+        else if (rol === 'supervisor' && (tareaData as any).gastos_json) {
+            const gastosContext = (tareaData as any).gastos_json;
+            pbData = gastosContext.pb;
+            // El supervisor no ve PF
         }
 
-        // Facturas (solo si admin y hay PF)
-        if (pfData && usuario.rol === 'admin') {
-            const { data: facturas } = await supabaseAdmin
-                .from("facturas")
-                .select("id, pagada")
-                .eq("id_presupuesto_final", pfData.id)
-
-            if (facturas && facturas.length > 0) {
-                pfData.tiene_facturas = true
-                pfData.facturas_pagadas = facturas.every(f => f.pagada)
+        // 4. MAPEO DE TRABAJADORES (Legacy Compatibility)
+        const trabajadoresAsignados = (tareaData.trabajadores_json || []).map((t: any) => ({
+            usuarios: {
+                id: t.id,
+                email: t.nombre,
+                color_perfil: t.color_perfil || null
             }
-        }
+        }));
 
-        // 5. Comentarios
-        const { data: comentariosData } = await supabaseAdmin
-            .from("comentarios")
-            .select("id, contenido, created_at, foto_url, id_usuario")
-            .eq("id_tarea", tareaId)
-            .order("created_at", { ascending: false })
+        // 5. TRADUCCIÓN A FORMATO LEGACY (Para no romper el Detail View)
+        const tareaLegacy = {
+            ...tareaData,
+            edificios: {
+                id: tareaData.id_edificio,
+                nombre: tareaData.nombre_edificio,
+                direccion: tareaData.direccion_edificio,
+                cuit: null,
+                notas: null
+            }
+        };
 
-        // Enriquecer comentarios con usuarios
-        let comentariosEnriquecidos: any[] = []
-        if (comentariosData && comentariosData.length > 0) {
-            const userIds = [...new Set(comentariosData.map(c => c.id_usuario))].filter(Boolean)
-            const { data: usersComments } = await supabaseAdmin
-                .from("usuarios")
-                .select("id, email, code, color_perfil")
-                .in("id", userIds)
+        // 6. FILTRADO DE CATÁLOGOS CONTEXTUALES
+        const departamentosEdificio = depsDispRes.data?.filter(d => (d as any).edificio_id === tareaData.id_edificio) || [];
+        const contactosEdificio = contactosRes.data?.filter(c => (c as any).id_padre === tareaData.id_edificio) || [];
 
-            comentariosEnriquecidos = comentariosData.map(c => ({
-                ...c,
-                usuarios: usersComments?.find(u => u.id === c.id_usuario) || null
-            }))
-        }
-
-        // 6. Catalogs (Wait... do we need catalogs here? The original page loaded them for "TrabajadoresInteractivos" components)
-        // Yes, we need them for the dropdowns.
-
-        // Supervisores Disponibles (para reasignar)
-        const { data: supervisoresDisp } = await supabaseAdmin
-            .from("usuarios")
-            .select("id, email, color_perfil, code")
-            .eq("rol", "supervisor")
-
-        // Trabajadores Disponibles
-        const { data: trabajadoresDisp } = await supabaseAdmin
-            .from("usuarios")
-            .select("id, email, color_perfil, configuracion_trabajadores!inner(activo)")
-            .eq("rol", "trabajador")
-            .eq("configuracion_trabajadores.activo", true)
-
-        const trabajadoresFormateados = trabajadoresDisp?.map(t => ({
-            id: t.id,
-            email: t.email,
-            color_perfil: t.color_perfil
-        })) || []
-
-
-        // 7. Gastos (Desde la Vista Completa para visibilidad total)
-        const { data: gastosData, error: gastosError } = await supabaseAdmin
-            .from("vista_gastos_tarea_completa")
-            .select("*")
-            .eq("id_tarea", tareaId)
-            .order("created_at", { ascending: false })
-
-        if (gastosError) {
-            console.error("Error fetching gastos from view:", gastosError)
+        // 7. HIDRATACIÓN ATÓMICA DEL SUPERVISOR (NEW - Modo Dios)
+        let supervisorData = null;
+        if (tareaData.supervisores_json && tareaData.supervisores_json.length > 0) {
+            const s = tareaData.supervisores_json[0];
+            supervisorData = {
+                usuarios: {
+                    id: s.id,
+                    email: s.email,
+                    nombre: s.nombre,
+                    color_perfil: s.color_perfil
+                }
+            };
         }
 
         return {
-            tarea: tareaData,
+            tarea: tareaLegacy,
             userDetails: usuario,
             supervisor: supervisorData,
             trabajadoresAsignados,
-            trabajadoresDisponibles: trabajadoresFormateados,
-            supervisoresDisponibles: supervisoresDisp || [],
-            comentarios: comentariosEnriquecidos,
+            trabajadoresDisponibles: workersDispRes.data?.map(t => ({ id: t.id, email: t.email, color_perfil: t.color_perfil })) || [],
+            supervisoresDisponibles: supervisoresDispRes.data || [],
+            comentarios: comentariosRes.data?.map(c => ({
+                ...c,
+                usuarios: {
+                    id: c.id_usuario,
+                    email: c.email_autor,
+                    nombre: c.nombre_autor,
+                    code: c.codigo_autor,
+                    color_perfil: c.color_autor
+                }
+            })) || [],
             presupuestoBase: pbData,
-            presupuestoFinal: pfData,
-            gastos: gastosData || [],
-            estados: estadosData || []
-        }
+            presupuestoFinal: pfFinal,
+            gastos: (tareaData as any).gastos_json?.lista_gastos || [],
+            estados: estadosRes.data || [],
+            departamentosDisponibles: departamentosEdificio,
+            contactos: contactosEdificio
+        };
 
     } catch (error) {
-        console.error("Loader Detail Error:", error)
-        if ((error as any).message?.includes("No hay sesión")) throw error
-        throw new Error("No se pudo cargar el detalle de la tarea")
+        console.error("Loader Detail Error [God Mode Phase 3]:", error)
+        throw new Error("No se pudo cargar el detalle atómico de la tarea")
     }
 }
 
