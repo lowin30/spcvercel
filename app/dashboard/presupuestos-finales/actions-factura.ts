@@ -16,7 +16,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     // 1. Obtener presupuesto completo
     const { data: presupuesto, error: pfError } = await supabase
       .from('presupuestos_finales')
-      .select('*, items(*)')
+      .select('*, items(*), tareas(titulo)')
       .eq('id', presupuestoId)
       .single()
 
@@ -46,6 +46,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
           id_presupuesto_final: presupuestoId,
           id_presupuesto: presupuesto.id_presupuesto_base || null,
           id_administrador: presupuesto.id_administrador,
+          nombre: (presupuesto.tareas as any)?.titulo || null,
           total: totalFactura,
           saldo_pendiente: totalFactura,
           total_pagado: 0,

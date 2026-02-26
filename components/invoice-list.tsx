@@ -201,7 +201,7 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                       <TableCell>
                         <div>
                           <div className="font-semibold">
-                            {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
+                            {invoice.nombre || invoice.titulo_tarea || invoice.code || `Factura #${invoice.id}`}
                           </div>
                           <div className="text-xs font-mono mt-1">
                             {(() => {
@@ -253,8 +253,8 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                       {/* 5. SALDO PENDIENTE */}
                       <TableCell className="text-right">
                         <div className={`font-semibold tabular-nums ${saldoPendiente === 0
-                            ? 'text-green-600'
-                            : 'text-red-600'
+                          ? 'text-green-600'
+                          : 'text-red-600'
                           }`}>
                           {formatCurrency(saldoPendiente)}
                           {saldoPendiente === 0 && <span className="ml-1">✓</span>}
@@ -420,7 +420,7 @@ export function InvoiceList({ invoices: initialInvoices, estados: estadosProp }:
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-base">
-                          {invoice.nombre || invoice.code || `Factura #${invoice.id}`}
+                          {invoice.nombre || invoice.titulo_tarea || invoice.code || `Factura #${invoice.id}`}
                         </CardTitle>
                         <CardDescription className="text-xs mt-1 font-mono">
                           {(() => {
