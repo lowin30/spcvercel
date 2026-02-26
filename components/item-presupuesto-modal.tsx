@@ -103,6 +103,7 @@ export function ItemPresupuestoModal({
     setPrecioMostrado(new Intl.NumberFormat('es-ES').format(selectedPrecio))
     setProductoId(producto.id)
     setEsProducto(true)
+    setEsMaterial(true)
     setActiveTab("manual") // Cambiar a la pestaña manual para editar
   }
 

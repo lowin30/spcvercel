@@ -120,8 +120,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                         />
                     </div>
                     <ExportPresupuestoButton
-                        datos={datosParaPDF}
-                        id={presupuesto.id}
+                        {...datosParaPDF}
                     />
                     <div className="flex-1 md:flex-none">
                         {presupuesto.codigo_estado !== 'facturado' && (
@@ -278,7 +277,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                 <CardHeader className="bg-muted/10 border-b">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <receipt-text className="h-5 w-5 text-primary" />
+                            <ReceiptText className="h-5 w-5 text-primary" />
                             Desglose de Ítems ({items.length})
                         </CardTitle>
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-none">

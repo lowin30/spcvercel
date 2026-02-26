@@ -1056,7 +1056,7 @@ export async function saveBudgetAction(params: {
           precio: typeof item.precio === 'string' ? parseFloat(item.precio) : item.precio,
           id_presupuesto: budgetId,
           producto_id: item.producto_id || null,
-          es_material: item.es_material ?? (item.es_producto ? false : false),
+          es_material: item.es_material ?? (item.es_producto ? true : false),
         };
         if (item.code) itemPayload.code = item.code;
 
@@ -1087,7 +1087,7 @@ export async function saveBudgetAction(params: {
         precio: typeof item.precio === 'string' ? parseFloat(item.precio) : item.precio,
         id_presupuesto: savedBudget.id,
         producto_id: item.producto_id || null,
-        es_material: item.es_material ?? (item.es_producto ? false : false),
+        es_material: item.es_material ?? (item.es_producto ? true : false),
         ...(item.code ? { code: item.code } : {}),
       }));
 

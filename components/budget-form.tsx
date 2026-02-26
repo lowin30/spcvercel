@@ -456,12 +456,25 @@ export function BudgetForm({
       }
 
       // 3. Llamar a la Bridge Action
+      // God Mode: Asegurar que es_material esté bien seteado antes de subir
+      const itemsProcesados = items.map(item => {
+        const desc = item.descripcion.toLowerCase();
+        const esMaterialAuto = [
+          'material', 'materiales', 'suministro', 'insumo', 'equipo', 'herramienta'
+        ].some(k => desc.includes(k)) || !!item.producto_id;
+
+        return {
+          ...item,
+          es_material: item.es_material !== undefined ? item.es_material : esMaterialAuto
+        };
+      });
+
       const res = await saveBudgetAction({
         tipo,
         budgetData: budgetPayload,
-        items,
+        items: itemsProcesados,
         isEditing: !!presupuestoAEditar,
-        budgetId: presupuestoAEditar?.id,
+        budgetId: presupuestoAEditar?.id
       });
 
       if (!res.success) throw new Error(res.message);

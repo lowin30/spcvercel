@@ -63,7 +63,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center" suppressHydrationWarning>
         <div className="text-center">
           <div className="mb-4 animate-pulse">
             <div className="h-8 w-48 bg-gray-200 rounded mx-auto mb-2"></div>
