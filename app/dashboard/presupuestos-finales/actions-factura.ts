@@ -16,7 +16,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     // 1. Obtener presupuesto completo
     const { data: presupuesto, error: pfError } = await supabase
       .from('presupuestos_finales')
-      .select('*, items(*), tareas(titulo)')
+      .select('*, items(*), tareas(titulo, edificios(nombre))')
       .eq('id', presupuestoId)
       .single()
 
@@ -34,11 +34,18 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       throw new Error("El presupuesto no tiene items para facturar.");
     }
 
+    // Configuración de nombre base (Edificio - Tarea)
+    const buildingName = (presupuesto.tareas as any)?.edificios?.nombre;
+    const taskTitle = (presupuesto.tareas as any)?.titulo;
+    const nombreBase = buildingName ? `${buildingName} - ${taskTitle}` : taskTitle;
+
     const createdFacturas: number[] = [];
 
     // 4. Función helper para crear la factura y sus items
     const crearFacturaYClonarItems = async (items: any[], tipoDesc: string) => {
       const totalFactura = items.reduce((acc, item) => acc + ((item.cantidad || 0) * (item.precio || 0)), 0);
+      const fechaVencimiento = new Date();
+      fechaVencimiento.setDate(fechaVencimiento.getDate() + 30);
 
       const { data: factura, error: fError } = await supabase
         .from('facturas')
@@ -46,11 +53,12 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
           id_presupuesto_final: presupuestoId,
           id_presupuesto: presupuesto.id_presupuesto_base || null,
           id_administrador: presupuesto.id_administrador,
-          nombre: (presupuesto.tareas as any)?.titulo || null,
+          nombre: tipoDesc === "Materiales" ? `${nombreBase} (Materiales)` : nombreBase,
           total: totalFactura,
           saldo_pendiente: totalFactura,
           total_pagado: 0,
           id_estado_nuevo: 1, // Borrador/Pendiente
+          fecha_vencimiento: fechaVencimiento.toISOString().split('T')[0],
           created_at: new Date().toISOString()
         })
         .select()
