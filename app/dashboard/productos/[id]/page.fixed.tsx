@@ -24,7 +24,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
   useEffect(() => {
     const fetchProducto = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       if (!session) {
         router.push("/login")
         return
@@ -39,6 +39,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
 
       if (userData) {
         setUserDetails({
+          id: session.user.id,
           rol: userData.rol,
           email: session.user.email || ""
         })
@@ -66,7 +67,7 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
 
   if (isLoading) {
     return (
-      <DashboardShell userDetails={userDetails || { rol: "", email: "" }}>
+      <DashboardShell userDetails={userDetails || { id: "", rol: "", email: "" }}>
         <div className="flex items-center justify-center h-screen">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <span className="ml-2">Cargando producto...</span>
@@ -98,19 +99,19 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
   }
 
   // Función para determinar el color del stock
-  const getStockBadge = (stock: number) => {
+  const getStockBadge = (stock: number): "destructive" | "secondary" | "default" | "outline" => {
     if (stock <= 0) return "destructive";
-    if (stock < 10) return "warning";
-    return "success";
+    if (stock < 10) return "secondary"; // Antes warning
+    return "default"; // Antes success
   }
 
   // Función para formatear estado
-  const getEstadoBadge = (estado: string) => {
+  const getEstadoBadge = (estado: string): "destructive" | "secondary" | "default" | "outline" => {
     switch (estado?.toLowerCase()) {
-      case "activo": return "success";
+      case "activo": return "default"; // Antes success
       case "inactivo": return "destructive";
-      case "descontinuado": return "warning";
-      default: return "secondary";
+      case "descontinuado": return "secondary"; // Antes warning
+      default: return "outline"; // Antes secondary
     }
   }
 
@@ -137,74 +138,75 @@ export default function DetalleProductoPage({ params }: { params: { id: string }
             </Link>
           </div>
         </div>
-        
+
         <div className="grid gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-bold">
-                {producto.code} - {producto.nombre}
-              </CardTitle>
-              <CardDescription>
-                {producto.descripcion || "Sin descripción disponible."}
-              </CardDescription>
-            </div>
-            <Badge variant={getEstadoBadge(producto.estado)}>{producto.estado || "Sin estado"}</Badge>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <div className="rounded-lg overflow-hidden border h-64 flex items-center justify-center bg-muted">
-                  {producto.imagen ? (
-                    <img
-                      src={getImageUrl(producto.imagen)}
-                      alt={producto.nombre}
-                      className="w-full h-full object-contain p-4"
-                    />
-                  ) : (
-                    <span className="text-muted-foreground">Sin imagen</span>
-                  )}
-                </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="space-y-1">
+                <CardTitle className="text-2xl font-bold">
+                  {producto.code} - {producto.nombre}
+                </CardTitle>
+                <CardDescription>
+                  {producto.descripcion || "Sin descripción disponible."}
+                </CardDescription>
               </div>
-              <div className="flex flex-col justify-between">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-medium">Categoría</span>
-                    <span>{producto.categoria || "Sin categoría"}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-medium">Precio</span>
-                    <span>{formatPrice(producto.precio)}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-medium">Stock</span>
-                    <Badge variant={getStockBadge(producto.stock)}>
-                      {producto.stock || "0"} unidades
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-medium">Ubicación</span>
-                    <span>{producto.ubicacion || "No especificada"}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-medium">Proveedor</span>
-                    <span>{producto.proveedor || "No especificado"}</span>
-                  </div>
-                  <div className="flex flex-col space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Fecha de creación:</span>
-                      <span>{formatDate(producto.created_at)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Última actualización:</span>
-                      <span>{formatDate(producto.updated_at)}</span>
-                    </div>
+              <Badge variant={getEstadoBadge(producto.estado)}>{producto.estado || "Sin estado"}</Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="rounded-lg overflow-hidden border h-64 flex items-center justify-center bg-muted">
+                    {producto.imagen ? (
+                      <img
+                        src={getImageUrl(producto.imagen)}
+                        alt={producto.nombre}
+                        className="w-full h-full object-contain p-4"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">Sin imagen</span>
+                    )}
                   </div>
                 </div>
+                <div className="flex flex-col justify-between">
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Categoría</span>
+                      <span>{producto.categoria || "Sin categoría"}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Precio</span>
+                      <span>{formatPrice(producto.precio)}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Stock</span>
+                      <Badge variant={getStockBadge(producto.stock)}>
+                        {producto.stock || "0"} unidades
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Ubicación</span>
+                      <span>{producto.ubicacion || "No especificada"}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <span className="font-medium">Proveedor</span>
+                      <span>{producto.proveedor || "No especificado"}</span>
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Fecha de creación:</span>
+                        <span>{formatDate(producto.created_at)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Última actualización:</span>
+                        <span>{formatDate(producto.updated_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </DashboardShell>
   )

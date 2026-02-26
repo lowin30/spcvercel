@@ -34,7 +34,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       throw new Error("El presupuesto no tiene items para facturar.");
     }
 
-    const createdFacturas = [];
+    const createdFacturas: number[] = [];
 
     // 4. Función helper para crear la factura y sus items
     const crearFacturaYClonarItems = async (items: any[], tipoDesc: string) => {
@@ -94,11 +94,53 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     return {
       success: true,
       message: "Factura creada correctamente con todos sus ítems",
-      facturaId: factura.id
+      facturaId: createdFacturas[0]
     }
 
   } catch (error: any) {
     console.error('convertirPresupuestoADosFacturas:', error)
+    return { success: false, message: error.message }
+  }
+}
+
+/**
+ * Desaprueba un presupuesto final, volviéndolo al estado 'presupuestado'.
+ */
+export async function desaprobarPresupuesto(presupuestoId: number) {
+  try {
+    const supabase = await createServerClient()
+    const { rol } = await validateSessionAndGetUser()
+
+    if (rol !== 'admin') {
+      throw new Error("No tienes permisos para realizar esta acción")
+    }
+
+    // 1. Obtener ID del estado 'presupuestado'
+    const { data: estPresupuestado } = await supabase
+      .from('estados_presupuestos')
+      .select('id')
+      .eq('codigo', 'presupuestado')
+      .single()
+
+    if (!estPresupuestado) throw new Error("Estado 'presupuestado' no encontrado")
+
+    // 2. Actualizar el presupuesto
+    const { error } = await supabase
+      .from('presupuestos_finales')
+      .update({ id_estado_nuevo: estPresupuestado.id })
+      .eq('id', presupuestoId)
+
+    if (error) throw error
+
+    revalidatePath('/dashboard/presupuestos-finales')
+
+    return {
+      success: true,
+      message: "Presupuesto desaprobado correctamente"
+    }
+
+  } catch (error: any) {
+    console.error('desaprobarPresupuesto:', error)
     return { success: false, message: error.message }
   }
 }
