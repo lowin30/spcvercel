@@ -1,19 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, ListTodo, AlertTriangle, CheckCircle2, LayoutDashboard, FileClock, SendHorizontal, ThumbsUp, Wallet, Ban, Clock } from "lucide-react"
+import { Search, Plus, ListTodo, AlertTriangle, CheckCircle2, LayoutDashboard, FileClock, SendHorizontal, ThumbsUp, Wallet, Ban, Clock, Filter, Building2, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { BudgetList } from "@/components/budget-list"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getEdificios } from "./actions"
 
 interface PresupuestosFinalesClientProps {
     initialData: any[]
     kpisData: any
     administradores: any[]
+    estadosLookup: { id: number, nombre: string, color: string, codigo: string }[]
+    tabCounts: { activas: number, borrador: number, enviado: number, aceptado: number, facturado: number, todos: number }
     userRol: string
     userDetails: any
 }
@@ -22,236 +26,266 @@ export default function PresupuestosFinalesClient({
     initialData,
     kpisData,
     administradores,
+    estadosLookup,
+    tabCounts,
     userRol,
     userDetails
 }: PresupuestosFinalesClientProps) {
-    const [searchTerm, setSearchTerm] = useState("")
-    const [activeTab, setActiveTab] = useState("todos")
-    const [adminFilter, setAdminFilter] = useState("todos")
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
 
-    // Filtrado avanzado
-    const filteredData = initialData.filter((p) => {
-        const matchesSearch =
-            p.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.titulo_tarea?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.nombre_edificio?.toLowerCase().includes(searchTerm.toLowerCase())
+    // URL State management
+    const createQueryString = useCallback(
+        (params: Record<string, string | null>) => {
+            const newSearchParams = new URLSearchParams(searchParams.toString())
+            for (const [key, value] of Object.entries(params)) {
+                if (value === null || value === 'todos') {
+                    newSearchParams.delete(key)
+                } else {
+                    newSearchParams.set(key, value)
+                }
+            }
+            return newSearchParams.toString()
+        },
+        [searchParams]
+    )
 
-        const matchesAdmin = adminFilter === "todos" || p.id_administrador === adminFilter
+    const updateFilters = (newParams: Record<string, string | null>) => {
+        router.push(`${pathname}?${createQueryString(newParams)}`)
+    }
 
-        if (!matchesSearch || !matchesAdmin) return false
+    const searchTerm = searchParams.get('query') || ""
+    const activeTab = searchParams.get('tab') || "activas"
+    const adminFilter = searchParams.get('adminId') || "todos"
+    const edificioFilter = searchParams.get('edificioId') || "todos"
 
-        // Fitrado por tab (estado) - Usamos el código de la vista
-        const estado = p.codigo_estado?.toLowerCase() || ""
+    // Cascaded Edificios state
+    const [edificios, setEdificios] = useState<any[]>([])
+    const [isLoadingEdificios, setIsLoadingEdificios] = useState(false)
 
-        if (activeTab === "todos") return true
-        if (activeTab === "borrador") return estado === "borrador"
-        if (activeTab === "pendientes") return estado === "pendiente" || estado === ""
-        if (activeTab === "enviado") return estado === "enviado"
-        if (activeTab === "aceptado") return estado === "aceptado" || p.aprobado === true
-        if (activeTab === "facturado") return estado === "facturado" || estado === "cobrado"
-        if (activeTab === "rechazado") return estado === "rechazado" || p.rechazado === true
+    useEffect(() => {
+        const fetchEdificios = async () => {
+            setIsLoadingEdificios(true)
+            try {
+                const data = await getEdificios(adminFilter)
+                setEdificios(data)
+            } finally {
+                setIsLoadingEdificios(false)
+            }
+        }
+        fetchEdificios()
+    }, [adminFilter])
 
-        return true
+    // Data provided by Server (initialData) is already filtered by DB
+    // Map view columns to the shape BudgetList expects, using estadosLookup for color/codigo
+    const budgets = initialData.map(p => {
+        const estadoRef = estadosLookup.find(e => e.id === p.id_estado)
+        return {
+            ...p,
+            materiales: p.materiales || 0,
+            mano_obra: p.mano_obra || 0,
+            tareas: {
+                id: p.id_tarea,
+                titulo: p.titulo_tarea,
+                code: p.code_tarea,
+                edificios: { nombre: p.nombre_edificio }
+            },
+            estados_presupuestos: estadoRef ? {
+                id: estadoRef.id,
+                nombre: estadoRef.nombre,
+                color: estadoRef.color,
+                codigo: estadoRef.codigo
+            } : null,
+            nombre_administrador: p.nombre_administrador || 'Sin administrador'
+        }
     })
 
     return (
-        <div className="space-y-6">
-            {/* Header Platinum Style */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-2">
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg text-white flex-shrink-0">
-                        <Wallet className="h-7 w-7" />
+        <div className="space-y-4 md:space-y-6">
+            {/* Header Platinum Style - Optimized for Mobile */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg text-white flex-shrink-0">
+                        <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-                            Gestión de Presupuestos
-                        </h1>
-                        <p className="text-muted-foreground flex items-center gap-2">
-                            <LayoutDashboard className="h-4 w-4" />
-                            Control centralizado de presupuestos finales y facturación.
-                        </p>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Presupuestos Finales</h1>
+                        <p className="text-xs text-muted-foreground hidden sm:block">Control centralizado y facturación inteligente.</p>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                    <Button asChild variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5 transition-all shadow-sm">
-                        <Link href="/dashboard/tareas">
-                            <ListTodo className="h-4 w-4" />
-                            📋 Desde Tarea
-                        </Link>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none gap-2">
+                        <Link href="/dashboard/tareas"><ListTodo className="h-4 w-4" /> Tareas</Link>
                     </Button>
-                    <Button asChild className="gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 border-none shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
-                        <Link href="/dashboard/presupuestos-finales/crear-rapido">
-                            <Plus className="h-4 w-4" />
-                            ⚡ Presupuesto Rápido
-                        </Link>
+                    <Button asChild size="sm" className="flex-1 sm:flex-none gap-2 bg-indigo-600 hover:bg-indigo-700">
+                        <Link href="/dashboard/presupuestos-finales/crear-rapido"><Plus className="h-4 w-4" /> Nuevo</Link>
                     </Button>
                 </div>
             </div>
 
-            {/* Resumen Financiero Platinum */}
-            {userRol === 'admin' && kpisData?.kpis && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-700">
-                    <Card className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-200/50 dark:border-indigo-800/50 shadow-sm overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
-                            <Wallet className="h-12 w-12" />
-                        </div>
-                        <CardContent className="pt-6">
-                            <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Total Presupuestado</p>
-                            <h3 className="text-2xl font-black mt-1">
-                                {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(kpisData.kpis.total_presupuestado || 0)}
-                            </h3>
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                <span>{kpisData.kpis.cantidad_total || 0} presupuestos finales</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-200/50 dark:border-amber-800/50 shadow-sm overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
-                            <FileClock className="h-12 w-12" />
-                        </div>
-                        <CardContent className="pt-6">
-                            <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Pendiente Envío</p>
-                            <h3 className="text-2xl font-black mt-1">
-                                {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(kpisData.kpis.total_borrador || 0)}
-                            </h3>
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <AlertTriangle className="h-3 w-3 text-amber-500" />
-                                <span>{kpisData.borradores || 0} borradores activos</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-200/50 dark:border-blue-800/50 shadow-sm overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
-                            <SendHorizontal className="h-12 w-12" />
-                        </div>
-                        <CardContent className="pt-6">
-                            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Enviado a Cliente</p>
-                            <h3 className="text-2xl font-black mt-1">
-                                {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(kpisData.kpis.total_enviado || 0)}
-                            </h3>
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <Clock className="h-3 w-3 text-blue-500" />
-                                <span>{kpisData.enviados || 0} en revisión por cliente</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-200/50 dark:border-green-800/50 shadow-sm overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:scale-110 transition-transform">
-                            <ThumbsUp className="h-12 w-12" />
-                        </div>
-                        <CardContent className="pt-6">
-                            <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-widest">Aprobado / Facturable</p>
-                            <h3 className="text-2xl font-black mt-1 text-green-700 dark:text-green-300">
-                                {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(kpisData.kpis.total_aprobado || 0)}
-                            </h3>
-                            <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                <span>{kpisData.aprobados || 0} listos para facturar</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+            {/* Smart KPIs: Operational Bottlenecks - Mobile Friendly One-Line */}
+            {userRol === 'admin' && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <KpiStrip
+                        label="Por ser PF"
+                        count={kpisData?.pbSinPf?.length || 0}
+                        color="amber"
+                        icon={<FileClock className="h-4 w-4" />}
+                        description="Bases finalizadas sin PF"
+                    />
+                    <KpiStrip
+                        label="Enviados"
+                        count={kpisData?.pfEnviado?.length || 0}
+                        color="blue"
+                        icon={<SendHorizontal className="h-4 w-4" />}
+                        description="En revisión por cliente"
+                    />
+                    <KpiStrip
+                        label="Por Facturar"
+                        count={kpisData?.pfAprobado?.length || 0}
+                        color="green"
+                        icon={<ThumbsUp className="h-4 w-4" />}
+                        description="Listos para facturación"
+                    />
+                    <KpiStrip
+                        label="Borradores"
+                        count={kpisData?.pfBorrador?.length || 0}
+                        color="purple"
+                        icon={<Clock className="h-4 w-4" />}
+                        description="Ediciones pendientes"
+                    />
                 </div>
             )}
 
-            {/* Filtros */}
-            <div className="flex flex-col md:flex-row gap-4 items-center bg-muted/30 p-4 rounded-xl">
-                <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por código, tarea o edificio..."
-                        className="pl-10 bg-background border-none shadow-sm focus-visible:ring-primary"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
+            {/* Filtros Inteligentes - Platinum Glassmorphism */}
+            <Card className="border-none shadow-xl bg-white/60 dark:bg-black/40 backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
+                <CardContent className="p-4 md:p-6 space-y-4">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Buscador de Alta Fidelidad */}
+                        <div className="relative flex-1 group">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                                placeholder="Buscar por código, tarea o edificio..."
+                                className="pl-11 h-12 bg-white/80 dark:bg-black/40 border-slate-200 dark:border-slate-800 focus-visible:ring-offset-0 focus-visible:ring-indigo-500/30 transition-all rounded-xl shadow-inner-sm"
+                                defaultValue={searchTerm}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        updateFilters({ query: e.currentTarget.value })
+                                    }
+                                }}
+                            />
+                        </div>
 
-                {userRol === 'admin' && (
-                    <div className="w-full md:w-64">
-                        <Select value={adminFilter} onValueChange={setAdminFilter}>
-                            <SelectTrigger className="bg-background border-none shadow-sm">
-                                <SelectValue placeholder="Filtrar por Administrador" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="todos">Todos los Administradores</SelectItem>
-                                {administradores.map((adm) => (
-                                    <SelectItem key={adm.id} value={adm.id}>
-                                        {adm.display_name || adm.email}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {/* Filtros Cascada (Admin -> Edificio) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:min-w-[320px]">
+                            <Select value={adminFilter} onValueChange={(val) => updateFilters({ adminId: val, edificioId: 'todos' })}>
+                                <SelectTrigger className="h-12 border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-black/40 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors shadow-sm">
+                                    <div className="flex items-center gap-2.5 truncate">
+                                        <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                            <User className="h-3.5 w-3.5 text-slate-500" />
+                                        </div>
+                                        <SelectValue placeholder="Administrador" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                                    <SelectItem value="todos">Todos los Admins</SelectItem>
+                                    {administradores.map((adm) => (
+                                        <SelectItem key={adm.id} value={String(adm.id)}>{adm.nombre}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={edificioFilter} onValueChange={(val) => updateFilters({ edificioId: val })} disabled={isLoadingEdificios}>
+                                <SelectTrigger className="h-12 border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-black/40 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors shadow-sm">
+                                    <div className="flex items-center gap-2.5 truncate">
+                                        <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                            <Building2 className="h-3.5 w-3.5 text-slate-500" />
+                                        </div>
+                                        <SelectValue placeholder="Edificio" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                                    <SelectItem value="todos">Todos los Edificios</SelectItem>
+                                    {edificios.map((ed) => (
+                                        <SelectItem key={ed.id} value={String(ed.id)}>{ed.nombre}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                )}
-            </div>
+                </CardContent>
+            </Card>
 
             {/* Tabs y Listado */}
-            <Tabs defaultValue="todos" className="w-full" onValueChange={setActiveTab}>
-                <div className="overflow-x-auto pb-2 scrollbar-hide">
-                    <TabsList className="inline-flex w-auto min-w-full md:min-w-0 bg-muted/50 p-1.5 rounded-xl border">
-                        <TabsTrigger value="todos" className="px-5 rounded-lg gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                            <ListTodo className="h-3.5 w-3.5" />
-                            Todos
-                        </TabsTrigger>
-                        <TabsTrigger value="borrador" className="px-5 rounded-lg gap-2 relative data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                            <FileClock className="h-3.5 w-3.5" />
-                            Borrador
-                            {kpisData?.borradores > 0 && (
-                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold animate-bounce mt-1">
-                                    {kpisData.borradores}
-                                </span>
-                            )}
-                        </TabsTrigger>
-                        <TabsTrigger value="pendientes" className="px-5 rounded-lg gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                            <Clock className="h-3.5 w-3.5" />
-                            Pendientes
-                        </TabsTrigger>
-                        <TabsTrigger value="enviado" className="px-5 rounded-lg gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                            <SendHorizontal className="h-3.5 w-3.5" />
-                            Enviados
-                        </TabsTrigger>
-                        <TabsTrigger value="aceptado" className="px-5 rounded-lg gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-green-600 dark:text-green-400">
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                            Aceptados
-                        </TabsTrigger>
-                        <TabsTrigger value="facturado" className="px-5 rounded-lg gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-blue-600 dark:text-blue-400">
-                            <Wallet className="h-3.5 w-3.5" />
-                            Facturados
-                        </TabsTrigger>
-                        <TabsTrigger value="rechazado" className="px-5 rounded-lg gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm font-semibold text-red-500">
-                            <Ban className="h-3.5 w-3.5" />
-                            Rechazados
-                        </TabsTrigger>
+            <Tabs value={activeTab} className="w-full" onValueChange={(val) => updateFilters({ tab: val })}>
+                <div className="overflow-x-auto pb-2 scrollbar-hide flex-1">
+                    <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 h-auto gap-0">
+                        <TabItem value="activas" label="Activas" icon={<AlertTriangle className="h-4 w-4" />} count={tabCounts.activas} />
+                        <TabItem value="borrador" label="Borrador" icon={<FileClock className="h-4 w-4" />} count={tabCounts.borrador} />
+                        <TabItem value="enviado" label="Enviados" icon={<SendHorizontal className="h-4 w-4" />} count={tabCounts.enviado} />
+                        <TabItem value="aceptado" label="Aceptados" icon={<ThumbsUp className="h-4 w-4" />} count={tabCounts.aceptado} />
+                        <TabItem value="facturado" label="Facturados" icon={<Wallet className="h-4 w-4" />} count={tabCounts.facturado} />
+                        <TabItem value="todos" label="Todas" icon={<LayoutDashboard className="h-4 w-4" />} count={tabCounts.todos} />
                     </TabsList>
                 </div>
 
-                <TabsContent value={activeTab} className="mt-6 border-none p-0 focus-visible:ring-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <TabsContent value={activeTab} className="mt-4 border-none p-0 focus-visible:ring-0">
                     <BudgetList
-                        budgets={filteredData.map(p => ({
-                            ...p,
-                            // Adaptación de nombres de campos para el componente BudgetList
-                            materiales: p.materiales || 0,
-                            mano_obra: p.mano_obra || 0,
-                            tareas: {
-                                id: p.id_tarea,
-                                titulo: p.titulo_tarea,
-                                code: p.code_tarea,
-                                edificios: { nombre: p.nombre_edificio }
-                            },
-                            estados_presupuestos: {
-                                id: p.id_estado,
-                                nombre: p.nombre_estado,
-                                color: p.color_estado,
-                                codigo: p.codigo_estado
-                            }
-                        }))}
+                        budgets={budgets}
                         userRole={userRol}
                     />
                 </TabsContent>
             </Tabs>
         </div>
+    )
+}
+
+function KpiStrip({ label, count, color, icon, description }: any) {
+    const colors: any = {
+        amber: "bg-amber-50/50 text-amber-700 border-amber-200/50 hover:bg-amber-100/60 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.1)]",
+        blue: "bg-blue-50/50 text-blue-700 border-blue-200/50 hover:bg-blue-100/60 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.1)]",
+        green: "bg-green-50/50 text-green-700 border-green-200/50 hover:bg-green-100/60 shadow-[0_4px_20px_-4px_rgba(34,197,94,0.1)]",
+        purple: "bg-purple-50/50 text-purple-700 border-purple-200/50 hover:bg-purple-100/60 shadow-[0_4px_20px_-4px_rgba(168,85,247,0.1)]",
+    }
+    
+    const iconColors: any = {
+        amber: "bg-amber-100 text-amber-600",
+        blue: "bg-blue-100 text-blue-600",
+        green: "bg-green-100 text-green-600",
+        purple: "bg-purple-100 text-purple-600",
+    }
+
+    return (
+        <div className={`flex flex-col p-4 rounded-2xl border ${colors[color]} backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] group cursor-default`}>
+            <div className="flex items-center justify-between mb-2">
+                <div className={`p-2 rounded-xl ${iconColors[color]} transition-transform duration-500 group-hover:rotate-12`}>
+                   {icon}
+                </div>
+                <span className="text-2xl font-black tracking-tighter">{count}</span>
+            </div>
+            <div>
+                <span className="text-xs font-bold uppercase tracking-wider block">{label}</span>
+                {description && <span className="text-[10px] opacity-70 block mt-0.5">{description}</span>}
+            </div>
+        </div>
+    )
+}
+
+function TabItem({ value, label, icon, count }: any) {
+    return (
+        <TabsTrigger
+            value={value}
+            className="rounded-lg data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-2 py-2.5 gap-1.5 text-muted-foreground data-[state=active]:shadow-sm transition-all text-xs sm:text-sm"
+        >
+            {icon}
+            <span className="font-medium hidden sm:inline">{label}</span>
+            <span className="font-medium sm:hidden">{label.substring(0, 4)}</span>
+            {count !== undefined && (
+                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${count > 0 ? 'bg-primary/10' : 'bg-muted/50 text-muted-foreground'}`}>
+                    {count}
+                </span>
+            )}
+        </TabsTrigger>
     )
 }

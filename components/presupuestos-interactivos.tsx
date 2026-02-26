@@ -22,6 +22,7 @@ import {
 import {
   marcarPresupuestoComoEnviado
 } from "@/app/dashboard/presupuestos-finales/actions"
+import { BudgetApproveAction } from "@/components/budget-approve-action"
 
 // Tipos
 export interface PresupuestoType {
@@ -460,18 +461,37 @@ export function PresupuestosInteractivos({
             </Button>
 
             {/* Acciones solo para admin */}
-            {tipo === 'final' && userRol === "admin" && estadoPresupuesto === "pendiente" && (
+            {userRol === "admin" && estadoPresupuesto === "pendiente" && (
               <>
-                <Button
+                <BudgetApproveAction
+                  budgetId={presupuesto.id}
+                  tipo={tipo}
+                  tareaId={tareaId}
+                  userRol={userRol}
+                  budgetCode={presupuesto.code}
+                  onSuccess={() => {
+                    // Actualizar estado local para reflejo inmediato
+                    if (tipo === "base") {
+                      setPresupuestoBaseLocal({
+                        ...presupuesto,
+                        aprobado: true,
+                        rechazado: false,
+                        updated_at: new Date().toISOString()
+                      })
+                    } else {
+                      setPresupuestoFinalLocal({
+                        ...presupuesto,
+                        aprobado: true,
+                        rechazado: false,
+                        updated_at: new Date().toISOString()
+                      })
+                    }
+                    if (onPresupuestoChange) onPresupuestoChange()
+                  }}
+                  className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
                   variant="outline"
-                  size="sm"
-                  className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800"
-                  onClick={() => handleAprobarPresupuesto(presupuesto)}
                   disabled={isAprobando || isRechazando}
-                >
-                  {isAprobando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
-                  Aprobar
-                </Button>
+                />
 
                 <Button
                   variant="outline"
@@ -491,7 +511,7 @@ export function PresupuestosInteractivos({
             )}
           </div>
         </CardContent>
-      </Card>
+      </Card >
     )
   }
 

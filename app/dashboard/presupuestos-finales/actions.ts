@@ -135,3 +135,21 @@ export async function convertirPresupuestoAFactura(presupuestoId: number) {
 
   return result
 }
+
+/**
+ * Obtener edificios filtrados opcionalmente por administrador (Server Action)
+ */
+export async function getEdificios(adminId?: string) {
+  const supabase = await createServerClient()
+  let query = supabase
+    .from("edificios")
+    .select("id, nombre, id_administrador")
+    .order("nombre")
+
+  if (adminId && adminId !== 'todos') {
+    query = query.eq('id_administrador', adminId)
+  }
+
+  const { data } = await query
+  return data || []
+}

@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { getPresupuestosFinales, getKpisAdmin, getAdministradores } from "./loader"
+import { getPresupuestosFinales, getKpisAdmin, getAdministradores, getEstadosPresupuestos, getPresupuestosCounts } from "./loader"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { redirect } from "next/navigation"
 import PresupuestosFinalesClient from "./presupuestos-finales-client"
@@ -9,7 +9,10 @@ export const metadata: Metadata = {
   title: "Presupuestos Finales | Panel Admin",
 }
 
-export default async function PresupuestosFinalesPage() {
+export default async function PresupuestosFinalesPage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const searchParams = await props.searchParams
   // 1. Seguridad: Solo Admin/Supervisor (Bridge Protocol)
   const user = await validateSessionAndGetUser()
   const { rol } = user
@@ -18,12 +21,26 @@ export default async function PresupuestosFinalesPage() {
     redirect("/dashboard")
   }
 
+  // Preparar filtros desde la URL
+  const filters = {
+    search: searchParams.query as string,
+    adminId: searchParams.adminId as string,
+    edificioId: searchParams.edificioId as string,
+    estado: searchParams.tab as string || 'todos',
+  }
+
   // 2. Obtención de Datos Segura (Server-Side)
   // Se ejecuta en paralelo para máxima velocidad
-  const [presupuestos, kpisData, administradores] = await Promise.all([
-    getPresupuestosFinales(rol, user.id),
+  const [presupuestos, kpisData, administradores, estadosLookup, tabCounts] = await Promise.all([
+    getPresupuestosFinales(rol, user.id, filters),
     getKpisAdmin(rol),
-    getAdministradores(rol)
+    getAdministradores(rol),
+    getEstadosPresupuestos(),
+    getPresupuestosCounts(rol, user.id, {
+      search: filters.search,
+      adminId: filters.adminId,
+      edificioId: filters.edificioId,
+    })
   ])
 
   // 3. Renderizado
@@ -40,6 +57,8 @@ export default async function PresupuestosFinalesPage() {
             initialData={presupuestos}
             kpisData={kpisData}
             administradores={administradores}
+            estadosLookup={estadosLookup}
+            tabCounts={tabCounts}
             userRol={rol}
             userDetails={user}
           />

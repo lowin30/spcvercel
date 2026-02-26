@@ -184,7 +184,7 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
             return (
               <Link
-                key={index}
+                key={item.href}
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary relative",
