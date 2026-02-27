@@ -81,6 +81,23 @@ export async function getDashboardStats() {
             queries.tareas_activas
         ])
 
+        // 5. Obtener estadísticas específicas por rol (KPIs Financieros Platinum)
+        let roleStats = null
+        try {
+            if (rol === 'admin') {
+                const { data } = await supabase.from('vista_finanzas_admin').select('*').maybeSingle()
+                roleStats = data
+            } else if (rol === 'supervisor') {
+                const { data } = await supabase.from('vista_finanzas_supervisor').select('*').maybeSingle()
+                roleStats = data
+            } else if (rol === 'trabajador') {
+                const { data } = await supabase.from('vista_finanzas_trabajador').select('*').maybeSingle()
+                roleStats = data
+            }
+        } catch (roleError) {
+            console.error('spc: error obteniendo roleStats', roleError)
+        }
+
         return {
             stats: {
                 total_edificios: edificiosRes.count || 0,
@@ -88,6 +105,7 @@ export async function getDashboardStats() {
                 total_administradores: adminsRes.count || 0,
                 tareas_activas: tareasRes.count || 0
             },
+            roleStats,
             userDetails: user
         }
 

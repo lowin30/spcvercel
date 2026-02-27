@@ -149,22 +149,23 @@ REGLAS:
 
 // Función para cargar prompts (prioriza DB, fallback a defaults)
 async function getSystemPromptByRole(rol: string, supabase: any): Promise<string> {
+    const slug = `asistente-${rol}`
     try {
         const { data, error } = await supabase
             .from('ai_prompts')
-            .select('contenido')
-            .eq('rol', rol)
-            .eq('activo', true)
+            .select('system_content')
+            .eq('slug', slug)
+            .eq('is_active', true)
             .order('created_at', { ascending: false })
             .limit(1)
             .single()
 
-        if (!error && data?.contenido) {
-            console.log(`[AI] Usando prompt personalizado para ${rol}`)
-            return data.contenido
+        if (!error && data?.system_content) {
+            console.log(`[AI] Usando prompt personalizado para ${rol} (slug: ${slug})`)
+            return data.system_content
         }
     } catch (err) {
-        console.log(`[AI] Prompt personalizado no encontrado, usando default`)
+        console.log(`[AI] Prompt personalizado no encontrado para ${slug}, usando default`)
     }
 
     return getDefaultPromptByRole(rol)

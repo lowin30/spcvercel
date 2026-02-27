@@ -65,7 +65,7 @@ export default function DashboardPage() {
         }
 
         // Usar Server Action para obtener datos (lee el JWT automáticamente)
-        const { stats: dashboardStats, userDetails: userData, error: serverError } = await getDashboardStats()
+        const { stats: dashboardStats, roleStats, userDetails: userData, error: serverError } = await getDashboardStats()
 
         if (serverError || !userData) {
           console.error('spc: error server side', serverError)
@@ -76,170 +76,23 @@ export default function DashboardPage() {
         setUserDetails(userData)
         setStats(dashboardStats)
 
-        // Cargar estadísticas específicas según el rol del usuario
-        /* if (userData.rol === 'admin') {
-          try {
-            // Estadísticas financieras para administradores
-            const presupuestosQuery = supabase
-              .from('presupuestos_finales')
-              .select('id, total', { count: 'exact', head: true })
-              .eq('id_estado', 5) // ID de estado "activo"
-            const { count: presupuestosActivos } = await executeCountQuery(presupuestosQuery)
-
-            // Monto total de presupuestos activos
-            const { data: montoData } = await supabase
-              .from('presupuestos_finales')
-              .select('total')
-              .eq('id_estado', 5) // ID de estado "activo"
-            const montoTotal = montoData?.reduce((sum, item) => sum + (item.total || 0), 0) || 0
-
-            // Facturas pendientes
-            const { count: facturasPendientes } = await executeCountQuery(
-              supabase
-                .from('facturas')
-                .select('id', { count: 'exact', head: true })
-                .eq('id_estado_nuevo', 1) // ID de estado "pendiente"
-            )
-
-            const { data: adminFinance } = await supabase
-              .from('vista_finanzas_admin')
-              .select('gastos_no_liquidados_semana, monto_jornales_pendientes_semana, ganancia_admin_mes, liquidaciones_pendientes, facturas_por_cobrar_total, saldos_pendientes_total, jornales_pendientes_mayor_7d, monto_jornales_pendientes_mayor_7d, visitas_hoy_total')
-              .maybeSingle()
-
-            setFinancialStats({
-              presupuestos_activos: presupuestosActivos || 0,
-              presupuestos_monto_total: montoTotal || 0,
-              facturas_pendientes: facturasPendientes || 0,
-              liquidaciones_pendientes: adminFinance?.liquidaciones_pendientes ?? 0,
-              gastos_no_liquidados_semana: adminFinance?.gastos_no_liquidados_semana ?? 0,
-              monto_jornales_pendientes_semana: adminFinance?.monto_jornales_pendientes_semana ?? 0,
-              ingresos_mes_actual: adminFinance?.ganancia_admin_mes ?? 0,
-              facturas_por_cobrar_total: adminFinance?.facturas_por_cobrar_total ?? 0,
-              saldos_pendientes_total: adminFinance?.saldos_pendientes_total ?? 0,
-              jornales_pendientes_mayor_7d: adminFinance?.jornales_pendientes_mayor_7d ?? 0,
-              monto_jornales_pendientes_mayor_7d: adminFinance?.monto_jornales_pendientes_mayor_7d ?? 0,
-              visitas_hoy_total: adminFinance?.visitas_hoy_total ?? 0
-            })
-          } catch (e) {
-            console.error("Error al cargar estadísticas para administrador:", e)
-            setFinancialStats({
-              presupuestos_activos: 0,
-              presupuestos_monto_total: 0,
-              facturas_pendientes: 0,
-              liquidaciones_pendientes: 0
-            })
-          }
-
-        } else if (userData.rol === 'supervisor') {
-          try {
-            // Tareas supervisadas
-            const { count: tareasSupervisadas } = await executeCountQuery(
-              supabase
-                .from('supervisores_tareas')
-                .select('id_tarea', { count: 'exact', head: true })
-                .eq('id_supervisor', userData.id)
-            )
-
-            // Cargar vista financiera del supervisor (KPIs permitidos)
-            const { data: supFin } = await supabase
-              .from('vista_finanzas_supervisor')
-              .select('tareas_supervisadas_total, visitas_hoy_total, liquidaciones_pendientes, liquidaciones_mes, ganancia_supervisor_mes, gastos_sin_comprobante_total, gastos_no_liquidados, jornales_no_liquidados, gastos_no_liquidados_semana, jornales_pendientes_semana, monto_jornales_pendientes_semana, jornales_pendientes_mayor_7d, monto_jornales_pendientes_mayor_7d, presupuestos_base_total, presupuestos_base_monto_total')
-              .maybeSingle()
-
-            // Trabajadores asignados a sus tareas
-            const { data: tareasDelSupervisor } = await supabase
-              .from('supervisores_tareas')
-              .select('id_tarea')
-              .eq('id_supervisor', userData.id)
-            const idsTareas = tareasDelSupervisor?.map(t => t.id_tarea) || []
-            let trabajadoresAsignados = 0
-            if (idsTareas.length > 0) {
-              const { data: trabajadoresData } = await supabase
-                .from('trabajadores_tareas')
-                .select('id_trabajador')
-                .in('id_tarea', idsTareas)
-              const trabajadoresUnicos = new Set()
-              trabajadoresData?.forEach(t => trabajadoresUnicos.add(t.id_trabajador))
-              trabajadoresAsignados = trabajadoresUnicos.size
-            }
-
-            // Liquidaciones propias (total)
-            const { count: liquidacionesPropias } = await executeCountQuery(
-              supabase
-                .from('liquidaciones_nuevas')
-                .select('id', { count: 'exact', head: true })
-                .eq('id_usuario_supervisor', userData.id)
-            )
-
-            setSupervisorStats({
-              tareas_supervisadas: tareasSupervisadas || 0,
-              trabajadores_asignados: trabajadoresAsignados || 0,
-              liquidaciones_propias: liquidacionesPropias || 0,
-              visitas_hoy_total: supFin?.visitas_hoy_total ?? 0,
-              liquidaciones_pendientes: supFin?.liquidaciones_pendientes ?? 0,
-              liquidaciones_mes: supFin?.liquidaciones_mes ?? 0,
-              ganancia_supervisor_mes: supFin?.ganancia_supervisor_mes ?? 0,
-              gastos_sin_comprobante_total: supFin?.gastos_sin_comprobante_total ?? 0,
-              gastos_no_liquidados: supFin?.gastos_no_liquidados ?? 0,
-              jornales_no_liquidados: supFin?.jornales_no_liquidados ?? 0,
-              gastos_no_liquidados_semana: supFin?.gastos_no_liquidados_semana ?? 0,
-              jornales_pendientes_semana: supFin?.jornales_pendientes_semana ?? 0,
-              monto_jornales_pendientes_semana: supFin?.monto_jornales_pendientes_semana ?? 0,
-              jornales_pendientes_mayor_7d: supFin?.jornales_pendientes_mayor_7d ?? 0,
-              monto_jornales_pendientes_mayor_7d: supFin?.monto_jornales_pendientes_mayor_7d ?? 0,
-              presupuestos_base_total: supFin?.presupuestos_base_total ?? 0,
-              presupuestos_base_monto_total: supFin?.presupuestos_base_monto_total ?? 0
-            })
-          } catch (e) {
-            console.error("Error al cargar estadísticas para supervisor:", e)
-            setSupervisorStats({
-              tareas_supervisadas: 0,
-              trabajadores_asignados: 0,
-              liquidaciones_propias: 0
-            })
-          }
-        } else if (userData.rol === 'trabajador') {
-          try {
-            const { data: workerFinance } = await supabase
-              .from('vista_finanzas_trabajador')
-              .select('tareas_asignadas_total, dias_registrados_mes, cantidad_gastos_pendientes, proximo_pago_estimado')
-              .maybeSingle()
-
-            setTrabajadorStats({
-              mis_tareas: workerFinance?.tareas_asignadas_total ?? 0,
-              dias_registrados_mes: workerFinance?.dias_registrados_mes ?? 0,
-              gastos_pendientes: workerFinance?.cantidad_gastos_pendientes ?? 0,
-              proximo_pago_estimado: workerFinance?.proximo_pago_estimado ?? 0
-            })
-
-            // Cargar salario diario del trabajador
-            const { data: configTrabajador } = await supabase
-              .from('configuracion_trabajadores')
-              .select('salario_diario')
-              .eq('id_trabajador', userData.id)
-              .maybeSingle()
-
-            setSalarioDiarioTrabajador(configTrabajador?.salario_diario ?? 0)
-          } catch (e) {
-            setTrabajadorStats({
-              mis_tareas: 0,
-              dias_registrados_mes: 0,
-              gastos_pendientes: 0,
-              proximo_pago_estimado: 0
-            })
-            setSalarioDiarioTrabajador(0)
-          }
+        // Hidratar estadísticas según el rol del usuario desde roleStats
+        if (userData.rol === 'admin' && roleStats) {
+          setFinancialStats({
+            ...roleStats,
+            presupuestos_activos: roleStats.presupuestos_finales_total || 0, // Mapeo de nombre de columna
+          })
+        } else if (userData.rol === 'supervisor' && roleStats) {
+          setSupervisorStats({
+            ...roleStats,
+            tareas_supervisadas: roleStats.tareas_supervisadas_total || 0, // Mapeo de nombre de columna
+          })
+        } else if (userData.rol === 'trabajador' && roleStats) {
+          setTrabajadorStats({
+            ...roleStats,
+            mis_tareas: roleStats.tareas_asignadas_total || 0, // Mapeo de nombre de columna
+          })
         }
-      } catch (statsError) {
-        console.error("Error al obtener estadísticas:", statsError)
-        // Usar valores por defecto para que la interfaz no se rompa
-        setStats({
-          total_edificios: 0,
-          total_contactos: 0, // Ahora representa el total de teléfonos
-          total_administradores: 0,
-          tareas_activas: 0
-        })
-      } */
 
         // Obtener tareas recientes filtradas por rol
         let tasksQuery;
