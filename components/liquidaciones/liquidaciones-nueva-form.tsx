@@ -116,7 +116,7 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
         if (!selectedPresupuesto || gastosReales === null) return null
         const totalBaseInt = Math.round(selectedPresupuesto.total ?? 0)
         const gastosRealesInt = Math.round(gastosReales)
-        const propietario = !!(currentUserId && selectedPresupuesto.id_supervisor && currentUserId === selectedPresupuesto.id_supervisor)
+        const propietario = !!selectedPresupuesto.es_propietario
 
         if (totalBaseInt <= 0) {
             return {
@@ -188,8 +188,8 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
             const totalBaseIntForInsert = Math.round(selectedPresupuesto.total ?? 0)
             const ajusteAdminIntForInsert = Math.round(ajusteAdmin ?? 0)
 
-            // Re-calculo para insert (redundante pero seguro, copiado de original)
-            const propietario = (currentUserId && selectedPresupuesto.id_supervisor && currentUserId === selectedPresupuesto.id_supervisor)
+            // Re-calculo para insert (usando flag real)
+            const propietario = !!selectedPresupuesto.es_propietario
             const gananciaNetaInt = totalBaseIntForInsert > 0 ? (totalBaseIntForInsert - gastosRealesIntForInsert) : 0
             let gananciaSupervisorInt = Math.round(gananciaNetaInt * 0.5)
             let gananciaAdminInt = gananciaNetaInt - gananciaSupervisorInt

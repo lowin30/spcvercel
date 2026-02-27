@@ -262,12 +262,14 @@ export async function getTareaDetail(id: string) {
         const rol = usuario.rol;
 
         // 1. DETERMINAR VISTA SEGÚN ROL (Silo de Seguridad)
+        // Supervisores usan vista_tareas_completa (igual que el listado).
+        // RLS V2 filtra por supervisores_tareas.id_supervisor = auth.uid().
+        // Los filtros de estado (Activas/Finalizadas) viven en el JS (tabs), no en la vista.
         let primaryView = "vista_tareas_completa";
         if (rol === 'admin') primaryView = "vista_tareas_admin";
-        else if (rol === 'supervisor') primaryView = "vista_tareas_supervisor";
 
-        // 2. CARGA ATÓMICA (Tarea Detallada + Comentarios Enriquecidos + Catálogos)
-        const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes] = await Promise.all([
+        // 2. CARGA ATÓMICA (Tarea Detallada + Comentarios Enriquecidos + Catálogos + Gastos)
+        const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes, gastosDirectRes] = await Promise.all([
             // La joya de la corona: Datos de la tarea + Finanzas/Gastos inyectados por el SQL
             supabase.from(primaryView).select("*").eq("id", tareaId).single(),
 
@@ -281,7 +283,10 @@ export async function getTareaDetail(id: string) {
 
             // Contexto de la tarea
             supabaseAdmin.from("departamentos").select("id, codigo, propietario, edificio_id"),
-            supabaseAdmin.from("contactos").select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id, id_padre")
+            supabaseAdmin.from("contactos").select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id, id_padre"),
+
+            // Gastos directos (visibles para todos los roles, sin depender de gastos_json embebido)
+            supabaseAdmin.from("gastos_tarea").select("*, usuarios(email, color_perfil)").eq("id_tarea", tareaId).or('liquidado.is.null,liquidado.eq.false,and(liquidado.eq.true,tipo_gasto.eq.material)').order("created_at", { ascending: false })
         ]);
 
         if (tareaRes.error || !tareaRes.data) throw new Error("Tarea no encontrada");
@@ -382,7 +387,7 @@ export async function getTareaDetail(id: string) {
             })) || [],
             presupuestoBase: pbData,
             presupuestoFinal: pfFinal,
-            gastos: (tareaData as any).gastos_json?.lista_gastos || [],
+            gastos: gastosDirectRes.data || [],
             estados: estadosRes.data || [],
             departamentosDisponibles: departamentosEdificio,
             contactos: contactosEdificio

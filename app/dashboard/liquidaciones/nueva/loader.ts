@@ -10,6 +10,7 @@ export interface CandidateTaskDTO {
     id_supervisor: string | null
     email_supervisor: string | null
     finalizada: boolean
+    es_propietario: boolean
 }
 
 export async function getCandidateTasks(userId: string, role: string): Promise<CandidateTaskDTO[]> {
@@ -85,7 +86,7 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
     if (taskIds.length > 0) {
         const { data: relSup } = await supabase
             .from('supervisores_tareas')
-            .select('id_tarea, id_supervisor, usuarios!inner(email)')
+            .select('id_tarea, id_supervisor, usuarios!inner(email, es_propietario)')
             .in('id_tarea', taskIds)
 
         if (relSup) {
@@ -93,7 +94,8 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
                 if (r.id_supervisor) {
                     mapSupervisor.set(r.id_tarea, {
                         id: r.id_supervisor,
-                        email: r.usuarios?.email || 'N/A'
+                        email: r.usuarios?.email || 'N/A',
+                        es_propietario: r.usuarios?.es_propietario || false
                     })
                 }
             })
@@ -124,7 +126,8 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
             titulo_tarea: (p.tareas as any)?.titulo || 'Sin Título',
             finalizada: (p.tareas as any)?.finalizada,
             id_supervisor: sup?.id || null,
-            email_supervisor: sup?.email || null
+            email_supervisor: sup?.email || null,
+            es_propietario: sup?.es_propietario || false
         })
     }
 
