@@ -267,6 +267,7 @@ export async function getTareaDetail(id: string) {
         // Los filtros de estado (Activas/Finalizadas) viven en el JS (tabs), no en la vista.
         let primaryView = "vista_tareas_completa";
         if (rol === 'admin') primaryView = "vista_tareas_admin";
+        else if (rol === 'supervisor') primaryView = "vista_tareas_supervisor";
 
         // 2. CARGA ATÓMICA (Tarea Detallada + Comentarios Enriquecidos + Catálogos + Gastos)
         const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes, gastosDirectRes] = await Promise.all([
