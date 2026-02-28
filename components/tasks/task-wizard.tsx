@@ -35,6 +35,7 @@ interface TaskWizardProps {
     trabajadores?: { id: string; email: string }[]
     currentUserRol?: string // Optional injection to avoid client-side profile fetch
     currentUserId?: string
+    returnTo?: string // Inyectado desde page searchParams para redirección post-creación
 }
 
 // Helper para ordenamiento natural descendente (Ej: 10B, 10A, 9, 2...)
@@ -59,7 +60,8 @@ export function TaskWizard({
     supervisores = [],
     trabajadores = [],
     currentUserRol,
-    currentUserId: initialUserId
+    currentUserId: initialUserId,
+    returnTo
 }: TaskWizardProps) {
     const router = useRouter()
     const supabase = createClient() // Still needed for auth check? Or passed via prop?
@@ -306,6 +308,9 @@ export function TaskWizard({
                 const data = res.task
                 if (onSuccess && data) {
                     onSuccess(data.id, data.code)
+                } else if (returnTo && data) {
+                    router.push(`${returnTo}?selectedTaskId=${data.id}`)
+                    router.refresh()
                 } else {
                     router.push(`/dashboard/tareas/${data?.id}`)
                     router.refresh()

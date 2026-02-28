@@ -27,42 +27,18 @@ interface PresupuestoBaseFormProps {
   isReadOnly?: boolean
   onSuccess?: (presupuestoData: any) => void
   onCancel?: () => void
+  initialTareaId?: string
 }
 
-export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isReadOnly = false, onSuccess, onCancel }: PresupuestoBaseFormProps) {
+export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isReadOnly = false, onSuccess, onCancel, initialTareaId }: PresupuestoBaseFormProps) {
   const router = useRouter()
-  const supabase = createClient() // Still used for creating tasks client-side for now
+  const supabase = createClient()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [tareaId, setTareaId] = useState(presupuesto?.id_tarea?.toString() || "")
+  const [tareaId, setTareaId] = useState(initialTareaId || presupuesto?.id_tarea?.toString() || "")
   const [materiales, setMateriales] = useState(presupuesto?.materiales?.toString() || "")
   const [manoObra, setManoObra] = useState(presupuesto?.mano_obra?.toString() || "")
   const [notaPb, setNotaPb] = useState(presupuesto?.nota_pb || "")
-
-  // Estados para la creación de tarea
-  const [showCrearTarea, setShowCrearTarea] = useState(false)
-  const [creandoTarea, setCreandoTarea] = useState(false)
-  const [nuevaTarea, setNuevaTarea] = useState({
-    titulo: "",
-    descripcion: "",
-    id_edificio: ""
-  })
-  const [edificios, setEdificios] = useState<any[]>([])
-
-  // Cargar edificios para el formulario de tarea
-  const cargarEdificios = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("edificios")
-        .select("id, nombre")
-        .order("nombre")
-
-      if (error) throw error
-      setEdificios(data || [])
-    } catch (error) {
-      console.error("Error al cargar edificios:", error)
-    }
-  }
 
   const totalCalculado = (Number.parseInt(materiales) || 0) + (Number.parseInt(manoObra) || 0)
 
@@ -133,46 +109,6 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isRea
     }
   }
 
-  // Crear nueva tarea (Mantenemos logica cliente por ahora para no romper flujo modal complejo, podria refactorizarse luego)
-  const crearNuevaTarea = async () => {
-    if (!nuevaTarea.titulo || !nuevaTarea.id_edificio) {
-      toast.error("Por favor completa todos los campos requeridos")
-      return
-    }
-
-    setCreandoTarea(true)
-
-    try {
-      const now = new Date()
-      const code = `T-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, "0")}${Math.floor(
-        Math.random() * 1000,
-      ).toString().padStart(3, "0")}`
-
-      const { data, error } = await supabase
-        .from("tareas")
-        .insert({
-          ...nuevaTarea,
-          code,
-          id_supervisor: userId,
-          estado: "organizar"
-        })
-        .select()
-
-      if (error) throw error
-
-      const nuevaTareaCreada = data[0]
-      setTareaId(nuevaTareaCreada.id.toString())
-
-      toast.success("La tarea ha sido creada correctamente")
-      setShowCrearTarea(false)
-      // Idealmente recargar tareas aqui
-    } catch (error) {
-      console.error("Error al crear tarea:", error)
-      toast.error("Ocurrió un error al crear la tarea")
-    } finally {
-      setCreandoTarea(false)
-    }
-  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -184,10 +120,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isRea
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setShowCrearTarea(true)
-                cargarEdificios()
-              }}
+              onClick={() => router.push('/dashboard/tareas/nueva?returnTo=/dashboard/presupuestos-base/nuevo')}
             >
               <Plus className="h-4 w-4 mr-1" /> Nueva Tarea
             </Button>
@@ -214,10 +147,7 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isRea
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                setShowCrearTarea(true)
-                cargarEdificios()
-              }}
+              onClick={() => router.push('/dashboard/tareas/nueva?returnTo=/dashboard/presupuestos-base/nuevo')}
             >
               <Plus className="h-4 w-4 mr-1" /> Crear nueva tarea
             </Button>
@@ -296,76 +226,6 @@ export default function PresupuestoBaseForm({ tareas, userId, presupuesto, isRea
           )}
         </Button>
       </div>
-
-      <Dialog open={showCrearTarea} onOpenChange={setShowCrearTarea}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Nueva Tarea</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="titulo">Título de la Tarea</Label>
-              <Input
-                id="titulo"
-                value={nuevaTarea.titulo}
-                onChange={(e) => setNuevaTarea({ ...nuevaTarea, titulo: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="descripcion">Descripción</Label>
-              <Textarea
-                id="descripcion"
-                value={nuevaTarea.descripcion}
-                onChange={(e) => setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edificio">Edificio</Label>
-              {edificios.length > 0 ? (
-                <Select
-                  value={nuevaTarea.id_edificio}
-                  onValueChange={(value) => setNuevaTarea({ ...nuevaTarea, id_edificio: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un edificio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {edificios.map((edificio) => (
-                      <SelectItem key={edificio.id} value={edificio.id.toString()}>
-                        {edificio.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="p-4 border rounded-md bg-muted/50 text-center">
-                  <p className="text-muted-foreground">No hay edificios disponibles</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCrearTarea(false)} disabled={creandoTarea}>
-              Cancelar
-            </Button>
-            <Button onClick={crearNuevaTarea} disabled={creandoTarea}>
-              {creandoTarea ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creando...
-                </>
-              ) : (
-                <>Crear Tarea</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </form>
   )
 }
