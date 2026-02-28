@@ -98,8 +98,7 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                     invoice.nombre_edificio?.toLowerCase().includes(q) ||
                     invoice.titulo_tarea?.toLowerCase().includes(q) ||
                     invoice.presupuesto_final_code?.toLowerCase().includes(q) ||
-                    invoice.datos_afip?.numero_factura_afip?.toLowerCase().includes(q) ||
-                    invoice.datos_afip?.comprobante?.toLowerCase().includes(q);
+                    (invoice.datos_afip !== null && invoice.datos_afip !== undefined && String(invoice.datos_afip).toLowerCase().includes(q));
 
                 if (!match) return false;
             }
