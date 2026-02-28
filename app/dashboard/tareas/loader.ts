@@ -69,13 +69,16 @@ export async function getTareasData(filters?: TareasFilterParams) {
                 const view = filters.view || 'activas';
                 switch (view) {
                     case 'activas':
-                        query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]).eq('finalizada', false);
+                        // ES Activa solo si finalizada = false Y su estado NO ES (4, 7, 9, 11)
+                        query = query.eq('finalizada', false).not('id_estado_nuevo', 'in', '(4,7,9,11)');
                         break;
                     case 'enviadas':
-                        query = query.eq('id_estado_nuevo', 4);
+                        // Pestaña Enviadas exclusiva para estado 4 (Enviado) que no esté terminado
+                        query = query.eq('id_estado_nuevo', 4).eq('finalizada', false);
                         break;
                     case 'finalizadas':
-                        query = query.or('id_estado_nuevo.in.(7,9),finalizada.eq.true');
+                        // Pestaña Finalizadas: finalizada = true O estados (7, 9, 11)
+                        query = query.or('finalizada.eq.true,id_estado_nuevo.in.(7,9,11)');
                         break;
                 }
             }
@@ -97,7 +100,8 @@ export async function getTareasData(filters?: TareasFilterParams) {
                 query = query.or(`titulo.ilike.%${term}%,code.ilike.%${term}%,descripcion.ilike.%${term}%,nombre_edificio.ilike.%${term}%`)
             }
         } else {
-            query = query.in('id_estado_nuevo', [1, 2, 3, 5, 6, 8, 10]).eq('finalizada', false);
+            // Default view: activas
+            query = query.eq('finalizada', false).not('id_estado_nuevo', 'in', '(4,7,9,11)');
         }
 
         // 🛡️ Envolver en el Escudo RLS (Captura silenciosa 42501)
@@ -111,19 +115,10 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         let filteredData = result.data || [];
 
-        // 6. Aplicar Regla de Negocio (Filtrado Especial Supervisor)
-        // Ocultar tareas presupuestadas (estados 3, 4, 6, 7) de la solapa 'Activas'
-        if (rol === 'supervisor') {
-            const vistaActual = filters?.view || 'activas';
-            const estaEnSolapaActivas = vistaActual === 'activas' && (!filters?.estado || filters?.estado === '_todos_');
-            
-            if (estaEnSolapaActivas) {
-                filteredData = filteredData.filter(t => {
-                    const debeOcultarse = t.tiene_presupuesto_base === true && [3, 4, 6, 7].includes(t.id_estado_nuevo);
-                    return !debeOcultarse;
-                });
-            }
-        }
+        // 6. Aplicar Regla de Negocio (Eliminado: ya no hay filtros ocultos para supervisor)
+        // El usuario solicitó que todos vean lo mismo basándose en 'finalizada' y estados clave.
+        
+        return filteredData;
 
         return filteredData;
 
@@ -210,19 +205,18 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         tareas.forEach(t => {
             const id = t.id_estado_nuevo;
-            
-            // Regla de Negocio Supervisor: Restar del count de "activas" las ocultas
-            const ocultoParaSupervisor = rol === 'supervisor' && t.tiene_presupuesto_base === true && [3, 4, 6, 7].includes(id);
+            const isFinished = t.finalizada === true || [7, 9, 11].includes(id);
+            const isSent = !t.finalizada && id === 4;
 
-            // Si el supervisor o admin la marcó como finalizada, va a "finalizadas"
-            if (t.finalizada === true) {
+            counts.todas++;
+
+            if (isFinished) {
                 counts.finalizadas++;
-            } else if ([1, 2, 3, 5, 6, 8, 10].includes(id)) {
-                if (!ocultoParaSupervisor) counts.activas++;
-            } else if (id === 4) {
-                if (!ocultoParaSupervisor) counts.enviadas++;
-            } else if ([7, 9].includes(id)) {
-                counts.finalizadas++;
+            } else if (isSent) {
+                counts.enviadas++;
+            } else {
+                // Si no está finalizada ni enviada, está activa
+                counts.activas++;
             }
         });
 
