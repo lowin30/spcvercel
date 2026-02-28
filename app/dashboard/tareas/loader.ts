@@ -208,8 +208,6 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
             const isFinished = t.finalizada === true || [7, 9, 11].includes(id);
             const isSent = !t.finalizada && id === 4;
 
-            counts.todas++;
-
             if (isFinished) {
                 counts.finalizadas++;
             } else if (isSent) {
