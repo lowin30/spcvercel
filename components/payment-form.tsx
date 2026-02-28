@@ -89,6 +89,7 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente, isCh
     : Number(montoTotalFactura);
 
   const [montoPago, setMontoPago] = useState(valorSaldoPendiente.toString());
+  const [modalidadSeleccionada, setModalidadSeleccionada] = useState<'total' | '50_porciento' | 'custom'>('total');
 
   // Forzar la actualización del valor cuando cambian las props
   useEffect(() => {
@@ -124,11 +125,13 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente, isCh
     const saldo = valorSaldoPendiente;
     if (!isNaN(saldo)) {
       setMontoPago((saldo / 2).toFixed(2));
+      setModalidadSeleccionada('50_porciento');
     }
   };
 
   const handleSetMontoTotal = () => {
     setMontoPago(valorSaldoPendiente.toString());
+    setModalidadSeleccionada('total');
   };
 
   return (
@@ -158,19 +161,21 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente, isCh
             <div className="space-x-2">
               <Button
                 type="button"
-                variant="outline"
+                variant={modalidadSeleccionada === '50_porciento' ? 'default' : 'outline'}
                 size="sm"
                 onClick={handleSetMonto50}
                 title={`Pagar el 50% del saldo pendiente ($${(valorSaldoPendiente / 2).toLocaleString('es-AR')})`}
+                className={modalidadSeleccionada === '50_porciento' ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''}
               >
                 Pagar 50%
               </Button>
               <Button
                 type="button"
-                variant="default"
+                variant={modalidadSeleccionada === 'total' ? 'default' : 'outline'}
                 size="sm"
                 onClick={handleSetMontoTotal}
                 title={`Pagar el saldo completo ($${valorSaldoPendiente.toLocaleString('es-AR')})`}
+                className={modalidadSeleccionada === 'total' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
               >
                 Pagar Saldo
               </Button>
@@ -181,7 +186,10 @@ export function PaymentForm({ facturaId, montoTotalFactura, saldoPendiente, isCh
             name="monto"
             type="number"
             value={montoPago}
-            onChange={(e) => setMontoPago(e.target.value)}
+            onChange={(e) => {
+              setMontoPago(e.target.value);
+              setModalidadSeleccionada('custom');
+            }}
             required
             step="0.01"
             aria-describedby="monto-error"

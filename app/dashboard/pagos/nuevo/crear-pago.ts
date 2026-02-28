@@ -88,13 +88,20 @@ export async function createPayment(prevState: State, formData: FormData): Promi
     */
 
     // 4. Registrar el Pago (Bypass RLS)
+    const esExacamenteElTotal = Math.abs(monto - saldoActual) < 0.01;
+    const esExacamenteLaMitad = Math.abs(monto - (facturaData.total / 2)) < 0.01;
+    
+    const modalidadCalculada = esExacamenteElTotal 
+        ? 'total' 
+        : (esExacamenteLaMitad ? '50_porciento' : 'ajustable');
+
     const { error: insertError } = await supabaseAdmin
       .from('pagos_facturas')
       .insert({
         id_factura: facturaData.id,
         monto_pagado: monto,
         fecha_pago: fecha,
-        modalidad_pago: Math.abs(monto - saldoActual) < 0.01 ? 'total' : 'parcial',
+        modalidad_pago: modalidadCalculada,
         created_by: user.id
       });
 

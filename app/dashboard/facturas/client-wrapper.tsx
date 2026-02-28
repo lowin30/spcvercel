@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { Plus, Search, Filter, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,33 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
     const [filtroEdificio, setFiltroEdificio] = useState<number | null>(null)
     const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
     const [vistaActual, setVistaActual] = useState<'borrador' | 'pendientes' | 'pagadas' | 'todas'>('borrador')
+    const [isMounted, setIsMounted] = useState(false)
+
+    // Recuperar filtros de localStorage al montar el componente
+    useEffect(() => {
+        setIsMounted(true)
+        const saved = localStorage.getItem('spc_filtros_facturas')
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved)
+                if (parsed.searchQuery !== undefined) setSearchQuery(parsed.searchQuery)
+                if (parsed.filtroAdmin !== undefined) setFiltroAdmin(parsed.filtroAdmin)
+                if (parsed.filtroEdificio !== undefined) setFiltroEdificio(parsed.filtroEdificio)
+                if (parsed.filtroEstado !== undefined) setFiltroEstado(parsed.filtroEstado)
+                if (parsed.vistaActual !== undefined) setVistaActual(parsed.vistaActual)
+            } catch (e) {
+                console.error("Error parsing facturas filters from local storage", e)
+            }
+        }
+    }, [])
+
+    // Guardar filtros en localStorage cada vez que cambien
+    useEffect(() => {
+        if (!isMounted) return
+        localStorage.setItem('spc_filtros_facturas', JSON.stringify({
+            searchQuery, filtroAdmin, filtroEdificio, filtroEstado, vistaActual
+        }))
+    }, [searchQuery, filtroAdmin, filtroEdificio, filtroEstado, vistaActual, isMounted])
 
     // Derived Data (Client-side filtering of the server dataset)
     // NOTE: For large datasets, this should be server-side params. Assuming fit-in-memory for now per Protocol "Bridge" phase 1.
@@ -64,13 +91,15 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
             // 5. Search
             if (searchQuery) {
                 const q = searchQuery.toLowerCase()
-                // Scan robusto
+                // Scan robusto (Incluyendo AFIP)
                 const match =
                     invoice.code?.toLowerCase().includes(q) ||
                     invoice.nombre?.toLowerCase().includes(q) ||
                     invoice.nombre_edificio?.toLowerCase().includes(q) ||
                     invoice.titulo_tarea?.toLowerCase().includes(q) ||
-                    invoice.presupuesto_final_code?.toLowerCase().includes(q)
+                    invoice.presupuesto_final_code?.toLowerCase().includes(q) ||
+                    invoice.datos_afip?.numero_factura_afip?.toLowerCase().includes(q) ||
+                    invoice.datos_afip?.comprobante?.toLowerCase().includes(q);
 
                 if (!match) return false;
             }
