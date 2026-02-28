@@ -52,10 +52,14 @@ export async function getTareasData(filters?: TareasFilterParams) {
         const supabase = await createServerClient();
         if (!supabase) throw new Error("No Supabase Client");
 
+        let primaryView = 'vista_tareas_completa';
+        if (rol === 'admin') primaryView = 'vista_tareas_admin';
+        else if (rol === 'supervisor') primaryView = 'vista_tareas_supervisor';
+
         // 3. Query principal normalizada
         // RLS y PostgreSQL se encargan de filtar la base según el rol ahora.
         let query = supabase
-            .from('vista_tareas_completa')
+            .from(primaryView)
             .select('*')
             .order('created_at', { ascending: false });
 
@@ -105,7 +109,23 @@ export async function getTareasData(filters?: TareasFilterParams) {
             return [];
         }
 
-        return result.data || [];
+        let filteredData = result.data || [];
+
+        // 6. Aplicar Regla de Negocio (Filtrado Especial Supervisor)
+        // Ocultar tareas presupuestadas (estados 3, 4, 6, 7) de la solapa 'Activas'
+        if (rol === 'supervisor') {
+            const vistaActual = filters?.view || 'activas';
+            const estaEnSolapaActivas = vistaActual === 'activas' && (!filters?.estado || filters?.estado === '_todos_');
+            
+            if (estaEnSolapaActivas) {
+                filteredData = filteredData.filter(t => {
+                    const debeOcultarse = t.tiene_presupuesto_base === true && [3, 4, 6, 7].includes(t.id_estado_nuevo);
+                    return !debeOcultarse;
+                });
+            }
+        }
+
+        return filteredData;
 
     } catch (error) {
         console.error("Loader Error:", error);
@@ -123,10 +143,15 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         const { id: userId, rol } = usuario
 
-        // Reutilizamos la lógica de filtrado base (sin el filtro de 'view' ni 'estado')
+        let primaryView = 'vista_tareas_completa';
+        if (rol === 'admin') primaryView = 'vista_tareas_admin';
+        else if (rol === 'supervisor') primaryView = 'vista_tareas_supervisor';
+
+        // Reutilizamos la lógica de filtrado base
+        // Solicitamos tiene_presupuesto_base para el cálculo de conteo del supervisor
         let query = supabaseAdmin
-            .from('vista_tareas_completa')
-            .select('id_estado_nuevo, finalizada');
+            .from(primaryView)
+            .select(rol === 'supervisor' ? 'id_estado_nuevo, finalizada, tiene_presupuesto_base' : 'id_estado_nuevo, finalizada');
 
         // Aplicamos seguridad por rol
         if (rol === 'admin') {
@@ -184,18 +209,22 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
         }
 
         tareas.forEach(t => {
-            const id = t.id_estado_nuevo
-            // Si el supervisor la marcó como finalizada, va a "finalizadas" sin importar el estado
+            const id = t.id_estado_nuevo;
+            
+            // Regla de Negocio Supervisor: Restar del count de "activas" las ocultas
+            const ocultoParaSupervisor = rol === 'supervisor' && t.tiene_presupuesto_base === true && [3, 4, 6, 7].includes(id);
+
+            // Si el supervisor o admin la marcó como finalizada, va a "finalizadas"
             if (t.finalizada === true) {
-                counts.finalizadas++
+                counts.finalizadas++;
             } else if ([1, 2, 3, 5, 6, 8, 10].includes(id)) {
-                counts.activas++
+                if (!ocultoParaSupervisor) counts.activas++;
             } else if (id === 4) {
-                counts.enviadas++
+                if (!ocultoParaSupervisor) counts.enviadas++;
             } else if ([7, 9].includes(id)) {
-                counts.finalizadas++
+                counts.finalizadas++;
             }
-        })
+        });
 
         return counts
     } catch (e) {
