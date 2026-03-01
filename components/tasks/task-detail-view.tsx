@@ -202,6 +202,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                 tipoEntidad="tarea"
                                 entidadId={tarea.id}
                                 estadoActualId={estadoActualId}
+                                esFinalizada={esTareaFinalizada}
                                 userRol={userDetails?.rol}
                                 estadosInyectados={estadosCat}
                                 onEstadoChange={(nuevoEstadoId: number, finalizada: boolean) => {
