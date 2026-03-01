@@ -64,7 +64,7 @@ export function PagosFilterBar({ administradores, edificios, modalidades }: Pago
 
     // Filtrar edificios segun administrador seleccionado (Cascada)
     const edificiosFiltrados = adm !== 'all'
-        ? edificios.filter(e => e.id_administrador.toString() === adm)
+        ? edificios.filter(e => e.id_administrador?.toString() === adm)
         : edificios
 
     return (
