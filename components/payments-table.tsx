@@ -39,7 +39,7 @@ export type EnrichedPayment = {
   presupuesto_total: number | null;
 };
 
-import { Eye, Trash2, Calendar, User, CreditCard } from "lucide-react";
+import { Eye, Trash2, Calendar, User, CreditCard, CircleDollarSign, Hash } from "lucide-react";
 import { useTransition, useEffect, useState } from "react";
 import { deletePayment } from '@/app/dashboard/pagos/borrar-pago';
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -129,10 +129,37 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
   return (
     <Card>
       <CardHeader className="pb-3 px-4 sm:px-6">
-        <CardTitle className="uppercase tracking-tight text-lg sm:text-xl">pagos registrados</CardTitle>
-        <CardDescription className="lowercase italic text-xs sm:text-sm">
-          listado consolidado de transacciones financieras.
-        </CardDescription>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="uppercase tracking-tight text-lg sm:text-xl">pagos registrados</CardTitle>
+            <CardDescription className="lowercase italic text-xs sm:text-sm">
+              listado consolidado de transacciones financieras.
+            </CardDescription>
+          </div>
+
+          {/* Resumen Contable Reactivo (Contabilidad Visual) */}
+          <div className="flex items-center gap-3 sm:gap-6 bg-primary/5 p-2 px-3 rounded-lg border border-primary/10 self-start md:self-center">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                <Hash className="h-3 w-3" /> cantidad
+              </span>
+              <span className="text-sm sm:text-lg font-mono font-bold text-primary">
+                {payments.length}
+              </span>
+            </div>
+            
+            <div className="h-8 w-[1px] bg-primary/20" />
+
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                <CircleDollarSign className="h-3 w-3" /> total pagado
+              </span>
+              <span className="text-sm sm:text-lg font-mono font-bold text-green-600">
+                {formatCurrency(payments.reduce((acc, p) => acc + p.monto_pagado, 0))}
+              </span>
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-0 sm:p-6 pt-0">
         {!isMounted || !isMobile ? (
