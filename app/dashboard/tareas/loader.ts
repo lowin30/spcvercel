@@ -95,6 +95,15 @@ export async function getTareasData(filters?: TareasFilterParams) {
                     query = query.eq('id_estado_nuevo', estadoId)
                 }
             }
+            if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
+                const { data: tSup } = await supabase
+                    .from('supervisores_tareas')
+                    .select('id_tarea')
+                    .eq('id_supervisor', filters.id_supervisor)
+                const ids = tSup?.map(t => t.id_tarea) || []
+                if (ids.length > 0) query = query.in('id', ids)
+                else return []
+            }
             if (filters.search) {
                 const term = filters.search;
                 query = query.or(`titulo.ilike.%${term}%,code.ilike.%${term}%,descripcion.ilike.%${term}%,nombre_edificio.ilike.%${term}%`)
@@ -117,7 +126,7 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         // 6. Aplicar Regla de Negocio (Eliminado: ya no hay filtros ocultos para supervisor)
         // El usuario solicitó que todos vean lo mismo basándose en 'finalizada' y estados clave.
-        
+
         return filteredData;
 
         return filteredData;

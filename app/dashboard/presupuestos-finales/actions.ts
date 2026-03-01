@@ -113,7 +113,15 @@ export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
 
     if (error) throw error
 
+    // 2. Propagar estado a la tarea asociada (SPC Protocol v85.1)
+    const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea').eq('id', presupuestoId).single()
+    if (pf?.id_tarea) {
+      await supabase.from('tareas').update({ id_estado_nuevo: 4 }).eq('id', pf.id_tarea) // Estado 4 = Enviado
+      revalidatePath('/dashboard/tareas')
+    }
+
     revalidatePath('/dashboard/presupuestos-finales')
+    revalidatePath(`/dashboard/presupuestos-finales/${presupuestoId}`)
     return { success: true, message: factura ? 'Marcado como facturado' : 'Marcado como enviado' }
   } catch (error: any) {
     console.error('Error marcarComoEnviado:', error)

@@ -168,12 +168,8 @@ export default function PresupuestosFinalesClient({
                             <Input
                                 placeholder="Buscar por código, tarea o edificio..."
                                 className="pl-11 h-12 bg-white/80 dark:bg-black/40 border-slate-200 dark:border-slate-800 focus-visible:ring-offset-0 focus-visible:ring-indigo-500/30 transition-all rounded-xl shadow-inner-sm"
-                                defaultValue={searchTerm}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        updateFilters({ query: e.currentTarget.value })
-                                    }
-                                }}
+                                value={searchTerm}
+                                onChange={(e) => updateFilters({ query: e.target.value })}
                             />
                         </div>
 
@@ -248,7 +244,7 @@ function KpiStrip({ label, count, color, icon, description }: any) {
         green: "bg-green-50/50 text-green-700 border-green-200/50 hover:bg-green-100/60 shadow-[0_4px_20px_-4px_rgba(34,197,94,0.1)]",
         purple: "bg-purple-50/50 text-purple-700 border-purple-200/50 hover:bg-purple-100/60 shadow-[0_4px_20px_-4px_rgba(168,85,247,0.1)]",
     }
-    
+
     const iconColors: any = {
         amber: "bg-amber-100 text-amber-600",
         blue: "bg-blue-100 text-blue-600",
@@ -260,7 +256,7 @@ function KpiStrip({ label, count, color, icon, description }: any) {
         <div className={`flex flex-col p-4 rounded-2xl border ${colors[color]} backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] group cursor-default`}>
             <div className="flex items-center justify-between mb-2">
                 <div className={`p-2 rounded-xl ${iconColors[color]} transition-transform duration-500 group-hover:rotate-12`}>
-                   {icon}
+                    {icon}
                 </div>
                 <span className="text-2xl font-black tracking-tighter">{count}</span>
             </div>
