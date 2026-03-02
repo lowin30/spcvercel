@@ -91,6 +91,12 @@ export function PresupuestosInteractivos({
   const [notaInterna, setNotaInterna] = useState("")
   const [isCreando, setIsCreando] = useState(false)
 
+  // Sync state with props when they change (after router.refresh)
+  React.useEffect(() => {
+    setPresupuestoBaseLocal(presupuestoBase)
+    setPresupuestoFinalLocal(presupuestoFinal)
+  }, [presupuestoBase, presupuestoFinal])
+
   // Funciones auxiliares
   const formatFecha = (fecha: string) => {
     return new Date(fecha).toLocaleDateString('es-ES', {

@@ -90,6 +90,21 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
     const [guardandoNotasEdificio, setGuardandoNotasEdificio] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
 
+    // Sync state with props when initialData changes (after router.refresh)
+    useEffect(() => {
+        if (initialData.tarea) {
+            setTarea(initialData.tarea)
+            setEsTareaFinalizada(Boolean(initialData.tarea.finalizada))
+            const newEstadoId = initialData.tarea.id_estado_nuevo != null ? Number(initialData.tarea.id_estado_nuevo) :
+                initialData.tarea.estado != null ? Number(initialData.tarea.estado) : null
+            setEstadoActualId(newEstadoId)
+            setPrioridadActual(['baja', 'media', 'alta', 'urgente'].includes(initialData.tarea.prioridad) ? initialData.tarea.prioridad : 'media')
+        }
+        if (initialData.supervisor) setSupervisor(initialData.supervisor)
+        if (initialData.trabajadoresAsignados) setTrabajadoresAsignados(initialData.trabajadoresAsignados)
+        if (initialData.comentarios) setComentarios(initialData.comentarios)
+    }, [initialData])
+
     // Permissions based on userDetails
     const esAdmin = userDetails?.rol === "admin"
     const esSupervisor = userDetails?.rol === "supervisor"
