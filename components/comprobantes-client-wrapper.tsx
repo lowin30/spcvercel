@@ -71,7 +71,7 @@ export function ComprobantesClientWrapper({ initialData, stats }: ComprobantesCl
             const matchesMonto = !filterMonto || item.monto >= filterMonto
 
             return matchesSearch && matchesFoto && matchesRol && matchesMonto
-        })
+        }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     }, [initialData, search, filterFoto, filterRol, filterMonto])
 
     const currentMontoRiesgo = useMemo(() => {
