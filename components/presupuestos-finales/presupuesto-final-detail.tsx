@@ -123,7 +123,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                         {...datosParaPDF}
                     />
                     <div className="flex-1 md:flex-none">
-                        {presupuesto.codigo_estado !== 'facturado' && (
+                        {presupuesto.estados_presupuestos?.codigo === 'borrador' && (
                             <Button
                                 className="w-full md:w-auto gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md transform hover:-translate-y-0.5 transition-all text-white border-none"
                                 onClick={handleMarcarComoEnviado}
