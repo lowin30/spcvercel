@@ -58,7 +58,7 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
 
   // El userRole se utilizará para filtrar las rutas del menú
 
-  const routes = [
+  const routes: RouteItem[] = [
     {
       href: "/dashboard",
       icon: Home,
@@ -128,6 +128,12 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
       href: "/dashboard/ajustes",
       icon: Shield,
       title: "ajustes",
+      role: ["admin"],
+    },
+    {
+      href: "/dashboard/comprobantes",
+      icon: Shield,
+      title: "comprobantes",
       role: ["admin"],
     },
     {

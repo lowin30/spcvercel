@@ -46,6 +46,7 @@ const navItems: NavItem[] = [
   { title: "presupuestos", href: "/dashboard/presupuestos-finales", icon: FileText, roles: ["admin"] },
   { title: "facturas", href: "/dashboard/facturas", icon: Receipt, roles: ["admin"] },
   { title: "ajustes", href: "/dashboard/ajustes", icon: Shield, roles: ["admin"] },
+  { title: "comprobantes", href: "/dashboard/comprobantes", icon: Shield, roles: ["admin"] },
   { title: "pagos", href: "/dashboard/pagos", icon: CreditCard, roles: ["admin"] },
   { title: "configuracion", href: "/dashboard/configuracion", icon: Settings, roles: ["admin"] },
 ]
