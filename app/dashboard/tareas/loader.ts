@@ -159,7 +159,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         // Aplicamos seguridad por rol
         if (rol === 'admin') {
-            query = query.neq('id_estado_nuevo', 9)
+            // Se eliminó el filtro neq(id_estado_nuevo, 9) para permitir ver tareas liquidadas (SPC Protocol v92.1)
         } else if (rol === 'supervisor') {
             const { data: asignaciones } = await supabaseAdmin
                 .from('supervisores_tareas')
