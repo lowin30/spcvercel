@@ -6,9 +6,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase-client"
 import { formatDateTime } from "@/lib/utils"
-import { Receipt, Eye, EyeOff, Trash2, AlertCircle, CheckCircle, Target, FileText, Download } from "lucide-react"
+import { Receipt, Eye, EyeOff, Trash2, AlertCircle, CheckCircle, Target, Download, Edit2, Save, X } from "lucide-react"
 import { generarGastosTareaPDF } from "@/lib/gastos-pdf"
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 
 interface HistorialGastosOCRProps {
@@ -43,6 +47,9 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId, i
   const [loading, setLoading] = useState(!initialGastos)
   const [exportando, setExportando] = useState(false)
   const [mostrarDetalles, setMostrarDetalles] = useState<{ [key: number]: boolean }>({})
+  const [editandoGasto, setEditandoGasto] = useState<Gasto | null>(null)
+  const [editFormData, setEditFormData] = useState({ monto: "", descripcion: "" })
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
   const supabase = createClient()
   const cargarGastos = async () => {
     try {
@@ -235,6 +242,58 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId, i
       ...prev,
       [gastoId]: !prev[gastoId]
     }))
+  }
+
+  // Funciones para edición de gastos
+  const iniciarEdicion = (gasto: Gasto) => {
+    setEditandoGasto(gasto)
+    setEditFormData({
+      monto: gasto.monto.toString(),
+      descripcion: gasto.descripcion || ''
+    })
+  }
+
+  const cancelarEdicion = () => {
+    setEditandoGasto(null)
+    setEditFormData({ monto: "", descripcion: "" })
+  }
+
+  const guardarEdicionGasto = async () => {
+    if (!editandoGasto) return
+
+    const nuevoMonto = parseFloat(editFormData.monto)
+    if (isNaN(nuevoMonto) || nuevoMonto <= 0) {
+      toast.error("El monto debe ser un valor válido mayor a 0")
+      return
+    }
+
+    try {
+      setGuardandoEdicion(true)
+
+      const { error } = await supabase
+        .from('gastos_tarea')
+        .update({
+          monto: nuevoMonto,
+          descripcion: editFormData.descripcion
+        })
+        .eq('id', editandoGasto.id)
+
+      if (error) throw error
+
+      setGastos(prevGastos => prevGastos.map(g =>
+        g.id === editandoGasto.id
+          ? { ...g, monto: nuevoMonto, descripcion: editFormData.descripcion }
+          : g
+      ))
+
+      toast.success("✅ Gasto actualizado correctamente")
+      cancelarEdicion()
+    } catch (error: any) {
+      console.error("Error al actualizar gasto:", error)
+      toast.error("❌ Error al actualizar gasto: " + (error.message || "Error desconocido"))
+    } finally {
+      setGuardandoEdicion(false)
+    }
   }
 
   // Función para confirmar y eliminar un gasto
@@ -477,8 +536,8 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId, i
                         <Badge
                           variant="outline"
                           className={`text-xs ${gasto.tipo_gasto === 'material'
-                              ? 'bg-blue-50 text-blue-700 border-blue-300'
-                              : 'bg-orange-50 text-orange-700 border-orange-300'
+                            ? 'bg-blue-50 text-blue-700 border-blue-300'
+                            : 'bg-orange-50 text-orange-700 border-orange-300'
                             }`}
                         >
                           {gasto.tipo_gasto === 'material' ? '📦 Material' : '👷 M. Obra'}
@@ -514,14 +573,26 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId, i
                           </Button>
                         )}
                         {(userRole === 'admin' || userRole === 'supervisor') && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => confirmarEliminarGasto(gasto.id)}
-                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => iniciarEdicion(gasto)}
+                              className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                              title="Editar gasto"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmarEliminarGasto(gasto.id)}
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              title="Eliminar gasto"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -598,6 +669,52 @@ export function HistorialGastosOCR({ tareaId, userRole = 'trabajador', userId, i
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!editandoGasto} onOpenChange={(open) => !open && cancelarEdicion()}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Gasto</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="monto">Monto delGasto ($)</Label>
+              <Input
+                id="monto"
+                type="number"
+                value={editFormData.monto}
+                onChange={(e) => setEditFormData({ ...editFormData, monto: e.target.value })}
+                placeholder="Ej. 15000"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="descripcion">Descripción</Label>
+              <Textarea
+                id="descripcion"
+                value={editFormData.descripcion}
+                onChange={(e) => setEditFormData({ ...editFormData, descripcion: e.target.value })}
+                placeholder="Describe el gasto..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelarEdicion} disabled={guardandoEdicion}>
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
+            </Button>
+            <Button onClick={guardarEdicionGasto} disabled={guardandoEdicion}>
+              {guardandoEdicion ? (
+                <>Guardando...</>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar Cambios
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
