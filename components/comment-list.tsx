@@ -56,7 +56,7 @@ export function CommentList({ comments }: CommentListProps) {
                   className="w-6 h-6 rounded-full mr-2 flex items-center justify-center text-white text-xs"
                   style={{ backgroundColor: comment.usuarios?.color_perfil || "#ccc" }}
                 >
-                  {comment.usuarios?.email.charAt(0).toUpperCase() || "?"}
+                  {comment.usuarios?.email?.charAt(0).toUpperCase() || "?"}
                 </div>
                 <span className="font-medium">{comment.usuarios?.email || "Usuario eliminado"}</span>
               </div>

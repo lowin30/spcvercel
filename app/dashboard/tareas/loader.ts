@@ -361,7 +361,7 @@ export async function getTareaDetail(id: string) {
                 nombre: tareaData.nombre_edificio,
                 direccion: tareaData.direccion_edificio,
                 cuit: null,
-                notas: null
+                notas: (tareaData as any).notas_edificio || null
             }
         };
 
