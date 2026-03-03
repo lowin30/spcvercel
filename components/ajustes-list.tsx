@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Eye } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 
 interface FacturaConAjuste {
   id: number
@@ -16,10 +15,6 @@ interface FacturaConAjuste {
   total: number
   saldo_pendiente: number | string
   total_ajustes: number | string
-  total_ajustes_calculados?: number | string  // 🆕 Calculados
-  total_ajustes_pendientes?: number | string  // 🆕 Pendientes liquidación
-  total_ajustes_liquidados?: number | string  // 🆕 Liquidados
-  total_ajustes_todos?: number | string       // 🆕 Todos
   tiene_ajustes_pendientes?: boolean
   tiene_ajustes_pagados?: boolean
 }
@@ -29,7 +24,7 @@ interface AjustesListProps {
 }
 
 export function AjustesList({ facturas }: AjustesListProps) {
-  
+
   const formatCurrency = (amount: number | string): string => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount
     return `$${(num || 0).toLocaleString("es-AR")}`
@@ -59,38 +54,25 @@ export function AjustesList({ facturas }: AjustesListProps) {
               </TableRow>
             ) : (
               facturas.map((factura) => {
-                const saldo = typeof factura.saldo_pendiente === 'string' 
-                  ? parseFloat(factura.saldo_pendiente) 
+                const saldo = typeof factura.saldo_pendiente === 'string'
+                  ? parseFloat(factura.saldo_pendiente)
                   : factura.saldo_pendiente
-                
-                const ajuste = typeof factura.total_ajustes === 'string' 
-                  ? parseFloat(factura.total_ajustes) 
+
+                const ajuste = typeof factura.total_ajustes === 'string'
+                  ? parseFloat(factura.total_ajustes)
                   : factura.total_ajustes
-                
-                // 🆕 Obtener valores de las 4 columnas
-                const calculados = typeof factura.total_ajustes_calculados === 'string' 
-                  ? parseFloat(factura.total_ajustes_calculados) 
-                  : (factura.total_ajustes_calculados || 0)
-                
-                const pendientes = typeof factura.total_ajustes_pendientes === 'string' 
-                  ? parseFloat(factura.total_ajustes_pendientes) 
-                  : (factura.total_ajustes_pendientes || 0)
-                
-                const liquidados = typeof factura.total_ajustes_liquidados === 'string' 
-                  ? parseFloat(factura.total_ajustes_liquidados) 
-                  : (factura.total_ajustes_liquidados || 0)
 
                 const tieneSaldo = saldo > 0
                 const tieneAjuste = ajuste > 0
 
                 return (
-                  <TableRow 
-                    key={factura.id} 
+                  <TableRow
+                    key={factura.id}
                     className="hover:bg-muted/30 transition-colors"
                   >
                     {/* Factura (Nombre) */}
                     <TableCell className="font-medium">
-                      <Link 
+                      <Link
                         href={`/dashboard/facturas/${factura.id}`}
                         className="hover:underline text-primary"
                       >
@@ -98,27 +80,6 @@ export function AjustesList({ facturas }: AjustesListProps) {
                       </Link>
                       <div className="text-xs text-muted-foreground font-mono mt-0.5">
                         {factura.code}
-                      </div>
-                      
-                      {/* 🆕 BADGES INFORMATIVOS */}
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {calculados > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            🟡 {formatCurrency(calculados)}
-                          </Badge>
-                        )}
-                        
-                        {pendientes > 0 && (
-                          <Badge className="bg-orange-500 text-white text-xs font-bold">
-                            🟠 {formatCurrency(pendientes)}
-                          </Badge>
-                        )}
-                        
-                        {liquidados > 0 && (
-                          <Badge variant="outline" className="text-green-600 text-xs">
-                            ✅ {formatCurrency(liquidados)}
-                          </Badge>
-                        )}
                       </div>
                     </TableCell>
 
@@ -149,9 +110,9 @@ export function AjustesList({ facturas }: AjustesListProps) {
 
                     {/* Acciones */}
                     <TableCell className="text-center">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         asChild
                       >
                         <Link href={`/dashboard/facturas/${factura.id}`}>
@@ -177,38 +138,25 @@ export function AjustesList({ facturas }: AjustesListProps) {
           </Card>
         ) : (
           facturas.map((factura) => {
-            const saldo = typeof factura.saldo_pendiente === 'string' 
-              ? parseFloat(factura.saldo_pendiente) 
+            const saldo = typeof factura.saldo_pendiente === 'string'
+              ? parseFloat(factura.saldo_pendiente)
               : factura.saldo_pendiente
-            
-            const ajuste = typeof factura.total_ajustes === 'string' 
-              ? parseFloat(factura.total_ajustes) 
+
+            const ajuste = typeof factura.total_ajustes === 'string'
+              ? parseFloat(factura.total_ajustes)
               : factura.total_ajustes
-            
-            // 🆕 Obtener valores de las 4 columnas
-            const calculados = typeof factura.total_ajustes_calculados === 'string' 
-              ? parseFloat(factura.total_ajustes_calculados) 
-              : (factura.total_ajustes_calculados || 0)
-            
-            const pendientes = typeof factura.total_ajustes_pendientes === 'string' 
-              ? parseFloat(factura.total_ajustes_pendientes) 
-              : (factura.total_ajustes_pendientes || 0)
-            
-            const liquidados = typeof factura.total_ajustes_liquidados === 'string' 
-              ? parseFloat(factura.total_ajustes_liquidados) 
-              : (factura.total_ajustes_liquidados || 0)
 
             const tieneSaldo = saldo > 0
             const tieneAjuste = ajuste > 0
 
             return (
-              <Card 
-                key={factura.id} 
+              <Card
+                key={factura.id}
                 className="p-4 hover:shadow-md transition-shadow"
               >
                 {/* Nombre y código */}
                 <div className="mb-3">
-                  <Link 
+                  <Link
                     href={`/dashboard/facturas/${factura.id}`}
                     className="font-medium text-base hover:underline text-primary block"
                   >
@@ -216,27 +164,6 @@ export function AjustesList({ facturas }: AjustesListProps) {
                   </Link>
                   <div className="text-xs text-muted-foreground font-mono mt-1">
                     {factura.code}
-                  </div>
-                  
-                  {/* 🆕 BADGES INFORMATIVOS */}
-                  <div className="flex gap-1 mt-2 flex-wrap">
-                    {calculados > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        🟡 {formatCurrency(calculados)} calculado
-                      </Badge>
-                    )}
-                    
-                    {pendientes > 0 && (
-                      <Badge className="bg-orange-500 text-white text-xs font-bold">
-                        🟠 {formatCurrency(pendientes)} para liquidar
-                      </Badge>
-                    )}
-                    
-                    {liquidados > 0 && (
-                      <Badge variant="outline" className="text-green-600 text-xs">
-                        ✅ {formatCurrency(liquidados)} liquidado
-                      </Badge>
-                    )}
                   </div>
                 </div>
 
@@ -277,10 +204,10 @@ export function AjustesList({ facturas }: AjustesListProps) {
 
                 {/* Botón */}
                 <div className="mt-3 pt-3 border-t">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full" 
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
                     asChild
                   >
                     <Link href={`/dashboard/facturas/${factura.id}`}>

@@ -15,7 +15,7 @@ interface FacturaParaExportar {
   estado_nombre: string
   total: number
   saldo_pendiente: number | string
-  total_ajustes_todos: number | string
+  total_ajustes: number | string
 }
 
 interface ExportFacturasButtonProps {
@@ -77,10 +77,10 @@ export function ExportFacturasButton({
   }
 
   return (
-    <Button 
-      onClick={handleExport} 
-      disabled={isLoading || facturas.length === 0} 
-      variant="outline" 
+    <Button
+      onClick={handleExport}
+      disabled={isLoading || facturas.length === 0}
+      variant="outline"
       size="sm"
       className={className}
     >

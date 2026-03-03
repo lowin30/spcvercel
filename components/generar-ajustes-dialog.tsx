@@ -116,9 +116,9 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
   };
 
   const handleItemSelect = (item: Item) => {
-    setSelectedItems((prev) => 
-      prev.some((i) => i.id === item.id) 
-        ? prev.filter((i) => i.id !== item.id) 
+    setSelectedItems((prev) =>
+      prev.some((i) => i.id === item.id)
+        ? prev.filter((i) => i.id !== item.id)
         : [...prev, item]
     );
   };
@@ -148,7 +148,7 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
             monto_base: montoBase,
             porcentaje_ajuste: porcentajeAjuste,
             monto_ajuste: montoAjuste,
-            aprobado: false,
+            aprobado: true,
             pagado: false,
           };
         })
@@ -182,7 +182,7 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
       setIsLoading(false);
     }
   };
-  
+
   const handleToggleMaterial = async (item: Item) => {
     try {
       // Actualizar en la base de datos
@@ -190,21 +190,21 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
         .from("items_factura")
         .update({ es_material: !item.es_material })
         .eq("id", item.id);
-        
+
       if (error) throw error;
-      
+
       // Actualizar en el estado local
-      setItems(items.map(i => 
+      setItems(items.map(i =>
         i.id === item.id ? { ...i, es_material: !item.es_material } : i
       ));
-      
+
       // Actualizar la selección si es necesario
       if (!item.es_material) { // Era mano de obra, ahora será material
         setSelectedItems(selectedItems.filter(i => i.id !== item.id));
       } else { // Era material, ahora será mano de obra
-        setSelectedItems([...selectedItems, {...item, es_material: false}]);
+        setSelectedItems([...selectedItems, { ...item, es_material: false }]);
       }
-      
+
       toast({
         title: "Item actualizado",
         description: `${item.descripcion} marcado como ${!item.es_material ? "material" : "mano de obra"}`
@@ -269,9 +269,8 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center space-x-3 p-3 border rounded-lg transition-colors ${
-                      isSelected ? "bg-orange-50 border-orange-200" : "bg-gray-50 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center space-x-3 p-3 border rounded-lg transition-colors ${isSelected ? "bg-orange-50 border-orange-200" : "bg-gray-50 hover:bg-gray-100"
+                      }`}
                   >
                     <Checkbox
                       checked={isSelected}
@@ -291,10 +290,10 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
                             <span>Mano de obra</span>
                           )}
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 text-xs" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs"
                           onClick={() => handleToggleMaterial(item)}
                         >
                           Cambiar

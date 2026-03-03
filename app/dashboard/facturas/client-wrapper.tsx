@@ -121,9 +121,9 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
         nombre: f.nombre,
         datos_afip: f.datos_afip,
         estado_nombre: f.estado_nombre,
-        total: f.total,
+        total: Number(f.total_base_factura || f.total || 0),
         saldo_pendiente: f.saldo_pendiente,
-        total_ajustes_todos: f.total_ajustes_todos
+        total_ajustes: f.total_ajustes
     }))
 
     return (
@@ -136,7 +136,7 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                         nombreAdministrador={filtros.administradores.find(a => a.id === filtroAdmin)?.nombre}
                     />
                     <Button asChild>
-                        <Link href="/dashboard/facturas/nueva">
+                        <Link href="/dashboard/presupuestos-base/nuevo">
                             <Plus className="mr-2 h-4 w-4" /> Nueva Factura
                         </Link>
                     </Button>

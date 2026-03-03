@@ -13,7 +13,7 @@ interface FacturaParaPDF {
   estado_nombre: string
   total: number
   saldo_pendiente: number | string
-  total_ajustes_todos: number | string
+  total_ajustes: number | string
 }
 
 interface DatosExportFacturas {
@@ -35,16 +35,16 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
 
   // Calcular totales
   const totalSaldo = facturas.reduce((sum, f) => {
-    const saldo = typeof f.saldo_pendiente === 'string' 
-      ? parseFloat(f.saldo_pendiente) 
+    const saldo = typeof f.saldo_pendiente === 'string'
+      ? parseFloat(f.saldo_pendiente)
       : f.saldo_pendiente
     return sum + (saldo || 0)
   }, 0)
 
   const totalAjustes = facturas.reduce((sum, f) => {
-    const ajuste = typeof f.total_ajustes_todos === 'string' 
-      ? parseFloat(f.total_ajustes_todos) 
-      : f.total_ajustes_todos
+    const ajuste = typeof f.total_ajustes === 'string'
+      ? parseFloat(f.total_ajustes)
+      : f.total_ajustes
     return sum + (ajuste || 0)
   }, 0)
 
@@ -63,15 +63,15 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
   // === HEADER ===
   doc.setFontSize(16)
   doc.setFont("helvetica", "bold")
-  doc.text("SPC - LISTADO DE FACTURAS", doc.internal.pageSize.width / 2, posicionY, { 
-    align: "center" 
+  doc.text("SPC - LISTADO DE FACTURAS", doc.internal.pageSize.width / 2, posicionY, {
+    align: "center"
   })
   posicionY += 8
 
   // Información del filtro
   doc.setFontSize(10)
   doc.setFont("helvetica", "normal")
-  
+
   if (nombreAdministrador) {
     doc.text(`Administrador: ${nombreAdministrador}`, margenIzquierdo, posicionY)
     posicionY += 5
@@ -87,12 +87,12 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
   doc.setFontSize(11)
   doc.setFont("helvetica", "bold")
   doc.setTextColor(0, 100, 0) // Verde oscuro
-  doc.text(`Saldo Total: $${totalSaldo.toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
-  
+  doc.text(`Saldo Total: $${Math.round(totalSaldo || 0).toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
+
   doc.setTextColor(200, 50, 50) // Rojo
   doc.text(
-    `Ajustes Total: $${totalAjustes.toLocaleString('es-AR')}`, 
-    margenIzquierdo + 80, 
+    `Ajustes Total: $${Math.round(totalAjustes || 0).toLocaleString('es-AR')}`,
+    margenIzquierdo + 80,
     posicionY
   )
   doc.setTextColor(0, 0, 0) // Reset a negro
@@ -102,21 +102,21 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
   const headers = [['Nombre', 'AFIP', 'Estado', 'Total', 'Saldo', 'Ajuste']]
 
   const body = facturas.map((factura) => {
-    const saldo = typeof factura.saldo_pendiente === 'string' 
-      ? parseFloat(factura.saldo_pendiente) 
+    const saldo = typeof factura.saldo_pendiente === 'string'
+      ? parseFloat(factura.saldo_pendiente)
       : factura.saldo_pendiente
 
-    const ajuste = typeof factura.total_ajustes_todos === 'string' 
-      ? parseFloat(factura.total_ajustes_todos) 
-      : factura.total_ajustes_todos
+    const ajuste = typeof factura.total_ajustes === 'string'
+      ? parseFloat(factura.total_ajustes)
+      : factura.total_ajustes
 
     return [
       factura.nombre || factura.code || `Factura #${factura.id}`,
       factura.datos_afip || 'N/A',
       factura.estado_nombre || '-',
-      `$${factura.total.toLocaleString('es-AR')}`,
-      `$${(saldo || 0).toLocaleString('es-AR')}`,
-      `$${(ajuste || 0).toLocaleString('es-AR')}`,
+      `$${Math.round(factura.total || 0).toLocaleString('es-AR')}`,
+      `$${Math.round(saldo || 0).toLocaleString('es-AR')}`,
+      `$${Math.round(ajuste || 0).toLocaleString('es-AR')}`,
     ]
   })
 
@@ -145,7 +145,7 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
       5: { cellWidth: 30, halign: 'right' },  // Ajuste
     },
     // Aplicar color condicional a la columna Saldo
-    didParseCell: function(data) {
+    didParseCell: function (data) {
       // Columna 4 = Saldo (índice 4)
       if (data.column.index === 4 && data.section === 'body') {
         const saldoTexto = data.cell.text[0]
@@ -157,7 +157,7 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
           data.cell.styles.textColor = [0, 150, 0] // Verde
         }
       }
-      
+
       // Columna 5 = Ajuste (índice 5)
       if (data.column.index === 5 && data.section === 'body') {
         const ajusteTexto = data.cell.text[0]
@@ -178,55 +178,55 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
 
   doc.setFontSize(12)
   doc.setFont("helvetica", "bold")
-  
+
   // Cuadro de totales
   const anchoTotal = 120
   const posicionXTotal = doc.internal.pageSize.width - margenIzquierdo - anchoTotal
-  
+
   // Fondo gris claro
   doc.setFillColor(240, 240, 240)
   doc.rect(posicionXTotal, posicionFinal, anchoTotal, 20, 'F')
-  
+
   // Bordes
   doc.setDrawColor(0, 0, 0)
   doc.rect(posicionXTotal, posicionFinal, anchoTotal, 20, 'S')
-  
+
   // Textos de totales
   doc.setTextColor(0, 100, 0) // Verde
   doc.text(
-    `SALDO TOTAL: $${totalSaldo.toLocaleString('es-AR')}`, 
-    posicionXTotal + 5, 
+    `SALDO TOTAL: $${Math.round(totalSaldo || 0).toLocaleString('es-AR')}`,
+    posicionXTotal + 5,
     posicionFinal + 8
   )
-  
+
   doc.setTextColor(200, 50, 50) // Rojo
   doc.text(
-    `AJUSTES TOTAL: $${totalAjustes.toLocaleString('es-AR')}`, 
-    posicionXTotal + 5, 
+    `AJUSTES TOTAL: $${Math.round(totalAjustes || 0).toLocaleString('es-AR')}`,
+    posicionXTotal + 5,
     posicionFinal + 15
   )
 
   // === PIE DE PÁGINA ===
   const totalPaginas = (doc as any).internal.getNumberOfPages()
-  
+
   for (let i = 1; i <= totalPaginas; i++) {
     doc.setPage(i)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(128, 128, 128)
-    
+
     // Número de página
     doc.text(
-      `Página ${i} de ${totalPaginas}`, 
-      doc.internal.pageSize.width / 2, 
+      `Página ${i} de ${totalPaginas}`,
+      doc.internal.pageSize.width / 2,
       doc.internal.pageSize.height - 5,
       { align: 'center' }
     )
-    
+
     // Generado por
     doc.text(
-      `Generado por SPC - ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 
-      margenIzquierdo, 
+      `Generado por SPC - ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      margenIzquierdo,
       doc.internal.pageSize.height - 5
     )
   }
