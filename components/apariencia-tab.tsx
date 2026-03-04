@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -9,7 +10,8 @@ import { Moon, Sun, Monitor, Type } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function AparienciaTab() {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
+  const { theme, setTheme: setNextTheme } = useTheme()
+  const currentTheme = (theme as 'light' | 'dark' | 'system') || 'system'
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium')
   const [colorPrimario, setColorPrimario] = useState<string>('blue')
 
@@ -24,36 +26,19 @@ export function AparienciaTab() {
 
   // Cargar preferencias guardadas
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme-mode') as 'light' | 'dark' | 'system' | null
     const savedFontSize = localStorage.getItem('font-size') as 'small' | 'medium' | 'large' | null
     const savedColor = localStorage.getItem('primary-color')
 
-    if (savedTheme) setTheme(savedTheme)
     if (savedFontSize) setFontSize(savedFontSize)
     if (savedColor) setColorPrimario(savedColor)
 
-    // Aplicar tema actual
-    applyTheme(savedTheme || 'system')
     applyFontSize(savedFontSize || 'medium')
   }, [])
-
-  const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
-    const root = document.documentElement
-    
-    if (newTheme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      root.classList.remove('light', 'dark')
-      root.classList.add(systemTheme)
-    } else {
-      root.classList.remove('light', 'dark')
-      root.classList.add(newTheme)
-    }
-  }
 
   const applyFontSize = (size: 'small' | 'medium' | 'large') => {
     const root = document.documentElement
     root.classList.remove('text-small', 'text-medium', 'text-large')
-    
+
     switch (size) {
       case 'small':
         root.style.fontSize = '14px'
@@ -68,9 +53,8 @@ export function AparienciaTab() {
   }
 
   const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme)
+    setNextTheme(newTheme)
     localStorage.setItem('theme-mode', newTheme)
-    applyTheme(newTheme)
   }
 
   const handleFontSizeChange = (size: 'small' | 'medium' | 'large') => {
@@ -106,7 +90,7 @@ export function AparienciaTab() {
               <Sun className="h-6 w-6" />
               <span className="text-sm font-medium">Claro</span>
             </button>
-            
+
             <button
               onClick={() => handleThemeChange('dark')}
               className={cn(
@@ -117,7 +101,7 @@ export function AparienciaTab() {
               <Moon className="h-6 w-6" />
               <span className="text-sm font-medium">Oscuro</span>
             </button>
-            
+
             <button
               onClick={() => handleThemeChange('system')}
               className={cn(
@@ -136,8 +120,8 @@ export function AparienciaTab() {
               <Label>Modo Oscuro</Label>
               <p className="text-sm text-muted-foreground">Activar manualmente el modo oscuro</p>
             </div>
-            <Switch 
-              checked={theme === 'dark'}
+            <Switch
+              checked={currentTheme === 'dark'}
               onCheckedChange={(checked) => handleThemeChange(checked ? 'dark' : 'light')}
             />
           </div>
@@ -165,7 +149,7 @@ export function AparienciaTab() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             {/* Vista previa */}
             <div className="rounded-lg border p-4 bg-muted/30">
               <p className="text-sm text-muted-foreground mb-2">Vista previa:</p>
@@ -200,7 +184,7 @@ export function AparienciaTab() {
                 </button>
               ))}
             </div>
-            
+
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
                 <strong>⚠️ Nota:</strong> Los cambios de color se guardan pero requieren configuración adicional en el sistema para aplicarse completamente.
@@ -220,7 +204,7 @@ export function AparienciaTab() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tema actual:</span>
-              <span className="font-medium">{theme === 'light' ? 'Claro' : theme === 'dark' ? 'Oscuro' : 'Sistema'}</span>
+              <span className="font-medium">{currentTheme === 'light' ? 'Claro' : currentTheme === 'dark' ? 'Oscuro' : 'Sistema'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tamaño de texto:</span>

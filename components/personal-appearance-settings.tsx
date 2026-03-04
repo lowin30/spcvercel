@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -19,9 +20,8 @@ interface PersonalAppearanceSettingsProps {
 
 export function PersonalAppearanceSettings({ userId, initialColorPerfil, initialPreferencias = {} }: PersonalAppearanceSettingsProps) {
   const router = useRouter()
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(
-    (initialPreferencias?.tema as 'light' | 'dark' | 'system') || 'system'
-  )
+  const { theme, setTheme: setNextTheme } = useTheme()
+  const currentTheme = (theme as 'light' | 'dark' | 'system') || 'system'
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>(
     (initialPreferencias?.font_size as 'small' | 'medium' | 'large') || 'medium'
   )
@@ -42,22 +42,13 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
 
   // Aplicar preferencias al montar (desde DB, no localStorage)
   useEffect(() => {
-    applyTheme(theme)
+    // Sincronizar tema desde DB al montar
+    const dbTheme = initialPreferencias?.tema as string
+    if (dbTheme && dbTheme !== theme) {
+      setNextTheme(dbTheme)
+    }
     applyFontSize(fontSize)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const applyTheme = (newTheme: 'light' | 'dark' | 'system') => {
-    const root = document.documentElement
-
-    if (newTheme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      root.classList.remove('light', 'dark')
-      root.classList.add(systemTheme)
-    } else {
-      root.classList.remove('light', 'dark')
-      root.classList.add(newTheme)
-    }
-  }
 
   const applyFontSize = (size: 'small' | 'medium' | 'large') => {
     const root = document.documentElement
@@ -76,8 +67,10 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
   }
 
   const handleThemeChange = async (newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme)
-    applyTheme(newTheme)
+    // Usar next-themes para cambiar el tema (maneja DOM + localStorage)
+    setNextTheme(newTheme)
+    // Sync legacy key
+    localStorage.setItem('theme-mode', newTheme)
 
     // Persistir en DB (reemplaza localStorage)
     const result = await actualizarPreferenciasUsuario({ tema: newTheme })
@@ -158,7 +151,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
               onClick={() => handleThemeChange('light')}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-lg border-2 p-3 md:p-4 transition-all hover:border-primary",
-                theme === 'light' ? "border-primary bg-primary/5" : "border-border"
+                currentTheme === 'light' ? "border-primary bg-primary/5" : "border-border"
               )}
               disabled={saving}
             >
@@ -170,7 +163,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
               onClick={() => handleThemeChange('dark')}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-lg border-2 p-3 md:p-4 transition-all hover:border-primary",
-                theme === 'dark' ? "border-primary bg-primary/5" : "border-border"
+                currentTheme === 'dark' ? "border-primary bg-primary/5" : "border-border"
               )}
               disabled={saving}
             >
@@ -182,7 +175,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
               onClick={() => handleThemeChange('system')}
               className={cn(
                 "flex flex-col items-center gap-2 rounded-lg border-2 p-3 md:p-4 transition-all hover:border-primary",
-                theme === 'system' ? "border-primary bg-primary/5" : "border-border"
+                currentTheme === 'system' ? "border-primary bg-primary/5" : "border-border"
               )}
               disabled={saving}
             >
@@ -198,7 +191,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
               <p className="text-xs md:text-sm text-muted-foreground">Activar manualmente el modo oscuro</p>
             </div>
             <Switch
-              checked={theme === 'dark'}
+              checked={currentTheme === 'dark'}
               onCheckedChange={(checked) => handleThemeChange(checked ? 'dark' : 'light')}
               disabled={saving}
             />
@@ -291,7 +284,7 @@ export function PersonalAppearanceSettings({ userId, initialColorPerfil, initial
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Tema:</span>
               <span className="font-medium">
-                {theme === 'light' ? '☀️ Claro' : theme === 'dark' ? '🌙 Oscuro' : '💻 Sistema'}
+                {currentTheme === 'light' ? '☀️ Claro' : currentTheme === 'dark' ? '🌙 Oscuro' : '💻 Sistema'}
               </span>
             </div>
             <div className="flex justify-between items-center">

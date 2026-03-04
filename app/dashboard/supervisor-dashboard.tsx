@@ -1,273 +1,226 @@
 "use client"
 
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { TaskStatusBadge } from "./tasks-badge"
-import { formatDate } from "@/lib/date-utils"
-import { 
-  ClipboardList, 
-  Wallet,
-  TrendingUp, 
-  AlertCircle,
-  HelpCircle,
-  AlertTriangle
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+import {
+  Plus,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  ArrowRight
 } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Definición de tipos
-interface SupervisorStats {
-  tareas_supervisadas?: number;
-  trabajadores_asignados?: number;
-  liquidaciones_propias?: number;
-  // Nuevos KPIs desde vista_finanzas_supervisor
-  visitas_hoy_total?: number;
-  liquidaciones_pendientes?: number;
-  liquidaciones_mes?: number;
-  ganancia_supervisor_mes?: number;
-  gastos_sin_comprobante_total?: number;
-  gastos_no_liquidados?: number;
-  jornales_no_liquidados?: number;
-  gastos_no_liquidados_semana?: number;
-  jornales_pendientes_semana?: number;
-  monto_jornales_pendientes_semana?: number;
-  jornales_pendientes_mayor_7d?: number;
-  monto_jornales_pendientes_mayor_7d?: number;
-  presupuestos_base_total?: number;
-  presupuestos_base_monto_total?: number;
-}
+// Importar Types y el Action Server
+import type { TareaEnriquecida } from "./dashboard-supervisor.actions"
 
-interface Task {
-  id: string | number;
-  titulo?: string;
-  estado_tarea?: string;
-  id_estado_nuevo?: string | number;
-  fecha_visita?: string;
-  created_at?: string;
-  estados?: {
-    nombre?: string;
-    color?: string;
+// Importar Los Sub-Drawers (Modal Tools)
+import { CrearPBTool } from "./components/tools/CrearPBTool"
+import { GastoRapidoTool } from "./components/tools/GastoRapidoTool"
+import { GlowCard } from "./components/ui-platinum/GlowCard"
+import { PremiumHeader } from "./components/ui-platinum/PremiumHeader"
+import Link from "next/link"
+
+export function SupervisorDashboard({ initialData }: { initialData: any }) {
+  // Estado para los Modal Tools
+  const [pbToolOpen, setPbToolOpen] = useState(false);
+  const [gastoToolOpen, setGastoToolOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TareaEnriquecida | null>(null);
+
+  // Parsear la info inyectada desde el Layout
+  const bloques = initialData?.bloques || { bloque1: [], bloque2: [], bloque3: [] };
+  const kpis = initialData?.kpis || {};
+
+  // Handlers para abrir modales
+  const handleOpenCrearPB = (tarea: TareaEnriquecida) => {
+    setSelectedTask(tarea);
+    setPbToolOpen(true);
   }
-}
 
-interface Stats {
-  total_edificios?: number;
-  total_contactos?: number;
-  total_administradores?: number;
-  tareas_activas?: number;
-}
+  const handleOpenGasto = (tarea: TareaEnriquecida) => {
+    setSelectedTask(tarea);
+    setGastoToolOpen(true);
+  }
 
-interface SupervisorDashboardProps {
-  stats?: Stats;
-  supervisorStats?: SupervisorStats;
-  recentTasks?: Task[];
-}
-
-// Componente específico para Supervisor
-export function SupervisorDashboard({ stats, supervisorStats, recentTasks }: SupervisorDashboardProps) {
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Panel de Gestión */}
-        <Card className="border shadow-sm">
-          <CardHeader className="bg-green-50 dark:bg-green-400/10 border-b">
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <ClipboardList className="h-5 w-5" /> Gestión de Tareas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Tareas Supervisadas</p>
-                <p className="text-2xl font-bold">{supervisorStats?.tareas_supervisadas || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Trabajadores</p>
-                <p className="text-2xl font-bold">{supervisorStats?.trabajadores_asignados || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Liquidaciones</p>
-                <p className="text-2xl font-bold">{supervisorStats?.liquidaciones_propias || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Visitas Hoy</p>
-                <p className="text-2xl font-bold text-sky-600">{supervisorStats?.visitas_hoy_total || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Listas para liquidar</p>
-                <p className="text-2xl font-bold text-purple-600">{supervisorStats?.liquidaciones_pendientes || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Liquidaciones (Mes)</p>
-                <p className="text-2xl font-bold text-emerald-600">{supervisorStats?.liquidaciones_mes || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Ganancia Sup. (Mes)</p>
-                <p className="text-2xl font-bold text-blue-600">${supervisorStats?.ganancia_supervisor_mes?.toLocaleString() || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Gastos sin Comprobante</p>
-                <p className="text-2xl font-bold text-red-600">{supervisorStats?.gastos_sin_comprobante_total || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Jornales 7d+</p>
-                <p className="text-2xl font-bold">{supervisorStats?.jornales_pendientes_mayor_7d || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Monto Jornales 7d+</p>
-                <p className="text-2xl font-bold text-amber-600">${supervisorStats?.monto_jornales_pendientes_mayor_7d?.toLocaleString() || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Gasto Semana</p>
-                <p className="text-2xl font-bold">${supervisorStats?.gastos_no_liquidados_semana?.toLocaleString() || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Jornal Semana</p>
-                <p className="text-2xl font-bold">${supervisorStats?.monto_jornales_pendientes_semana?.toLocaleString() || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="text-sm text-muted-foreground cursor-help flex items-center gap-1">
-                        PB (Cantidad) <HelpCircle className="h-3 w-3" />
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Presupuestos Base creados</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <p className="text-2xl font-bold">{supervisorStats?.presupuestos_base_total || 0}</p>
-              </div>
-              <div className="space-y-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="text-sm text-muted-foreground cursor-help flex items-center gap-1">
-                        PB (Monto) <HelpCircle className="h-3 w-3" />
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Monto total de Presupuestos Base</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <p className="text-2xl font-bold">${supervisorStats?.presupuestos_base_monto_total?.toLocaleString() || 0}</p>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-between gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/tareas" className="w-full">
-                  <ClipboardList className="h-4 w-4 mr-2" /> Ver Tareas
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/liquidaciones" className="w-full">
-                  <Wallet className="h-4 w-4 mr-2" /> Ver Liquidaciones
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="flex flex-col gap-8 pb-32 w-full max-w-lg mx-auto md:max-w-4xl pt-4">
 
-        {/* Acciones Rápidas */}
-        <Card className="border shadow-sm">
-          <CardHeader className="bg-blue-50 dark:bg-blue-400/10 border-b">
-            <CardTitle className="flex items-center gap-2 text-foreground">
-              <TrendingUp className="h-5 w-5" /> Acciones Rápidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid gap-3">
-              <Button asChild>
-                <Link href="/dashboard/presupuestos-base/nuevo">
-                  Crear Presupuesto Base
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/trabajadores/registro-dias">
-                  Seguimiento de Trabajadores
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/contactos">
-                  Gestionar Contactos
-                </Link>
-              </Button>
+      {/* 1. HEADER PREMIUM HUD */}
+      <PremiumHeader
+        gananciaMes={kpis.ganancia_supervisor_mes || 0}
+        liquidacionesPendientes={kpis.liquidaciones_pendientes || 0}
+      />
+
+      {/* 2. OPERACIONES CRITICAS (RADAR) */}
+      <div className="flex flex-col gap-10">
+
+        {/* BLOQUE 1: FRENADA POR MI (Urgencia Maxima) */}
+        {bloques.bloque1.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-black text-rose-600 dark:text-rose-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                Accion Requerida - {bloques.bloque1.length}
+              </h3>
             </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Alertas y Notificaciones */}
-      <div className="space-y-3">
-        <h2 className="text-xl font-semibold">Alertas y Notificaciones</h2>
-        {supervisorStats?.jornales_pendientes_mayor_7d ? supervisorStats.jornales_pendientes_mayor_7d > 0 && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>⚠️ Jornales pendientes (7d+)</AlertTitle>
-            <AlertDescription>
-              Tienes {supervisorStats.jornales_pendientes_mayor_7d} jornales sin liquidar con más de 7 días.
-              {supervisorStats.monto_jornales_pendientes_mayor_7d && (
-                <span className="block mt-1 font-semibold">
-                  Monto total: ${supervisorStats.monto_jornales_pendientes_mayor_7d.toLocaleString()}
-                </span>
-              )}
-              <Link href="/dashboard/liquidaciones/nueva" className="ml-2 underline font-semibold inline-block mt-2">
-                Liquidar ahora →
-              </Link>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </div>
+            <div className="flex flex-col gap-4">
+              {bloques.bloque1.map((tarea: TareaEnriquecida) => (
+                <GlowCard key={tarea.id} glowColor="rose" intensity="high" className="group">
+                  <div className="p-5 flex flex-col gap-5">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-rose-500/60 tracking-wider uppercase">{tarea.code_tarea}</span>
+                        <h4 className="text-xl font-black text-foreground leading-none tracking-tight group-hover:text-rose-600 dark:group-hover:text-rose-300 transition-colors">
+                          {tarea.titulo}
+                        </h4>
+                      </div>
+                      {tarea.dias_inactivo > 5 && (
+                        <div className="px-2 py-1 bg-rose-100 dark:bg-rose-500/20 border border-rose-300 dark:border-rose-500/30 rounded-lg">
+                          <span className="text-[10px] font-black text-rose-600 dark:text-rose-400">{tarea.dias_inactivo}D</span>
+                        </div>
+                      )}
+                    </div>
 
-      {/* Tareas supervisadas */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Tareas Supervisadas</h2>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/dashboard/tareas">Ver todas</Link>
-          </Button>
-        </div>
-        <div className="rounded-lg border">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-2 text-left font-medium">Título</th>
-                  <th className="px-4 py-2 text-left font-medium">Estado</th>
-                  <th className="px-4 py-2 text-left font-medium">Fecha de Visita</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTasks && recentTasks.length > 0 ? (
-                  recentTasks.map((task) => (
-                    <tr key={task.id} className="border-b">
-                      <td className="px-4 py-2">
-                        <Link href={`/dashboard/tareas/${task.id}`} className="hover:underline text-blue-600">
-                          {task.titulo}
+                    <Button
+                      size="lg"
+                      className="w-full h-14 font-black bg-rose-600 hover:bg-rose-500 text-white rounded-2xl shadow-lg shadow-rose-600/20 transition-all active:scale-[0.98]"
+                      onClick={() => handleOpenCrearPB(tarea)}
+                    >
+                      <Plus className="mr-2 h-6 w-6" /> CREAR PRESUPUESTO BASE
+                    </Button>
+                  </div>
+                </GlowCard>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* BLOQUE 3: ZONA DE RENTABILIDAD (En Obra - EL MOTOR) */}
+        {bloques.bloque3.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                Motor de Ganancia - {bloques.bloque3.length}
+              </h3>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {bloques.bloque3.map((tarea: TareaEnriquecida) => (
+                <GlowCard key={tarea.id} glowColor="slate" className="group">
+                  <div className="p-5 flex flex-col gap-6">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-muted-foreground tracking-wider uppercase">{tarea.code_tarea}</span>
+                        <h4 className="text-xl font-black text-foreground leading-none tracking-tight group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          {tarea.titulo}
+                        </h4>
+                      </div>
+                      <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-500/5 border-emerald-300 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-black text-[10px]">OBRA</Badge>
+                    </div>
+
+                    {/* Termometro de Rentabilidad Premium */}
+                    <div className="bg-muted/50 dark:bg-black/40 rounded-3xl p-4 border border-border space-y-3">
+                      <div className="flex justify-between items-end">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Margen Neto</span>
+                          <span className={cn(
+                            "text-2xl font-black tabular-nums",
+                            (tarea.margin_libre || 0) < 50000 ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'
+                          )}>
+                            ${(tarea.margin_libre || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Consumo</span>
+                          <div className="text-sm font-black text-foreground">{Math.round(tarea.porcentaje_consumido || 0)}%</div>
+                        </div>
+                      </div>
+
+                      {/* Barra Termica */}
+                      <div className="h-3 w-full bg-slate-200 dark:bg-slate-800/50 rounded-full overflow-hidden p-0.5 border border-border">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-1000",
+                            (tarea.porcentaje_consumido || 0) > 85 ? 'bg-gradient-to-r from-orange-500 to-rose-500' :
+                              (tarea.porcentaje_consumido || 0) > 60 ? 'bg-gradient-to-r from-emerald-500 to-amber-400' :
+                                'bg-gradient-to-r from-emerald-600 to-emerald-400'
+                          )}
+                          style={{ width: `${Math.min(tarea.porcentaje_consumido || 0, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Button
+                        size="lg"
+                        className="flex-1 h-14 font-black bg-foreground text-background hover:bg-foreground/90 rounded-2xl transition-all active:scale-[0.98]"
+                        onClick={() => handleOpenGasto(tarea)}
+                      >
+                        <Plus className="mr-2 h-6 w-6" /> GASTO RAPIDO
+                      </Button>
+
+                      <Button size="lg" variant="outline" className="h-14 w-14 rounded-2xl border-border bg-muted/50 hover:bg-muted group/btn" asChild>
+                        <Link href={`/dashboard/tareas/${tarea.id}`}>
+                          <ArrowRight className="h-6 w-6 text-foreground group-hover/btn:translate-x-1 transition-transform" />
                         </Link>
-                      </td>
-                      <td className="px-4 py-2">
-                        <TaskStatusBadge task={task} />
-                      </td>
-                      <td className="px-4 py-2">{formatDate(task.fecha_visita || "")}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-2 text-center text-muted-foreground">
-                      No hay tareas recientes
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                      </Button>
+                    </div>
+                  </div>
+                </GlowCard>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* BLOQUE 2: FRENADA POR ADMIN (Espera Silenciosa) */}
+        {bloques.bloque2.length > 0 && (
+          <section className="flex flex-col gap-4 opacity-60 hover:opacity-100 transition-opacity duration-300">
+            <h3 className="text-xs font-black text-amber-600/80 dark:text-amber-500/80 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
+              <Clock className="h-3.5 w-3.5" />
+              Tuberia Administrativa - {bloques.bloque2.length}
+            </h3>
+
+            <div className="grid grid-cols-1 gap-3">
+              {bloques.bloque2.map((tarea: TareaEnriquecida) => (
+                <div key={tarea.id} className="relative group overflow-hidden rounded-2xl border border-border bg-muted/30 p-4 flex justify-between items-center transition-all hover:bg-muted/50">
+                  <div className="flex flex-col truncate pr-4">
+                    <span className="text-[10px] font-black text-amber-600/60 dark:text-amber-500/60 uppercase tracking-widest">{tarea.code_tarea}</span>
+                    <h4 className="text-sm font-bold text-foreground truncate">{tarea.titulo}</h4>
+                  </div>
+                  <div className="px-2 py-1 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 rounded-lg">
+                    <span className="text-[10px] font-black text-amber-700 dark:text-amber-500 uppercase">{tarea.estado_nombre}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
       </div>
-    </>
-  );
+
+      {/* --- RENDERIZADO DE MODALS INVISIBLES (Drawers Tools) --- */}
+      {selectedTask && (
+        <>
+          <CrearPBTool
+            tareaId={selectedTask.id}
+            codeTarea={selectedTask.code_tarea}
+            diasInactivo={selectedTask.dias_inactivo}
+            open={pbToolOpen}
+            onOpenChange={setPbToolOpen}
+          />
+          <GastoRapidoTool
+            tareaId={selectedTask.id}
+            codeTarea={selectedTask.code_tarea}
+            marginLibre={selectedTask.margin_libre || 0}
+            open={gastoToolOpen}
+            onOpenChange={setGastoToolOpen}
+          />
+        </>
+      )}
+
+    </div>
+  )
 }

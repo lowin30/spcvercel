@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase-client"
 import { getDashboardStats } from "./actions"
+// Importación del nuevo Server Action exclusivo para Supervisor
+import { getDashboardSupervisorData } from "./dashboard-supervisor.actions"
 import { formatDate } from "@/lib/date-utils"
 import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
 import { TaskStatusBadge } from "./tasks-badge"
@@ -50,7 +52,7 @@ export default function DashboardPage() {
 
   // Estados específicos por rol
   const [financialStats, setFinancialStats] = useState<any>(null) // Para admin
-  const [supervisorStats, setSupervisorStats] = useState<any>(null) // Para supervisor
+  const [supervisorInitialData, setSupervisorInitialData] = useState<any>(null); // Nueva Data para Supervisor Platinum
   const [trabajadorStats, setTrabajadorStats] = useState<any>(null) // Para trabajador
   const [salarioDiarioTrabajador, setSalarioDiarioTrabajador] = useState<number>(0) // Salario del trabajador
 
@@ -64,34 +66,55 @@ export default function DashboardPage() {
           return
         }
 
-        // Usar Server Action para obtener datos (lee el JWT automáticamente)
-        const { stats: dashboardStats, roleStats, userDetails: userData, error: serverError } = await getDashboardStats()
+        // Obtener usuario actual rápido para saber el rol
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (!authUser) {
+          setError("No autenticado")
+          return
+        }
 
-        if (serverError || !userData) {
-          console.error('spc: error server side', serverError)
-          setError("no se pudieron cargar los datos del usuario")
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('id, rol, nombre')
+          .eq('id', authUser.id)
+          .maybeSingle()
+
+        if (!userData) {
+          setError("Usuario no encontrado")
           return
         }
 
         setUserDetails(userData)
-        setStats(dashboardStats)
 
-        // Hidratar estadísticas según el rol del usuario desde roleStats
-        if (userData.rol === 'admin' && roleStats) {
-          setFinancialStats({
-            ...roleStats,
-            presupuestos_activos: roleStats.presupuestos_finales_total || 0, // Mapeo de nombre de columna
-          })
-        } else if (userData.rol === 'supervisor' && roleStats) {
-          setSupervisorStats({
-            ...roleStats,
-            tareas_supervisadas: roleStats.tareas_supervisadas_total || 0, // Mapeo de nombre de columna
-          })
-        } else if (userData.rol === 'trabajador' && roleStats) {
-          setTrabajadorStats({
-            ...roleStats,
-            mis_tareas: roleStats.tareas_asignadas_total || 0, // Mapeo de nombre de columna
-          })
+        // Branching de carga de datos según ROL
+        if (userData.rol === 'supervisor') {
+          // Carga Platinum exclusiva para supervisor
+          const superData = await getDashboardSupervisorData()
+          if (!superData.success) {
+            setError("Error cargando Súper Vista: " + superData.error)
+          } else {
+            setSupervisorInitialData(superData)
+          }
+        } else {
+          // Carga Clásica para Admin y Trabajador
+          const { stats: dashboardStats, roleStats, error: serverError } = await getDashboardStats()
+          if (serverError) {
+            setError("no se pudieron cargar las estadísticas generales")
+            return
+          }
+          setStats(dashboardStats)
+
+          if (userData.rol === 'admin' && roleStats) {
+            setFinancialStats({
+              ...roleStats,
+              presupuestos_activos: roleStats.presupuestos_finales_total || 0,
+            })
+          } else if (userData.rol === 'trabajador' && roleStats) {
+            setTrabajadorStats({
+              ...roleStats,
+              mis_tareas: roleStats.tareas_asignadas_total || 0,
+            })
+          }
         }
 
         // Obtener tareas recientes filtradas por rol
@@ -265,10 +288,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-
-      </div>
+      {userDetails?.rol !== 'supervisor' && (
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+        </div>
+      )}
 
       {/* Mostrar interfaz específica según el rol del usuario */}
       {userDetails?.rol === 'admin' && (
@@ -282,9 +306,7 @@ export default function DashboardPage() {
 
       {userDetails?.rol === 'supervisor' && (
         <SupervisorDashboard
-          stats={stats ?? undefined}
-          supervisorStats={supervisorStats}
-          recentTasks={recentTasks}
+          initialData={supervisorInitialData}
         />
       )}
 

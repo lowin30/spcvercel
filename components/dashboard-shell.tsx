@@ -1,6 +1,8 @@
 "use client"
 
 import type React from "react"
+import { useEffect } from "react"
+import { useTheme } from "next-themes"
 
 import { DashboardNav } from "@/components/dashboard-nav"
 import { MobileNav } from "@/components/mobile-nav"
@@ -29,25 +31,22 @@ export function DashboardShell({ children, userDetails }: DashboardShellProps) {
     ? nombre.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : userDetails?.email?.[0]?.toUpperCase() || '?'
 
-  // Aplicar preferencias del usuario al montar
-  if (typeof window !== 'undefined' && userDetails?.preferencias) {
-    const prefs = userDetails.preferencias
-    if (prefs.tema) {
-      const root = document.documentElement
-      if (prefs.tema === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-        root.classList.remove('light', 'dark')
-        root.classList.add(systemTheme)
-      } else {
-        root.classList.remove('light', 'dark')
-        root.classList.add(prefs.tema)
+  const { setTheme } = useTheme()
+
+  // Sincronizar preferencias del usuario desde DB al montar (UNA SOLA VEZ)
+  // Luego next-themes toma el control total del tema
+  useEffect(() => {
+    if (userDetails?.preferencias) {
+      const prefs = userDetails.preferencias
+      if (prefs.tema) {
+        setTheme(prefs.tema) // Usar next-themes, NO classList directamente
+      }
+      if (prefs.font_size) {
+        const sizes: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
+        document.documentElement.style.fontSize = sizes[prefs.font_size] || '16px'
       }
     }
-    if (prefs.font_size) {
-      const sizes: Record<string, string> = { small: '14px', medium: '16px', large: '18px' }
-      document.documentElement.style.fontSize = sizes[prefs.font_size] || '16px'
-    }
-  }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div

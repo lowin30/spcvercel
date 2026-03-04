@@ -1,5 +1,6 @@
 "use client"
 
+import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 import { Moon, Sun, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -7,28 +8,22 @@ import { actualizarPreferenciasUsuario } from "@/app/actions/perfil-actions"
 import { useToast } from "@/components/ui/use-toast"
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const { toast } = useToast()
 
-  // Sincronizar con el estado real del DOM al montar
   useEffect(() => {
     setMounted(true)
-    const isDark = document.documentElement.classList.contains('dark')
-    setTheme(isDark ? 'dark' : 'light')
   }, [])
 
   const toggleTheme = async () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light'
+    const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark'
 
-    // 1. Optimistic UI change
+    // 1. Cambiar tema via next-themes (maneja DOM + localStorage automaticamente)
     setTheme(newTheme)
-    const root = document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(newTheme)
 
-    // Fallback para CSS variables o legacy code
+    // Sync legacy localStorage key para compatibilidad con apariencia-tab
     localStorage.setItem('theme-mode', newTheme)
 
     // 2. Persistir en DB (Background)
@@ -36,7 +31,7 @@ export function ThemeToggle() {
     try {
       const result = await actualizarPreferenciasUsuario({ tema: newTheme })
       if (!result.ok) {
-        console.warn("No se pudo persistir el tema en la DB, pero se aplicó localmente.")
+        console.warn("No se pudo persistir el tema en la DB, pero se aplico localmente.")
       }
     } catch (err) {
       console.error("Error al guardar tema:", err)
@@ -56,7 +51,7 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       className="relative hover:bg-primary/10 transition-colors"
       disabled={isUpdating}
-      title={theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'}
+      title={resolvedTheme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'}
     >
       <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
       <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-blue-400" />
