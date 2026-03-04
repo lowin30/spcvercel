@@ -207,6 +207,7 @@ export function SupervisorDashboard({ initialData }: { initialData: any }) {
           <CrearPBTool
             tareaId={selectedTask.id}
             codeTarea={selectedTask.code_tarea}
+            tituloTarea={selectedTask.titulo}
             diasInactivo={selectedTask.dias_inactivo}
             open={pbToolOpen}
             onOpenChange={setPbToolOpen}
@@ -214,6 +215,7 @@ export function SupervisorDashboard({ initialData }: { initialData: any }) {
           <GastoRapidoTool
             tareaId={selectedTask.id}
             codeTarea={selectedTask.code_tarea}
+            tituloTarea={selectedTask.titulo}
             marginLibre={selectedTask.margin_libre || 0}
             open={gastoToolOpen}
             onOpenChange={setGastoToolOpen}
