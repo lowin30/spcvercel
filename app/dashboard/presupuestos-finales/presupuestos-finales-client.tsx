@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useTransition } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, ListTodo, AlertTriangle, CheckCircle2, LayoutDashboard, FileClock, SendHorizontal, ThumbsUp, Wallet, Ban, Clock, Filter, Building2, User } from "lucide-react"
+import { Search, Plus, ListTodo, AlertTriangle, CheckCircle2, LayoutDashboard, FileClock, SendHorizontal, ThumbsUp, Wallet, Ban, Clock, Filter, Building2, User, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { BudgetList } from "@/components/budget-list"
@@ -52,11 +52,31 @@ export default function PresupuestosFinalesClient({
         [searchParams]
     )
 
+    const [isPending, startTransition] = useTransition()
+
     const updateFilters = (newParams: Record<string, string | null>) => {
-        router.push(`${pathname}?${createQueryString(newParams)}`)
+        startTransition(() => {
+            router.push(`${pathname}?${createQueryString(newParams)}`, { scroll: false })
+        })
     }
 
-    const searchTerm = searchParams.get('query') || ""
+    const searchTermFromUrl = searchParams.get('query') || ""
+    const [localSearchTerm, setLocalSearchTerm] = useState(searchTermFromUrl)
+
+    // Sync local search with URL if URL changes (external navigation)
+    useEffect(() => {
+        setLocalSearchTerm(searchTermFromUrl)
+    }, [searchTermFromUrl])
+
+    // Debounced search logic
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localSearchTerm !== searchTermFromUrl) {
+                updateFilters({ query: localSearchTerm || null })
+            }
+        }, 400) // 400ms debounce
+        return () => clearTimeout(timer)
+    }, [localSearchTerm])
     const activeTab = searchParams.get('tab') || "activas"
     const adminFilter = searchParams.get('adminId') || "todos"
     const edificioFilter = searchParams.get('edificioId') || "todos"
@@ -169,12 +189,16 @@ export default function PresupuestosFinalesClient({
                     <div className="flex flex-col lg:flex-row gap-4">
                         {/* Buscador de Alta Fidelidad */}
                         <div className="relative flex-1 group">
-                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            {isPending ? (
+                                <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary animate-spin" />
+                            ) : (
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            )}
                             <Input
                                 placeholder="Buscar por código, tarea o edificio..."
                                 className="pl-11 h-12 bg-white/80 dark:bg-black/40 border-slate-200 dark:border-slate-800 focus-visible:ring-offset-0 focus-visible:ring-indigo-500/30 transition-all rounded-xl shadow-inner-sm"
-                                value={searchTerm}
-                                onChange={(e) => updateFilters({ query: e.target.value })}
+                                value={localSearchTerm}
+                                onChange={(e) => setLocalSearchTerm(e.target.value)}
                             />
                         </div>
 
