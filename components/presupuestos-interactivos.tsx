@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
-import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X } from "lucide-react"
+import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X, Pencil, Zap, Handshake } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
 import { toast as sonnerToast } from "sonner"
@@ -83,13 +83,6 @@ export function PresupuestosInteractivos({
   const [showRechazarDialog, setShowRechazarDialog] = useState(false)
   const [observacionRechazo, setObservacionRechazo] = useState("")
   const [presupuestoARechazar, setPresupuestoARechazar] = useState<PresupuestoType | null>(null)
-
-  // Estados para el modal de creación rápida
-  const [showCrearRapido, setShowCrearRapido] = useState(false)
-  const [materiales, setMateriales] = useState("")
-  const [manoObra, setManoObra] = useState("")
-  const [notaInterna, setNotaInterna] = useState("")
-  const [isCreando, setIsCreando] = useState(false)
 
   // Sync state with props when they change (after router.refresh)
   React.useEffect(() => {
@@ -229,94 +222,7 @@ export function PresupuestosInteractivos({
     }
   }
 
-  // Función para crear presupuesto base rápidamente
-  const handleCrearPresupuestoRapido = async () => {
-    if (!materiales || !manoObra) {
-      toast({
-        title: "Información incompleta",
-        description: "Por favor ingresa los valores de materiales y mano de obra",
-        variant: "destructive",
-      })
-      return
-    }
 
-    setIsCreando(true)
-
-    try {
-      const materialesNum = parseFloat(materiales)
-      const manoObraNum = parseFloat(manoObra)
-
-      // Generar un código para el presupuesto base
-      const prefix = "PB"
-      const timestamp = new Date().getTime().toString().slice(-6)
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-      const code = `${prefix}-${timestamp}-${random}`
-
-      // Insertar el presupuesto base vía Server Action (Bridge)
-      const presupuestoData = {
-        id_tarea: tareaId,
-        id_administrador: id_administrador_tarea,
-        id_edificio: id_edificio_tarea,
-        code: code,
-        materiales: materialesNum,
-        mano_obra: manoObraNum,
-        nota_pb: notaInterna,
-        id_supervisor: userId,
-        aprobado: false
-      }
-
-      console.log("CLIENT: Calling createPresupuestoBaseAction with data:", presupuestoData)
-      const res = await createPresupuestoBaseAction(presupuestoData)
-      console.log("CLIENT: Server action response:", res)
-
-      if (!res.success) throw new Error(res.message)
-
-      const data = res.data
-
-      // Actualizar estado local con el nuevo presupuesto
-      if (data) {
-        const nuevoPresupuesto: PresupuestoType = {
-          id: data.id as number,
-          code: data.code as string,
-          tipo: "base",
-          materiales: data.materiales as number,
-          mano_obra: data.mano_obra as number,
-          total: data.total as number,
-          nota_pb: data.nota_pb as string | undefined,
-          created_at: data.created_at as string,
-          aprobado: data.aprobado as boolean | undefined,
-          rechazado: data.rechazado as boolean | undefined
-        }
-
-        setPresupuestoBaseLocal(nuevoPresupuesto)
-
-        // Notificar éxito
-        toast({
-          title: "Presupuesto base creado",
-          description: `Se ha creado el presupuesto base ${code} exitosamente`,
-        })
-
-        // Cerrar el diálogo
-        setShowCrearRapido(false)
-        setMateriales("")
-        setManoObra("")
-        setNotaInterna("")
-
-        // Notificar al componente padre si es necesario
-        if (onPresupuestoChange) onPresupuestoChange()
-      }
-
-    } catch (err) {
-      console.error("Error al crear presupuesto base:", err)
-      toast({
-        title: "Error",
-        description: `No se pudo crear el presupuesto base. ${err instanceof Error ? err.message : ""}`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsCreando(false)
-    }
-  }
 
   // Renderizar badge de estado
   const renderEstadoBadge = (estado: string | null) => {
@@ -355,169 +261,172 @@ export function PresupuestosInteractivos({
       // Mostrar opción para crear presupuesto base si el usuario es admin o supervisor
       if (tipo === "base" && (userRol === "admin" || userRol === "supervisor")) {
         return (
-          <Card className={`${colorClase} border`}>
-            <CardHeader className="py-4">
-              <CardTitle className="text-base">{titulo}</CardTitle>
-            </CardHeader>
-            <CardContent className="py-3 flex justify-center">
-              <Button size="sm" onClick={() => setShowCrearRapido(true)}>
-                <Calculator className="mr-2 h-4 w-4" />
-                Crear presupuesto base
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-3 p-4 rounded-xl border border-blue-100/60 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/40 to-transparent dark:from-blue-950/20 shadow-sm flex flex-col justify-center min-h-[140px]">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                <Calculator className="h-3.5 w-3.5 fill-current" />
+                PRESUPUESTO BASE
+              </h3>
+              <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-300 text-[9px] h-4 px-1.5 font-black rounded-md border-none uppercase tracking-widest">
+                Estimación
+              </Badge>
+            </div>
+            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]" asChild>
+              <Link href={`?action=crear-pb&id_tarea=${tareaId}`}>
+                <Calculator className="mr-1.5 h-4 w-4" />
+                Generar Presupuesto Base
+              </Link>
+            </Button>
+          </div>
         )
       }
 
       // Mostrar opción para crear presupuesto final si hay presupuesto base, no hay presupuesto final, y el usuario es admin o supervisor
       if (tipo === "final" && presupuestoBaseLocal && !presupuestoFinalLocal && (userRol === "admin" || userRol === "supervisor")) {
         return (
-          <Card className={`${colorClase} border`}>
-            <CardHeader className="py-4">
-              <CardTitle className="text-base">{titulo}</CardTitle>
-            </CardHeader>
-            <CardContent className="py-3 flex justify-center">
-              <Button asChild size="sm">
-                {/* URL corregida y parámetros según especificación */}
-                <Link href={`/dashboard/presupuestos-finales/nuevo?tipo=final&id_padre=${presupuestoBaseLocal.id}&id_tarea=${tareaId}`}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Crear Presupuesto Final
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="space-y-3 p-4 rounded-xl border border-indigo-100/60 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/40 to-transparent dark:from-indigo-950/20 shadow-sm flex flex-col justify-center h-full">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                <Zap className="h-3.5 w-3.5 fill-current" />
+                CONTROL PLATINUM
+              </h3>
+              {presupuestoFinalLocal && (
+                <Badge className="bg-indigo-500 text-[9px] h-4 px-1.5 font-black rounded-md border-none text-white">
+                  MODO DIOS
+                </Badge>
+              )}
+            </div>
+
+            {!presupuestoFinalLocal ? (
+              presupuestoBaseLocal?.aprobado ? (
+                <Button asChild size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]">
+                  <Link href={`?action=crear-pf&id_tarea=${tareaId}`}>
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Generar PF Platinum
+                  </Link>
+                </Button>
+              ) : (
+                <div className="text-sm text-center text-muted-foreground p-4 bg-white/60 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 h-full flex items-center justify-center">
+                  Aprueba el PB primero para generar el Control Platinum.
+                </div>
+              )
+            ) : null}
+          </div>
         )
       }
 
       return null
     }
 
-    // Si hay presupuesto, mostrar sus detalles
+    // Si hay presupuesto, mostrar sus detalles (Mismo esqueleto que el final)
+    const isBase = tipo === "base";
+    const accentColor = isBase ? "blue" : "indigo";
+
     return (
-      <Card className={`${colorClase} border`}>
-        <CardHeader className="py-3 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-              {titulo}
-              {renderEstadoBadge(estadoPresupuesto)}
+      <div className={`space-y-3 p-4 rounded-xl border border-${accentColor}-100/60 dark:border-${accentColor}-900/40 bg-gradient-to-br from-${accentColor}-50/40 to-transparent dark:from-${accentColor}-950/20 shadow-sm flex flex-col justify-center h-full`}>
+        <div className="flex items-center justify-between">
+          <h3 className={`text-sm font-black flex items-center gap-1.5 text-${accentColor}-600 dark:text-${accentColor}-400`}>
+            {isBase ? <Calculator className="h-3.5 w-3.5 fill-current" /> : <Zap className="h-3.5 w-3.5 fill-current" />}
+            {isBase ? "PRESUPUESTO BASE" : "CONTROL PLATINUM"}
+          </h3>
+          <Badge className={`bg-${accentColor}-500/20 text-${accentColor}-700 dark:text-${accentColor}-300 text-[9px] h-4 px-1.5 font-black rounded-md border-none uppercase tracking-widest`}>
+            {estadoPresupuesto || "BORRADOR"}
+          </Badge>
+        </div>
 
-              {/* Estado de facturación (solo para presupuesto final) */}
-              {tipo === "final" && presupuesto.tiene_facturas && (
-                <>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    <FileText className="w-3 h-3 mr-1" />
-                    Facturado
-                  </Badge>
-
-                  {presupuesto.facturas_pagadas && (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      <Check className="w-3 h-3 mr-1" />
-                      Pagadas
-                    </Badge>
-                  )}
-                </>
-              )}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {presupuesto.code} • {formatFecha(presupuesto.created_at)}
-            </p>
-          </div>
-          <div className="text-right">
-            {presupuesto.materiales !== undefined && (
-              <div className="text-sm">
-                <span className="font-medium">Materiales:</span>{" "}
-                <span>{formatCurrency(presupuesto.materiales)}</span>
-              </div>
-            )}
-            {presupuesto.mano_obra !== undefined && (
-              <div className="text-sm">
-                <span className="font-medium">Mano de obra:</span>{" "}
-                <span>{formatCurrency(presupuesto.mano_obra)}</span>
-              </div>
-            )}
-            {presupuesto.total && (
-              <div className="mt-1">
-                <span className="text-sm font-medium">Total:</span>
-                <p className="text-base font-semibold">
-                  {formatCurrency(presupuesto.total)}
+        <Card className="border shadow-none bg-white/50 dark:bg-black/20 backdrop-blur-sm overflow-hidden rounded-xl">
+          <CardContent className="p-3.5 space-y-3.5">
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-[10px] font-bold text-muted-foreground tracking-wider">{presupuesto.code}</span>
+                  {presupuesto.aprobado && <Check className="h-3 w-3 text-green-600" />}
+                </div>
+                <p className={`text-xl font-black tracking-tighter text-${accentColor}-700 dark:text-${accentColor}-400 leading-none`}>
+                  {formatCurrency(presupuesto.total || 0)}
                 </p>
               </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="py-3 space-y-3">
-          {/* Observaciones o notas si existen */}
-          {(presupuesto.observaciones_admin || presupuesto.nota_pb) && (
-            <div className="text-sm bg-amber-50 px-3 py-2 rounded-md border border-amber-100 mb-3">
-              <p className="font-medium text-amber-800 mb-1">Notas:</p>
-              <p className="text-amber-700">
-                {presupuesto.observaciones_admin || presupuesto.nota_pb}
-              </p>
-            </div>
-          )}
+              <div className="flex gap-2">
+                {userRol === "admin" && estadoPresupuesto === "pendiente" && (
+                  <>
+                    <BudgetApproveAction
+                      budgetId={presupuesto.id}
+                      tipo={tipo}
+                      tareaId={tareaId}
+                      userRol={userRol}
+                      budgetCode={presupuesto.code}
+                      onSuccess={() => {
+                        if (tipo === "base") {
+                          setPresupuestoBaseLocal({ ...presupuesto, aprobado: true, rechazado: false })
+                        } else {
+                          setPresupuestoFinalLocal({ ...presupuesto, aprobado: true, rechazado: false })
+                        }
+                        if (onPresupuestoChange) onPresupuestoChange()
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg h-8 px-3 text-xs shadow-none"
+                      variant="default"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 rounded-lg dark:bg-red-950/30 dark:border-red-900/50"
+                      onClick={() => {
+                        setPresupuestoARechazar(presupuesto);
+                        setObservacionRechazo("");
+                        setShowRechazarDialog(true);
+                      }}
+                      disabled={isAprobando || isRechazando}
+                      title="Rechazar"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
 
-          {/* Acciones */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Ver presupuesto */}
-            <Button asChild variant="outline" size="sm">
-              <Link href={tipo === "base" ? `/dashboard/presupuestos-base/${presupuesto.id}` : `/dashboard/presupuestos-finales/${presupuesto.id}`}>
-                <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                Ver {tipo === "base" ? "presupuesto base" : "presupuesto final"}
-              </Link>
-            </Button>
-
-            {/* Acciones solo para admin */}
-            {userRol === "admin" && estadoPresupuesto === "pendiente" && (
-              <>
-                <BudgetApproveAction
-                  budgetId={presupuesto.id}
-                  tipo={tipo}
-                  tareaId={tareaId}
-                  userRol={userRol}
-                  budgetCode={presupuesto.code}
-                  onSuccess={() => {
-                    // Actualizar estado local para reflejo inmediato
-                    if (tipo === "base") {
-                      setPresupuestoBaseLocal({
-                        ...presupuesto,
-                        aprobado: true,
-                        rechazado: false,
-                        updated_at: new Date().toISOString()
-                      })
-                    } else {
-                      setPresupuestoFinalLocal({
-                        ...presupuesto,
-                        aprobado: true,
-                        rechazado: false,
-                        updated_at: new Date().toISOString()
-                      })
-                    }
-                    if (onPresupuestoChange) onPresupuestoChange()
-                  }}
-                  className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                  variant="outline"
-                  disabled={isAprobando || isRechazando}
-                />
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-                  onClick={() => {
-                    setPresupuestoARechazar(presupuesto);
-                    setObservacionRechazo("");
-                    setShowRechazarDialog(true);
-                  }}
-                  disabled={isAprobando || isRechazando}
-                >
-                  {isRechazando ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Ban className="mr-1 h-3.5 w-3.5" />}
-                  Rechazar
+                <Button asChild size="sm" variant="outline" className={`h-8 w-8 p-0 rounded-lg hover:bg-${accentColor}-50 border-${accentColor}-100 dark:border-${accentColor}-800 dark:hover:bg-${accentColor}-900/30`}>
+                  <Link href={tipo === "base" ? `/dashboard/presupuestos-base/${presupuesto.id}` : `/dashboard/presupuestos-finales/${presupuesto.id}`}>
+                    <ExternalLink className={`h-3.5 w-3.5 text-${accentColor}-600 dark:text-${accentColor}-400`} />
+                  </Link>
                 </Button>
-              </>
+              </div>
+            </div>
+
+            <div className={`grid grid-cols-2 gap-3 text-center border-t border-${accentColor}-100/80 dark:border-${accentColor}-900/50 pt-3`}>
+              <div className="bg-white/40 dark:bg-black/30 rounded-lg py-1.5">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-0.5">Materiales</span>
+                <span className="text-xs font-bold text-foreground">{formatCurrency(presupuesto.materiales || 0)}</span>
+              </div>
+              <div className="bg-white/40 dark:bg-black/30 rounded-lg py-1.5">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-0.5">Mano de Obra</span>
+                <span className="text-xs font-bold text-foreground">{formatCurrency(presupuesto.mano_obra || 0)}</span>
+              </div>
+            </div>
+
+            {(presupuesto.observaciones_admin || presupuesto.nota_pb) && (
+              <div className={`text-[10px] bg-amber-500/10 dark:bg-amber-500/5 px-2.5 py-2 rounded-lg border border-amber-500/20 text-amber-700 dark:text-amber-400 mt-2 flex gap-1.5`}>
+                <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                <span className="leading-tight">{presupuesto.observaciones_admin || presupuesto.nota_pb}</span>
+              </div>
             )}
-          </div>
-        </CardContent>
-      </Card >
+
+            {isBase && (userRol === "admin" || userRol === "supervisor") ? (
+              <Button asChild className={`w-full bg-${accentColor}-600 hover:bg-${accentColor}-700 text-white font-bold rounded-xl h-10 text-xs shadow-md shadow-${accentColor}-200/50 dark:shadow-none border-none transition-all hover:scale-[1.02] mt-1`}>
+                <Link href={`?edit-pb=${presupuesto.id}`}>
+                  <Calculator className="mr-1.5 h-3.5 w-3.5 fill-white/20" />
+                  Gestionar Planificación
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild className={`w-full bg-${accentColor}-600 hover:bg-${accentColor}-700 text-white font-bold rounded-xl h-10 text-xs shadow-md shadow-${accentColor}-200/50 dark:shadow-none border-none transition-all hover:scale-[1.02] mt-1`}>
+                <Link href={`?edit-pf=${presupuesto.id}`}>
+                  <Zap className="mr-1.5 h-3.5 w-3.5 fill-white/20" />
+                  Gestionar Platinum
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -570,97 +479,104 @@ export function PresupuestosInteractivos({
         </DialogContent>
       </Dialog>
 
-      {/* Modal para creación rápida de presupuesto base */}
-      <Dialog open={showCrearRapido} onOpenChange={setShowCrearRapido}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear presupuesto base</DialogTitle>
-            <DialogDescription>
-              Complete la información para crear un presupuesto base rápidamente.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="materiales">Costo de materiales</Label>
-              <div className="flex items-center">
-                <span className="mr-2">$</span>
-                <Input
-                  id="materiales"
-                  type="number"
-                  placeholder="0.00"
-                  value={materiales}
-                  onChange={(e) => setMateriales(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="manoObra">Costo de mano de obra</Label>
-              <div className="flex items-center">
-                <span className="mr-2">$</span>
-                <Input
-                  id="manoObra"
-                  type="number"
-                  placeholder="0.00"
-                  value={manoObra}
-                  onChange={(e) => setManoObra(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            {materiales && manoObra && (
-              <div className="flex justify-end items-center p-2 bg-blue-50 border border-blue-100 rounded">
-                <span className="mr-2 text-blue-700">Total:</span>
-                <span className="font-semibold text-blue-800">
-                  {formatCurrency(parseFloat(materiales || '0') + parseFloat(manoObra || '0'))}
-                </span>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="notas">Notas internas</Label>
-              <Textarea
-                id="notas"
-                placeholder="Notas adicionales (opcional)"
-                value={notaInterna}
-                onChange={(e) => setNotaInterna(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCrearRapido(false)
-                setMateriales("")
-                setManoObra("")
-                setNotaInterna("")
-              }}
-              disabled={isCreando}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleCrearPresupuestoRapido}
-              disabled={!materiales || !manoObra || isCreando}
-            >
-              {isCreando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-              Crear presupuesto
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <h3 className="text-lg font-semibold">Presupuestos</h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 ${userRol === "admin" ? "md:grid-cols-2" : ""} gap-4`}>
         {/* Presupuesto Base - visible para admins y supervisores */}
         {renderPresupuestoCard(presupuestoBaseLocal, "base")}
 
-        {/* Presupuesto Final - solo visible para admins */}
-        {userRol === "admin" && renderPresupuestoCard(presupuestoFinalLocal, "final")}
+        {userRol === "admin" && (
+          <div className="space-y-3 p-4 rounded-xl border border-indigo-100/60 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/40 to-transparent dark:from-indigo-950/20 shadow-sm flex flex-col justify-center">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                <Zap className="h-3.5 w-3.5 fill-current" />
+                CONTROL PLATINUM
+              </h3>
+              {presupuestoFinalLocal && (
+                <Badge className="bg-indigo-500 text-[9px] h-4 px-1.5 font-black rounded-md border-none text-white">
+                  MODO DIOS
+                </Badge>
+              )}
+            </div>
+
+            {!presupuestoFinalLocal ? (
+              presupuestoBaseLocal?.aprobado ? (
+                <Button asChild size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]">
+                  <Link href={`?action=crear-pf&id_tarea=${tareaId}`}>
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Generar PF Platinum
+                  </Link>
+                </Button>
+              ) : (
+                <div className="text-sm text-center text-muted-foreground p-4 bg-white/60 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
+                  Aprueba el Presupuesto Base primero para generar el Control Platinum.
+                </div>
+              )
+            ) : (
+              <Card className="border shadow-none bg-white/50 dark:bg-black/20 backdrop-blur-sm overflow-hidden rounded-xl">
+                <CardContent className="p-3.5 space-y-3.5">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-bold text-muted-foreground tracking-wider">{presupuestoFinalLocal.code}</span>
+                        {presupuestoFinalLocal.aprobado && <Check className="h-3 w-3 text-green-600" />}
+                      </div>
+                      <p className="text-xl font-black tracking-tighter text-indigo-700 dark:text-indigo-400 leading-none">
+                        {formatCurrency(presupuestoFinalLocal.total || 0)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {!presupuestoFinalLocal.aprobado && (
+                        <BudgetApproveAction
+                          budgetId={presupuestoFinalLocal.id}
+                          tipo="final"
+                          tareaId={tareaId}
+                          userRol={userRol}
+                          budgetCode={presupuestoFinalLocal.code}
+                          onSuccess={() => {
+                            setPresupuestoFinalLocal({
+                              ...presupuestoFinalLocal,
+                              aprobado: true,
+                              rechazado: false,
+                              updated_at: new Date().toISOString()
+                            })
+                            if (onPresupuestoChange) onPresupuestoChange()
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg h-8 px-3 text-xs shadow-none"
+                          variant="default"
+                        />
+                      )}
+                      <Button asChild size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg hover:bg-indigo-50 border-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30">
+                        <Link href={`/dashboard/presupuestos-finales/${presupuestoFinalLocal.id}`}>
+                          <ExternalLink className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-center border-t border-indigo-100/80 dark:border-indigo-900/50 pt-3">
+                    <div className="bg-white/40 dark:bg-black/30 rounded-lg py-1.5">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-0.5">Materiales</span>
+                      <span className="text-xs font-bold text-foreground">{formatCurrency(presupuestoFinalLocal.materiales || 0)}</span>
+                    </div>
+                    <div className="bg-white/40 dark:bg-black/30 rounded-lg py-1.5">
+                      <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-0.5">Mano de Obra</span>
+                      <span className="text-xs font-bold text-foreground">{formatCurrency(presupuestoFinalLocal.mano_obra || 0)}</span>
+                    </div>
+                  </div>
+
+                  <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 text-xs shadow-md shadow-indigo-200/50 dark:shadow-none border-none transition-all hover:scale-[1.02]">
+                    <Link href={`?edit-pf=${presupuestoFinalLocal.id}`}>
+                      <Zap className="mr-1.5 h-3.5 w-3.5 fill-white/20" />
+                      Gestionar Platinum
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
