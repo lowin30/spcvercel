@@ -7,7 +7,7 @@ import { ClipboardCheck, CalendarPlus, Zap, LayoutGrid, TrendingUp, Users, Brief
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ToolPaseLista from '@/components/tools/tool-pase-lista'
 import ToolPlanificador from '@/components/tools/tool-planificador'
-import ToolRegistroRapido from '@/components/tools/tool-registro-rapido'
+import { ToolJornalPlatinum } from '@/components/platinum/tools/ToolJornalPlatinum'
 import type { TareaConTrabajadores, PaseListaItem, ResumenPlanificacion } from '@/lib/tools/partes/types'
 
 interface RegistroDiasClientProps {
@@ -180,9 +180,10 @@ export default function RegistroDiasClient({
                             animate={{ opacity: 1, y: 0 }}
                             className="rounded-2xl border border-border/50 bg-background/80 backdrop-blur-sm p-4 shadow-sm"
                         >
-                            <ToolRegistroRapido
+                            <ToolJornalPlatinum
                                 tareas={tareas}
-                                usuarioActual={userDetails}
+                                userRole={userDetails.rol}
+                                userId={userDetails.id}
                                 onSuccess={refresh}
                             />
                         </motion.div>

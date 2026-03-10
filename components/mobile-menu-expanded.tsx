@@ -164,8 +164,9 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
             alt="SPC"
             width={48}
             height={48}
-            className="rounded-full w-12 h-12 border-2 border-amber-500/50 object-cover"
+            className="rounded-full w-20 h-20 border-2 border-primary/20 object-cover shadow-lg"
           />
+
         </div>
 
         <div>
@@ -190,8 +191,9 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
             return (
               <Link
-                key={item.href}
+                key={`mobile-expanded-${item.href}-${index}`}
                 href={item.href}
+
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary relative",
                   isActive ? "bg-muted" : "transparent",

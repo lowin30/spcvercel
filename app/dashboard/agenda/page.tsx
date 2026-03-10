@@ -1,14 +1,11 @@
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
-import { getAgendaData } from "./loader"
+import { getAgendaDataV2 } from "@/lib/tools/partes/loader"
 import AgendaPageClient from "./agenda-page-client"
+import { format, startOfMonth, endOfMonth } from "date-fns"
 
 /**
- * AGENDA PAGE v109.0 (Server-Side Data Loading)
- * Server Component que:
- * 1. Valida la sesión con Descope
- * 2. Lee searchParams para filtros
- * 3. Precarga tareas, edificios, estados y usuarios según rol
- * 4. Pasa datos al Client Component
+ * AGENDA PAGE PLATINUM v2
+ * Server Component que centraliza la orquestación de datos
  */
 export default async function AgendaPage({
   searchParams,
@@ -16,27 +13,26 @@ export default async function AgendaPage({
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const user = await validateSessionAndGetUser()
+  const resolvedParams = (await (searchParams || Promise.resolve({}))) as any
 
-  const resolvedParams = await (searchParams || Promise.resolve({}))
+  // Rango de fechas por defecto (mes actual)
+  const hoy = new Date()
+  const fechaDesde = resolvedParams?.desde || format(startOfMonth(hoy), 'yyyy-MM-dd')
+  const fechaHasta = resolvedParams?.hasta || format(endOfMonth(hoy), 'yyyy-MM-dd')
 
-  const { tareas, tareasCalendar, edificios, estadosTareas, usuarios } = await getAgendaData({
+  const data = await getAgendaDataV2({
     userId: user.id,
     userRol: user.rol,
-    edificioId: resolvedParams?.edificio as string | undefined,
-    estadoTarea: resolvedParams?.estado as string | undefined,
-    fechaDesde: resolvedParams?.desde as string | undefined,
-    fechaHasta: resolvedParams?.hasta as string | undefined,
-    asignadoId: resolvedParams?.asignado as string | undefined,
+    edificioId: resolvedParams?.edificio ? Number(resolvedParams.edificio) : undefined,
+    trabajadorId: resolvedParams?.asignado as string | undefined,
+    fechaDesde: fechaDesde as string,
+    fechaHasta: fechaHasta as string
   })
 
   return (
     <AgendaPageClient
       userDetails={{ id: user.id, email: user.email, rol: user.rol }}
-      initialTareas={tareas}
-      initialTareasCalendar={tareasCalendar}
-      initialEdificios={edificios}
-      initialEstadosTareas={estadosTareas}
-      initialUsuarios={usuarios}
+      data={data}
     />
   )
 }

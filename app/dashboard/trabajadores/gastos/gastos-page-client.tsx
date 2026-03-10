@@ -4,12 +4,18 @@ import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProcesadorImagen } from "@/components/procesador-imagen"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { UserSessionData } from "@/lib/types"
-import { Plus, Loader2, X, ArrowLeft } from "lucide-react"
+import { KPICard } from "@/components/platinum/kpi-card"
+import { PageHeader } from "@/components/platinum/page-header"
+import { ToolGastoPlatinum } from "@/components/platinum/tools/ToolGastoPlatinum"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Plus, Loader2, X, ArrowLeft, Building2, History, Wallet, Clock, AlertCircle, Calendar as CalendarIcon, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { Badge } from "@/components/ui/badge"
+import { motion, AnimatePresence } from "framer-motion"
+import { UserSessionData } from "@/lib/types"
+
 
 interface Tarea {
     id: number
@@ -74,14 +80,10 @@ export default function GastosPageClient({
     initialLastLiquidation,
     initialTareas,
 }: GastosPageClientProps) {
-    const [mostrarFormulario, setMostrarFormulario] = useState(false)
-    const [tareaSeleccionada, setTareaSeleccionada] = useState<string>("")
-    const [historyFilter, setHistoryFilter] = useState<'all' | 'this_week' | 'pending_previous'>('all')
-    const [tabActual, setTabActual] = useState('resumen')
     const router = useRouter()
 
-    // Computed: week/pending stats
-    const { weekStats, pendingStats, filteredHistory } = useMemo(() => {
+    // ... (logic remains similar, focusing on the UI revamp)
+    const { weekStats, pendingStats } = useMemo(() => {
         const hoy = new Date()
         const inicioSemana = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - hoy.getDay() + (hoy.getDay() === 0 ? -6 : 1))
         inicioSemana.setHours(0, 0, 0, 0)
@@ -89,183 +91,109 @@ export default function GastosPageClient({
         const gastosDeLaSemana = initialGastos.filter(g => new Date(g.fecha_gasto) >= inicioSemana)
         const gastosPendientesAnteriores = initialGastos.filter(g => new Date(g.fecha_gasto) < inicioSemana)
 
-        const week = {
-            total: gastosDeLaSemana.reduce((sum, g) => sum + g.monto, 0),
-            count: gastosDeLaSemana.length
+        return {
+            weekStats: { total: gastosDeLaSemana.reduce((sum, g) => sum + g.monto, 0), count: gastosDeLaSemana.length },
+            pendingStats: { total: gastosPendientesAnteriores.reduce((sum, g) => sum + g.monto, 0), count: gastosPendientesAnteriores.length }
         }
+    }, [initialGastos])
 
-        const pending = {
-            total: gastosPendientesAnteriores.reduce((sum, g) => sum + g.monto, 0),
-            count: gastosPendientesAnteriores.length
-        }
-
-        let filtered: GastoCompleto[]
-        if (historyFilter === 'this_week') {
-            filtered = gastosDeLaSemana
-        } else if (historyFilter === 'pending_previous') {
-            filtered = gastosPendientesAnteriores
-        } else {
-            filtered = initialGastos
-        }
-
-        return { weekStats: week, pendingStats: pending, filteredHistory: filtered }
-    }, [initialGastos, historyFilter])
-
-    // Computed: jornales stats
     const { totalJornales, totalDias } = useMemo(() => {
-        const totalMonto = initialJornales.reduce((sum, parte) => {
-            const monto = parte.tipo_jornada === 'dia_completo' ? parte.salario_diario : parte.salario_diario * 0.5
-            return sum + monto
-        }, 0)
-
-        const totalD = initialJornales.reduce((sum, parte) => {
-            return sum + (parte.tipo_jornada === 'dia_completo' ? 1 : 0.5)
-        }, 0)
-
-        return { totalJornales: totalMonto, totalDias: totalD }
+        const monto = initialJornales.reduce((sum, p) => sum + (p.tipo_jornada === 'dia_completo' ? p.salario_diario : p.salario_diario * 0.5), 0)
+        const dias = initialJornales.reduce((sum, p) => sum + (p.tipo_jornada === 'dia_completo' ? 1 : 0.5), 0)
+        return { totalJornales: monto, totalDias: dias }
     }, [initialJornales])
 
-    // Computed: desglose por tarea
     const desglosePorTarea = useMemo(() => {
         const tareaMap: Record<number, ResumenPorTarea> = {}
-
-        initialGastos.forEach(gasto => {
-            if (!tareaMap[gasto.id_tarea]) {
-                tareaMap[gasto.id_tarea] = {
-                    id_tarea: gasto.id_tarea,
-                    titulo_tarea: gasto.titulo_tarea,
-                    code_tarea: gasto.code_tarea,
-                    gastos_monto: 0, gastos_count: 0,
-                    jornales_monto: 0, jornales_dias: 0,
-                    total_tarea: 0
-                }
-            }
-            tareaMap[gasto.id_tarea].gastos_monto += gasto.monto
-            tareaMap[gasto.id_tarea].gastos_count += 1
+        initialGastos.forEach(g => {
+            if (!tareaMap[g.id_tarea]) tareaMap[g.id_tarea] = { id_tarea: g.id_tarea, titulo_tarea: g.titulo_tarea, code_tarea: g.code_tarea, gastos_monto: 0, gastos_count: 0, jornales_monto: 0, jornales_dias: 0, total_tarea: 0 }
+            tareaMap[g.id_tarea].gastos_monto += g.monto
+            tareaMap[g.id_tarea].gastos_count++
         })
-
-        initialJornales.forEach(parte => {
-            if (!tareaMap[parte.id_tarea]) {
-                tareaMap[parte.id_tarea] = {
-                    id_tarea: parte.id_tarea,
-                    titulo_tarea: parte.titulo_tarea,
-                    code_tarea: parte.code_tarea,
-                    gastos_monto: 0, gastos_count: 0,
-                    jornales_monto: 0, jornales_dias: 0,
-                    total_tarea: 0
-                }
-            }
-            const monto = parte.tipo_jornada === 'dia_completo' ? parte.salario_diario : parte.salario_diario * 0.5
-            const dias = parte.tipo_jornada === 'dia_completo' ? 1 : 0.5
-            tareaMap[parte.id_tarea].jornales_monto += monto
-            tareaMap[parte.id_tarea].jornales_dias += dias
+        initialJornales.forEach(p => {
+            if (!tareaMap[p.id_tarea]) tareaMap[p.id_tarea] = { id_tarea: p.id_tarea, titulo_tarea: p.titulo_tarea, code_tarea: p.code_tarea, gastos_monto: 0, gastos_count: 0, jornales_monto: 0, jornales_dias: 0, total_tarea: 0 }
+            const m = p.tipo_jornada === 'dia_completo' ? p.salario_diario : p.salario_diario * 0.5
+            const d = p.tipo_jornada === 'dia_completo' ? 1 : 0.5
+            tareaMap[p.id_tarea].jornales_monto += m
+            tareaMap[p.id_tarea].jornales_dias += d
         })
-
-        return Object.values(tareaMap)
-            .map(tarea => ({ ...tarea, total_tarea: tarea.gastos_monto + tarea.jornales_monto }))
-            .sort((a, b) => b.total_tarea - a.total_tarea)
+        return Object.values(tareaMap).map(t => ({ ...t, total_tarea: t.gastos_monto + t.jornales_monto })).sort((a, b) => b.total_tarea - a.total_tarea)
     }, [initialGastos, initialJornales])
 
     return (
-        <div className="container mx-auto py-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">{mostrarFormulario ? 'Registrar Nuevo Gasto' : 'Gestión de Gastos'}</h1>
-                    {!mostrarFormulario && (
-                        <p className="text-muted-foreground mt-1">Registra tus gastos con comprobantes</p>
-                    )}
-                </div>
-                {!mostrarFormulario && (
-                    <Button
-                        onClick={() => setMostrarFormulario(true)}
-                        className="flex items-center gap-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Registrar Gasto
-                    </Button>
-                )}
+        <div className="space-y-4 pb-20">
+            {/* Header Platinum */}
+            <PageHeader
+                title="Mis"
+                highlight="Gastos"
+                subtitle="Seguimiento de comprobantes, jornales y liquidaciones pendientes."
+            />
+
+            {/* Dashboard KPIs */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+                <KPICard
+                    label="Semana Actual"
+                    value={`$${weekStats.total.toLocaleString()}`}
+                    icon={Wallet}
+                    color="text-green-500"
+                    bg="bg-green-500/10"
+                    description={`${weekStats.count} gastos`}
+                />
+                <KPICard
+                    label="Pendientes"
+                    value={`$${pendingStats.total.toLocaleString()}`}
+                    icon={AlertCircle}
+                    color="text-amber-500"
+                    bg="bg-amber-500/10"
+                    description={`${pendingStats.count} anteriores`}
+                />
+                <KPICard
+                    label="Jornales"
+                    value={`$${totalJornales.toLocaleString()}`}
+                    icon={Clock}
+                    color="text-violet-500"
+                    bg="bg-violet-500/10"
+                    description="Previstos"
+                />
+                <KPICard
+                    label="Días Laborados"
+                    value={totalDias}
+                    icon={CalendarIcon}
+                    color="text-blue-500"
+                    bg="bg-blue-500/10"
+                    description="Total periodo"
+                />
             </div>
 
-            {mostrarFormulario ? (
-                !tareaSeleccionada ? (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle>Seleccionar Tarea</CardTitle>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setMostrarFormulario(false);
-                                        setTareaSeleccionada("");
-                                    }}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
+            {/* LA TOOL PLATINUM UNIVERSAL */}
+            <div className="bg-background/50 backdrop-blur-sm rounded-3xl border border-border/50 shadow-xl overflow-hidden p-2 sm:p-6">
+                <ToolGastoPlatinum
+                    userId={userDetails.id}
+                    userRole={userDetails.rol as any}
+                    initialData={initialGastos as any}
+                />
+            </div>
+
+            {/* Desglose por Proyecto (Mantenemos como insight adicional) */}
+            <div className="space-y-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-4">Resumen de Proyectos</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {desglosePorTarea.map((item) => (
+                        <div key={item.id_tarea} className="flex flex-col p-4 rounded-2xl bg-card border border-border/40 hover:border-violet-500/30 transition-all gap-3 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-violet-600/70">{item.code_tarea}</p>
+                                    <h4 className="text-sm font-bold truncate leading-tight">{item.titulo_tarea}</h4>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-lg font-black text-foreground">${item.total_tarea.toLocaleString()}</p>
+                                </div>
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="tarea">Seleccionar Tarea *</Label>
-                                <Select value={tareaSeleccionada} onValueChange={setTareaSeleccionada}>
-                                    <SelectTrigger id="tarea">
-                                        <SelectValue placeholder="Selecciona una tarea" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {initialTareas.map((tarea) => (
-                                            <SelectItem key={tarea.id} value={tarea.id.toString()}>
-                                                {tarea.code} - {tarea.titulo}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-medium">
-                                    {initialTareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
-                                </CardTitle>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        setTareaSeleccionada("");
-                                    }}
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-2" />
-                                    Cambiar
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <ProcesadorImagen
-                                tareaId={Number(tareaSeleccionada)}
-                                tareaCodigo={initialTareas.find(t => t.id === Number(tareaSeleccionada))?.code}
-                                tareaTitulo={initialTareas.find(t => t.id === Number(tareaSeleccionada))?.titulo}
-                                onSuccess={() => {
-                                    router.refresh()
-                                    toast.success("Gasto registrado correctamente")
-                                }}
-                            />
-                        </CardContent>
-                    </Card>
-                )
-            ) : (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Bienvenido</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">
-                            Haz click en "Registrar Gasto" para comenzar.
-                        </p>
-                    </CardContent>
-                </Card>
-            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     )
 }
+

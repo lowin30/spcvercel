@@ -774,7 +774,31 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
 
     // logica para generar facturas si es presupuesto final
     if (tipo === 'final') {
-      console.log(`[APPROVE] PF ${id} aprobado. Iniciando conversión a facturas...`)
+      console.log(`[APPROVE] PF ${id} aprobado. Sincronizando PB y facturando...`)
+
+      // --- NEW RULE: Auto-Aprobación del PB al Aprobar el PF ---
+      try {
+        const { data: pfData } = await supabaseAdmin
+          .from("presupuestos_finales")
+          .select("id_presupuesto_base")
+          .eq("id", id)
+          .single();
+
+        if (pfData?.id_presupuesto_base) {
+          await supabaseAdmin
+            .from("presupuestos_base")
+            .update({
+              aprobado: true,
+              fecha_aprobacion: now
+            })
+            .eq("id", pfData.id_presupuesto_base);
+          console.log(`[APPROVE] Sincronizado PB ${pfData.id_presupuesto_base} a aprobado=true`);
+        }
+      } catch (syncError) {
+        console.error(`[APPROVE] Error sincronizando PB al aprobar PF ${id}:`, syncError);
+      }
+      // ---------------------------------------------------------
+
       const { convertirPresupuestoADosFacturas } = await import("@/app/dashboard/presupuestos-finales/actions-factura")
 
       try {
@@ -1096,22 +1120,8 @@ export async function saveBudgetAction(params: {
     }
 
 
-    // 3. Post-Procesamiento: Auto-Aprobación de PB (Regla de Negocio v116)
-    if (tipo === "final" && savedBudget.id_presupuesto_base) {
-      try {
-        const { error: pbError } = await supabaseAdmin
-          .from("presupuestos_base")
-          .update({
-            aprobado: true,
-            fecha_aprobacion: new Date().toISOString()
-          })
-          .eq("id", savedBudget.id_presupuesto_base);
-
-        if (pbError) console.error("Error auto-aprobando presupuesto base padre:", pbError);
-      } catch (e) {
-        console.error("Excepción al auto-aprobar PB:", e);
-      }
-    }
+    // 3. Post-Procesamiento: Auto-Aprobación de PB eliminada de aquí. 
+    // Ahora se maneja de forma segura dentro de aprobarPresupuestoAction.
     // 4. Post-Procesamiento: Aprobación -> Facturas
     if (tipo === "final" && savedBudget.aprobado) {
       try {

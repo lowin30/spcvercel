@@ -36,7 +36,9 @@ interface Usuario {
   id: string
   email: string
   rol: string
+  nombre?: string
 }
+
 
 interface AgendaFiltersProps {
   edificios: Edificio[]
@@ -54,7 +56,7 @@ export function AgendaFilters({ edificios, usuarios, userRole }: AgendaFiltersPr
   const router = useRouter()
   const searchParams = useSearchParams()
   const isMobile = useMediaQuery("(max-width: 768px)")
-  
+
   // Estado para controlar si los filtros están abiertos en móvil
   const [filtersOpen, setFiltersOpen] = useState(false)
   // Estado para contar filtros activos
@@ -69,7 +71,7 @@ export function AgendaFilters({ edificios, usuarios, userRole }: AgendaFiltersPr
     searchParams.get("hasta") ? new Date(searchParams.get("hasta") as string) : undefined,
   )
   const [asignadoId, setAsignadoId] = useState(searchParams.get("asignado") || "0")
-  
+
   // Contar filtros activos
   useEffect(() => {
     let count = 0
@@ -191,9 +193,10 @@ export function AgendaFilters({ edificios, usuarios, userRole }: AgendaFiltersPr
                 <SelectItem value="0">Todos los usuarios</SelectItem>
                 {usuarios.map((usuario) => (
                   <SelectItem key={usuario.id} value={usuario.id}>
-                    {usuario.email}
+                    {usuario.nombre || usuario.email.split('@')[0]}
                   </SelectItem>
                 ))}
+
               </SelectContent>
             </Select>
           </div>
@@ -242,7 +245,7 @@ export function AgendaFilters({ edificios, usuarios, userRole }: AgendaFiltersPr
           </FixedSheetContent>
         </FixedSheet>
       </div>
-      
+
       <div className="text-xs text-muted-foreground">
         {tareasPluralText(activeFilterCount)}
       </div>

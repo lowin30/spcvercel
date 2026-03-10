@@ -59,12 +59,14 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
         <div className="flex-1 flex justify-center items-center">
           <Image
             src="/spc-logo-navbar.png"
-            alt="SPC"
-            width={120}
+            alt="Logo SPC"
+            width={160}
             height={40}
             priority
-            className="object-contain h-10 w-auto"
+            className="w-40 h-10 object-contain"
           />
+
+
         </div>
 
         {/* Controles de la derecha */}

@@ -11,6 +11,7 @@ import { BudgetList } from "@/components/budget-list"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getEdificios } from "./actions"
+import { ToolPFWrapper } from "@/components/platinum/tools/pf/ToolPFWrapper"
 
 interface PresupuestosFinalesClientProps {
     initialData: any[]
@@ -118,8 +119,12 @@ export default function PresupuestosFinalesClient({
                     <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none gap-2">
                         <Link href="/dashboard/tareas"><ListTodo className="h-4 w-4" /> Tareas</Link>
                     </Button>
-                    <Button asChild size="sm" className="flex-1 sm:flex-none gap-2 bg-indigo-600 hover:bg-indigo-700">
-                        <Link href="/dashboard/presupuestos-finales/crear-rapido"><Plus className="h-4 w-4" /> Nuevo</Link>
+                    <Button
+                        size="sm"
+                        className="flex-1 sm:flex-none gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-md"
+                        onClick={() => updateFilters({ action: 'crear-pf' })}
+                    >
+                        <Plus className="h-4 w-4" /> Nuevo
                     </Button>
                 </div>
             </div>
@@ -233,6 +238,9 @@ export default function PresupuestosFinalesClient({
                     />
                 </TabsContent>
             </Tabs>
+
+            {/* ToolPFPlatinum - God Mode Hub */}
+            {userRol === 'admin' && <ToolPFWrapper />}
         </div>
     )
 }

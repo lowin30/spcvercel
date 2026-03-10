@@ -159,7 +159,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                        </span>
                        <div className="flex items-center gap-1.5">
                           <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800" title="Editar">
-                            <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
+                            <Link href={`?edit-pf=${budget.id}`}>
                               <Pencil className="h-4 w-4" />
                             </Link>
                           </Button>
@@ -278,7 +278,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                       <TableCell className="text-right">
                         <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end sm:gap-2">
                           <Button asChild variant="outline" size="icon" className="h-7 w-7 sm:h-9 sm:w-9" title="Editar">
-                            <Link href={`/dashboard/presupuestos-finales/editar/${budget.id}`}>
+                            <Link href={`?edit-pf=${budget.id}`}>
                               <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Link>
                           </Button>

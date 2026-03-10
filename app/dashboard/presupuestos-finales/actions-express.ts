@@ -9,7 +9,10 @@ export async function createExpressProjectAction(formData: {
     id_edificio: string
     id_departamento?: string
     titulo: string
+    descripcion?: string
     id_supervisor?: string
+    materiales?: number
+    mano_obra?: number
 }) {
     const supabase = await createServerClient()
 
@@ -23,7 +26,7 @@ export async function createExpressProjectAction(formData: {
             .from('tareas')
             .insert({
                 titulo: formData.titulo,
-                descripcion: `Proyecto Express creado para ${formData.titulo}`,
+                descripcion: formData.descripcion || `Proyecto Express creado para ${formData.titulo}`,
                 id_edificio: parseInt(formData.id_edificio),
                 id_estado_nuevo: 1, // Pendiente
                 finalizada: false,
@@ -59,7 +62,8 @@ export async function createExpressProjectAction(formData: {
             .insert({
                 code: pbCode,
                 id_tarea: task.id,
-                total: 0,
+                materiales: formData.materiales || 0,
+                mano_obra: formData.mano_obra || 0,
                 aprobado: true,
                 id_edificio: parseInt(formData.id_edificio),
                 id_administrador: parseInt(formData.id_administrador)

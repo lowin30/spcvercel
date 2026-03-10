@@ -17,8 +17,10 @@ const ENABLE_AI_ASSISTANT = false
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [loading, setLoading] = useState(true)
   const [userDetails, setUserDetails] = useState<any>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     async function fetchUserDetails() {
       try {
         const supabase = createClient()
@@ -61,10 +63,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     fetchUserDetails()
   }, [])
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" suppressHydrationWarning>
-        <div className="text-center">
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center" suppressHydrationWarning>
           <div className="mb-4 animate-pulse">
             <div className="h-8 w-48 bg-gray-200 rounded mx-auto mb-2"></div>
             <div className="h-4 w-32 bg-gray-100 rounded mx-auto"></div>
@@ -101,9 +103,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <>
       <DashboardShell userDetails={userDetails}>
-
-        {children}
-        {ENABLE_AI_ASSISTANT && userDetails && userDetails.rol !== 'sin_rol' && <AIAssistantGroq />}
+        <React.Fragment key="dashboard-main-content">
+          {children}
+        </React.Fragment>
+        {ENABLE_AI_ASSISTANT && userDetails && userDetails.rol !== 'sin_rol' && (
+          <AIAssistantGroq key="ai-assistant-component" />
+        )}
       </DashboardShell>
       <Toaster />
     </>

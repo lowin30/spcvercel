@@ -1,155 +1,192 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import CalendarWrapper from "@/components/calendar-wrapper"
-import { AgendaFilters } from "@/components/agenda-filters"
+import { motion, AnimatePresence } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AgendaFilters } from "@/components/agenda-filters"
 import { AgendaList } from "@/components/agenda-list"
-import { Button } from "@/components/ui/button"
+import SpcCalendarGrid from "@/components/spc-calendar-grid"
+import SpcDayDrawer from "@/components/spc-day-drawer"
+import { AgendaData, AgendaEvento } from "@/lib/tools/partes/types"
+import {
+    CalendarRange,
+    ListFilter,
+    LayoutGrid,
+    Users,
+    Hammer,
+    Clock,
+    CheckCircle2
+} from "lucide-react"
 
 interface AgendaPageClientProps {
     userDetails: { id: string; email: string; rol: string }
-    initialTareas: any[]
-    initialTareasCalendar: any[]
-    initialEdificios: any[]
-    initialEstadosTareas: any[]
-    initialUsuarios: any[]
+    data: AgendaData
 }
 
 export default function AgendaPageClient({
     userDetails,
-    initialTareas,
-    initialTareasCalendar,
-    initialEdificios,
-    initialEstadosTareas,
-    initialUsuarios,
+    data
 }: AgendaPageClientProps) {
-    const [calendarFilter, setCalendarFilter] = useState<'ambos' | 'trabajo' | 'visitas'>('ambos')
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+    const [eventsForSelectedDay, setEventsForSelectedDay] = useState<AgendaEvento[]>([])
     const [isMounted, setIsMounted] = useState(false)
+    const [activeTab, setActiveTab] = useState("calendar")
 
     useEffect(() => {
         setIsMounted(true)
     }, [])
 
-    if (!isMounted) {
-        return (
-            <div className="space-y-6 p-4">
-                <div className="h-8 w-40 bg-gray-200 animate-pulse rounded"></div>
-                <div className="h-4 w-60 bg-gray-200 animate-pulse rounded"></div>
-                <div className="h-10 bg-gray-200 animate-pulse rounded"></div>
-                <div className="h-[400px] bg-gray-200 animate-pulse rounded mt-4"></div>
-            </div>
-        )
+    const handleDayClick = (date: Date, dayEvents: AgendaEvento[]) => {
+        setSelectedDate(date)
+        setEventsForSelectedDay(dayEvents)
+        setIsDrawerOpen(true)
     }
 
+    if (!isMounted) return null
+
     return (
-        <div className="space-y-4 sm:space-y-6 p-2 sm:p-0">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+        <div className="space-y-4 pb-20">
+            {/* Header Platinum con KPIs */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 p-1">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Agenda</h1>
-                    <p className="text-sm sm:text-base text-muted-foreground">Planificación y seguimiento de tareas</p>
+                    <h1 className="text-3xl font-black tracking-tighter text-foreground sm:text-5xl">
+                        Agenda <span className="text-violet-600">Platinum</span>
+                    </h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
+                        Orquestación de recursos y planificación multi-día.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2">
+                    <KPICard
+                        label="Proyectos"
+                        value={data.resumen.total_proyectados}
+                        icon={Clock}
+                        color="text-violet-500"
+                        bg="bg-violet-500/10"
+                    />
+                    <KPICard
+                        label="Confirmados"
+                        value={data.resumen.total_confirmados}
+                        icon={CheckCircle2}
+                        color="text-green-500"
+                        bg="bg-green-500/10"
+                    />
+                    <KPICard
+                        label="Oficiales"
+                        value={data.resumen.trabajadores_activos}
+                        icon={Users}
+                        color="text-blue-500"
+                        bg="bg-blue-500/10"
+                    />
+                    <KPICard
+                        label="Tareas"
+                        value={data.resumen.tareas_con_actividad}
+                        icon={Hammer}
+                        color="text-amber-500"
+                        bg="bg-amber-500/10"
+                    />
                 </div>
             </div>
 
-            <AgendaFilters edificios={initialEdificios || []} usuarios={initialUsuarios} userRole={userDetails?.rol} />
+            {/* Contenedor Principal de Agenda */}
+            <div className="flex flex-col space-y-4">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                        <TabsList className="grid w-fit grid-cols-2 bg-muted/30 p-1 rounded-full h-10 border border-border/50">
+                            <TabsTrigger value="calendar" className="rounded-full px-3 sm:px-6 text-xs data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                                <LayoutGrid className="w-3.5 h-3.5 mr-1" /> Calendario
+                            </TabsTrigger>
+                            <TabsTrigger value="list" className="rounded-full px-3 sm:px-6 text-xs data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                                <ListFilter className="w-3.5 h-3.5 mr-1" /> Listado
+                            </TabsTrigger>
+                        </TabsList>
 
-            <Tabs defaultValue="calendario" className="w-full">
-                <TabsList className="w-full grid grid-cols-2 mb-2">
-                    <TabsTrigger value="calendario" className="text-sm">Calendario</TabsTrigger>
-                    <TabsTrigger value="lista" className="text-sm">Vista Lista</TabsTrigger>
-                </TabsList>
-                <TabsContent value="lista" className="mt-2">
-                    <Card className="shadow-sm">
-                        <CardHeader className="px-3 py-2 sm:p-4">
-                            <CardTitle className="text-base sm:text-lg text-foreground">
-                                Tareas Programadas {initialTareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({initialTareas.length})</span>}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-0 sm:p-4">
-                            <AgendaList tareas={initialTareas || []} userRole={userDetails?.rol} />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="calendario" className="mt-2">
-                    <Card className="shadow-sm overflow-hidden">
-                        <CardHeader className="px-3 py-2 sm:p-4">
-                            <div className="flex items-center justify-between gap-2">
-                                <CardTitle className="text-base sm:text-lg text-foreground">
-                                    Calendario de Tareas {initialTareas.length > 0 && <span className="text-sm font-normal text-muted-foreground">({initialTareas.length})</span>}
-                                </CardTitle>
-                                <div className="flex items-center gap-1">
-                                    <Button variant={calendarFilter === 'trabajo' ? 'default' : 'outline'} size="sm" onClick={() => setCalendarFilter('trabajo')}>Trabajo</Button>
-                                    <Button variant={calendarFilter === 'visitas' ? 'default' : 'outline'} size="sm" onClick={() => setCalendarFilter('visitas')}>Visitas</Button>
-                                    <Button variant={calendarFilter === 'ambos' ? 'default' : 'outline'} size="sm" onClick={() => setCalendarFilter('ambos')}>Ambos</Button>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0 sm:p-4">
-                            {(() => {
-                                try {
-                                    const baseCal = (initialTareasCalendar && initialTareasCalendar.length > 0) ? initialTareasCalendar : (initialTareas || [])
-                                    const filteredCal = calendarFilter === 'ambos'
-                                        ? baseCal
-                                        : baseCal.filter((t: any) => t?.tipo === (calendarFilter === 'trabajo' ? 'trabajo' : 'visita'))
-                                    return (
-                                        <CalendarWrapper
-                                            tareas={filteredCal}
-                                            estadosTareas={initialEstadosTareas || []}
-                                            userRole={userDetails?.rol}
-                                            userId={userDetails?.id}
+                        <AgendaFilters
+                            edificios={data.catalogos.edificios}
+                            usuarios={data.catalogos.usuarios}
+                            userRole={userDetails.rol}
+                        />
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                        <TabsContent value="calendar" key="calendar-content" className="mt-0 focus-visible:outline-none">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.98 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.98 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <SpcCalendarGrid
+                                    eventos={data.eventos}
+                                    onDayClick={handleDayClick}
+                                />
+                            </motion.div>
+                        </TabsContent>
+
+                        <TabsContent value="list" key="list-content" className="mt-0 focus-visible:outline-none">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.98 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.98 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <Card className="border border-border/50 shadow-xl bg-background/50 backdrop-blur-sm overflow-hidden">
+                                    <CardContent className="p-0 sm:p-6">
+                                        <AgendaList
+                                            tareas={adaptEventosToTareas(data.eventos)}
+                                            userRole={userDetails.rol}
                                         />
-                                    )
-                                } catch (error) {
-                                    console.error('Error rendering calendar view:', error)
-                                    return (
-                                        <div className="p-4 text-center">
-                                            <p className="text-red-500 mb-2">Error al cargar el calendario</p>
-                                            <p className="text-muted-foreground mb-4 text-sm">Estamos trabajando para solucionar este problema</p>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        </TabsContent>
+                    </AnimatePresence>
+                </Tabs>
+            </div>
 
-                                            <div className="mt-4 space-y-2">
-                                                <h3 className="text-base font-medium">Próximas tareas</h3>
-                                                {initialTareas && initialTareas.length > 0 ? (
-                                                    <div className="divide-y">
-                                                        {initialTareas
-                                                            .filter(t => t.fecha_visita)
-                                                            .sort((a, b) => {
-                                                                const fechaA = new Date(a.fecha_visita as string).getTime()
-                                                                const fechaB = new Date(b.fecha_visita as string).getTime()
-                                                                return fechaA - fechaB
-                                                            })
-                                                            .slice(0, 10)
-                                                            .map(tarea => {
-                                                                const fechaVisita = new Date(tarea.fecha_visita as string)
-                                                                const esMiTarea = tarea.id_asignado === userDetails?.id
-                                                                return (
-                                                                    <div
-                                                                        key={tarea.id}
-                                                                        className={`p-2 ${esMiTarea ? 'border-l-4 border-primary' : ''}`}
-                                                                    >
-                                                                        <p className="font-medium">{tarea.titulo}</p>
-                                                                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                                                            <span>{fechaVisita.toLocaleDateString('es-ES')}</span>
-                                                                            <span>{tarea.nombre_edificio}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                )
-                                                            })
-                                                        }
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-muted-foreground text-sm">No hay tareas programadas</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )
-                                }
-                            })()}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+            {/* Drawer de Detalle del Día */}
+            <SpcDayDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                date={selectedDate}
+                eventos={eventsForSelectedDay}
+                catalogos={data.catalogos}
+                userRole={userDetails.rol}
+            />
         </div>
     )
+}
+
+function KPICard({ label, value, icon: Icon, color, bg }: { label: string, value: number, icon: any, color: string, bg: string }) {
+    return (
+        <div className="p-2 sm:p-4 rounded-xl sm:rounded-2xl bg-card border border-border/50 shadow-sm flex items-center gap-2 sm:gap-3 transition-all hover:border-violet-500/30">
+            <div className={`p-1.5 sm:p-2 rounded-lg ${bg} ${color}`}>
+                <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+            </div>
+            <div>
+                <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+                <p className="text-xs sm:text-xl font-black">{value}</p>
+            </div>
+        </div>
+    )
+}
+
+function adaptEventosToTareas(eventos: AgendaEvento[]): any[] {
+    return eventos.map(e => ({
+        // Usamos una combinación única para evitar colisiones de keys en la lista
+        id: e.id,
+        id_tarea: e.id_tarea,
+        code: e.tipo === 'visita' ? 'VISITA' : (e.tipo === 'gasto' ? 'GASTO' : 'JOB'),
+        titulo: e.titulo,
+        descripcion: e.nombre_usuario ? `Trabajador: ${e.nombre_usuario}` : '',
+        prioridad: e.prioridad || 'media',
+        id_estado_nuevo: e.id_estado_tarea,
+        estado_tarea: e.estado_tarea,
+        fecha_visita: e.fecha,
+        nombre_edificio: e.nombre_edificio,
+        trabajadores_emails: e.nombre_usuario
+    }))
 }

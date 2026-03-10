@@ -1,5 +1,6 @@
 import "server-only"
 import { getSupabaseServer } from "@/lib/supabase-server"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 import { redirect } from "next/navigation"
 
 export type SPCUser = {
@@ -41,30 +42,48 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
     const jwtRol = user.app_metadata?.rol;
 
     if (jwtRol) {
-        console.log(`[AUTH-BRIDGE-DEBUG] Resolving JWT app_metadata.rol: ${jwtRol} for user ${email}`);
+        // RE-SINCRONIZACIÓN DE ID: Usamos el cliente admin para garantizar la resolución del UUID real.
+        // Normalizamos el email a minúsculas para evitar desincronizaciones por Case Sensitivity.
+        const normalizedEmail = email.toLowerCase();
+
+        const { data: dbUser, error: dbError } = await supabaseAdmin
+            .from('usuarios')
+            .select('id, preferencias')
+            .eq('email', normalizedEmail)
+            .single();
+
+        if (dbError) {
+            console.error(`[AUTH-BRIDGE] Error crítico de sincronización para ${normalizedEmail}:`, dbError);
+        }
+
+        const finalUserId = dbUser?.id || user.id;
+
         return {
-            id: user.id,
-            email: email,
+            id: finalUserId,
+            email: normalizedEmail,
             rol: jwtRol,
-            preferencias: user.user_metadata?.preferencias || {}
+            preferencias: dbUser?.preferencias || user.user_metadata?.preferencias || {}
         } as SPCUser
     }
 
-    // 4. FALLBACK de Seguridad (Por si el JWT aún no tiene el claim inyectado)
-    // Esto solo ocurrirá en la transición antes de configurar el Hook en Supabase
-    // o si de pronto el Hook falla temporalmente.
-    console.warn(`Auth Bridge: JWT Claim 'rol' no encontrado para ${email}. Realizando consulta Fallback a BD.`);
-    const { data: usuario, error } = await supabase
+    // 4. FALLBACK de Seguridad por Email (Inyectando supabaseAdmin para robustez)
+    const normalizedEmail = email.toLowerCase();
+    console.warn(`Auth Bridge: Claim 'rol' ausente para ${normalizedEmail}. Ejecutando rescate administrativo.`);
+    const { data: usuario, error } = await supabaseAdmin
         .from('usuarios')
         .select('id, rol, email, preferencias')
-        .eq('id', user.id)
+        .eq('email', normalizedEmail)
         .single()
 
     if (error || !usuario) {
-        console.error(`Auth Bridge: User not found in public.usuarios DB for id ${user.id} (${email})`, error)
-        throw new Error("Su cuenta no tiene acceso al sistema operativo SPC. Contacte al administrador.")
+        console.error(`Auth Bridge: Rescate fallido para ${email}. Usuario no existe en DB.`, error)
+        throw new Error("Acceso denegado: Usuario no registrado en el sistema operativo SPC.")
     }
 
-    console.log(`[AUTH-BRIDGE-DEBUG] Resolving DB Fallback rol: ${usuario.rol} for user ${email}`);
-    return usuario as SPCUser
+    return {
+        id: usuario.id,
+        rol: usuario.rol,
+        email: usuario.email,
+        preferencias: usuario.preferencias || {}
+    } as SPCUser
 }

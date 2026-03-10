@@ -77,3 +77,30 @@ export interface ResumenPlanificacion {
     trabajadores_activos: number
     tareas_con_actividad: number
 }
+
+// tipos para la nueva Agenda Platinum
+export interface AgendaEvento {
+    id: string | number
+    tipo: 'visita' | 'proyectado' | 'confirmado' | 'gasto'
+    fecha: string            // YYYY-MM-DD
+    id_tarea?: number
+    titulo: string
+    nombre_edificio?: string
+    id_usuario?: string
+    nombre_usuario?: string
+    tipo_jornada?: 'dia_completo' | 'medio_dia'
+    id_estado_tarea?: number
+    estado_tarea?: string
+    prioridad?: string
+}
+
+export interface AgendaData {
+    eventos: AgendaEvento[]
+    resumen: ResumenPlanificacion
+    catalogos: {
+        edificios: { id: number; nombre: string }[]
+        usuarios: { id: string; email: string; nombre: string; rol: string; color_perfil?: string }[]
+        estados: { id: number; nombre: string; color: string }[]
+        tareas: TareaConTrabajadores[]
+    }
+}

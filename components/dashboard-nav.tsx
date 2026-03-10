@@ -86,14 +86,16 @@ export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: D
           backgroundColor: `color-mix(in srgb, ${colorPerfil} 3%, transparent)`
         }}
       >
-        {filteredItems.map((item) => {
+        {filteredItems.map((item, index) => {
+
           const Icon = item.icon
           const isActive = pathname === item.href
 
           return (
             <Link
-              key={item.href}
+              key={`mobile-nav-${item.href}-${index}`}
               href={item.href}
+
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary relative",
                 isActive && "bg-muted text-primary",
@@ -106,6 +108,7 @@ export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: D
               <Icon className="h-4 w-4" />
               <span className="flex-1">{item.title}</span>
             </Link>
+
           )
         })}
       </nav>
@@ -120,6 +123,7 @@ export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: D
             height={48}
             className="rounded-full w-12 h-12 border-2 border-amber-500/50 object-cover"
           />
+
           <div className="text-center">
             <p className="text-[10px] lowercase opacity-50 text-muted-foreground">{userEmail?.toLowerCase()}</p>
           </div>

@@ -22,6 +22,12 @@ export const TOOL_REGISTRY = {
         icono: 'CalendarPlus',
         requiereRol: ['admin', 'supervisor'] as const,
     },
+    agendar_tarea: {
+        nombre: 'agendar tarea',
+        descripcion: 'wizard para asignar una tarea a multiples dias y jornadas',
+        icono: 'CalendarClock',
+        requiereRol: ['admin', 'supervisor'] as const,
+    },
 } as const
 
 export type ToolKey = keyof typeof TOOL_REGISTRY

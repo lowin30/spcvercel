@@ -299,8 +299,8 @@ export async function getTareaDetail(id: string) {
         if (rol === 'admin') primaryView = "vista_tareas_admin";
         else if (rol === 'supervisor') primaryView = "vista_tareas_supervisor";
 
-        // 2. CARGA ATÓMICA (Tarea Detallada + Comentarios Enriquecidos + Catálogos + Gastos)
-        const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes, gastosDirectRes] = await Promise.all([
+        // 2. CARGA ATÓMICA
+        const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes, gastosDirectRes, partesRes] = await Promise.all([
             // La joya de la corona: Datos de la tarea + Finanzas/Gastos inyectados por el SQL
             supabase.from(primaryView).select("*").eq("id", tareaId).single(),
 
@@ -316,8 +316,11 @@ export async function getTareaDetail(id: string) {
             supabaseAdmin.from("departamentos").select("id, codigo, propietario, edificio_id"),
             supabaseAdmin.from("contactos").select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id, id_padre"),
 
-            // Gastos directos (visibles para todos los roles, sin depender de gastos_json embebido)
-            supabaseAdmin.from("gastos_tarea").select("*, usuarios(email, color_perfil)").eq("id_tarea", tareaId).or('liquidado.is.null,liquidado.eq.false,and(liquidado.eq.true,tipo_gasto.eq.material)').order("created_at", { ascending: false })
+            // Gastos directos
+            supabaseAdmin.from("gastos_tarea").select("*, usuarios(email, color_perfil)").eq("id_tarea", tareaId).or('liquidado.is.null,liquidado.eq.false,and(liquidado.eq.true,tipo_gasto.eq.material)').order("created_at", { ascending: false }),
+
+            // Multi-fechas: Proyectados de la agenda (Visitas)
+            supabaseAdmin.from("partes_de_trabajo").select("*, usuarios!id_trabajador(id, email, nombre, color_perfil)").eq("id_tarea", tareaId).eq("estado", "proyectado").order("fecha", { ascending: true })
         ]);
 
         if (tareaRes.error || !tareaRes.data) throw new Error("Tarea no encontrada");
@@ -418,6 +421,7 @@ export async function getTareaDetail(id: string) {
             })) || [],
             presupuestoBase: pbData,
             presupuestoFinal: pfFinal,
+            proyectados: (tareaData as any).proyectados_json || partesRes.data || [],
             gastos: gastosDirectRes.data || [],
             estados: estadosRes.data || [],
             departamentosDisponibles: departamentosEdificio,
@@ -425,8 +429,8 @@ export async function getTareaDetail(id: string) {
         };
 
     } catch (error) {
-        console.error("Loader Detail Error [God Mode Phase 3]:", error)
-        throw new Error("No se pudo cargar el detalle atómico de la tarea")
+        console.error("Loader Detail Error:", error)
+        throw new Error("No se pudo cargar el detalle de la tarea")
     }
 }
 

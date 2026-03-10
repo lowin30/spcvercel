@@ -124,6 +124,34 @@ export async function createPresupuestoBase(data: any) {
       return { success: false, error: "No autorizado" }
     }
 
+    // --- ENRIQUECIMIENTO PLATINUM ---
+    // Si no vienen el edificio o el administrador, los heredamos de la tarea
+    if (data.id_tarea && (!data.id_edificio || !data.id_administrador)) {
+      const { data: taskData } = await supabase
+        .from('tareas')
+        .select('id_edificio, id_administrador')
+        .eq('id', data.id_tarea)
+        .single();
+
+      if (taskData) {
+        if (!data.id_edificio) data.id_edificio = taskData.id_edificio;
+        if (!data.id_administrador) data.id_administrador = taskData.id_administrador;
+      }
+    }
+
+    // Generar código si no viene
+    if (!data.code) {
+      const prefix = "PB"
+      const timestamp = new Date().getTime().toString().slice(-6)
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+      data.code = `${prefix}-${timestamp}-${random}`
+    }
+
+    // El total se calcula automáticamente en la base de datos (GENERATED ALWAYS)
+    if ('total' in data) {
+      delete (data as any).total;
+    }
+
     const { data: insertedData, error } = await supabase
       .from('presupuestos_base')
       .insert(data)
@@ -132,6 +160,8 @@ export async function createPresupuestoBase(data: any) {
     if (error) throw error
 
     revalidatePath('/dashboard/presupuestos-base')
+    revalidatePath(`/dashboard/tareas/${data.id_tarea}`)
+
     return { success: true, data: insertedData?.[0] }
   } catch (error: any) {
     console.error("Error creating presupuesto base:", error)
@@ -170,18 +200,57 @@ export async function updatePresupuestoBase(id: number, data: any) {
       }
     }
 
-    const { error } = await supabase
+    // --- LOGICA MODO DIOS PLATINUM ---
+    // Recálculo imperativo del total para asegurar integridad de flujos financieros
+    const materiales = Number(data.materiales) || 0;
+    const manoObra = Number(data.mano_obra) || 0;
+    const totalActualizado = materiales + manoObra;
+
+    // LOGICA PLATINUM: Delegación de integridad a Postgres
+    const dataFinal = {
+      ...data,
+      materiales,
+      mano_obra: manoObra,
+      updated_at: new Date()
+    };
+
+    // Removemos 'total' si existe en 'data' para evitar error de columna generada
+    if ('total' in dataFinal) {
+      delete (dataFinal as any).total;
+    }
+
+    // Actualización con verificación de impacto real (Maybe Single para evitar crash)
+    const { data: updatedRow, error } = await supabase
       .from('presupuestos_base')
-      .update(data)
+      .update(dataFinal)
       .eq('id', id)
+      .select()
+      .maybeSingle()
 
-    if (error) throw error
+    if (error) {
+      console.error("[updatePresupuestoBase] Error de persistencia:", error);
+      return { success: false, error: `Error de base de datos: ${error.message}` };
+    }
 
+    if (!updatedRow) {
+      console.error("[updatePresupuestoBase] No se afectaron filas. Posible RLS o ID inexistente.");
+      return {
+        success: false,
+        error: "Falla de persistencia: El sistema rechazó el cambio. Esto puede ocurrir si el presupuesto ya fue bloqueado o si hay un conflicto de permisos."
+      }
+    }
+
+    // Revalidación profunda de rutas relacionadas
     revalidatePath('/dashboard/presupuestos-base')
-    return { success: true }
+    if (data.id_tarea) {
+      revalidatePath(`/dashboard/tareas/${data.id_tarea}`)
+    }
+
+    return { success: true, data: updatedRow }
   } catch (error: any) {
     console.error("Error updating presupuesto base:", error)
     return { success: false, error: error.message || "Error al actualizar presupuesto" }
   }
 }
+
 
