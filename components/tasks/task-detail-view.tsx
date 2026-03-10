@@ -26,12 +26,12 @@ import { PresupuestosInteractivos } from "@/components/presupuestos-interactivos
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import ErrorBoundary from '@/components/error-boundary'
-import { ToolGastoPlatinum } from "@/components/platinum/tools/ToolGastoPlatinum"
-import { ToolJornalPlatinum } from "@/components/platinum/tools/ToolJornalPlatinum"
+import { ToolGastoPlatinum } from "../platinum/tools/ToolGastoPlatinum"
+import { ToolJornalPlatinum } from "../platinum/tools/ToolJornalPlatinum"
 import { FinalizarTareaDialog } from '@/components/finalizar-tarea-dialog'
-import { MultiVisitaInteractiva } from "@/components/tasks/multi-visita-interactiva"
-import { ToolPBWrapper } from "@/components/platinum/tools/pb/ToolPBWrapper"
-import { ToolPFWrapper } from "@/components/platinum/tools/pf/ToolPFWrapper"
+import { MultiVisitaInteractiva } from "./multi-visita-interactiva"
+import { ToolPBWrapper } from "../platinum/tools/pb/ToolPBWrapper"
+import { ToolPFWrapper } from "../platinum/tools/pf/ToolPFWrapper"
 
 // Actions
 import {

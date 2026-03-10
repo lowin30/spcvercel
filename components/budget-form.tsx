@@ -21,7 +21,7 @@ import { Loader2 } from "lucide-react"
 import { ProductoPicker } from "./producto-picker"
 import type { Producto } from "@/types/producto"
 import { ItemPresupuestoModal } from "./item-presupuesto-modal"
-import { EsMaterialCheckbox } from "@/app/dashboard/presupuestos-finales/editar/[id]/es-material-checkbox"
+import { EsMaterialCheckbox } from "@/app/dashboard/facturas/[id]/es-material-checkbox"
 import { toast as sonnerToast } from "sonner"
 import { convertirPresupuestoADosFacturas } from "@/app/dashboard/presupuestos-finales/actions-factura"
 import { getTaskForFinalBudgetAction, saveBudgetAction } from "@/app/dashboard/tareas/actions"
@@ -753,7 +753,6 @@ export function BudgetForm({
                               <EsMaterialCheckbox
                                 itemId={item.id}
                                 initialValue={!!item.es_material}
-                                presupuestoId={presupuestoAEditar.id}
                               />
                             ) : (
                               <div className="flex items-center space-x-2">
