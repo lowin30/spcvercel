@@ -566,14 +566,20 @@ export function BudgetForm({
                   </div>
 
                   {/* Detalle del Presupuesto Base - MAS COMPACTO */}
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-background border rounded-lg shadow-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3 bg-background border rounded-lg shadow-sm">
                     <div className="flex flex-col">
                       <span className="text-[10px] uppercase text-muted-foreground">materiales base</span>
                       <span className="font-semibold text-sm">{formatCurrency(presupuestoBase?.materiales || 0)}</span>
                     </div>
-                    <div className="flex flex-col text-right">
+                    <div className="flex flex-col text-right sm:text-left">
                       <span className="text-[10px] uppercase text-muted-foreground">mano obra base</span>
                       <span className="font-semibold text-sm">{formatCurrency(presupuestoBase?.mano_obra || 0)}</span>
+                    </div>
+                    <div className="flex flex-col col-span-2 sm:col-span-1 text-right border-t sm:border-t-0 sm:border-l pt-2 sm:pt-0 sm:pl-3">
+                      <span className="text-[10px] uppercase text-primary font-bold">total base</span>
+                      <span className="font-bold text-sm sm:text-base text-primary">
+                        {formatCurrency(presupuestoBase?.total || (presupuestoBase?.materiales + presupuestoBase?.mano_obra) || 0)}
+                      </span>
                     </div>
                   </div>
 
