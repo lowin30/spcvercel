@@ -1,4 +1,5 @@
 import { TareaConTrabajadores } from "@/lib/tools/partes/types"
+export type { TareaConTrabajadores }
 
 export interface ToolJornalPlatinumProps {
     tareaId?: number

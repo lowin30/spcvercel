@@ -414,7 +414,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                     {/* ISLA 4: Ejecución Técnica (Tabs) */}
                     <Card className="border shadow-none bg-muted/10">
                         <CardContent className="p-4 sm:p-6">
-                            <Tabs defaultValue="jornales" className="w-full">
+                            <Tabs defaultValue="gastos" className="w-full">
                                 <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-muted/30 p-1 mb-6 border shadow-sm dark:shadow-none">
                                     <TabsTrigger value="jornales" className="rounded-xl flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                                         <Clock className="h-4 w-4" />

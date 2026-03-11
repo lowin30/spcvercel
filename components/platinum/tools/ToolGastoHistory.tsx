@@ -54,13 +54,17 @@ export function ToolGastoHistory({
                                     {gasto.codigo_tarea}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground font-bold">
-                                    {format(new Date(gasto.fecha), 'dd MMM', { locale: es })}
+                                    {(() => {
+                                        const dateObj = new Date(gasto.fecha);
+                                        const isValid = !isNaN(dateObj.getTime());
+                                        return format(isValid ? dateObj : new Date(), 'dd MMM', { locale: es });
+                                    })()}
                                 </span>
                             </div>
                             <h4 className="text-sm font-bold truncate leading-tight mb-1">{gasto.descripcion}</h4>
                             <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: gasto.ui_metadata.color_perfil }} />
-                                <span className="text-[10px] text-muted-foreground font-medium truncate">{gasto.nombre_usuario.split(' ')[0]}</span>
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: gasto.ui_metadata?.color_perfil || '#cbd5e1' }} />
+                                <span className="text-[10px] text-muted-foreground font-medium truncate">{gasto.nombre_usuario?.split(' ')[0] || 'usuario'}</span>
                             </div>
                         </div>
                     </div>

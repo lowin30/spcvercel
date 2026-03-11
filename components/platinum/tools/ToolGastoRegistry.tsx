@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase-client"
 import { ToolGastoPlatinumProps } from "./types"
+import { analizarGastoAction, registrarGastoAction } from "@/app/actions/gastos"
 
 type PasoType = 'seleccion' | 'procesando' | 'confirmacion' | 'completado'
 
@@ -133,16 +134,8 @@ export function ToolGastoRegistry({
 
             const base64data = canvas.toDataURL('image/jpeg', 0.8)
 
-            // 2. Llamada a la API de análisis
-            const response = await fetch('/api/analizar-gasto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imagen: base64data }),
-            })
-
-            if (!response.ok) throw new Error("Error en la respuesta de la IA")
-
-            const data = await response.json()
+            // 2. Llamada a la Server Action (Gold Standard v81.0)
+            const data = await analizarGastoAction(base64data)
 
             if (data.success && data.datos) {
                 console.log("IA Detectó:", data.datos)
@@ -162,7 +155,10 @@ export function ToolGastoRegistry({
             }
         } catch (error: any) {
             console.error("Error en IA Scanner:", error)
-            toast.error("La IA no pudo procesar este ticket, por favor completa los datos manualmente.")
+            // Error amigable pero permitimos seguir
+            toast.warning("La IA tuvo un problema técnico, pero puedes completar los datos manualmente.", {
+                duration: 5000
+            })
         } finally {
             setAnalizandoIA(false)
         }
@@ -184,6 +180,7 @@ export function ToolGastoRegistry({
         setLoading(true)
         try {
             const gastoData = {
+                id: editData?.event_id,
                 id_tarea: taskToUse,
                 monto: parseFloat(formData.monto),
                 descripcion: formData.descripcion,
@@ -193,23 +190,12 @@ export function ToolGastoRegistry({
                 tipo_gasto: formData.tipo_gasto
             }
 
-            let result;
-            if (editData?.event_id) {
-                // Modo Edición
-                result = await supabase
-                    .from('gastos_tarea')
-                    .update(gastoData)
-                    .eq('id', editData.event_id)
-            } else {
-                // Modo Creación
-                result = await supabase
-                    .from('gastos_tarea')
-                    .insert([gastoData])
-            }
+            // Llamada a la Server Action (Gold Standard v81.0 - Bypass RLS seguro)
+            const result = await registrarGastoAction(gastoData)
 
-            if (result.error) throw result.error
+            if (!result.success) throw new Error(result.error)
 
-            toast.success(editData ? "Gasto actualizado" : "Gasto registrado", { icon: <Check className="w-4 h-4" /> })
+            toast.success(result.message, { icon: <Check className="w-4 h-4" /> })
             if (onSuccess) onSuccess()
             setPaso('seleccion')
             setFormData({
@@ -220,7 +206,7 @@ export function ToolGastoRegistry({
             })
         } catch (error: any) {
             console.error("Error guardando gasto:", error)
-            toast.error("Error al guardar el gasto")
+            toast.error(error.message || "Error al guardar el gasto")
         } finally {
             setLoading(false)
         }

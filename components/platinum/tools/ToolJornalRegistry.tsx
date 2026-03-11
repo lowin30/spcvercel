@@ -39,15 +39,17 @@ export function ToolJornalRegistry({
     const [tipoJornada, setTipoJornada] = useState<'dia_completo' | 'medio_dia'>('dia_completo')
     const [selectedDates, setSelectedDates] = useState<string[]>([])
 
-    // Precargar datos si estamos en modo edición
+    // Precargar datos si estamos en modo edición o si la tareaId cambia desde arriba
     useEffect(() => {
         if (editData) {
             setSelectedTareaId(editData.id_tarea)
             setSelectedTrabajadores([editData.id_usuario])
             setTipoJornada(editData.detalle_tipo)
             setSelectedDates([editData.fecha])
+        } else if (tareaId) {
+            setSelectedTareaId(tareaId)
         }
-    }, [editData])
+    }, [editData, tareaId])
 
     // Calcular Ocupación Dual (Global y Local) de los trabajadores seleccionados
     const ocupationData = useMemo<DailyOcupation[]>(() => {
@@ -110,7 +112,7 @@ export function ToolJornalRegistry({
         if (selectedTrabajadores.length === trabajadoresDisponibles.length) {
             setSelectedTrabajadores([])
         } else {
-            setSelectedTrabajadores(trabajadoresDisponibles.map(t => t.id))
+            setSelectedTrabajadores(trabajadoresDisponibles.map((t: any) => t.id))
         }
         setSelectedDates([])
     }
@@ -258,7 +260,7 @@ export function ToolJornalRegistry({
 
                 <div className="flex flex-wrap gap-2">
                     {trabajadoresDisponibles.length > 0 ? (
-                        trabajadoresDisponibles.map(t => {
+                        trabajadoresDisponibles.map((t: any) => {
                             const isSelected = selectedTrabajadores.includes(t.id)
                             const isBlocked = !!trabajadorId && t.id !== trabajadorId
                             if (isBlocked) return null
@@ -286,7 +288,11 @@ export function ToolJornalRegistry({
                         })
                     ) : (
                         <div className="w-full p-4 rounded-2xl border border-dashed border-border/60 text-center">
-                            <p className="text-xs text-muted-foreground">Selecciona una tarea para ver el personal</p>
+                            <p className="text-xs text-muted-foreground">
+                                {selectedTareaId
+                                    ? "No hay personal asignado a esta tarea"
+                                    : "Selecciona una tarea para ver el personal"}
+                            </p>
                         </div>
                     )}
                 </div>

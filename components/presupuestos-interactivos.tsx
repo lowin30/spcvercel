@@ -298,7 +298,7 @@ export function PresupuestosInteractivos({
             </div>
 
             {!presupuestoFinalLocal ? (
-              presupuestoBaseLocal?.aprobado ? (
+              presupuestoBaseLocal ? (
                 <Button asChild size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]">
                   <Link href={`?action=crear-pf&id_tarea=${tareaId}`}>
                     <Plus className="mr-1.5 h-4 w-4" />
@@ -307,7 +307,7 @@ export function PresupuestosInteractivos({
                 </Button>
               ) : (
                 <div className="text-sm text-center text-muted-foreground p-4 bg-white/60 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800 h-full flex items-center justify-center">
-                  Aprueba el PB primero para generar el Control Platinum.
+                  Genera el Presupuesto Base primero para habilitar el Control Platinum.
                 </div>
               )
             ) : null}
@@ -501,7 +501,7 @@ export function PresupuestosInteractivos({
             </div>
 
             {!presupuestoFinalLocal ? (
-              presupuestoBaseLocal?.aprobado ? (
+              presupuestoBaseLocal ? (
                 <Button asChild size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]">
                   <Link href={`?action=crear-pf&id_tarea=${tareaId}`}>
                     <Plus className="mr-1.5 h-4 w-4" />
@@ -510,7 +510,7 @@ export function PresupuestosInteractivos({
                 </Button>
               ) : (
                 <div className="text-sm text-center text-muted-foreground p-4 bg-white/60 dark:bg-black/20 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
-                  Aprueba el Presupuesto Base primero para generar el Control Platinum.
+                  Genera el Presupuesto Base primero para habilitar el Control Platinum.
                 </div>
               )
             ) : (

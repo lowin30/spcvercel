@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 2. ANÁLISIS CON GROQ (Llama 4 Maverick)
-        const modelId = "meta-llama/llama-4-maverick-17b-128e-instruct";
+        // 2. ANÁLISIS CON GROQ (Llama 3.2 Vision)
+        const modelId = "llama-3.2-11b-vision-preview";
 
         const prompt = `
       Actúa como un experto contable y sistema OCR avanzado.

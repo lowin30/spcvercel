@@ -37,13 +37,13 @@ export const createServerClient = async () => {
   )
 }
 
-// Versión no asíncrona para compatibilidad con código existente
-// Esta versión NO debería usarse en acciones del servidor, solo para mantener compatibilidad
+// Versión no asíncrona para compatibilidad (solo lectura)
 export const createServerClientSync = () => {
   try {
-    // Esta función puede producir advertencias, pero se mantiene por compatibilidad
-    const cookieStore = cookies()
-    
+    // Nota: En Next.js 15 cookies() puede ser asíncrono.
+    // Esta función es un fallback para código legacy.
+    const cookieStore = cookies() as any;
+
     return _createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -55,60 +55,50 @@ export const createServerClientSync = () => {
           set(name: string, value: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value, ...options })
-            } catch (error) {}
+            } catch (error) { }
           },
           remove(name: string, options: CookieOptions) {
             try {
               cookieStore.set({ name, value: '', ...options })
-            } catch (error) {}
+            } catch (error) { }
           },
         },
       }
     )
   } catch (e) {
-    console.error('Error en createServerClientSync:', e)
     return null
   }
 }
 
 export const getSupabaseServer = createServerClient
 
-// Mejorar la gestión de sesiones con reintentos
+// Mejorar la gestión de sesiones con reintentos usando getUser() por seguridad
 export async function getSession() {
-  // Usar try-catch global para manejar cualquier error inesperado
   try {
     const supabase = await getSupabaseServer()
-    
-    // Si no tenemos cliente Supabase, retornar null de inmediato
-    if (!supabase) {
-      console.error("No se pudo crear el cliente Supabase")
-      return null
-    }
+    if (!supabase) return null
 
-    // Implementar un mecanismo de reintento
     let retries = 2
-    let lastError = null
-    
     while (retries >= 0) {
       try {
-        const response = await supabase.auth.getSession()
-        return response.data.session
+        // Usar getUser() en lugar de getSession() para evitar warnings de seguridad
+        const { data: { user }, error } = await supabase.auth.getUser()
+
+        if (user) {
+          // Simulamos un objeto de sesión mínimo si es necesario, 
+          // pero para la mayoría de los casos solo el usuario es lo primordial.
+          return { user }
+        }
+        return null
       } catch (error) {
-        lastError = error
-        console.warn(`Error al obtener la sesión (intento ${2-retries}/2)`, error)
-        
-        // Si aún quedan reintentos, esperar antes de volver a intentar
         if (retries > 0) {
           await new Promise(resolve => setTimeout(resolve, 300))
         }
         retries--
       }
     }
-    
-    console.error("Error definitivo al obtener la sesión:", lastError)
     return null
   } catch (error) {
-    console.error("Error global en getSession:", error)
     return null
   }
 }

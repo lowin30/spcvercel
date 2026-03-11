@@ -135,7 +135,7 @@ export async function getTareasConPBAprobadoSinPF() {
             id_tarea,
             tareas!inner(id, titulo, code, id_edificio, id_administrador, edificios(nombre))
         `)
-        .eq('aprobado', true)
+        // .eq('aprobado', true) // Eliminado para permitir acceso inmediato si existe PB
         .order('created_at', { ascending: false })
 
     if (error || !tareasPB) return []
