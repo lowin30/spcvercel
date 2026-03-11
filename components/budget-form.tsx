@@ -334,21 +334,19 @@ export function BudgetForm({
         const itemTotal = item.cantidad * item.precio
         const descripcionLower = item.descripcion.toLowerCase()
 
-        // Identificar mano de obra basado en las palabras clave en la descripción
+        // identificar mano de obra basado en las palabras clave en la descripcion
         const esManoDeObra = [
           'mano de obra',
           'm.o',
           'mano obra',
-          'instalación',
           'instalacion',
           'servicio',
           'montaje',
           'montado',
-          'colocación',
           'colocacion'
         ].some(keyword => descripcionLower.includes(keyword))
 
-        // Identificar materiales basado en palabras clave
+        // identificar materiales basado en palabras clave
         const esMaterial = [
           'material',
           'materiales',
@@ -358,17 +356,17 @@ export function BudgetForm({
           'herramienta'
         ].some(keyword => descripcionLower.includes(keyword))
 
-        // Decisión final basada en prioridades:
-        // 1. Si explícitamente menciona mano de obra, es mano de obra
-        // 2. Si explícitamente menciona material, es material
-        // 3. Si tiene producto_id y no menciona mano de obra, es material
-        // 4. En cualquier otro caso, es mano de obra
+        // decision final basada en prioridades:
+        // 1. si explicitamente menciona mano de obra, es mano de obra
+        // 2. si explicitamente menciona material, es material
+        // 3. si tiene producto_id y no menciona mano de obra, es material
+        // 4. en cualquier otro caso, es mano de obra
         if (esManoDeObra) {
           acc.mano_obra += itemTotal
         } else if (esMaterial || !!item.producto_id) {
           acc.materiales += itemTotal
         } else {
-          // Por defecto, si no tiene ninguna palabra clave, sigue la lógica antigua
+          // por defecto, si no tiene ninguna palabra clave, sigue la logica antigua
           if (!!item.producto_id) {
             acc.materiales += itemTotal
           } else {
@@ -513,296 +511,231 @@ export function BudgetForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid-responsive grid-responsive-lg">
-        <Card>
-          <CardHeader>
-            <CardTitle>Información del Presupuesto</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {tipo === "base" ? (
-              <div className="space-y-2">
-                <Label htmlFor="tarea">Tarea *</Label>
-                {tareaSeleccionada ? (
-                  <div className="p-2 border rounded-md">
-                    <p className="font-medium">
-                      {tareaSeleccionada.code} - {tareaSeleccionada.titulo}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {tareaSeleccionada.edificios?.nombre || (tareaSeleccionada.id_edificio ? `Edificio ID: ${tareaSeleccionada.id_edificio}` : 'Edificio no especificado')}
-                    </p>
-                  </div>
-                ) : (
-                  <Select value={selectedTarea?.toString()} onValueChange={setSelectedTarea} disabled={isSubmitting} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una tarea" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tareas?.map((tarea) => (
-                        <SelectItem key={tarea.id} value={tarea.id.toString()}>
-                          {tarea.code} - {tarea.titulo} ({tarea.edificios?.nombre || (tarea.id_edificio ? `ID: ${tarea.id_edificio}` : '')})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label>Tarea</Label>
-                <div className="p-2 border rounded-md">
-                  <p className="font-medium">
-                    {presupuestoAEditar?.titulo_tarea || presupuestoBase?.tareas?.titulo || 'Título no disponible'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {presupuestoAEditar?.edificio_info?.cuit
-                      ? presupuestoAEditar.edificio_info.cuit
-                      : (presupuestoAEditar?.nombre_edificio || presupuestoBase?.edificios?.nombre || 'Edificio no especificado')}
-                  </p>
-                </div>
-              </div>
-            )}
+    <form onSubmit={handleSubmit} className="w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            {tipo === "final" && (
-              <>
+        {/* COLUMNA IZQUIERDA: INFORMACION Y ITEMS (8/12 en LP, Full en Mobile) */}
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="border-primary/10 shadow-sm overflow-hidden">
+            <CardHeader className="bg-muted/30 pb-4">
+              <CardTitle className="text-lg">
+                informacion del presupuesto
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+
+              {/* BLOQUE DE IDENTIDAD (TAREA Y EDIFICIO) */}
+              {tipo === "base" ? (
                 <div className="space-y-2">
-                  <Label>Presupuesto Base</Label>
-                  <div className="p-2 border rounded-md">
-                    <div className="flex justify-between">
-                      <p className="font-medium">Materiales</p>
-                      <p>${presupuestoBase?.materiales.toLocaleString()}</p>
-                    </div>
-                    <div className="pt-4 border-t flex justify-between items-center text-primary">
-                      <span className="font-semibold">Suma parcial de ítems:</span>
-                      <span className="text-xl font-bold">
-                        {isMounted ? `$${total.toLocaleString("es-AR")}` : `$${total}`}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <p className="font-medium">Mano de obra</p>
-                      <p>${presupuestoBase?.mano_obra.toLocaleString()}</p>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t mt-2">
-                      <p className="font-medium">Total</p>
-                      <p>
-                        ${(presupuestoBase ? presupuestoBase.materiales + presupuestoBase.mano_obra : 0).toLocaleString()}
+                  <Label htmlFor="tarea" className="text-xs uppercase text-muted-foreground tracking-tighter">tarea *</Label>
+                  {tareaSeleccionada ? (
+                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                      <p className="font-bold text-base leading-snug">
+                        {tareaSeleccionada.code} - {tareaSeleccionada.titulo}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {tareaSeleccionada.edificios?.nombre || (tareaSeleccionada.id_edificio ? `edificio id: ${tareaSeleccionada.id_edificio}` : 'edificio no especificado')}
                       </p>
                     </div>
-                  </div>
+                  ) : (
+                    <Select value={selectedTarea?.toString()} onValueChange={setSelectedTarea} disabled={isSubmitting} required>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="selecciona una tarea" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tareas?.map((tarea) => (
+                          <SelectItem key={tarea.id} value={tarea.id.toString()}>
+                            {tarea.code} - {tarea.titulo} ({tarea.edificios?.nombre || (tarea.id_edificio ? `id: ${tarea.id_edificio}` : '')})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted/40 rounded-xl border border-primary/10 shadow-inner">
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block">tarea vinculada</Label>
+                    <p className="font-bold text-lg leading-tight text-foreground">
+                      {presupuestoBase?.titulo_tarea || presupuestoAEditar?.titulo_tarea || presupuestoBase?.tareas?.titulo || 'titulo no disponible'}
+                    </p>
+                    <p className="text-sm font-medium text-primary/80 mt-1 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      {presupuestoBase?.nombre_edificio || presupuestoAEditar?.nombre_edificio || presupuestoBase?.edificios?.nombre || 'edificio no especificado'}
+                    </p>
+                  </div>
 
-                {/* Selección en cascada de Administrador y Edificio - Solo para presupuestos nuevos */}
-                {!presupuestoAEditar && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="administrador">Administrador</Label>
-                      <Select
-                        value={selectedAdministrador}
-                        onValueChange={(value) => {
-                          setSelectedAdministrador(value);
-                          cargarEdificiosPorAdministrador(value);
-                          // Al cambiar de administrador, reseteamos el edificio seleccionado
-                          setSelectedEdificio("");
-                        }}
-                        disabled={isSubmitting}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un administrador" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {administradores.map((admin) => (
-                            <SelectItem key={admin.id} value={admin.id.toString()}>
-                              {admin.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {/* Detalle del Presupuesto Base - MAS COMPACTO */}
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-background border rounded-lg shadow-sm">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase text-muted-foreground">materiales base</span>
+                      <span className="font-semibold text-sm">{formatCurrency(presupuestoBase?.materiales || 0)}</span>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="edificio">Edificio</Label>
-                      <Select
-                        value={selectedEdificio}
-                        onValueChange={setSelectedEdificio}
-                        disabled={isSubmitting || !selectedAdministrador || loadingEdificios}
-                      >
-                        <SelectTrigger>
-                          {loadingEdificios ? (
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              <span>Cargando edificios...</span>
-                            </div>
-                          ) : (
-                            <SelectValue placeholder={selectedAdministrador ? "Selecciona un edificio" : "Primero selecciona un administrador"} />
-                          )}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {edificios.map((edificio) => (
-                            <SelectItem key={edificio.id} value={edificio.id.toString()}>
-                              {edificio.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedAdministrador && edificios.length === 0 && !loadingEdificios && (
-                        <p className="text-sm text-muted-foreground">No hay edificios asociados a este administrador</p>
-                      )}
+                    <div className="flex flex-col text-right">
+                      <span className="text-[10px] uppercase text-muted-foreground">mano obra base</span>
+                      <span className="font-semibold text-sm">{formatCurrency(presupuestoBase?.mano_obra || 0)}</span>
                     </div>
-                  </>
-                )}
-              </>
-            )}
+                  </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between w-full items-center">
-                <Label>Ítems del Presupuesto</Label>
-                <Button
-                  type="button"
-                  onClick={handleOpenAddItemModal}
-                  disabled={isSubmitting}
-                  className="flex gap-1 items-center"
-                >
-                  <Plus className="h-4 w-4" /> Añadir ítem
-                </Button>
-              </div>
-
-              {/* Modal para añadir/editar ítems */}
-              <ItemPresupuestoModal
-                open={isModalOpen}
-                setOpen={setIsModalOpen}
-                onSave={handleSaveItemFromModal}
-                editingItem={editingItemIndex !== null ? items[editingItemIndex] : { ...newItem, precio: typeof newItem.precio === 'string' ? parseFloat(newItem.precio) || 0 : newItem.precio }}
-                productosInyectados={listas?.productos}
-              />
-
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between items-center">
-            <div>
-              {presupuestoAEditar && tipo === 'final' && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="aprobado" checked={aprobado} onCheckedChange={(checked) => setAprobado(Boolean(checked))} />
-                  <Label htmlFor="aprobado">Aprobado</Label>
+                  {/* REQUISITO: NOTA DEL PRESUPUESTO BASE */}
+                  {presupuestoBase?.nota_pb && (
+                    <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/40" />
+                      <Label className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1 block ml-2">instrucciones del presupuesto base</Label>
+                      <p className="text-sm italic text-muted-foreground leading-relaxed ml-2 px-1">
+                        "{presupuestoBase.nota_pb}"
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {presupuestoAEditar ? 'Guardar Cambios' : 'Crear Presupuesto'}
-            </Button>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-xl font-bold">{formatCurrency(calculateTotals().total)}</p>
-            </div>
-          </CardFooter>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Detalle de Ítems</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {items.length === 0 ? (
-              <p className="text-center py-4 text-muted-foreground">No hay ítems agregados</p>
-            ) : (
-              <div className="rounded-md border overflow-hidden">
-                <Table style={{ minWidth: '400px' }}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descripción</TableHead>
-                      <TableHead className="text-right">
-                        <span className="hidden sm:inline">Cantidad</span>
-                        <span className="inline sm:hidden">Cant.</span>
-                      </TableHead>
-                      <TableHead className="text-right">
-                        <span className="hidden sm:inline">Precio</span>
-                        <span className="inline sm:hidden">Precio</span>
-                      </TableHead>
-                      <TableHead className="text-right">
-                        <span className="hidden sm:inline">Subtotal</span>
-                        <span className="inline sm:hidden">Total</span>
-                      </TableHead>
-                      {tipo === "final" && (
-                        <TableHead>
-                          <span className="hidden sm:inline">Material</span>
-                          <span className="inline sm:hidden">Mat.</span>
-                        </TableHead>
-                      )}
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          {item.descripcion}
-                          {item.producto_id && (
-                            <Badge variant="outline" className="ml-2">
-                              Producto
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">{item.cantidad}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.precio)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.cantidad * item.precio)}</TableCell>
+              {/* Selectores Cascada (Solo si no hay contexto) */}
+              {(!presupuestoAEditar && !presupuestoBase) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="administrador">administrador</Label>
+                    <Select value={selectedAdministrador} onValueChange={(value) => {
+                      setSelectedAdministrador(value);
+                      cargarEdificiosPorAdministrador(value);
+                      setSelectedEdificio("");
+                    }} disabled={isSubmitting}>
+                      <SelectTrigger><SelectValue placeholder="selecciona un administrador" /></SelectTrigger>
+                      <SelectContent>
+                        {listas?.administradores.map((admin) => (
+                          <SelectItem key={admin.id} value={admin.id.toString()}>{admin.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edificio">edificio</Label>
+                    <Select value={selectedEdificio} onValueChange={setSelectedEdificio} disabled={isSubmitting || !selectedAdministrador || loadingEdificios}>
+                      <SelectTrigger>
+                        {loadingEdificios ? <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> cargando...</span> : <SelectValue placeholder="selecciona un edificio" />}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {edificios.map((ed) => (
+                          <SelectItem key={ed.id} value={ed.id.toString()}>{ed.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
-                        {tipo === "final" && (
-                          <TableCell>
-                            {presupuestoAEditar && item.id ? (
-                              <EsMaterialCheckbox
-                                itemId={item.id}
-                                initialValue={!!item.es_material}
-                              />
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  checked={!!item.es_material}
-                                  disabled={true}
-                                />
-                                <span className="text-xs text-muted-foreground">
-                                  {item.es_material ? 'Material' : 'M.O.'}
-                                </span>
-                              </div>
-                            )}
-                          </TableCell>
-                        )}
+              {/* SECCION ITEMS */}
+              <div className="pt-4 border-t space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">items del presupuesto</h3>
+                  <Button type="button" onClick={handleOpenAddItemModal} disabled={isSubmitting} size="sm" className="gap-1.5 rounded-full shadow-lg">
+                    <Plus className="h-4 w-4" /> añadir item
+                  </Button>
+                </div>
 
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenEditItemModal(index)}
-                              disabled={isSubmitting}
-                              title="Editar ítem"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil">
-                                <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                <path d="m15 5 4 4" />
-                              </svg>
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveItem(index)}
-                              disabled={isSubmitting}
-                              title="Eliminar ítem"
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                <div className="rounded-xl border bg-background/50 overflow-hidden shadow-sm">
+                  <Table>
+                    <TableHeader className="bg-muted/50 text-[10px] uppercase font-bold">
+                      <TableRow>
+                        <TableHead className="py-2 h-auto">descripcion</TableHead>
+                        <TableHead className="text-right py-2 h-auto">cant.</TableHead>
+                        <TableHead className="text-right py-2 h-auto">total</TableHead>
+                        <TableHead className="w-[40px] py-2 h-auto"></TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {items.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">
+                            presiona añadir item para comenzar
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        items.map((item, index) => (
+                          <TableRow key={index} className="group hover:bg-muted/30 transition-colors">
+                            <TableCell className="py-3">
+                              <div className="font-medium text-sm leading-snug">{item.descripcion}</div>
+                              {item.es_material && <Badge className="mt-1 text-[9px] h-4 py-0 bg-primary/10 text-primary border-none">material</Badge>}
+                            </TableCell>
+                            <TableCell className="text-right py-3 text-sm">{item.cantidad}</TableCell>
+                            <TableCell className="text-right py-3 font-semibold text-sm">{formatCurrency(item.cantidad * item.precio)}</TableCell>
+                            <TableCell className="py-3 px-1">
+                              <div className="flex flex-col gap-1">
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleOpenEditItemModal(index)}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                                </Button>
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveItem(index)}>
+                                  <Trash className="h-14 w-14" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* COLUMNA DERECHA: RESUMEN Y ACCIONES (Sticky en Desktop) */}
+        <div className="lg:col-span-4 lg:sticky lg:top-6 space-y-6">
+          <Card className="border-primary/20 bg-primary/[0.02] shadow-xl overflow-hidden">
+            <CardHeader className="pb-2 border-b">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">resumen final</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground">observaciones / notas</Label>
+                <textarea
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="notas para el cliente o detalles adicionales..."
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              {presupuestoAEditar && tipo === 'final' && (
+                <div className="flex items-center space-x-2 p-2 bg-muted/50 rounded-lg">
+                  <Checkbox id="aprobado" checked={aprobado} onCheckedChange={(checked) => setAprobado(Boolean(checked))} />
+                  <Label htmlFor="aprobado" className="text-sm font-medium">presupuesto aprobado</Label>
+                </div>
+              )}
+
+              <div className="p-4 bg-muted/30 rounded-xl space-y-2 border shadow-inner">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>mano de obra</span>
+                  <span>{formatCurrency(calculateTotals().mano_obra)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>materiales</span>
+                  <span>{formatCurrency(calculateTotals().materiales)}</span>
+                </div>
+                <div className="pt-4 border-t flex justify-between items-end">
+                  <span className="font-bold text-sm">TOTAL FINAL</span>
+                  <span className="text-2xl font-black text-primary tracking-tight">
+                    {formatCurrency(calculateTotals().total)}
+                  </span>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full h-14 text-lg font-bold shadow-lg shadow-primary/20 rounded-xl" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                {presupuestoAEditar ? 'guardar cambios' : 'crear presupuesto final'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Modal Items (Inyectado via portal o inline) */}
+          <ItemPresupuestoModal
+            open={isModalOpen}
+            setOpen={setIsModalOpen}
+            onSave={handleSaveItemFromModal}
+            editingItem={editingItemIndex !== null ? items[editingItemIndex] : { ...newItem, precio: typeof newItem.precio === 'string' ? parseFloat(newItem.precio) || 0 : newItem.precio }}
+            productosInyectados={listas?.productos}
+          />
+        </div>
       </div>
     </form>
   )

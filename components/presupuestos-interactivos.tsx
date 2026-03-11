@@ -300,7 +300,7 @@ export function PresupuestosInteractivos({
             {!presupuestoFinalLocal ? (
               presupuestoBaseLocal ? (
                 <Button asChild size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]">
-                  <Link href={`?action=crear-pf&id_tarea=${tareaId}`}>
+                  <Link href={`/dashboard/presupuestos-finales/nuevo?id_tarea=${tareaId}`}>
                     <Plus className="mr-1.5 h-4 w-4" />
                     Generar PF Platinum
                   </Link>
@@ -503,7 +503,7 @@ export function PresupuestosInteractivos({
             {!presupuestoFinalLocal ? (
               presupuestoBaseLocal ? (
                 <Button asChild size="sm" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 shadow-sm border-none transition-all hover:scale-[1.02]">
-                  <Link href={`?action=crear-pf&id_tarea=${tareaId}`}>
+                  <Link href={`/dashboard/presupuestos-finales/nuevo?id_tarea=${tareaId}`}>
                     <Plus className="mr-1.5 h-4 w-4" />
                     Generar PF Platinum
                   </Link>

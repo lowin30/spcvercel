@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Zap, LinkIcon, Wand2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { loadPFHub, loadPFCatalogs, getTareasConPBAprobadoSinPF, type PFHubData } from "@/app/dashboard/presupuestos-finales/loader-unified"
 import { ExpressPFWizard } from "./ExpressPFWizard"
 import { PFHubView } from "./PFHubView"
@@ -26,6 +27,7 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
 
     const action = searchParams.get('action')
     const editPf = searchParams.get('edit-pf')
+    const currentTaskId = searchParams.get('id_tarea')
 
     // Listen to URL params
     useEffect(() => {
@@ -100,7 +102,7 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
         params.delete('action')
         params.set('edit-pf', pfId.toString())
         router.push(`?${params.toString()}`, { scroll: false })
-        
+
         // Also set local state for immediate transition feedback
         setExpressCreatedPfId(pfId)
     }
@@ -139,7 +141,7 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
                         </div>
                     ) : mode === "crear" && !expressCreatedPfId ? (
                         <div className="p-5">
-                            <Tabs defaultValue="express" className="w-full">
+                            <Tabs defaultValue={currentTaskId ? "normal" : "express"} className="w-full">
                                 <TabsList className="grid w-full grid-cols-2 h-12 rounded-xl bg-muted/50 p-1 mb-5">
                                     <TabsTrigger
                                         value="express"
@@ -165,10 +167,10 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
                                 </TabsContent>
 
                                 <TabsContent value="normal">
-                                    {/* Normal linking flow - redirect to /nuevo with task id */}
                                     <NormalCreateFlow
                                         tareas={tareasDisponibles}
                                         onClose={closeTool}
+                                        selectedTareaId={currentTaskId ? parseInt(currentTaskId) : null}
                                     />
                                 </TabsContent>
                             </Tabs>
@@ -201,13 +203,13 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
                                     <p className="text-xs text-muted-foreground mt-1">Es posible que no tengas permisos o el registro aún se esté procesando.</p>
                                 </div>
                                 <div className="flex gap-3">
-                                    <button 
+                                    <button
                                         onClick={() => expressCreatedPfId && loadEditData(expressCreatedPfId)}
                                         className="text-xs font-bold px-4 py-2 bg-indigo-500 text-white rounded-lg shadow-sm hover:bg-indigo-600 transition-colors"
                                     >
                                         Reintentar Carga
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={closeTool}
                                         className="text-xs font-bold px-4 py-2 border rounded-lg hover:bg-muted transition-colors"
                                     >
@@ -228,7 +230,15 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
 }
 
 /* Simple flow to link to an existing task with approved PB */
-function NormalCreateFlow({ tareas, onClose }: { tareas: any[], onClose: () => void }) {
+function NormalCreateFlow({
+    tareas,
+    onClose,
+    selectedTareaId
+}: {
+    tareas: any[],
+    onClose: () => void,
+    selectedTareaId?: number | null
+}) {
     const router = useRouter()
 
     if (tareas.length === 0) {
@@ -248,30 +258,46 @@ function NormalCreateFlow({ tareas, onClose }: { tareas: any[], onClose: () => v
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
                 Tareas con PB aprobado ({tareas.length})
             </p>
-            {tareas.map((pb: any) => (
-                <button
-                    key={pb.id}
-                    onClick={() => {
-                        onClose()
-                        router.push(`/dashboard/presupuestos-finales/nuevo?id_tarea=${pb.id_tarea}`)
-                    }}
-                    className="w-full text-left p-4 rounded-xl border border-muted-foreground/10 bg-card hover:bg-muted/30 hover:border-primary/30 transition-all group active:scale-[0.98]"
-                >
-                    <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                            <p className="text-sm font-bold group-hover:text-primary transition-colors">
-                                {pb.tareas?.titulo || 'Sin título'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {pb.tareas?.edificios?.nombre || 'Sin edificio'} • PB: {pb.code}
-                            </p>
+            {tareas.map((pb: any) => {
+                const isSelectedContext = pb.id_tarea === selectedTareaId;
+
+                return (
+                    <button
+                        key={pb.id}
+                        onClick={() => {
+                            // Navegación directa — NO llamar onClose() aquí.
+                            // onClose() hace su propio router.push() que colisiona con este.
+                            // El Sheet se desmonta solo al navegar a otra página.
+                            router.push(`/dashboard/presupuestos-finales/nuevo?id_tarea=${pb.id_tarea}`)
+                        }}
+                        className={`w-full text-left p-4 rounded-xl border transition-all group active:scale-[0.98] ${isSelectedContext
+                            ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 ring-1 ring-indigo-500'
+                            : 'border-muted-foreground/10 bg-card hover:bg-muted/30 hover:border-primary/30'
+                            }`}
+                    >
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <p className={`text-sm font-bold transition-colors ${isSelectedContext ? 'text-indigo-600 dark:text-indigo-400' : 'group-hover:text-primary'}`}>
+                                        {pb.tareas?.titulo || 'Sin título'}
+                                    </p>
+                                    {isSelectedContext && (
+                                        <Badge className="bg-indigo-500 text-[9px] h-3.5 px-1 font-black rounded border-none text-white whitespace-nowrap">
+                                            ESTA TAREA
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {pb.tareas?.edificios?.nombre || 'Sin edificio'} • PB: {pb.code}
+                                </p>
+                            </div>
+                            <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                                ${(pb.total || 0).toLocaleString('es-AR')}
+                            </span>
                         </div>
-                        <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded-md">
-                            ${(pb.total || 0).toLocaleString('es-AR')}
-                        </span>
-                    </div>
-                </button>
-            ))}
+                    </button>
+                );
+            })}
         </div>
     )
 }

@@ -23,7 +23,7 @@ interface Item {
 
 interface PresupuestoFinalFormProps {
     presupuestoBase?: any
-    presupuestoFinal?: any // Para edicion
+    presupuestoFinal?: any // para edicion
     userId: string
     onCancel?: () => void
 }
@@ -37,13 +37,13 @@ export default function PresupuestoFinalForm({
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // Estado inicial
+    // estado inicial
     const [items, setItems] = useState<Item[]>(
         presupuestoFinal?.items || []
     )
     const [notas, setNotas] = useState(presupuestoFinal?.notas || "")
 
-    // Estado para nuevo item
+    // estado para nuevo item
     const [newItem, setNewItem] = useState<Item>({
         descripcion: "",
         cantidad: 1,
@@ -51,12 +51,12 @@ export default function PresupuestoFinalForm({
         es_material: false
     })
 
-    // Totales calculados (Solo para UI, el servidor recalcula por seguridad)
+    // totales calculados
     const total = items.reduce((sum, item) => sum + (item.cantidad * item.precio), 0)
 
     const handleAddItem = () => {
         if (!newItem.descripcion || newItem.cantidad <= 0 || newItem.precio < 0) {
-            toast.error("Datos del ítem inválidos")
+            toast.error("datos del item invalidos")
             return
         }
         setItems([...items, { ...newItem }])
@@ -71,7 +71,7 @@ export default function PresupuestoFinalForm({
 
     const handleSubmit = async () => {
         if (items.length === 0) {
-            toast.error("Debes agregar al menos un ítem")
+            toast.error("debes agregar al menos un item")
             return
         }
 
@@ -79,10 +79,10 @@ export default function PresupuestoFinalForm({
         try {
             const payload = {
                 id: presupuestoFinal?.id,
-                id_presupuesto_base: presupuestoBase?.id, // Solo si es create desde base
+                id_presupuesto_base: presupuestoBase?.id,
                 id_tarea: presupuestoFinal?.id_tarea || presupuestoBase?.id_tarea,
                 id_edificio: presupuestoFinal?.id_edificio || presupuestoBase?.tareas?.id_edificio,
-                id_administrador: presupuestoFinal?.id_administrador || presupuestoBase?.id_administrador, // Ojo con este campo, validar origen
+                id_administrador: presupuestoFinal?.id_administrador || presupuestoBase?.id_administrador,
                 notas,
                 observaciones_admin: notas,
                 items
@@ -91,14 +91,14 @@ export default function PresupuestoFinalForm({
             const result = await savePresupuestoFinal(payload)
 
             if (result.success) {
-                toast.success(presupuestoFinal ? "Presupuesto actualizado" : "Presupuesto creado con éxito")
+                toast.success(presupuestoFinal ? "presupuesto actualizado" : "presupuesto creado con exito")
                 router.push(payload.id_tarea ? `/dashboard/tareas/${payload.id_tarea}` : '/dashboard/presupuestos-finales')
                 router.refresh()
             } else {
-                toast.error(result.error || "Error al guardar")
+                toast.error(result.error || "error al guardar")
             }
         } catch (error: any) {
-            toast.error("Error inesperado: " + error.message)
+            toast.error("error inesperado: " + error.message)
         } finally {
             setIsSubmitting(false)
         }
@@ -106,43 +106,43 @@ export default function PresupuestoFinalForm({
 
     return (
         <div className="space-y-6">
-            {/* Resumen del Presupuesto Base (si aplica) */}
+            {/* resumen del presupuesto base (si aplica) */}
             {presupuestoBase && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Referencia: Presupuesto Base</CardTitle>
+                        <CardTitle>referencia: presupuesto base</CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-3 gap-4">
                         <div>
-                            <Label>Código</Label>
+                            <Label>codigo</Label>
                             <div className="text-lg font-medium">{presupuestoBase.code}</div>
                         </div>
                         <div>
-                            <Label>Total Base</Label>
+                            <Label>total base</Label>
                             <div className="text-lg font-medium">{formatCurrency(presupuestoBase.total || 0)}</div>
                         </div>
                         <div>
-                            <Label>Tarea</Label>
+                            <Label>tarea</Label>
                             <div className="text-sm text-muted-foreground">{presupuestoBase.tareas?.titulo}</div>
                         </div>
                     </CardContent>
                 </Card>
             )}
 
-            {/* Tabla de Items */}
+            {/* tabla de items */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Ítems del Presupuesto Final</CardTitle>
+                    <CardTitle>items del presupuesto final</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Descripción</TableHead>
-                                    <TableHead className="w-[100px] text-right">Cant.</TableHead>
-                                    <TableHead className="w-[120px] text-right">Precio</TableHead>
-                                    <TableHead className="w-[120px] text-right">Subtotal</TableHead>
+                                    <TableHead>descripcion</TableHead>
+                                    <TableHead className="w-[100px] text-right">cant</TableHead>
+                                    <TableHead className="w-[120px] text-right">precio</TableHead>
+                                    <TableHead className="w-[120px] text-right">subtotal</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -165,7 +165,7 @@ export default function PresupuestoFinalForm({
                                 {items.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center text-muted-foreground py-4">
-                                            Sin ítems agregados
+                                            sin items agregados
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -173,18 +173,18 @@ export default function PresupuestoFinalForm({
                         </Table>
                     </div>
 
-                    {/* Inputs para nuevo item */}
+                    {/* inputs para nuevo item */}
                     <div className="grid grid-cols-12 gap-2 items-end border p-4 rounded-md bg-muted/20">
                         <div className="col-span-6">
-                            <Label>Descripción</Label>
+                            <Label>descripcion</Label>
                             <Input
                                 value={newItem.descripcion}
                                 onChange={(e) => setNewItem({ ...newItem, descripcion: e.target.value })}
-                                placeholder="Ej: Pintura Latex lavable..."
+                                placeholder="ej: pintura latex lavable..."
                             />
                         </div>
                         <div className="col-span-2">
-                            <Label>Cantidad</Label>
+                            <Label>cantidad</Label>
                             <Input
                                 type="number"
                                 min="1"
@@ -193,7 +193,7 @@ export default function PresupuestoFinalForm({
                             />
                         </div>
                         <div className="col-span-2">
-                            <Label>Precio Un.</Label>
+                            <Label>precio un</Label>
                             <Input
                                 type="number"
                                 min="0"
@@ -203,39 +203,39 @@ export default function PresupuestoFinalForm({
                         </div>
                         <div className="col-span-2">
                             <Button onClick={handleAddItem} className="w-full" type="button" variant="secondary">
-                                <PlusCircle className="mr-2 h-4 w-4" /> Agregar
+                                <PlusCircle className="mr-2 h-4 w-4" /> agregar
                             </Button>
                         </div>
                     </div>
 
                     <div className="flex justify-end items-center gap-4 pt-4 border-t">
-                        <div className="text-2xl font-bold">Total: {formatCurrency(total)}</div>
+                        <div className="text-2xl font-bold">total: {formatCurrency(total)}</div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Notas */}
+            {/* notas */}
             <Card>
                 <CardContent className="pt-6">
-                    <Label>Notas Internas</Label>
+                    <Label>notas internas</Label>
                     <Textarea
                         value={notas}
                         onChange={(e) => setNotas(e.target.value)}
-                        placeholder="Observaciones..."
+                        placeholder="observaciones..."
                         rows={3}
                     />
                 </CardContent>
             </Card>
 
-            {/* Actions */}
+            {/* actions */}
             <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
-                    Cancelar
+                    cancelar
                 </Button>
                 <Button onClick={handleSubmit} disabled={isSubmitting || items.length === 0}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <Save className="mr-2 h-4 w-4" />
-                    {presupuestoFinal ? "Actualizar Presupuesto" : "Guardar Presupuesto Final"}
+                    {presupuestoFinal ? "actualizar presupuesto" : "guardar presupuesto final"}
                 </Button>
             </div>
         </div>

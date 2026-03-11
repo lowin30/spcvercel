@@ -27,7 +27,7 @@ export default function PresupuestoFinalFormWrapper({
         return (
             <div className="space-y-4">
                 <Button variant="ghost" onClick={() => setSelectedPB(null)} className="mb-4">
-                    ← Volver a la lista
+                    ← volver a la lista
                 </Button>
                 <PresupuestoFinalForm
                     presupuestoBase={selectedPB}
@@ -41,20 +41,20 @@ export default function PresupuestoFinalFormWrapper({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Selecciona un Presupuesto Base Aprobado</CardTitle>
+                <CardTitle>selecciona un presupuesto base aprobado</CardTitle>
             </CardHeader>
             <CardContent>
                 {presupuestosBase.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                        No hay presupuestos base pendientes de finalizar.
+                        no hay presupuestos base pendientes de finalizar.
                     </div>
                 ) : (
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Tarea</TableHead>
-                                <TableHead>Total Base</TableHead>
+                                <TableHead>fecha</TableHead>
+                                <TableHead>tarea</TableHead>
+                                <TableHead>total base</TableHead>
                                 <TableHead></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -69,7 +69,7 @@ export default function PresupuestoFinalFormWrapper({
                                     <TableCell>{formatCurrency(pb.total || 0)}</TableCell>
                                     <TableCell>
                                         <Button onClick={() => setSelectedPB(pb)}>
-                                            Seleccionar
+                                            seleccionar
                                         </Button>
                                     </TableCell>
                                 </TableRow>

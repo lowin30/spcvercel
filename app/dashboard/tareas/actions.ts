@@ -1000,8 +1000,8 @@ export async function getTasksForBudgetAction(idTareaLabel?: string) {
 }
 
 /**
- * Guardar Presupuesto (Bridge Protocol)
- * Maneja creación y actualización de presupuestos base y finales.
+ * guardar presupuesto (bridge protocol)
+ * maneja creacion y actualizacion de presupuestos base y finales.
  */
 export async function saveBudgetAction(params: {
   tipo: "base" | "final";
@@ -1014,16 +1014,16 @@ export async function saveBudgetAction(params: {
     const user = await validateSessionAndGetUser();
     const { tipo, budgetData, items, isEditing, budgetId } = params;
 
-    // 1. Validación de Seguridad
+    // 1. validacion de seguridad
     if (user.rol !== 'admin' && user.rol !== 'supervisor') {
-      return { success: false, message: 'No tienes permisos para realizar esta acción.' };
+      return { success: false, message: 'no tienes permisos para realizar esta accion.' };
     }
 
     if (tipo === 'final' && user.rol !== 'admin') {
-      return { success: false, message: 'Solo los administradores pueden gestionar presupuestos finales.' };
+      return { success: false, message: 'solo los administradores pueden gestionar presupuestos finales.' };
     }
 
-    // Asegurar campos obligatorios (Constraint Audit v93.3.4)
+    // asegurar campos obligatorios (constraint audit v93.3.4)
     if (tipo === 'final') {
       budgetData.ajuste_admin = budgetData.ajuste_admin ?? 0;
       budgetData.total_base = budgetData.total_base ?? 0;
@@ -1031,11 +1031,11 @@ export async function saveBudgetAction(params: {
       budgetData.mano_obra = budgetData.mano_obra ?? 0;
       budgetData.total = budgetData.total ?? 0;
     } else if (tipo === 'base') {
-      // Remover total ya que es una columna GENERATED ALWAYS en presupuestos_base
+      // remover total ya que es una columna generated always en presupuestos_base
       delete budgetData.total;
     }
 
-    // Set approval date if marked as approved
+    // set approval date if marked as approved
     if (budgetData.aprobado) {
       budgetData.fecha_aprobacion = new Date().toISOString();
     } else {
@@ -1045,7 +1045,7 @@ export async function saveBudgetAction(params: {
     let savedBudget: any;
 
     if (isEditing && budgetId) {
-      // --- Lógica de Edición ---
+      // --- logica de edicion ---
       const table = tipo === "base" ? "presupuestos_base" : "presupuestos_finales";
 
       const { data, error } = await supabaseAdmin
@@ -1058,7 +1058,7 @@ export async function saveBudgetAction(params: {
       if (error) throw error;
       savedBudget = data;
 
-      // Sincronización de ítems
+      // sincronizacion de items
       const { data: existingItems } = await supabaseAdmin
         .from("items")
         .select("id")
@@ -1073,9 +1073,9 @@ export async function saveBudgetAction(params: {
       }
 
       for (const item of items) {
-        // Sanitizar: solo columnas válidas de la tabla 'items'
+        // sanitizar: solo columnas validas de la tabla 'items' (gold standard v81.0 blindaje)
         const itemPayload: any = {
-          descripcion: item.descripcion,
+          descripcion: sanitizeText(item.descripcion).toLowerCase(),
           cantidad: item.cantidad,
           precio: typeof item.precio === 'string' ? parseFloat(item.precio) : item.precio,
           id_presupuesto: budgetId,
@@ -1092,7 +1092,7 @@ export async function saveBudgetAction(params: {
       }
 
     } else {
-      // --- Lógica de Creación ---
+      // --- logica de creacion ---
       const table = tipo === "base" ? "presupuestos_base" : "presupuestos_finales";
 
       const { data, error } = await supabaseAdmin
@@ -1104,9 +1104,9 @@ export async function saveBudgetAction(params: {
       if (error) throw error;
       savedBudget = data;
 
-      // Sanitizar: solo columnas válidas de la tabla 'items'
+      // sanitizar: solo columnas validas de la tabla 'items' (gold standard v81.0 blindaje)
       const itemsPayload = items.map(item => ({
-        descripcion: item.descripcion,
+        descripcion: sanitizeText(item.descripcion).toLowerCase(),
         cantidad: item.cantidad,
         precio: typeof item.precio === 'string' ? parseFloat(item.precio) : item.precio,
         id_presupuesto: savedBudget.id,
@@ -1120,14 +1120,14 @@ export async function saveBudgetAction(params: {
     }
 
 
-    // 3. Post-Procesamiento: Auto-Aprobación de PB eliminada de aquí. 
-    // Ahora se maneja de forma segura dentro de aprobarPresupuestoAction.
-    // 4. Post-Procesamiento: Aprobación -> Facturas
+    // 3. post-procesamiento: auto-aprobacion de pb eliminada de aqui. 
+    // ahora se maneja de forma segura dentro de aprobarpresupuestoaction.
+    // 4. post-procesamiento: aprobacion -> facturas
     if (tipo === "final" && savedBudget.aprobado) {
       try {
         await convertirPresupuestoADosFacturas(savedBudget.id);
       } catch (e) {
-        console.error("Error al disparar creación de facturas post-save:", e);
+        console.error("error al disparar creacion de facturas post-save:", e);
       }
     }
 
@@ -1140,8 +1140,8 @@ export async function saveBudgetAction(params: {
     return { success: true, data: savedBudget };
 
   } catch (error: any) {
-    console.error("Error en Bridge (saveBudgetAction):", error);
-    return { success: false, message: error.message || "Error al procesar el presupuesto." };
+    console.error("error en bridge (savebudgetaction):", error);
+    return { success: false, message: error.message || "error al procesar el presupuesto." };
   }
 }
 

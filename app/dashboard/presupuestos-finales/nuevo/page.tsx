@@ -22,7 +22,7 @@ export default async function NuevoPresupuestoFinalPage({
 
   const supabase = await createServerClient();
 
-  // 1. Obtener Presupuesto Base Específico (si viene id_tarea)
+  // 1. obtener presupuesto base especifico (si viene id_tarea)
   let presupuestoBase = null;
   let itemsBase = [];
 
@@ -36,7 +36,7 @@ export default async function NuevoPresupuestoFinalPage({
     if (!pbError && pbData) {
       presupuestoBase = pbData;
 
-      // Obtener items del PB para clonarlos si existen
+      // obtener items del pb para clonarlos si existen
       const { data: itemsData } = await supabase
         .from('items_presupuesto_base')
         .select('*')
@@ -45,7 +45,7 @@ export default async function NuevoPresupuestoFinalPage({
       if (itemsData) {
         itemsBase = itemsData.map(item => ({
           ...item,
-          es_material: !!item.es_producto, // Lógica base antigua heredada
+          es_material: !!item.es_producto, // logica base antigua heredada
           cantidad: item.cantidad || 1,
           precio: item.precio || 0,
         }));
@@ -53,7 +53,7 @@ export default async function NuevoPresupuestoFinalPage({
     }
   }
 
-  // 2. Cargar diccionarios necesarios para el BudgetForm
+  // 2. cargar diccionarios necesarios para el budgetform
   const [edificiosRes, adminsRes, productosRes] = await Promise.all([
     supabase.from('edificios').select('id, nombre, id_administrador').order('nombre'),
     supabase.from('administradores').select('id, nombre').order('nombre'),
@@ -68,7 +68,7 @@ export default async function NuevoPresupuestoFinalPage({
 
   return (
     <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold mb-6">Nuevo Presupuesto Final</h1>
+      <h1 className="text-2xl font-bold mb-6 text-foreground/90">nuevo presupuesto final</h1>
       {presupuestoBase ? (
         <BudgetForm
           tipo="final"
@@ -85,8 +85,8 @@ export default async function NuevoPresupuestoFinalPage({
         />
       ) : (
         <div className="text-center py-10 bg-muted/20 rounded-lg border border-dashed">
-          <h3 className="text-lg font-medium text-muted-foreground">No se encontró un presupuesto base para asociar.</h3>
-          <p className="text-sm text-muted-foreground mt-2">Asegúrate de haber accedido desde una tarea válida y que su presupuesto base esté aprobado.</p>
+          <h3 className="text-lg font-medium text-muted-foreground">no se encontro un presupuesto base para asociar.</h3>
+          <p className="text-sm text-muted-foreground mt-2">asegurate de haber accedido desde una tarea valida y que su presupuesto base este aprobado.</p>
         </div>
       )}
     </div>
