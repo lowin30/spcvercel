@@ -851,28 +851,6 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
     if (tipo === 'final') {
       console.log(`[APPROVE] PF ${id} aprobado. Sincronizando PB y facturando...`)
 
-      // --- NEW RULE: Auto-Aprobación del PB al Aprobar el PF ---
-      try {
-        const { data: pfData } = await supabaseAdmin
-          .from("presupuestos_finales")
-          .select("id_presupuesto_base")
-          .eq("id", id)
-          .single();
-
-        if (pfData?.id_presupuesto_base) {
-          await supabaseAdmin
-            .from("presupuestos_base")
-            .update({
-              aprobado: true,
-              fecha_aprobacion: now
-            })
-            .eq("id", pfData.id_presupuesto_base);
-          console.log(`[APPROVE] Sincronizado PB ${pfData.id_presupuesto_base} a aprobado=true`);
-        }
-      } catch (syncError) {
-        console.error(`[APPROVE] Error sincronizando PB al aprobar PF ${id}:`, syncError);
-      }
-      // ---------------------------------------------------------
 
       const { convertirPresupuestoADosFacturas } = await import("@/app/dashboard/presupuestos-finales/actions-factura")
 
