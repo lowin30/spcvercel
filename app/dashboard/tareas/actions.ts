@@ -975,7 +975,7 @@ export async function getTaskForFinalBudgetAction(taskId: number) {
 
     // 3. Consulta Segura (Bridge)
     const { data, error } = await supabaseAdmin
-      .from('vista_tareas_completa')
+      .from('vista_tareas_admin')
       .select('*')
       .eq('id', taskId)
       .single()
