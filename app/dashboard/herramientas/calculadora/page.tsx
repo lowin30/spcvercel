@@ -1,27 +1,21 @@
-import { getSession, getUserDetails } from "@/lib/supabase-server"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { redirect } from "next/navigation"
 import { SobrecostoCalculator } from "@/components/sobrecosto-calculator"
 
 export const dynamic = 'force-dynamic'
 export default async function CalculadoraPage() {
-  const session = await getSession()
+  const user = await validateSessionAndGetUser()
 
-  if (!session) {
-    redirect("/login")
-  }
-
-  const userDetails = await getUserDetails()
-
-  // Solo supervisores y admins pueden acceder a esta herramienta
-  if (userDetails?.rol === "trabajador") {
+  // solo supervisores y admins pueden acceder a esta herramienta
+  if (user.rol === "trabajador") {
     redirect("/dashboard")
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Calculadora de Sobrecostos</h1>
+      <h1 className="text-2xl font-bold tracking-tight">calculadora de sobrecostos</h1>
       <p className="text-muted-foreground">
-        Utiliza esta herramienta para simular diferentes escenarios de sobrecostos y su impacto en la rentabilidad.
+        utiliza esta herramienta para simular diferentes escenarios de sobrecostos y su impacto en la rentabilidad.
       </p>
 
       <SobrecostoCalculator />

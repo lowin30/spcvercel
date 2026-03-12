@@ -510,6 +510,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                 <DepartamentosInteractivos
                                     tareaId={tarea.id}
                                     edificioId={tarea.id_edificio}
+                                    userRole={userDetails?.rol}
                                     initialDepartamentos={tarea.departamentos_json}
                                     initialTelefonos={initialData.contactos}
                                     initialDepartamentosDisponibles={initialData.departamentosDisponibles}

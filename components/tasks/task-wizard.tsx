@@ -104,35 +104,11 @@ export function TaskWizard({
 
     // --- Efectos de Carga Inicial ---
     useEffect(() => {
-        const init = async () => {
-            // Only fetch user if not passed (Legacy support or safety)
-            if (!currentUserId || !currentUserRole) {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (user) {
-                    setCurrentUserId(user.id)
-                    const { data: profile } = await supabase.from('usuarios').select('rol').eq('id', user.id).single()
-                    setCurrentUserRole(profile?.rol || null)
-
-                    // Auto-asign supervisor (if logic requires knowing rol inside component)
-                    if (profile?.rol === 'supervisor' && mode === 'create') {
-                        setFormData(prev => ({ ...prev, id_supervisor: user.id }))
-                    }
-                }
-            } else {
-                // If passed via props
-                if (currentUserRol === 'supervisor' && mode === 'create' && !defaultValues?.id_supervisor) {
-                    setFormData(prev => ({ ...prev, id_supervisor: currentUserId || "" }))
-                }
-            }
-
-            // Catalogs are now Props. We don't fetch them here.
-            // But we might need to load initial Buildings if editing and id_administrador is set.
-            if (defaultValues?.id_administrador) {
-                // Trigger building load?
-                // The effect on [formData.id_administrador] will handle it!
-            }
+        // En Protocolo v81.0, el usuario y rol DEBEN ser inyectados via props desde el servidor.
+        // Mantenemos la lógica de auto-asignación basada en props.
+        if (currentUserRol === 'supervisor' && mode === 'create' && !defaultValues?.id_supervisor) {
+            setFormData(prev => ({ ...prev, id_supervisor: currentUserId || "" }))
         }
-        init()
     }, [currentUserId, currentUserRole, mode, defaultValues])
 
     // --- Lógica de Cascada (Step 1) ---

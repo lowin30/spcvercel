@@ -37,7 +37,7 @@ export const TOOL_REGISTRY = {
     agregar_comentario: { component: 'CommentForm', roles: ['admin', 'supervisor', 'trabajador'], label: 'Comentario', icon: '💬', priority: 'low' },
 
     // Budget & Estimation
-    editar_presupuesto: { component: 'BudgetForm', roles: ['admin', 'supervisor'], label: 'Editar Presupuesto', icon: '📊', priority: 'medium' },
+    editar_presupuesto: { component: 'BudgetFormNormalizado', roles: ['admin', 'supervisor'], label: 'Editar Presupuesto', icon: '📊', priority: 'medium' },
 
     // Advanced Operations
     generar_ajustes: { component: 'GenerarAjustesDialog', roles: ['admin'], label: 'Ajustes Factura', icon: '🔧', priority: 'medium' },

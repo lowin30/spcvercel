@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { createServerClient } from "@/lib/supabase-server"
-import { BudgetForm } from "@/components/budget-form"
+import { BudgetFormNormalizado } from "@/components/budget-form-normalizado"
 
 export const dynamic = 'force-dynamic'
 
@@ -70,18 +70,13 @@ export default async function NuevoPresupuestoFinalPage({
     <div className="container mx-auto py-6">
       <h1 className="text-2xl font-bold mb-6 text-foreground/90">nuevo presupuesto final</h1>
       {presupuestoBase ? (
-        <BudgetForm
-          tipo="final"
-          idTarea={initialTaskId}
-          presupuestoBase={presupuestoBase}
-          itemsBase={itemsBase}
-          initialData={{
-            id_administrador: presupuestoBase.id_administrador,
-            id_edificio: presupuestoBase.id_edificio,
-            id_presupuesto_base: presupuestoBase.id
+        <BudgetFormNormalizado
+          tipo="base"
+          idTarea={initialTaskId!}
+          onSuccess={async () => {
+            "use server"
+            redirect(`/dashboard/tareas/${initialTaskId}`)
           }}
-          userId={user.id}
-          listas={listas}
         />
       ) : (
         <div className="text-center py-10 bg-muted/20 rounded-lg border border-dashed">

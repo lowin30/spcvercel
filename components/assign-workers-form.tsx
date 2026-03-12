@@ -53,67 +53,23 @@ export function AssignWorkersForm({ taskId, currentWorkerEmails, workers, isChat
     setIsSubmitting(true)
 
     try {
-      console.log("=== INICIO PROCESO ASIGNACIÓN DE TRABAJADORES ===")
       console.log("taskId original:", taskId, typeof taskId);
-      console.log("Trabajadores seleccionados (emails):", selectedWorkers);
-      console.log("Trabajadores disponibles:", workers);
-
-      // Convertir taskId a número
       const taskIdNum = parseInt(taskId, 10);
-      console.log("taskId convertido:", taskIdNum);
 
       if (isNaN(taskIdNum)) {
         throw new Error(`ID de tarea inválido: ${taskId}`);
       }
 
-      // Primero, eliminar todas las asignaciones existentes
-      console.log("Eliminando asignaciones existentes para tarea ID:", taskIdNum);
-      const deleteResult = await supabase.from("trabajadores_tareas").delete().eq("id_tarea", taskIdNum);
-      console.log("Resultado de eliminar asignaciones previas:", deleteResult);
+      // Obtener IDs de trabajadores (las props vienen como emails, buscamos los IDs en la lista de workers)
+      const selectedWorkerIds = selectedWorkers.map(email => {
+        const w = workers.find(worker => worker.email === email);
+        return w?.id;
+      }).filter(Boolean) as string[];
 
-      // Luego, crear las nuevas asignaciones
-      if (selectedWorkers.length > 0) {
-        // Ya tenemos taskIdNum convertido arriba
+      const { batchUpdateWorkersAction } = await import('@/app/dashboard/tareas/actions');
+      const res = await batchUpdateWorkersAction(taskIdNum, selectedWorkerIds);
 
-        // Crear asignaciones directamente basadas en los IDs
-        const newAssignments = [];
-
-        // Para cada trabajador seleccionado
-        for (const workerEmail of selectedWorkers) {
-          // Buscar el trabajador por email
-          const worker = workers.find(w => w.email === workerEmail);
-
-          if (worker && worker.id) {
-            console.log("Asignando trabajador:", worker.email, "con ID:", worker.id);
-
-            newAssignments.push({
-              id_tarea: taskIdNum,
-              id_trabajador: worker.id
-            });
-          }
-        }
-
-        // Verificar si se crearon asignaciones
-        if (newAssignments.length > 0) {
-          console.log("Insertando asignaciones:", newAssignments);
-
-          // Insertar las asignaciones
-          const insertResult = await supabase
-            .from("trabajadores_tareas")
-            .insert(newAssignments);
-
-          if (insertResult.error) {
-            console.error("Error al insertar asignaciones:", insertResult.error);
-            throw insertResult.error;
-          } else {
-            console.log("Asignaciones insertadas correctamente");
-          }
-        } else {
-          console.warn("No se crearon asignaciones para insertar");
-        }
-      } else {
-        console.log("No hay trabajadores seleccionados para asignar");
-      }
+      if (!res.success) throw new Error(res.message);
 
       toast({
         title: "Trabajadores asignados",
@@ -127,11 +83,11 @@ export function AssignWorkersForm({ taskId, currentWorkerEmails, workers, isChat
         router.push(`/dashboard/tareas/${taskId}`)
         router.refresh()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al asignar trabajadores:", error)
       toast({
         title: "Error",
-        description: "No se pudieron asignar los trabajadores",
+        description: error.message || "No se pudieron asignar los trabajadores",
         variant: "destructive",
       })
     } finally {

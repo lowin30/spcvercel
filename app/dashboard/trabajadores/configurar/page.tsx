@@ -1,22 +1,16 @@
-import { getSession, getUserDetails } from "@/lib/supabase-server"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { redirect } from "next/navigation"
 
 export const dynamic = 'force-dynamic'
-// Esta página ahora redirige a la sección de configuración de trabajadores
+// esta pagina ahora redirige a la seccion de configuracion de trabajadores
 export default async function ConfigurarTrabajadorRedirectPage() {
-  const session = await getSession()
+  const user = await validateSessionAndGetUser()
 
-  if (!session) {
-    redirect("/login")
-  }
-
-  const userDetails = await getUserDetails()
-
-  // Solo admin puede configurar trabajadores
-  if (userDetails?.rol !== "admin") {
+  // solo admin puede configurar trabajadores
+  if (user.rol !== "admin") {
     redirect("/dashboard")
   }
-  
-  // Redirigir a la nueva ubicación de configuración de trabajadores
+
+  // redirigir a la nueva ubicacion de configuracion de trabajadores
   redirect("/dashboard/configuracion?tab=trabajadores")
 }

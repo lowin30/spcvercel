@@ -188,7 +188,46 @@ export async function registrarGastoAction(gastoData: any) {
             created_at: new Date().toISOString()
         }
 
-        // 2. Inserción Directa con Admin Bypass
+        // 2. Blindaje de Seguridad Platinum v81.0 (RLS Manual ante Admin Bypass)
+        if (user.rol !== 'admin') {
+            // A. Verificación de Tarea: ¿Tiene la tarea asignada?
+            const { data: asignacionS } = await supabaseAdmin
+                .from('supervisores_tareas')
+                .select('id')
+                .eq('id_tarea', gastoData.id_tarea)
+                .eq('id_supervisor', userId)
+                .maybeSingle()
+
+            const { data: asignacionT } = await supabaseAdmin
+                .from('trabajadores_tareas')
+                .select('id')
+                .eq('id_tarea', gastoData.id_tarea)
+                .eq('id_trabajador', userId)
+                .maybeSingle()
+
+            if (!asignacionS && !asignacionT) {
+                throw new Error("acceso denegado: no tienes permiso sobre esta tarea")
+            }
+
+            // B. Verificación de Propiedad (en caso de UPDATE)
+            if (gastoData.id) {
+                const { data: gastoExistente } = await supabaseAdmin
+                    .from('gastos_tarea')
+                    .select('id_usuario, liquidado')
+                    .eq('id', gastoData.id)
+                    .single()
+
+                if (gastoExistente && gastoExistente.id_usuario !== userId) {
+                    throw new Error("acceso denegado: este gasto no te pertenece")
+                }
+
+                if (gastoExistente?.liquidado) {
+                    throw new Error("acceso denegado: el gasto ya esta liquidado y no se puede modificar")
+                }
+            }
+        }
+
+        // 3. Inserción Directa con Admin Bypass (Propiedad ya validada)
         let result;
         if (gastoData.id) {
             result = await supabaseAdmin

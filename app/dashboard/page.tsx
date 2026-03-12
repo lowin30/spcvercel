@@ -1,421 +1,131 @@
-"use client"
-
-export const dynamic = 'force-dynamic'
-
-import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase-client"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { getDashboardStats } from "./actions"
-// Importación del nuevo Server Action exclusivo para Supervisor
 import { getDashboardSupervisorData } from "./dashboard-supervisor.actions"
-import { formatDate } from "@/lib/date-utils"
-import { executeCountQuery, executeQuery } from "@/lib/supabase-helpers"
-import { TaskStatusBadge } from "./tasks-badge"
-
-// Importar componentes específicos por rol
 import { AdminDashboard } from "./admin-dashboard"
 import { SupervisorDashboard } from "./supervisor-dashboard"
 import { TrabajadorDashboard } from "./trabajador-dashboard"
+import { createServerClient } from "@/lib/supabase-server"
+import { executeQuery } from "@/lib/supabase-helpers"
 
+export const dynamic = 'force-dynamic'
 
-// Definir tipos para mejorar la inferencia
-type StatsType = {
-  total_edificios: number;
-  total_contactos: number;
-  total_administradores: number;
-  tareas_activas: number;
-};
+interface DashboardTask {
+  id: number
+  code?: string
+  titulo?: string
+  id_estado_nuevo?: number
+  finalizada?: boolean
+  created_at?: string
+  fecha_visita?: string | null
+  nombre_edificio?: string
+}
 
-type TaskType = {
-  id: string;
-  created_at: string;
-  [key: string]: any;
-};
+interface DashboardBuilding {
+  id: number
+  nombre?: string
+  direccion?: string | null
+  created_at?: string
+}
 
-type BuildingType = {
-  id: string;
-  created_at: string;
-  [key: string]: any;
-};
+export default async function DashboardPage() {
+  // 1. Validacion de sesion y usuario (Modo Dios Server-Side)
+  const userData = await validateSessionAndGetUser()
 
-export default function DashboardPage() {
-  const supabase = createClient()
-
-  // Estados generales
-  const [stats, setStats] = useState<StatsType | null>(null)
-  const [recentTasks, setRecentTasks] = useState<TaskType[]>([])
-  const [recentBuildings, setRecentBuildings] = useState<BuildingType[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Estado para almacenar los datos del usuario
-  const [userDetails, setUserDetails] = useState<any>(null)
-
-  // Estados específicos por rol
-  const [financialStats, setFinancialStats] = useState<any>(null) // Para admin
-  const [supervisorInitialData, setSupervisorInitialData] = useState<any>(null); // Nueva Data para Supervisor Platinum
-  const [trabajadorStats, setTrabajadorStats] = useState<any>(null) // Para trabajador
-  const [salarioDiarioTrabajador, setSalarioDiarioTrabajador] = useState<number>(0) // Salario del trabajador
-
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        setLoading(true)
-
-        if (!supabase) {
-          setError("no se pudo inicializar supabase")
-          return
-        }
-
-        // Obtener usuario actual rápido para saber el rol
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (!authUser) {
-          setError("No autenticado")
-          return
-        }
-
-        const { data: userData } = await supabase
-          .from('usuarios')
-          .select('id, rol, nombre')
-          .eq('id', authUser.id)
-          .maybeSingle()
-
-        if (!userData) {
-          setError("Usuario no encontrado")
-          return
-        }
-
-        setUserDetails(userData)
-
-        // Branching de carga de datos según ROL
-        if (userData.rol === 'supervisor') {
-          // Carga Platinum exclusiva para supervisor
-          const superData = await getDashboardSupervisorData()
-          if (!superData.success) {
-            setError("Error cargando Súper Vista: " + superData.error)
-          } else {
-            setSupervisorInitialData(superData)
-          }
-        } else {
-          // Carga Clásica para Admin y Trabajador
-          const { stats: dashboardStats, roleStats, error: serverError } = await getDashboardStats()
-          if (serverError) {
-            setError("no se pudieron cargar las estadísticas generales")
-            return
-          }
-          setStats(dashboardStats)
-
-          if (userData.rol === 'admin' && roleStats) {
-            setFinancialStats({
-              ...roleStats,
-              presupuestos_activos: roleStats.presupuestos_finales_total || 0,
-            })
-          } else if (userData.rol === 'trabajador' && roleStats) {
-            setTrabajadorStats({
-              ...roleStats,
-              mis_tareas: roleStats.tareas_asignadas_total || 0,
-            })
-          }
-        }
-
-        // Obtener tareas recientes filtradas por rol
-        let tasksQuery;
-
-        // Filtrar tareas según el rol del usuario
-        if (userData?.rol === 'admin') {
-          // Los admin ven todas las tareas usando la vista completa con JOIN a estados_tareas
-          tasksQuery = supabase.from("vista_tareas_completa")
-            .select(`
-              id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-              estados:estados_tareas(id, nombre, color)
-            `)
-            .eq('finalizada', false)
-            .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
-        }
-        else if (userData?.rol === 'supervisor') {
-          // Los supervisores solo ven tareas que supervisan
-          try {
-            // Primero obtenemos los IDs de tareas asignadas al supervisor
-            const { data: asignaciones } = await supabase
-              .from('supervisores_tareas')
-              .select('id_tarea')
-              .eq('id_supervisor', userData.id)
-
-            const idsTareas = asignaciones?.map(a => a.id_tarea) || []
-
-            if (idsTareas.length > 0) {
-              // Luego filtramos las tareas por esos IDs usando la vista completa con JOIN a estados_tareas
-              tasksQuery = supabase.from("vista_tareas_completa")
-                .select(`
-                  id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-                  estados:estados_tareas(id, nombre, color)
-                `)
-                .in('id', idsTareas)
-                .eq('finalizada', false)
-                .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
-            } else {
-              // Si no tiene tareas asignadas, mostramos una lista vacía
-              tasksQuery = supabase.from("vista_tareas_completa")
-                .select(`
-                  id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-                  estados:estados_tareas(id, nombre, color)
-                `)
-                .eq('id', -1) // No coincidirá con ninguna
-            }
-          } catch (e) {
-            console.error("Error al consultar tareas del supervisor:", e)
-            tasksQuery = supabase.from("vista_tareas_completa")
-              .select(`
-                id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-                estados:estados_tareas(id, nombre, color)
-              `)
-              .limit(0)
-          }
-        }
-        else if (userData?.rol === 'trabajador') {
-          // Los trabajadores solo ven tareas donde están asignados
-          try {
-            // Primero obtenemos los IDs de tareas asignadas al trabajador
-            const { data: asignaciones } = await supabase
-              .from('trabajadores_tareas')
-              .select('id_tarea')
-              .eq('id_trabajador', userData.id)
-
-            const idsTareas = asignaciones?.map(a => a.id_tarea) || []
-
-            if (idsTareas.length > 0) {
-              // Luego filtramos las tareas por esos IDs usando la vista completa con JOIN a estados_tareas
-              tasksQuery = supabase.from("vista_tareas_completa")
-                .select(`
-                  id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-                  estados:estados_tareas(id, nombre, color)
-                `)
-                .in('id', idsTareas)
-                .eq('finalizada', false)
-                .order('fecha_visita', { ascending: true }) // Ordenar por fecha de visita más próxima
-            } else {
-              // Si no tiene tareas asignadas, mostramos una lista vacía
-              tasksQuery = supabase.from("vista_tareas_completa")
-                .select(`
-                  id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-                  estados:estados_tareas(id, nombre, color)
-                `)
-                .eq('id', -1) // No coincidirá con ninguna
-            }
-          } catch (e) {
-            console.error("Error al consultar tareas del trabajador:", e)
-            tasksQuery = supabase.from("vista_tareas_completa")
-              .select(`
-                id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-                estados:estados_tareas(id, nombre, color)
-              `)
-              .limit(0)
-          }
-        }
-        else {
-          // Para otros roles o si no hay rol definido, no mostramos tareas
-          tasksQuery = supabase.from("vista_tareas_completa")
-            .select(`
-              id, titulo, fecha_visita, id_estado_nuevo, estado_tarea, created_at,
-              estados:estados_tareas(id, nombre, color)
-            `)
-            .limit(0)
-        }
-
-        // Ejecutamos la consulta con límite
-        const { data: tasksData, error: tasksError } = await executeQuery<TaskType>(
-          tasksQuery,
-          5,
-          "created_at",
-          false // descendente
-        );
-
-        if (tasksError) {
-          console.error("Error al obtener tareas recientes:", tasksError)
-        } else {
-          setRecentTasks(tasksData)
-        }
-
-        // Obtener edificios recientes - usando la función de ayuda
-        const buildingsQuery = supabase.from("edificios").select("*")
-        const { data: buildingsData, error: buildingsError } = await executeQuery<BuildingType>(
-          buildingsQuery,
-          5,
-          "created_at",
-          false // descendente
-        )
-
-        if (buildingsError) {
-          console.error("Error al obtener edificios recientes:", buildingsError)
-        } else {
-          setRecentBuildings(buildingsData)
-        }
-
-      } catch (err) {
-        console.error("Error al cargar datos del dashboard:", err)
-        setError("Ocurrió un error al cargar los datos del dashboard")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchDashboardData()
-  }, [])
-
-  // Estado de carga
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    )
-  }
-
-  // Estado de error
-  if (error) {
+  if (!userData) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-red-800">Error</h2>
-        <p className="mt-2 text-red-700">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Reintentar
-        </button>
+        <h2 className="text-xl font-semibold text-red-800">error</h2>
+        <p className="mt-2 text-red-700">no se pudo validar la sesion.</p>
       </div>
     )
   }
+
+  const supabase = await createServerClient()
+
+  // 2. Branching de carga de datos segun ROL (Server Actions)
+  let stats = null
+  let financialStats = null
+  let supervisorInitialData = null
+  let trabajadorStats = null
+  let recentTasks: DashboardTask[] = []
+  let recentBuildings: DashboardBuilding[] = []
+
+  if (userData.rol === 'supervisor') {
+    const superData = await getDashboardSupervisorData()
+    if (superData.success) {
+      supervisorInitialData = superData
+    }
+  } else {
+    const dashboardData = await getDashboardStats()
+    if (!dashboardData.error) {
+      stats = dashboardData.stats
+      if (userData.rol === 'admin') {
+        financialStats = {
+          ...dashboardData.roleStats,
+          presupuestos_activos: dashboardData.roleStats?.presupuestos_finales_total || 0,
+        }
+      } else if (userData.rol === 'trabajador') {
+        trabajadorStats = {
+          ...dashboardData.roleStats,
+          mis_tareas: dashboardData.roleStats?.tareas_asignadas_total || 0,
+        }
+      }
+    }
+  }
+
+  // 3. Tareas recientes (Logica de servidor)
+  let tasksQuery = supabase.from("vista_tareas_completa").select("*").eq('finalizada', false)
+
+  if (userData.rol === 'supervisor') {
+    const { data: asignaciones } = await supabase.from('supervisores_tareas').select('id_tarea').eq('id_supervisor', userData.id)
+    const ids = asignaciones?.map(a => a.id_tarea) || []
+    tasksQuery = tasksQuery.in('id', ids.length > 0 ? ids : [0]) // id es number en la base de datos
+  } else if (userData.rol === 'trabajador') {
+    const { data: asignaciones } = await supabase.from('trabajadores_tareas').select('id_tarea').eq('id_trabajador', userData.id)
+    const ids = asignaciones?.map(a => a.id_tarea) || []
+    tasksQuery = tasksQuery.in('id', ids.length > 0 ? ids : [0]) // id es number en la base de datos
+  }
+
+  const { data: tasksData } = await executeQuery<DashboardTask>(tasksQuery, 5, "created_at", false)
+  recentTasks = tasksData || []
+
+  // 4. Edificios recientes
+  const { data: buildingsData } = await executeQuery<DashboardBuilding>(supabase.from("edificios").select("*"), 5, "created_at", false)
+  recentBuildings = buildingsData || []
 
   return (
     <div className="space-y-8">
-      {userDetails?.rol !== 'supervisor' && (
+      {userData.rol !== 'supervisor' && (
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-3xl font-bold">dashboard</h1>
         </div>
       )}
 
-      {/* Mostrar interfaz específica según el rol del usuario */}
-      {userDetails?.rol === 'admin' && (
+      {userData.rol === 'admin' && (
         <AdminDashboard
-          stats={stats ?? undefined}
+          stats={stats || undefined}
           financialStats={financialStats}
-          recentTasks={recentTasks}
-          recentBuildings={recentBuildings}
+          recentTasks={recentTasks as any}
+          recentBuildings={recentBuildings as any}
         />
       )}
 
-      {userDetails?.rol === 'supervisor' && (
+      {userData.rol === 'supervisor' && (
         <SupervisorDashboard
           initialData={supervisorInitialData}
         />
       )}
 
-      {userDetails?.rol === 'trabajador' && (
+      {userData.rol === 'trabajador' && (
         <TrabajadorDashboard
-          stats={stats ?? undefined}
+          stats={stats || undefined}
           trabajadorStats={trabajadorStats}
-          recentTasks={recentTasks}
-          userId={userDetails.id}
-          salarioDiario={salarioDiarioTrabajador}
+          recentTasks={recentTasks as any}
+          userId={userData.id}
+          salarioDiario={0} // este dato podria venir de userDetails si fuera necesario
         />
-      )}
-
-      {/* Si no hay un rol definido, mostrar la interfaz genérica */}
-      {!userDetails?.rol && (
-        <>
-          {/* Estadísticas generales */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Edificios</h3>
-              <p className="mt-2 text-3xl font-bold">{stats?.total_edificios || 0}</p>
-            </div>
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Administradores</h3>
-              <p className="mt-2 text-3xl font-bold">{stats?.total_administradores || 0}</p>
-            </div>
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Teléfonos</h3>
-              <p className="mt-2 text-3xl font-bold">{stats?.total_contactos || 0}</p>
-            </div>
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <h3 className="text-sm font-medium text-muted-foreground">Tareas Activas</h3>
-              <p className="mt-2 text-3xl font-bold">{stats?.tareas_activas || 0}</p>
-            </div>
-          </div>
-
-          {/* Tareas recientes */}
-          <div>
-            <h2 className="mb-4 text-xl font-semibold">Tareas Recientes</h2>
-            <div className="rounded-lg border">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-2 text-left font-medium">Título</th>
-                      <th className="px-4 py-2 text-left font-medium">Estado</th>
-                      <th className="px-4 py-2 text-left font-medium">Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTasks && recentTasks.length > 0 ? (
-                      recentTasks.map((task) => (
-                        <tr key={task.id} className="border-b">
-                          <td className="px-4 py-2">{task.titulo}</td>
-                          <td className="px-4 py-2">
-                            <TaskStatusBadge task={task} />
-                          </td>
-                          <td className="px-4 py-2">{formatDate(task.created_at)}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-2 text-center text-muted-foreground">
-                          No hay tareas recientes
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Edificios recientes */}
-          <div>
-            <h2 className="mb-4 text-xl font-semibold">Edificios Recientes</h2>
-            <div className="rounded-lg border">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-2 text-left font-medium">Nombre</th>
-                      <th className="px-4 py-2 text-left font-medium">Dirección</th>
-                      <th className="px-4 py-2 text-left font-medium">Fecha</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentBuildings && recentBuildings.length > 0 ? (
-                      recentBuildings.map((building) => (
-                        <tr key={building.id} className="border-b">
-                          <td className="px-4 py-2">{building.nombre}</td>
-                          <td className="px-4 py-2">{building.direccion}</td>
-                          <td className="px-4 py-2">{formatDate(building.created_at)}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-2 text-center text-muted-foreground">
-                          No hay edificios recientes
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </>
       )}
     </div>
   )
 }
+

@@ -1,0 +1,13 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/node_modules": true,
+        "**/.next": true,
+        "**/dist": true,
+        "**/tmp": true
+    },
+    "editor.autoClosingBrackets": "always",
+    "editor.autoClosingComments": "always",
+    "workbench.editor.enablePreview": false,
+    "editor.fontLigatures": false
+}

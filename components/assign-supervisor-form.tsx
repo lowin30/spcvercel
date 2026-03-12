@@ -38,18 +38,13 @@ export function AssignSupervisorForm({ taskId, currentSupervisorId, supervisors,
     setIsSubmitting(true)
 
     try {
-      // Primero, eliminar cualquier asignación existente
-      await supabase.from("supervisores_tareas").delete().eq("id_tarea", taskId)
+      const taskIdNum = parseInt(taskId, 10);
+      if (isNaN(taskIdNum)) throw new Error('ID de tarea inválido');
 
-      // Luego, si se seleccionó un supervisor, crear la nueva asignación
-      if (supervisorId !== "unassigned") {
-        const { error } = await supabase.from("supervisores_tareas").insert({
-          id_tarea: taskId,
-          id_supervisor: supervisorId,
-        })
+      const { assignSupervisorByIdAction } = await import('@/app/dashboard/tareas/actions');
+      const res = await assignSupervisorByIdAction(taskIdNum, supervisorId);
 
-        if (error) throw error
-      }
+      if (!res.success) throw new Error(res.message);
 
       toast({
         title: "Supervisor asignado",
@@ -63,11 +58,11 @@ export function AssignSupervisorForm({ taskId, currentSupervisorId, supervisors,
         router.push(`/dashboard/tareas/${taskId}`)
         router.refresh()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al asignar supervisor:", error)
       toast({
         title: "Error",
-        description: "No se pudo asignar el supervisor",
+        description: error.message || "No se pudo asignar el supervisor",
         variant: "destructive",
       })
     } finally {

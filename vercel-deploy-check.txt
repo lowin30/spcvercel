@@ -1,4 +1,0 @@
-Verificación de despliegue en Vercel
-Fecha: 26-08-2025
-Esta archivo confirma que Vercel está utilizando la versión más reciente del repositorio.
-Commit ID: DEPLOY_CHECK_2025_08_26

@@ -1,5 +1,5 @@
 import "server-only"
-import { getSupabaseServer } from "@/lib/supabase-server"
+import { getvaliduser } from "@/lib/supabase-server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { redirect } from "next/navigation"
 
@@ -7,6 +7,8 @@ export type SPCUser = {
     id: string
     rol: string
     email: string
+    nombre: string
+    color_perfil: string
     preferencias: Record<string, any>
 }
 
@@ -17,16 +19,10 @@ export type SPCUser = {
  * @redirects /login si no hay sesion valida.
  */
 export async function validateSessionAndGetUser(): Promise<SPCUser> {
-    const supabase = await getSupabaseServer()
-    if (!supabase) {
-        redirect('/login')
-    }
-
-    // Usar supabase.auth.getUser() en lugar de getSession() por seguridad real backend
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { user, error: authError } = await getvaliduser()
 
     if (authError || !user) {
-        console.error("Auth Bridge: Session Validation Failed (No Supabase User)", authError)
+        console.error("Auth Bridge: Session Validation Failed (No Valid User)", authError)
         redirect('/login')
     }
 
@@ -48,7 +44,7 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
 
         const { data: dbUser, error: dbError } = await supabaseAdmin
             .from('usuarios')
-            .select('id, preferencias')
+            .select('id, nombre, color_perfil, preferencias')
             .eq('email', normalizedEmail)
             .single();
 
@@ -62,6 +58,8 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
             id: finalUserId,
             email: normalizedEmail,
             rol: jwtRol,
+            nombre: dbUser?.nombre || '',
+            color_perfil: dbUser?.color_perfil || '#3498db',
             preferencias: dbUser?.preferencias || user.user_metadata?.preferencias || {}
         } as SPCUser
     }
@@ -71,7 +69,7 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
     console.warn(`Auth Bridge: Claim 'rol' ausente para ${normalizedEmail}. Ejecutando rescate administrativo.`);
     const { data: usuario, error } = await supabaseAdmin
         .from('usuarios')
-        .select('id, rol, email, preferencias')
+        .select('id, rol, email, nombre, color_perfil, preferencias')
         .eq('email', normalizedEmail)
         .single()
 
@@ -84,6 +82,8 @@ export async function validateSessionAndGetUser(): Promise<SPCUser> {
         id: usuario.id,
         rol: usuario.rol,
         email: usuario.email,
+        nombre: usuario.nombre || '',
+        color_perfil: usuario.color_perfil || '#3498db',
         preferencias: usuario.preferencias || {}
     } as SPCUser
 }

@@ -90,8 +90,9 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
     if (role === 'supervisor') {
         // Aprovechamos la arquitectura nativa SQL. 
         // Esta vista recorta campos radiactivos a nivel PostgreSQL
+        // Corregido: 'vista_liquidacion_supervisor_detallada' -> 'vista_liquidaciones_supervisores_listado' (Error PGRST205)
         const { data, error } = await supabase
-            .from('vista_liquidacion_supervisor_detallada')
+            .from('vista_liquidaciones_supervisores_listado')
             .select('*')
             .eq('id_usuario_supervisor', userId)
             .order('created_at', { ascending: false })

@@ -43,6 +43,7 @@ interface Telefono {
 interface DepartamentosInteractivosProps {
   tareaId: number
   edificioId: number
+  userRole?: string | null
   initialDepartamentos?: Departamento[]
   initialTelefonos?: Telefono[]
   initialDepartamentosDisponibles?: Departamento[]
@@ -53,6 +54,7 @@ interface DepartamentosInteractivosProps {
 export function DepartamentosInteractivos({
   tareaId,
   edificioId,
+  userRole,
   initialDepartamentos,
   initialTelefonos,
   initialDepartamentosDisponibles,
@@ -67,7 +69,6 @@ export function DepartamentosInteractivos({
   const [departamentosDisponibles, setDepartamentosDisponibles] = useState<Departamento[]>(initialDepartamentosDisponibles || [])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
   const [notasDialogOpen, setNotasDialogOpen] = useState(false)
   const [departamentoNotasActivo, setDepartamentoNotasActivo] = useState<{ id: number; codigo: string } | null>(null)
 
@@ -82,33 +83,6 @@ export function DepartamentosInteractivos({
     es_principal: boolean;
     notas: string;
   }[]>([{ nombre_contacto: '', relacion: '', numero: '', es_principal: true, notas: '' }])
-
-  // Cargar rol de usuario
-  useEffect(() => {
-    const cargarRolUsuario = async () => {
-      const supabase = createClient()
-      if (!supabase) return
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          const { data: userData } = await supabase
-            .from("usuarios")
-            .select("rol")
-            .eq("id", session.user.id)
-            .single()
-
-          if (userData) {
-            setUserRole(userData.rol)
-          }
-        }
-      } catch (error) {
-        console.error("Error al obtener rol de usuario:", error)
-      }
-    }
-
-    cargarRolUsuario()
-  }, [])
 
   // Cargar departamentos asociados a la tarea
   useEffect(() => {

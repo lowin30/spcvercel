@@ -1,2 +1,0 @@
-Una vez confirmes, proceso la aprobación con \`administrarGasto\`."
-`;

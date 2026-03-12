@@ -676,6 +676,81 @@ export async function removeWorkerAction(taskId: number, workerId: string) {
     return { success: true };
   } catch (e: any) { return { success: false, message: e.message } }
 }
+
+/**
+ * sincronización masiva de trabajadores (batch update)
+ * aniquila y recrea las asignaciones en una sola transacción de servidor segura.
+ */
+export async function batchUpdateWorkersAction(taskId: number, workerIds: string[]) {
+  try {
+    const { rol } = await validateSessionAndGetUser();
+
+    if (!['admin', 'supervisor'].includes(rol)) {
+      return { success: false, message: 'no autorizado.' };
+    }
+
+    const supabase = await createServerClient();
+
+    // 1. Eliminar existentes
+    const { error: deleteError } = await supabase
+      .from("trabajadores_tareas")
+      .delete()
+      .eq("id_tarea", taskId);
+
+    if (deleteError) throw deleteError;
+
+    // 2. Insertar nuevos si hay
+    if (workerIds.length > 0) {
+      const inserts = workerIds.map(id => ({
+        id_tarea: taskId,
+        id_trabajador: id
+      }));
+
+      const { error: insertError } = await supabase
+        .from("trabajadores_tareas")
+        .insert(inserts);
+
+      if (insertError) throw insertError;
+    }
+
+    revalidatePath(`/dashboard/tareas/${taskId}`);
+    return { success: true, message: 'cuadrilla actualizada exitosamente.' };
+  } catch (e: any) {
+    console.error("batch update workers error:", e);
+    return { success: false, message: e.message || 'error al actualizar la cuadrilla' };
+  }
+}
+
+/**
+ * asignacion de supervisor por id directo
+ */
+export async function assignSupervisorByIdAction(taskId: number, supervisorId: string | 'unassigned') {
+  try {
+    const { rol } = await validateSessionAndGetUser();
+
+    if (rol !== 'admin') {
+      return { success: false, message: 'solo administradores asignan supervisores.' };
+    }
+
+    const supabase = await createServerClient();
+
+    // Eliminar anterior
+    await supabase.from('supervisores_tareas').delete().eq('id_tarea', taskId);
+
+    if (supervisorId !== 'unassigned') {
+      const { error } = await supabase.from('supervisores_tareas').insert({
+        id_tarea: taskId,
+        id_supervisor: supervisorId
+      });
+      if (error) throw error;
+    }
+
+    revalidatePath(`/dashboard/tareas/${taskId}`);
+    return { success: true, message: 'supervisor actualizado.' };
+  } catch (e: any) {
+    return { success: false, message: e.message };
+  }
+}
 export async function getDepartamentosAction(edificioId?: number) {
   try {
     await validateSessionAndGetUser();

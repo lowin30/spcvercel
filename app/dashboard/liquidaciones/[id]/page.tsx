@@ -1,4 +1,5 @@
-import { getSession, getUserDetails, createServerClient } from "@/lib/supabase-server"
+import { validateSessionAndGetUser } from "@/lib/auth-bridge"
+import { supabaseAdmin } from "@/lib/supabase-admin"
 import { DescargarLiquidacionPdfButton } from "./descargar-liquidacion-pdf-button"
 import { redirect, notFound } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,49 +17,53 @@ interface SettlementPageProps {
 
 export default async function SettlementPage({ params }: SettlementPageProps) {
   const resolvedParams: any = await (params as any)
-  const session = await getSession()
+  const user = await validateSessionAndGetUser()
 
-  if (!session) {
-    redirect("/login")
-  }
-
-  const userDetails = await getUserDetails()
-
-  // Admin y Supervisor pueden ver liquidaciones
-  if (userDetails?.rol !== "admin" && userDetails?.rol !== "supervisor") {
+  // Admin y Supervisor pueden ver liquidaciones (RBAC Bridge)
+  if (user.rol !== "admin" && user.rol !== "supervisor") {
     redirect("/dashboard")
   }
 
-  const supabase = await createServerClient()
-  
-  if (!supabase) {
-    throw new Error("No se pudo inicializar el cliente de Supabase")
+  // 2. Obtener liquidación (Soberanía de datos via SupabaseAdmin)
+  let liquidacion = null
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("vista_liquidaciones_completa")
+      .select(`*`)
+      .eq("id", resolvedParams.id)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) notFound()
+    liquidacion = data
+  } catch (err) {
+    console.error("spc: error cargando liquidacion", err)
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <h2 className="text-xl font-bold text-zinc-800">error de conexion</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          no pudimos traer los datos de la liquidacion. puede ser un parpadeo de la base de datos. por favor, recarga la pagina.
+        </p>
+        <Button variant="outline" asChild>
+          <Link href="/dashboard/liquidaciones">volver a la lista</Link>
+        </Button>
+      </div>
+    )
   }
 
-  // Obtener liquidación usando la vista optimizada
-  const { data: liquidacion } = await supabase
-    .from("vista_liquidaciones_completa")
-    .select(`*`)
-    .eq("id", resolvedParams.id)
-    .single()
-
-  if (!liquidacion) {
-    notFound()
-  }
-  
   // Restringir acceso: el supervisor solo puede ver sus propias liquidaciones
-  if (userDetails?.rol === "supervisor") {
-    const sessionEmail = (session as any)?.user?.email || null
+  if (user.rol === "supervisor") {
+    const sessionEmail = user.email
     if (liquidacion.email_supervisor && sessionEmail && liquidacion.email_supervisor !== sessionEmail) {
       redirect("/dashboard/liquidaciones")
     }
   }
-  
+
   // En la vista optimizada, estos datos ya vienen calculados
   const totalPresupuestoBase = liquidacion.total_base || 0
   const gananciaNeta = liquidacion.ganancia_neta || 0
   // Cargar desglose de gastos (materiales y jornales) para secciones
-  const { data: desglose } = await supabase.rpc(
+  const { data: desglose } = await supabaseAdmin.rpc(
     'obtener_desglose_gastos_para_liquidacion',
     { p_id_tarea: liquidacion.id_tarea }
   )

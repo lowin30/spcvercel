@@ -18,7 +18,7 @@ interface AssignWorkersPageProps {
 export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
   const router = useRouter()
   const supabase = createClient()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userDetails, setUserDetails] = useState<UserSessionData | null>(null)
@@ -31,32 +31,35 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
     const fetchData = async () => {
       try {
         setLoading(true)
-        
-        // Verificar sesión de usuario
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
+
+        // Obtener usuario via Action / Helper (simulado con el cliente supabase por PWA reasons)
+        // Aunque lo ideal es server components, aquí protegemos vía refetch forzado o 
+        // llamaremos al endpoint SSR. Como es un client component, usaremos el session recuperado local, 
+        // PERO validaremos el user details
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError || !session) {
           router.push('/login')
           return
         }
-        
+
         // Obtener detalles del usuario
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
           .eq("id", session.user.id)
           .single()
-          
+
         if (userError) {
           console.error("Error al obtener datos del usuario:", userError)
           router.push('/login')
           return
         }
-        
+
         if (!userData) {
           setError("No se encontró el usuario")
           return
         }
-        
+
         setUserDetails(userData)
 
         // Verificar permisos
@@ -67,36 +70,36 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
           router.push("/dashboard")
           return
         }
-        
+
         // Obtener tarea
         const { data: tareaData, error: tareaError } = await supabase
           .from("tareas")
           .select("*")
           .eq("id", params.id)
           .single()
-          
+
         // Manejar error de consulta de tarea
         if (tareaError) {
           console.error("Error al obtener la tarea:", tareaError)
           setError("No se pudo encontrar la tarea solicitada o hubo un error en la consulta")
           return
         }
-          
+
         // Si no hay tarea, mostrar mensaje amigable
         if (!tareaData) {
           setError("La tarea que estás buscando no existe o ha sido eliminada")
           return
         }
-        
+
         // Guardar tarea en estado
         setTarea(tareaData)
-        
+
         // Verificación adicional para supervisores (solo pueden ver sus propias tareas)
         if (esSupervisor && tareaData.supervisor_id !== userData.id) {
           router.push('/dashboard/tareas')
           return
         }
-        
+
         // Obtener supervisor asignado a esta tarea si existe
         if (tareaData.supervisor_id) {
           try {
@@ -105,7 +108,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
               .select("id, email, nombre, apellido")
               .eq("id", tareaData.supervisor_id)
               .single()
-              
+
             if (supData) {
               setSupervisorAsignado({
                 id: supData.id,
@@ -118,14 +121,14 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
             console.error("Error al obtener supervisor:", error)
           }
         }
-        
+
         // Obtener trabajadores actuales asignados a esta tarea
         try {
           const { data: asignados = [], error: asignadosError } = await supabase
             .from("trabajadores_tareas")
             .select("id_trabajador")
             .eq("id_tarea", params.id)
-            
+
           if (asignadosError) {
             console.error("Error al obtener trabajadores asignados:", asignadosError)
           } else {
@@ -134,13 +137,13 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         } catch (error) {
           console.error("Error al obtener trabajadores actuales:", error)
         }
-        
+
         // Consulta para obtener TODOS los usuarios y filtrar trabajadores
         try {
           const { data: todosUsuarios = [] } = await supabase
             .from("usuarios")
             .select("id, email, nombre, apellido, rol, color_perfil")
-            
+
           console.log("=== DEPURACIÓN ASIGNACIÓN TRABAJADORES ===")
           if (!todosUsuarios) {
             console.error("No se pudieron obtener los usuarios.");
@@ -148,20 +151,20 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
             return;
           }
           console.log("Total usuarios:", todosUsuarios.length)
-          
+
           // Filtrar solo trabajadores
           const trabajadoresFiltrados = todosUsuarios
             .filter((user: { rol: string }) => user.rol === "trabajador")
-            
+
           // Asignar a estado
           setTrabajadores(trabajadoresFiltrados)
           console.log(`Trabajadores filtrados por rol (${trabajadoresFiltrados.length}):`, trabajadoresFiltrados)
-          
+
           // Verificación de diagnóstico
           const encontradoMireTendencia = trabajadoresFiltrados.some(
             (t: { email: string }) => t.email === "miretendencia@gmail.com")
           console.log("¿Se encontró miretendencia@gmail.com?", encontradoMireTendencia)
-          
+
           // Verificar que se carguen trabajadores
           if (!trabajadoresFiltrados || trabajadoresFiltrados.length === 0) {
             console.warn("No se encontraron trabajadores disponibles")
@@ -169,7 +172,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         } catch (error) {
           console.error("Error al obtener usuarios:", error)
         }
-        
+
       } catch (err) {
         console.error("Error inesperado:", err)
         setError("Ocurrió un error al cargar los datos")
@@ -177,10 +180,10 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         setLoading(false)
       }
     }
-    
+
     fetchData();
   }, [params.id, router, supabase]);
-  
+
   // Consulta de diagnóstico para verificar usuarios por rol
   useEffect(() => {
     async function verificarUsuarios() {
@@ -189,17 +192,17 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         const { data: usuariosData } = await supabase
           .from("usuarios")
           .select("rol")
-        
+
         console.log("=== DIAGNÓSTICO DE ROLES DE USUARIO ===")
         console.log("Total usuarios:", usuariosData?.length || 0)
-        
+
         // Contar usuarios por rol
         const roleCount: Record<string, number> = {}
         usuariosData?.forEach((user: { rol: string }) => {
           const rol = user.rol || 'desconocido'
           roleCount[rol] = (roleCount[rol] || 0) + 1
         });
-        
+
         // Log directo de todos los usuarios con rol trabajador para verificar exactamente qué está pasando
         console.log("USUARIOS TRABAJADORES:")
         try {
@@ -207,7 +210,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
           const { data: trabajadoresDiag } = await supabase
             .from("usuarios")
             .select("id, email, color_perfil")
-          
+
           console.log(trabajadoresDiag)
           console.log("Usuarios por rol:", roleCount)
           console.log("=== FIN DIAGNÓSTICO ===")
@@ -218,14 +221,14 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
         console.error("Error en diagnóstico:", error);
       }
     }
-    
+
     verificarUsuarios();
   }, [supabase]);
-  
+
   // Extraer valores para usar en la renderización
   const esAdmin = userDetails?.rol === "admin"
   const esSupervisor = userDetails?.rol === "supervisor"
-  
+
   if (loading) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -236,7 +239,7 @@ export default function AssignWorkersPage({ params }: AssignWorkersPageProps) {
       </div>
     )
   }
-  
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
