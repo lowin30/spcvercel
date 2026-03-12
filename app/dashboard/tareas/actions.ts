@@ -851,6 +851,30 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
     if (tipo === 'final') {
       console.log(`[APPROVE] PF ${id} aprobado. Sincronizando PB y facturando...`)
 
+      // --- HERENCIA LÓGICA: Aprobar PB al Aprobar PF [v81.6] ---
+      // Regla: Si se aprueba el final, el base se da por aprobado implícitamente.
+      try {
+        const { data: pfExt } = await supabaseAdmin
+          .from("presupuestos_finales")
+          .select("id_presupuesto_base")
+          .eq("id", id)
+          .single()
+
+        if (pfExt?.id_presupuesto_base) {
+          await supabaseAdmin
+            .from("presupuestos_base")
+            .update({ 
+              aprobado: true, 
+              fecha_aprobacion: now,
+              updated_at: now
+            })
+            .eq("id", pfExt.id_presupuesto_base)
+          console.log(`[SYNC] PB ${pfExt.id_presupuesto_base} aprobado por herencia de PF ${id}`)
+        }
+      } catch (syncError) {
+        console.error(`[SYNC] Error en herencia lógica PF->PB:`, syncError)
+      }
+      // ---------------------------------------------------------
 
       const { convertirPresupuestoADosFacturas } = await import("@/app/dashboard/presupuestos-finales/actions-factura")
 
