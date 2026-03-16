@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Zap
 } from "lucide-react"
 
 // Importar Types y el Action Server
@@ -51,6 +52,19 @@ export function SupervisorDashboard({ initialData }: { initialData: any }) {
         gananciaMes={kpis.ganancia_supervisor_mes || 0}
         liquidacionesPendientes={kpis.liquidaciones_pendientes || 0}
       />
+
+      {/* 1.5 ACCESO RAPIDO A MICROTUILS */}
+      <div className="px-1 -mt-4">
+        <Button 
+          asChild 
+          variant="outline" 
+          className="w-full h-12 rounded-2xl border-violet-500/30 bg-violet-500/5 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 font-bold"
+        >
+          <Link href="/dashboard?action=microtareas">
+            <Zap className="mr-2 h-5 w-5 fill-current" /> MICROTUILS / NOTAS RAPIDAS
+          </Link>
+        </Button>
+      </div>
 
       {/* 2. OPERACIONES CRITICAS (RADAR) */}
       <div className="flex flex-col gap-10">

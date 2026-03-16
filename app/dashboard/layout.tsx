@@ -6,7 +6,8 @@ import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
 import { AIAssistantGroq } from "@/components/ai-assistant-groq"
 import { Button } from "@/components/ui/button"
-
+import { MicroTareaTool } from "@/components/platinum/tools/microtareas/MicroTareaTool"
+import { MicroTareaFAB } from "@/components/platinum/tools/microtareas/MicroTareaFAB"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -30,17 +31,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           return
         }
 
-        // Obtener usuario actual desde Supabase Auth (App Router Nativo)
         const { data: { user }, error: authError } = await supabase.auth.getUser()
 
         if (authError || !user) {
-          console.log('spc: no hay sesion activa en supabase auth')
-          // El middleware redirigirá, no hacemos push manually
           setLoading(false)
           return
         }
 
-        // Obtener datos detallados del usuario desde 'usuarios'
         const { data: userData, error: userError } = await supabase
           .from("usuarios")
           .select("*")
@@ -65,7 +62,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (!mounted || loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center" suppressHydrationWarning>
         <div className="text-center" suppressHydrationWarning>
           <div className="mb-4 animate-pulse">
             <div className="h-8 w-48 bg-gray-200 rounded mx-auto mb-2"></div>
@@ -76,8 +73,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  // Si termino de cargar session pero no tenemos usuario valido
-  // Mostramos boton de salir
   if (!loading && !userDetails) {
     return (
       <div className="flex min-h-screen items-center justify-center flex-col p-4">
@@ -110,6 +105,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <AIAssistantGroq key="ai-assistant-component" />
         )}
       </DashboardShell>
+      <MicroTareaTool />
+      <MicroTareaFAB />
       <Toaster />
     </>
   )

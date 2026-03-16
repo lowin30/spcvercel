@@ -10,8 +10,12 @@ export default async function NuevaTareaPage(props: { searchParams?: Promise<{ [
 
   const { administradores, supervisores, trabajadores, currentUserRol, currentUserId } = await getCatalogsForWizard()
 
-  // Note: Server Components don't have router.push. We use Link or client-side navigation in children.
-  // The Wizard uses client-side router for success redirect.
+  const defaultValues = {
+    titulo: typeof params?.titulo === 'string' ? params.titulo : undefined,
+    descripcion: typeof params?.descripcion === 'string' ? params.descripcion : undefined,
+    id_edificio: typeof params?.id_edificio === 'string' ? params.id_edificio : undefined,
+    id_asignado: typeof params?.id_asignado === 'string' ? params.id_asignado : undefined,
+  }
 
   return (
     <div className="space-y-6">
@@ -26,6 +30,7 @@ export default async function NuevaTareaPage(props: { searchParams?: Promise<{ [
 
       <TaskWizard
         returnTo={returnTo}
+        defaultValues={defaultValues}
         administradores={administradores}
         supervisores={supervisores}
         trabajadores={trabajadores}

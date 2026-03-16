@@ -23,6 +23,7 @@ import {
   Receipt,
   User,
   LogOut,
+  Zap,
 } from "lucide-react"
 
 interface NavItem {
@@ -37,6 +38,7 @@ const navItems: NavItem[] = [
   { title: "mi perfil", href: "/dashboard/perfil", icon: User },
   { title: "tareas", href: "/dashboard/tareas", icon: ClipboardList },
   { title: "agenda", href: "/dashboard/agenda", icon: Calendar },
+  { title: "microtareas", href: "/dashboard?action=microtareas", icon: Zap },
   { title: "edificios", href: "/dashboard/edificios", icon: Building2 },
   { title: "mis dias", href: "/dashboard/trabajadores/registro-dias", icon: Clock },
   { title: "mis gastos", href: "/dashboard/trabajadores/gastos", icon: Receipt },

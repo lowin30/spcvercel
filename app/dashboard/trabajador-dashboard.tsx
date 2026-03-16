@@ -11,7 +11,8 @@ import {
   Clock, 
   Receipt,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Zap
 } from "lucide-react"
 
 // Definición de tipos
@@ -91,6 +92,13 @@ export function TrabajadorDashboard({ stats, trabajadorStats, recentTasks, userI
                 <Link href="/dashboard/trabajadores/gastos" className="w-full">
                   <Receipt className="h-4 w-4 mr-2" /> Registrar Gasto
                 </Link>
+              </Button>
+            </div>
+            <div className="mt-2 text-center">
+              <Button asChild variant="ghost" size="sm" className="w-full text-violet-600 dark:text-violet-400 font-bold hover:bg-violet-50">
+                 <Link href="/dashboard?action=microtareas">
+                   <Zap className="mr-2 h-4 w-4 fill-current" /> MICROTUILS / NOTA RAPIDA
+                 </Link>
               </Button>
             </div>
           </CardContent>

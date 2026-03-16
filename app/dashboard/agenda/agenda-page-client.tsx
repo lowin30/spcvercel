@@ -16,8 +16,11 @@ import {
     Users,
     Hammer,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    Zap
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+
 
 interface AgendaPageClientProps {
     userDetails: { id: string; email: string; rol: string }
@@ -44,19 +47,36 @@ export default function AgendaPageClient({
         setIsDrawerOpen(true)
     }
 
+    const openMicrotasks = () => {
+        const params = new URLSearchParams(window.location.search)
+        params.set('action', 'microtareas')
+        window.history.pushState({}, '', `?${params.toString()}`)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+
     if (!isMounted) return null
 
     return (
         <div className="space-y-4 pb-20">
             {/* Header Platinum con KPIs */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 p-1">
-                <div>
+                <div className="flex flex-col gap-2">
                     <h1 className="text-3xl font-black tracking-tighter text-foreground sm:text-5xl">
                         Agenda <span className="text-violet-600">Platinum</span>
                     </h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
-                        Orquestación de recursos y planificación multi-día.
-                    </p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+                            Orquestación de recursos y planificación multi-día.
+                        </p>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-7 rounded-full bg-violet-600/10 border-violet-600/20 text-violet-600 font-black text-[10px] hover:bg-violet-600 hover:text-white transition-all shadow-lg shadow-violet-500/10"
+                            onClick={openMicrotasks}
+                        >
+                            <Zap className="w-3 h-3 mr-1 fill-current" /> MICROTUILS
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2">
@@ -111,7 +131,7 @@ export default function AgendaPageClient({
                         />
                     </div>
 
-                    <AnimatePresence mode="wait">
+                    <AnimatePresence mode="popLayout">
                         <TabsContent value="calendar" key="calendar-content" className="mt-0 focus-visible:outline-none">
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.98 }}
@@ -156,6 +176,7 @@ export default function AgendaPageClient({
                 catalogos={data.catalogos}
                 userRole={userDetails.rol}
             />
+
         </div>
     )
 }

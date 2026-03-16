@@ -12,7 +12,8 @@ import {
   TrendingUp,
   AlertTriangle,
   AlertCircle,
-  FileText
+  FileText,
+  Zap
 } from "lucide-react"
 
 // Definición de tipos
@@ -160,6 +161,11 @@ export function AdminDashboard({ stats, financialStats, recentTasks, recentBuild
               <Button asChild variant="outline">
                 <Link href="/dashboard/liquidaciones/nueva">
                   Crear Liquidación
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="border-violet-500/50 text-violet-600 hover:bg-violet-50">
+                <Link href="/dashboard?action=microtareas">
+                  <Zap className="h-4 w-4 mr-2 fill-current" /> Ver Microtareas
                 </Link>
               </Button>
               <Button asChild variant="outline">
