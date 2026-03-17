@@ -139,15 +139,13 @@ export function ToolGastoRegistry({
 
             if (data.success && data.datos) {
                 console.log("IA Detectó:", data.datos)
-
                 setFormData(prev => ({
                     ...prev,
                     monto: data.datos.monto ? Math.round(data.datos.monto).toString() : prev.monto,
                     descripcion: data.datos.descripcion || prev.descripcion,
-                    fecha_gasto: data.datos.fecha || prev.fecha_gasto,
+                    fecha_gasto: data.datos.fecha_gasto || prev.fecha_gasto,
                     tipo_gasto: (data.datos.tipo_gasto || 'material') as any
                 }))
-
                 toast.success("✨ ¡Datos detectados automáticamente!", {
                     icon: <Sparkles className="w-4 h-4 text-amber-500" />,
                     duration: 3000

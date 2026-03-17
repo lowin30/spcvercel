@@ -83,22 +83,23 @@ function cleanGastoText(text: string): string {
     return sanitizeText(text).toLowerCase()
 }
 
-/**
- * Server Action: analizarGastoAction
- * Procesa el OCR de una imagen usando Groq (Llama 4 Vision)
- */
 export async function analizarGastoAction(base64Image: string) {
     try {
-        // 1. Seguridad: Verificar sesión usando el Identity Bridge (Platinum)
-        await validateSessionAndGetUser()
+        // 1. seguridad: verificar sesion y rol admin/supervisor (platinum). ref: scanner de gastos 265
+        const user = await validateSessionAndGetUser()
+        if (user.rol !== 'admin' && user.rol !== 'supervisor') {
+            throw new Error("acceso denegado: solo personal administrativo o supervisores pueden usar el scanner")
+        }
 
         // 2. Gestión de Imagen: Subida segura a Cloudinary
         const originalUrl = await uploadToCloudinary(base64Image, "spc/gastos_analysis_gold")
         const optimizedImageUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/")
 
-        // 3. IA: Llamada a Groq (Modelo Llama 3.2 Vision)
+        // 3. ia: llamada a groq (modelo llama 4 scout). sin acentos.
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-        const modelId = "llama-3.2-11b-vision-preview"
+        const modelId = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+        console.log("[ia-scanner-audit] ejecutando vision con llama-4-scout-17b (v87.0)")
 
         const prompt = `
       Actúa como experto contable. Analiza la imagen del comprobante.
@@ -123,7 +124,7 @@ export async function analizarGastoAction(base64Image: string) {
                     ]
                 }
             ],
-            temperature: 0.1,
+            temperature: 0,
             response_format: { type: "json_object" }
         })
 
@@ -139,8 +140,11 @@ export async function analizarGastoAction(base64Image: string) {
         // Validación de Fecha Robusta
         const parsedDate = new Date(datos.fecha)
         if (!datos.fecha || isNaN(parsedDate.getTime())) {
-            datos.fecha = new Date().toISOString().split('T')[0] // Hoy por defecto
+            datos.fecha_gasto = new Date().toISOString().split('T')[0] // Hoy por defecto
+        } else {
+            datos.fecha_gasto = datos.fecha
         }
+        delete datos.fecha // Eliminar campo obsoleto (v87.2 fix)
 
         if (datos.monto) {
             const montoStr = datos.monto.toString().replace(/[^0-9.,]/g, "").replace(",", ".")
@@ -173,7 +177,8 @@ export async function registrarGastoAction(gastoData: any) {
 
         // 1. Sanitización de Textos y Validación de Fecha (El Escudo Gold v81.0)
         // Soportamos 'fecha' (desde DB) y 'fecha_gasto' (desde UI)
-        const rawDate = gastoData.fecha_gasto || gastoData.fecha
+        // Soportamos 'fecha_gasto' (desde UI o IA)
+        const rawDate = gastoData.fecha_gasto
         const dateObj = new Date(rawDate)
         const finalDate = isNaN(dateObj.getTime()) ? new Date().toISOString().split('T')[0] : rawDate
 
@@ -182,7 +187,7 @@ export async function registrarGastoAction(gastoData: any) {
             monto: parseFloat(gastoData.monto),
             descripcion: cleanGastoText(gastoData.descripcion),
             tipo_gasto: cleanGastoText(gastoData.tipo_gasto),
-            fecha: finalDate, // Campo real en la base de datos
+            fecha_gasto: finalDate, // Campo real en la base de datos (v87.2 fix)
             id_usuario: userId,
             liquidado: gastoData.liquidado ?? false,
             created_at: new Date().toISOString()
@@ -234,13 +239,13 @@ export async function registrarGastoAction(gastoData: any) {
                 .from('gastos_tarea')
                 .update(normalizedData)
                 .eq('id', gastoData.id)
-                .select()
+                .select('id, monto, descripcion, fecha_gasto')
                 .single()
         } else {
             result = await supabaseAdmin
                 .from('gastos_tarea')
                 .insert([normalizedData])
-                .select()
+                .select('id, monto, descripcion, fecha_gasto')
                 .single()
         }
 
