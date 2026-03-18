@@ -53,7 +53,7 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/login")
+    window.location.href = "/login"
   }
 
   // El userRole se utilizará para filtrar las rutas del menú

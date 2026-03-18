@@ -2,9 +2,12 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-url', request.url)
+
   let supabaseResponse = NextResponse.next({
     request: {
-      headers: request.headers,
+      headers: requestHeaders,
     },
   })
 
@@ -29,25 +32,39 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // IMPORTANTE: NO uses getSession, usa getUser para seguridad.
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Rutas que no requieren autenticación
+  // 2. Rutas que no requieren autenticación
   const isPublicRoute =
     request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname === '/login' ||
+    request.nextUrl.pathname === '/auth/callback' ||
     request.nextUrl.pathname.startsWith('/api/auth') ||
     request.nextUrl.pathname === '/manifest.json'
 
-  // Si no hay usuario y la ruta no es pública, redirigir al login
+  // 3. Obtener sesión de Supabase
+  const { data: { user } } = !isPublicRoute 
+    ? await supabase.auth.getUser()
+    : { data: { user: null } }
+
+  // v100.0: Delegar recuperación de sesión al cliente en localhost
+  const isLocalhost = request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1';
+
+  // Si no hay usuario y la ruta no es pública
   if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+    if (isLocalhost) {
+      // Dejar pasar en localhost para que el Dashboard (cliente) resuelva la race condition
+      return NextResponse.next();
+    } else {
+      // En produccion mantenemos la redireccion fuerte por seguridad SSR
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
   }
 
-  // Si hay usuario y está en /login, redirigir al dashboard
-  if (user && request.nextUrl.pathname === '/login') {
+  // Si hay usuario o se detecta la cookie de Supabase en crudo y está en /login, forzar dashboard
+  const hasAuthToken = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+  
+  if ((user || hasAuthToken) && request.nextUrl.pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

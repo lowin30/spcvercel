@@ -8,24 +8,10 @@ import { Toaster } from "@/components/ui/toaster"
 import { SupabaseProvider } from "@/lib/supabase-provider"
 import SWRegister from "@/components/sw-register"
 import { AiChatWidget } from "@/components/ai-chat-widget"
+import { AuthProvider } from '@descope/nextjs-sdk'
 
 const inter = Inter({ subsets: ["latin"] })
-
-export const viewport: Viewport = {
-  themeColor: "#111827",
-}
-
-export const metadata: Metadata = {
-  title: "SPC - Sistema de Gestión de Consorcios",
-  description: "Sistema Integral para Gestión de Consorcios",
-  generator: 'v0.dev',
-  manifest: '/manifest.json',
-  icons: {
-    icon: '/icons/icon-192.png',
-    apple: '/icons/apple-touch-icon.png'
-  }
-}
-
+// ...
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,12 +24,14 @@ export default function RootLayout({
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <SupabaseProvider>
-            {children}
-            <Toaster />
-            <SWRegister />
-            <AiChatWidget />
-          </SupabaseProvider>
+          <AuthProvider projectId={process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID!}>
+            <SupabaseProvider>
+              {children}
+              <Toaster />
+              <SWRegister />
+              <AiChatWidget />
+            </SupabaseProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

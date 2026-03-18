@@ -1,29 +1,56 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { Mail, Chrome } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { useDescope } from '@descope/nextjs-sdk/client'
 
 export default function LoginPage() {
+  const sdk = useDescope()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [loadingEmail, setLoadingEmail] = useState(false)
   const [loadingGoogle, setLoadingGoogle] = useState(false)
-  // 1. Iniciar con Google Flow
+
+  // limpieza de parametros de error en la url y deteccion de mensajes
+  useEffect(() => {
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+    
+    if (error || errorDescription) {
+      toast.error(errorDescription || 'error de autenticacion')
+      const url = new URL(window.location.href)
+      url.searchParams.delete('error')
+      url.searchParams.delete('error_description')
+      url.searchParams.delete('code')
+      window.history.replaceState({}, '', url.pathname)
+    }
+  }, [searchParams])
+
+  // 1. Iniciar con Google Flow (Rollback v95.5)
   const handleGoogleLogin = async () => {
     setLoadingGoogle(true)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) {
-      toast.error(error.message)
+    
+    try {
+      // url limpia sin parametros basura que rompan el parseo del code
+      const redirectUrl = `${window.location.origin}/auth/callback`
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      })
+      if (error) {
+        toast.error(error.message)
+        setLoadingGoogle(false)
+      }
+    } catch (err) {
       setLoadingGoogle(false)
     }
   }
@@ -71,12 +98,16 @@ export default function LoginPage() {
 
         {/* BOTÓN PRIMARIO: GOOGLE */}
         <button
+          type="button"
           onClick={handleGoogleLogin}
           disabled={loadingGoogle || loadingEmail}
           className="w-full h-16 bg-gray-900 text-white rounded-[2rem] flex items-center justify-center space-x-3 text-lg font-medium shadow-lg hover:bg-gray-800 transition-all active:scale-[0.98] disabled:opacity-70"
         >
           {loadingGoogle ? (
-            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <>
+              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>ingresando...</span>
+            </>
           ) : (
             <>
               <Chrome className="w-7 h-7" strokeWidth={1.5} />

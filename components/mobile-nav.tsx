@@ -29,7 +29,7 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
     if (supabase) {
       await supabase.auth.signOut()
     }
-    router.push("/login")
+    window.location.href = "/login"
   }
 
   // Cerrar el menú cuando cambie la ruta

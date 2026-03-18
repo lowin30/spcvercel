@@ -7,6 +7,8 @@ import { TrabajadorDashboard } from "./trabajador-dashboard"
 import { createServerClient } from "@/lib/supabase-server"
 import { executeQuery } from "@/lib/supabase-helpers"
 
+import { redirect } from 'next/navigation'
+
 export const dynamic = 'force-dynamic'
 
 interface DashboardTask {
@@ -32,12 +34,7 @@ export default async function DashboardPage() {
   const userData = await validateSessionAndGetUser()
 
   if (!userData) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-red-800">error</h2>
-        <p className="mt-2 text-red-700">no se pudo validar la sesion.</p>
-      </div>
-    )
+    redirect('/login')
   }
 
   const supabase = await createServerClient()

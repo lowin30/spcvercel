@@ -68,7 +68,7 @@ export function DashboardNav({ userRole, userEmail, colorPerfil = '#3498db' }: D
     try {
       await supabase.auth.signOut()
       console.log('spc: sesion cerrada con supabase')
-      router.push('/login')
+      window.location.href = '/login'
     } catch (err) {
       console.error('spc: error al cerrar sesion', err)
     }
