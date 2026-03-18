@@ -44,7 +44,9 @@ export async function POST(req: Request) {
         const userDictionary = vocab?.map((v: any) => `- "${v.term}": ${v.definition}`).join('\n') || "Ninguno aún."
 
         // 🆕 NIVEL 2: Pre-load messages to search knowledge base
-        const { messages: incomingMessages } = await req.json()
+        const body = await req.json()
+        const { messages: incomingMessages } = body
+        console.log(`[CHAT-AUDIT] Body recibido:`, JSON.stringify(body).substring(0, 200) + "...")
 
         // 4. Determinar rol y permisos
         const userRole = user.user_metadata?.rol || 'trabajador'
@@ -76,31 +78,7 @@ ${i + 1}. **${doc.display_title}** (${doc.category})
             }
         }
 
-        // 5. Configurar System Prompt Dinámico
-        const SYSTEM_PROMPT = `
-Eres A.G.I. (Antigravity General Intelligence), el sistema operativo de la constructora SPC.
-Tu misión es coordinar obras, registrar gastos y asistir al personal.
-
-CONTEXTO ACTUAL:
-- ID: ${user.id}
-- Rol: ${userRole.toUpperCase()}
-
-VOCABULARIO DEL USUARIO:
-${userDictionary}
-
-${knowledgeContext}
-
-INSTRUCCIONES CRÍTICAS:
-1. SIEMPRE revisa primero la sección "DOCUMENTACIÓN INTERNA DE SPC". Si la respuesta está ahí, ÚSALA OBLIGATORIAMENTE.
-2. NO digas "no tengo información" si aparece en la documentación de arriba.
-3. Si el usuario usa un término del vocabulario, respeta su definición.
-4. Si aprendes algo nuevo, usa la tool 'learn_term'.
-
-REGLAS:
-- Responde siempre en español.
-- Sé directo y útil.
-- Asume que la "DOCUMENTACIÓN INTERNA DE SPC" es la verdad absoluta.
-`
+        // 5. Configurar System Prompt Dinámico (Unificado)
         const { data: userData, error: userError } = await supabase
             .from('usuarios')
             .select('rol, email, code')
@@ -115,31 +93,35 @@ REGLAS:
             })
         }
 
-        // Messages already loaded above for knowledge search
-        const messages = incomingMessages
+        const roleBasePrompt = await getSystemPromptByRole(userData.rol, supabase)
+        const FINAL_SYSTEM_PROMPT = `
+${roleBasePrompt}
 
-        if (!messages || messages.length === 0) {
-            return new Response(JSON.stringify({ error: 'No se enviaron mensajes' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            })
-        }
+### CONTEXTO DINÁMICO ADICIONAL (Inyectado por el Sistema)
+- ID de Usuario: ${user.id}
+- Rol: ${userRole.toUpperCase()}
 
-        // ===== 🔀 ROUTER: DECIDIR QUÉ MODELO USAR =====
-        // TODOS los roles usan OpenAI con herramientas (segregadas por rol)
-        // Esto evita alucinaciones de Groq que no tiene acceso a datos reales
+#### VOCABULARIO PERSONALIZADO:
+${userDictionary}
 
-        console.log(`[AI] 💰 Redirigiendo a OpenAI (rol: ${userData.rol})`)
-        // PASAMOS knowledgeContext para que no se pierda el trabajo de arriba
-        return await handleFinancialRequest(messages, userData, supabase, knowledgeContext)
+${knowledgeContext ? `#### DOCUMENTACIÓN INTERNA ENCONTRADA:\n${knowledgeContext}` : ''}
+
+🚨 INSTRUCCIÓN SUPREMA: Prioriza siempre la "DOCUMENTACIÓN INTERNA" y el "VOCABULARIO" sobre tu conocimiento general. 
+🚨 REGLA DE TIPOS: Los IDs (id_edificio, id_tarea, etc.) son exclusivamente NUMÉRICOS. Si no tienes el ID, NO lo inventes, pasa el campo como undefined.
+`
+
+        console.log(`[AI] 💰 Procesando petición con OpenAI (rol: ${userData.rol})`)
+        return await handleFinancialRequest(incomingMessages, userData, supabase, FINAL_SYSTEM_PROMPT)
 
 
     } catch (error: any) {
-        console.error('[AI] ❌ Error:', error.message)
+        console.error('[AI] ❌ Error forense en /api/chat/route.ts:', error)
+        if (error.stack) console.error('[AI] Stack:', error.stack)
 
         return new Response(JSON.stringify({
             error: 'Error en el servicio de IA',
-            hint: error.message?.includes('API key') ? 'Verifica tu API key' : 'Intenta de nuevo'
+            message: error.message,
+            hint: error.message?.includes('API key') ? 'Verifica tu API key' : 'Verifica logs de servidor'
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }
@@ -418,50 +400,31 @@ Responde SOLO la categoría, nada más.`
     }
 }
 
-// ===== 💰 HANDLER FINANCIERO (OpenAI) =====
-async function handleFinancialRequest(messages: any[], userData: any, supabase: any, knowledgeContext: string = '') {
-    // 1. Obtener prompt base de la DB
-    const systemPrompt = await getSystemPromptByRole(userData.rol, supabase)
-
-    // 2. MODIFICAR ÚLTIMO MENSAJE (Estrategia Inception)
-    // Si hay contexto, lo metemos DENTRO del mensaje del usuario para que OpenAI no pueda ignorarlo.
-    if (knowledgeContext && messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage.role === 'user') {
-            lastMessage.content += `\n\n[SISTEMA: He encontrado esta información relevante en la base de datos interna. Úsala para responder la pregunta anterior:]\n${knowledgeContext}`;
-        }
-    }
-
-    const { openai } = await import('@ai-sdk/openai')
+// ===== 💰 HANDLER FINANCIERO (Groq - OpenAI Compatible) =====
+async function handleFinancialRequest(messages: any[], userData: any, supabase: any, finalSystemPrompt: string) {
     const { adminTools, supervisorTools, trabajadorTools } = await import('@/lib/ai/tools')
 
     // Seleccionar herramientas según rol (SEGURIDAD: Zero Leakage)
-    let tools;
+    let tools: any;
     if (userData.rol === 'admin') {
-        tools = adminTools  // Acceso completo
-        console.log('[AI] 🔧 Tools cargadas: ADMIN (acceso completo)')
+        tools = adminTools
     } else if (userData.rol === 'supervisor') {
-        tools = supervisorTools  // Solo herramientas de supervisor
-        console.log('[AI] 🔧 Tools cargadas: SUPERVISOR (acceso limitado)')
+        tools = supervisorTools
     } else if (userData.rol === 'trabajador') {
         tools = trabajadorTools
-        console.log('[AI] 🔧 Tools cargadas: TRABAJADOR (Expenses Enabled)')
     } else {
-        tools = {}  // Sin herramientas para otros roles
-        console.log('[AI] 🔧 Tools cargadas: NINGUNA')
+        tools = {}
     }
 
-    console.log('[AI] 🤖 OpenAI GPT-4o-mini con herramientas')
-
     const result = await streamText({
-        model: openai('gpt-4o-mini'),
+        model: groq('llama-3.3-70b-versatile'),
         messages: [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: finalSystemPrompt },
             ...messages
         ],
-        tools: tools,
+        tools: tools as any,
         temperature: 0.2,
-        maxSteps: 5, // Permitir que la IA ejecute la herramienta y luego responda
+        maxSteps: 5,
     })
 
     return result.toTextStreamResponse()

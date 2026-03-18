@@ -62,6 +62,11 @@ const CopyButton = ({ text }: { text: string }) => {
 
 export function AiChatWidget() {
     const { user } = useSupabase()
+    const metaRole = user?.user_metadata?.rol
+    
+    // 🛡️ BLINDAJE: Solo el rol 'admin' puede ver o usar el chat
+    if (metaRole !== 'admin') return null
+
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<any[]>([])
     const [input, setInput] = useState('')
