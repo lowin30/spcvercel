@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { redirect } from "next/navigation"
 import { getPresupuestosBase } from "./loader"
@@ -30,10 +31,12 @@ export default async function PresupuestosBasePage({ searchParams }: PageProps) 
   })
 
   return (
-    <PresupuestosBaseClient
-      presupuestos={presupuestos}
-      userRole={user.rol}
-      userId={user.id}
-    />
+    <Suspense fallback={<div className="p-12 text-center animate-pulse text-muted-foreground">cargando presupuestos...</div>}>
+      <PresupuestosBaseClient
+        presupuestos={presupuestos}
+        userRole={user.rol}
+        userId={user.id}
+      />
+    </Suspense>
   )
 }

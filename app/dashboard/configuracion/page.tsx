@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { redirect } from "next/navigation"
 import { getConfiguracionData } from "./loader"
@@ -34,16 +35,18 @@ export default async function ConfiguracionPage() {
 
   // 4. PASE VIP con datos precargados
   return (
-    <ConfiguracionPageClient
-      user={user}
-      trabajadores={trabajadores}
-      combinedUsers={combinedUsers}
-      productos={productos}
-      categorias={categorias}
-      administradores={administradores}
-      estadosTareas={estadosTareas}
-      estadosPresupuestos={estadosPresupuestos}
-      estadosFacturas={estadosFacturas}
-    />
+    <Suspense fallback={<div className="p-12 text-center animate-pulse text-muted-foreground">cargando configuración del sistema...</div>}>
+      <ConfiguracionPageClient
+        user={user}
+        trabajadores={trabajadores}
+        combinedUsers={combinedUsers}
+        productos={productos}
+        categorias={categorias}
+        administradores={administradores}
+        estadosTareas={estadosTareas}
+        estadosPresupuestos={estadosPresupuestos}
+        estadosFacturas={estadosFacturas}
+      />
+    </Suspense>
   )
 }

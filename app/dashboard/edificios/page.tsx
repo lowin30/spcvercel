@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { getEdificiosData } from "./loader"
 import EdificiosPageClient from "./edificios-page-client"
@@ -17,11 +18,13 @@ export default async function EdificiosPage() {
 
   // 3. PASE VIP con datos precargados
   return (
-    <EdificiosPageClient
-      initialEdificios={edificios}
-      initialAdministradores={administradores}
-      userRol={user.rol}
-      permissions={permissions}
-    />
+    <Suspense fallback={<div className="p-12 text-center animate-pulse text-muted-foreground">cargando edificios...</div>}>
+      <EdificiosPageClient
+        initialEdificios={edificios}
+        initialAdministradores={administradores}
+        userRol={user.rol}
+        permissions={permissions}
+      />
+    </Suspense>
   )
 }

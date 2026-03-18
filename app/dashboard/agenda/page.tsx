@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { getAgendaDataV2 } from "@/lib/tools/partes/loader"
 import AgendaPageClient from "./agenda-page-client"
@@ -30,9 +31,11 @@ export default async function AgendaPage({
   })
 
   return (
-    <AgendaPageClient
-      userDetails={{ id: user.id, email: user.email, rol: user.rol }}
-      data={data}
-    />
+    <Suspense fallback={<div className="p-12 text-center animate-pulse text-muted-foreground uppercase text-xs tracking-widest font-black">sincronizando agenda operativa...</div>}>
+      <AgendaPageClient
+        userDetails={{ id: user.id, email: user.email, rol: user.rol }}
+        data={data}
+      />
+    </Suspense>
   )
 }

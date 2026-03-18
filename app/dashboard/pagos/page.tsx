@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import PaymentsTable from '@/components/payments-table';
 import { redirect } from 'next/navigation';
 import { getPagos, getFiltrosMetadata } from './loader';
@@ -75,11 +76,13 @@ export default async function PagosPage({
         </div>
       </div>
 
-      <PagosFilterBar
-        administradores={metadata.administradores}
-        edificios={metadata.edificios}
-        modalidades={modalidades}
-      />
+      <Suspense fallback={<div className="h-20 bg-muted/20 animate-pulse rounded-xl" />}>
+        <PagosFilterBar
+          administradores={metadata.administradores}
+          edificios={metadata.edificios}
+          modalidades={modalidades}
+        />
+      </Suspense>
 
       <PaymentsTable payments={payments as any} />
     </div>

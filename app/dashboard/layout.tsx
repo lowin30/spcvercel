@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, Suspense } from "react"
 import { Toaster } from "sonner"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
@@ -56,8 +56,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <AIAssistantGroq key="ai-assistant-component" />
         )}
       </DashboardShell>
-      <MicroTareaTool />
-      <MicroTareaFAB />
+      <Suspense fallback={null}>
+        <MicroTareaTool />
+        <MicroTareaFAB />
+      </Suspense>
       <Toaster />
     </>
   )
