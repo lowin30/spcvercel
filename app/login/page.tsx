@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { Mail, Chrome } from 'lucide-react'
@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import Image from 'next/image'
 import { useDescope } from '@descope/nextjs-sdk/client'
 
-export default function LoginPage() {
+function LoginContent() {
   const sdk = useDescope()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -19,6 +19,8 @@ export default function LoginPage() {
 
   // limpieza de parametros de error en la url y deteccion de mensajes
   useEffect(() => {
+    if (!searchParams) return
+    
     const error = searchParams.get('error')
     const errorDescription = searchParams.get('error_description')
     
@@ -157,5 +159,17 @@ export default function LoginPage() {
 
       </div>
     </div >
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
