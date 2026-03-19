@@ -71,17 +71,15 @@ export async function generarLiquidacionPDF(datos: DatosLiquidacion): Promise<Bl
     doc.addImage(logoUrl, "PNG", margenIzquierdo, posicionY, anchoLogo, altoLogo)
   } catch (error) {
     console.error("Error al cargar el logo:", error)
-  }
-
-  // Título a la derecha
+  }  // Título a la derecha
   doc.setFontSize(16)
   doc.setFont("helvetica", "bold")
-  doc.text("LIQUIDACIÓN DE SUPERVISOR", anchoPagina - margenDerecho, posicionY + 5, { align: "right" })
+  doc.text("liquidacion de supervisor", anchoPagina - margenDerecho, posicionY + 5, { align: "right" })
   
-  doc.setFontSize(10)
+  doc.setFontSize(9)
   doc.setFont("helvetica", "normal")
-  doc.text(`Código: ${datos.codigo}`, anchoPagina - margenDerecho, posicionY + 12, { align: "right" })
-  doc.text(`Fecha: ${format(datos.fecha, "d MMM yyyy", { locale: es })}`, anchoPagina - margenDerecho, posicionY + 17, { align: "right" })
+  doc.text(`codigo: ${datos.codigo.toLowerCase()}`, anchoPagina - margenDerecho, posicionY + 12, { align: "right" })
+  doc.text(`fecha: ${format(datos.fecha, "d MMM yyyy", { locale: es }).toLowerCase()}`, anchoPagina - margenDerecho, posicionY + 17, { align: "right" })
 
   posicionY += 30
 
@@ -89,270 +87,161 @@ export async function generarLiquidacionPDF(datos: DatosLiquidacion): Promise<Bl
   // INFORMACIÓN GENERAL
   // ==========================================
   
-  doc.setFontSize(11)
+  doc.setFontSize(10)
   doc.setFont("helvetica", "bold")
-  doc.text("INFORMACIÓN DE LA TAREA", margenIzquierdo, posicionY)
+  doc.text("informacion de la tarea", margenIzquierdo, posicionY)
   posicionY += 6
 
-  doc.setFontSize(9)
+  doc.setFontSize(8)
   doc.setFont("helvetica", "normal")
-  doc.text(`Tarea: ${datos.tarea.titulo}`, margenIzquierdo, posicionY)
-  posicionY += 5
-  doc.text(`Supervisor: ${datos.supervisor.email}`, margenIzquierdo, posicionY)
+  doc.text(`tarea: ${datos.tarea.titulo.toLowerCase()}`, margenIzquierdo, posicionY)
+  posicionY += 4
+  doc.text(`supervisor: ${datos.supervisor.email.toLowerCase()}`, margenIzquierdo, posicionY)
   posicionY += 10
 
   // ==========================================
-  // RESUMEN DE CÁLCULOS
+  // RESUMEN DE CÁLCULOS (6 COLUMNAS)
   // ==========================================
   
-  doc.setFontSize(11)
+  doc.setFontSize(10)
   doc.setFont("helvetica", "bold")
-  doc.text("RESUMEN DE LIQUIDACIÓN", margenIzquierdo, posicionY)
-  posicionY += 8
+  doc.text("detalle financiero de liquidacion", margenIzquierdo, posicionY)
+  posicionY += 6
 
-  const tablaResumen = [
-    ["Concepto", "Monto"],
-    ["Presupuesto Base", `$${datos.presupuestoBase.toLocaleString('es-AR')}`],
-    ["(-) Gastos Reales", `$${datos.gastosReales.toLocaleString('es-AR')}`],
-    ["(=) Ganancia Neta", `$${datos.gananciaNeta.toLocaleString('es-AR')}`],
-    ["", ""],
-    ["Ganancia Supervisor (50%)", `$${datos.gananciaSupervisor.toLocaleString('es-AR')}`],
-    ["Ganancia Administración (50%)", `$${datos.gananciaAdmin.toLocaleString('es-AR')}`],
+  const headers = [
+    "base",
+    "gastos",
+    "neta",
+    "ganancia",
+    "bruto"
   ]
 
+  const totalBruto = (datos.gananciaSupervisor || 0) + (datos.gastosReales || 0)
+
   autoTable(doc, {
-    body: tablaResumen,
+    head: [headers],
+    body: [[
+      `$${datos.presupuestoBase.toLocaleString('es-AR')}`,
+      `$${datos.gastosReales.toLocaleString('es-AR')}`,
+      `$${datos.gananciaNeta.toLocaleString('es-AR')}`,
+      `$${datos.gananciaSupervisor.toLocaleString('es-AR')}`,
+      `$${datos.totalSupervisor.toLocaleString('es-AR')}`,
+    ]],
     startY: posicionY,
     margin: { left: margenIzquierdo, right: margenDerecho },
     theme: 'grid',
-    columnStyles: {
-      0: { cellWidth: anchoDisponible * 0.65, fontStyle: 'bold' },
-      1: { cellWidth: anchoDisponible * 0.35, halign: 'right' },
+    headStyles: {
+      fillColor: [39, 39, 42],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: 'bold',
+      halign: 'center',
     },
     styles: {
-      fontSize: 9,
+      fontSize: 8,
       cellPadding: 3,
-    },
-    headStyles: {
-      fillColor: [220, 220, 220],
-      textColor: [0, 0, 0],
-      fontStyle: 'bold',
-    },
-    didParseCell: (data: any) => {
-      // Resaltar la ganancia neta
-      if (data.row.index === 3 && data.section === 'body') {
-        data.cell.styles.fillColor = [240, 240, 240]
-        data.cell.styles.fontStyle = 'bold'
-      }
-      // Resaltar las ganancias
-      if ((data.row.index === 5 || data.row.index === 6) && data.section === 'body') {
-        data.cell.styles.fillColor = [250, 250, 250]
-      }
+      halign: 'right'
     },
     didDrawPage: (data: any) => {
-      posicionY = data.cursor.y + 5
+      posicionY = data.cursor.y + 12
     },
   })
 
   // ==========================================
-  // DESGLOSE DE GASTOS REALES
+  // DESGLOSE DE GASTOS REALES (GRILLA O TABLA SIMPLIFICADA)
   // ==========================================
   
   if (datos.desglose && datos.desglose.length > 0) {
-    posicionY += 5
-    
-    doc.setFontSize(11)
-    doc.setFont("helvetica", "bold")
-    doc.text("DESGLOSE DE GASTOS REALES", margenIzquierdo, posicionY)
-    posicionY += 8
-
-    // Materiales
-    const materiales = datos.desglose.find(d => d.categoria === 'materiales')
-    if (materiales && materiales.cantidad_registros > 0) {
-      doc.setFontSize(10)
-      doc.setFont("helvetica", "bold")
-      doc.text(`📦 MATERIALES (${materiales.cantidad_registros} comprobantes) - $${materiales.monto_total.toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
-      posicionY += 6
-
-      const bodyMateriales = materiales.detalle.map((item, idx) => [
-        `#${idx + 1}`,
-        item.descripcion || 'Sin descripción',
-        item.fecha ? format(new Date(item.fecha), "dd/MM/yyyy", { locale: es }) : '-',
-        `$${item.monto.toLocaleString('es-AR')}`,
-      ])
-
-      autoTable(doc, {
-        head: [['#', 'Descripción', 'Fecha', 'Monto']],
-        body: bodyMateriales,
-        startY: posicionY,
-        margin: { left: margenIzquierdo + 5, right: margenDerecho },
-        theme: 'striped',
-        columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: anchoDisponible * 0.50 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: anchoDisponible * 0.25, halign: 'right' },
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [100, 150, 200],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 8,
-        },
-        didDrawPage: (data: any) => {
-          posicionY = data.cursor.y + 5
-        },
-      })
-    }
-
-    // Jornales
-    const jornales = datos.desglose.find(d => d.categoria === 'jornales')
-    if (jornales && jornales.cantidad_registros > 0) {
-      // Verificar si necesitamos nueva página
-      if (posicionY > doc.internal.pageSize.height - 60) {
-        doc.addPage()
-        posicionY = margenSuperior
-      }
-
-      doc.setFontSize(10)
-      doc.setFont("helvetica", "bold")
-      doc.text(`💼 JORNALES (${jornales.cantidad_registros} jornadas) - $${jornales.monto_total.toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
-      posicionY += 6
-
-      const bodyJornales = jornales.detalle.map((item, idx) => [
-        `#${idx + 1}`,
-        item.fecha ? format(new Date(item.fecha), "dd/MM/yyyy", { locale: es }) : '-',
-        item.tipo_jornada === 'dia_completo' ? 'Día completo' : 'Medio día',
-        item.salario_diario ? `$${item.salario_diario.toLocaleString('es-AR')}` : '-',
-        `$${(item.monto_calculado || 0).toLocaleString('es-AR')}`,
-      ])
-
-      autoTable(doc, {
-        head: [['#', 'Fecha', 'Tipo', 'Salario/día', 'Total']],
-        body: bodyJornales,
-        startY: posicionY,
-        margin: { left: margenIzquierdo + 5, right: margenDerecho },
-        theme: 'striped',
-        columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: anchoDisponible * 0.30 },
-          3: { cellWidth: anchoDisponible * 0.25, halign: 'right' },
-          4: { cellWidth: anchoDisponible * 0.25, halign: 'right' },
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [220, 120, 50],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          fontSize: 8,
-        },
-        didDrawPage: (data: any) => {
-          posicionY = data.cursor.y + 5
-        },
-      })
-    }
-
-    // Total de gastos
-    posicionY += 3
     doc.setFontSize(10)
     doc.setFont("helvetica", "bold")
-    doc.text(`TOTAL GASTOS REALES: $${datos.gastosReales.toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
-    posicionY += 8
+    doc.text("transparencia de gastos reales (reembolsos)", margenIzquierdo, posicionY)
+    posicionY += 6
+
+    datos.desglose.forEach((cat) => {
+      if (cat.cantidad_registros > 0) {
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(113, 113, 122)
+        doc.text(`${cat.categoria.toLowerCase()} (${cat.cantidad_registros} items) - total: $${cat.monto_total.toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
+        posicionY += 4
+
+        const bodyItems = cat.detalle.map((item) => [
+          item.fecha ? format(new Date(item.fecha), "dd/MM/yyyy") : '-',
+          item.descripcion?.toLowerCase() || (cat.categoria === 'jornales' ? 'jornal' : 'material'),
+          `$${(item.monto || item.monto_calculado || 0).toLocaleString('es-AR')}`,
+        ])
+
+        autoTable(doc, {
+          head: [['fecha', 'descripcion', 'monto']],
+          body: bodyItems,
+          startY: posicionY,
+          margin: { left: margenIzquierdo + 5, right: margenDerecho },
+          theme: 'striped',
+          headStyles: {
+            fillColor: [244, 244, 245],
+            textColor: [39, 39, 42],
+            fontSize: 7,
+            fontStyle: 'bold'
+          },
+          styles: {
+            fontSize: 7,
+            cellPadding: 2,
+          },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: anchoDisponible - 55 },
+            2: { cellWidth: 25, halign: 'right' },
+          },
+          didDrawPage: (data: any) => {
+            posicionY = data.cursor.y + 8
+          },
+        })
+
+        if (posicionY > doc.internal.pageSize.height - 40) {
+          doc.addPage()
+          posicionY = margenSuperior
+        }
+      }
+    })
   }
 
   // ==========================================
   // LIQUIDACIÓN FINAL
   // ==========================================
   
-  // Verificar si necesitamos nueva página
-  if (posicionY > doc.internal.pageSize.height - 50) {
-    doc.addPage()
-    posicionY = margenSuperior
-  }
-
-  doc.setFontSize(12)
+  posicionY += 5
+  doc.setFillColor(9, 9, 11)
+  doc.roundedRect(margenIzquierdo, posicionY, anchoDisponible, 40, 3, 3, "F")
+  
+  doc.setFontSize(14)
   doc.setFont("helvetica", "bold")
-  doc.text("LIQUIDACIÓN FINAL - SUPERVISOR", margenIzquierdo, posicionY)
-  posicionY += 8
-
-  const tablaFinal = [
-    ["Ganancia del Supervisor", `$${datos.gananciaSupervisor.toLocaleString('es-AR')}`],
-    ["(+) Gastos Reales (reembolso)", `$${datos.gastosReales.toLocaleString('es-AR')}`],
-    ["TOTAL A PAGAR AL SUPERVISOR", `$${datos.totalSupervisor.toLocaleString('es-AR')}`],
-  ]
-
-  autoTable(doc, {
-    body: tablaFinal,
-    startY: posicionY,
-    margin: { left: margenIzquierdo, right: margenDerecho },
-    theme: 'plain',
-    columnStyles: {
-      0: { cellWidth: anchoDisponible * 0.65, fontStyle: 'bold' },
-      1: { cellWidth: anchoDisponible * 0.35, halign: 'right', fontStyle: 'bold' },
-    },
-    styles: {
-      fontSize: 10,
-      cellPadding: 4,
-    },
-    didParseCell: (data: any) => {
-      // Resaltar la fila del total
-      if (data.row.index === 2 && data.section === 'body') {
-        data.cell.styles.fillColor = [50, 100, 200]
-        data.cell.styles.textColor = [255, 255, 255]
-        data.cell.styles.fontSize = 12
-        data.cell.styles.fontStyle = 'bold'
-      }
-    },
-    didDrawPage: (data: any) => {
-      posicionY = data.cursor.y + 10
-    },
-  })
+  doc.setTextColor(52, 211, 153)
+  doc.text("neto transferido:", margenIzquierdo + 10, posicionY + 22)
+  doc.setFontSize(22)
+  doc.text(`$${datos.totalSupervisor.toLocaleString('es-AR')}`, anchoPagina - margenDerecho - 10, posicionY + 24, { align: "right" })
 
   // Nota al pie
-  doc.setFontSize(8)
-  doc.setFont("helvetica", "italic")
-  const nota = "* El total incluye el reembolso de los gastos pagados por el supervisor durante la ejecución de la tarea."
-  const notaLineas = doc.splitTextToSize(nota, anchoDisponible)
-  doc.text(notaLineas, margenIzquierdo, posicionY)
+  doc.setFontSize(7)
+  doc.setFont("helvetica", "normal")
+  doc.setTextColor(150, 150, 150)
+  const nota = "* el total incluye el reembolso de los gastos reales pagados por el supervisor mas su ganancia pactada."
+  doc.text(nota, margenIzquierdo, doc.internal.pageSize.height - 15)
 
   // Advertencia de sobrecosto
   if (datos.sobrecosto) {
-    posicionY += 10
-    doc.setFontSize(10)
-    doc.setFont("helvetica", "bold")
-    doc.setTextColor(200, 0, 0)
-    doc.text("⚠️ ATENCIÓN: ESTA TAREA TIENE SOBRECOSTO", margenIzquierdo, posicionY)
-    doc.setTextColor(0, 0, 0)
-    posicionY += 5
     doc.setFontSize(9)
-    doc.setFont("helvetica", "normal")
-    doc.text(`Monto del sobrecosto: $${(datos.montoSobrecosto || 0).toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(251, 113, 133)
+    doc.text("atencion: esta tarea tiene sobrecosto asociado.", margenIzquierdo, doc.internal.pageSize.height - 25)
   }
 
-  // Pie de página con número de página
+  // Pie de página
   const totalPaginas = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= totalPaginas; i++) {
     doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
     doc.setTextColor(150, 150, 150)
-    
-    // Información de la empresa
-    doc.text("SERVICIOS PARA CONSORCIO", margenIzquierdo, doc.internal.pageSize.height - 10)
-    doc.text("Tel: 1131259449 | Email: lowin30@gmail.com", margenIzquierdo, doc.internal.pageSize.height - 6)
-    
-    // Número de página
-    doc.text(`Página ${i} de ${totalPaginas}`, anchoPagina - margenDerecho, doc.internal.pageSize.height - 6, { align: 'right' })
-    
-    doc.setTextColor(0, 0, 0)
+    doc.text(`spc platinum system - pagina ${i} de ${totalPaginas}`, anchoPagina - margenDerecho, doc.internal.pageSize.height - 8, { align: 'right' })
   }
 
   return doc.output("blob")

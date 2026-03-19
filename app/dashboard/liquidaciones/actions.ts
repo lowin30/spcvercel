@@ -77,3 +77,136 @@ export async function createLiquidacionAction(prevState: any, formData: FormData
         return { success: false, message: `Error del servidor: ${e.message}` }
     }
 }
+
+export async function createAdelantoAction(formData: FormData): Promise<CreateLiquidacionState> {
+    const supabase = await createServerClient()
+    const rawData = Object.fromEntries(formData.entries())
+
+    const payload = {
+        usuario_id: rawData.usuario_id as string,
+        monto: Number(rawData.monto),
+        descripcion: rawData.descripcion as string,
+        fecha: rawData.fecha as string || new Date().toISOString().split('T')[0]
+    }
+
+    if (!payload.usuario_id || !payload.monto) {
+        return { success: false, message: "usuario y monto son obligatorios" }
+    }
+
+    try {
+        const { error } = await supabase
+            .from('adelantos')
+            .insert(payload)
+
+        if (error) {
+            console.error("error createAdelantoAction:", error)
+            return { success: false, message: `error bd: ${error.message}` }
+        }
+
+        revalidatePath('/dashboard/liquidaciones')
+        return { success: true, message: "adelanto registrado con exito" }
+    } catch (e: any) {
+        console.error("exception createAdelantoAction:", e)
+        return { success: false, message: `error del servidor: ${e.message}` }
+    }
+}
+
+export async function deleteAdelantoAction(id: string): Promise<CreateLiquidacionState> {
+    const supabase = await createServerClient()
+    
+    try {
+        // Verificar que no esté liquidado
+        const { data: adelanto, error: fetchError } = await supabase
+            .from('adelantos')
+            .select('estado_liquidado')
+            .eq('id', id)
+            .single()
+
+        if (fetchError || !adelanto) return { success: false, message: "adelanto no encontrado" }
+        if (adelanto.estado_liquidado) return { success: false, message: "no se puede borrar un adelanto ya liquidado" }
+
+        const { error } = await supabase
+            .from('adelantos')
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
+
+        revalidatePath('/dashboard/liquidaciones')
+        return { success: true, message: "adelanto eliminado" }
+    } catch (e: any) {
+        return { success: false, message: `error: ${e.message}` }
+    }
+}
+
+export async function updateAdelantoAction(id: string, data: { monto?: number, descripcion?: string }): Promise<CreateLiquidacionState> {
+    const supabase = await createServerClient()
+
+    try {
+        const { error } = await supabase
+            .from('adelantos')
+            .update(data)
+            .eq('id', id)
+
+        if (error) throw error
+
+        revalidatePath('/dashboard/liquidaciones')
+        return { success: true, message: "adelanto actualizado" }
+    } catch (e: any) {
+        return { success: false, message: `error: ${e.message}` }
+    }
+}
+
+export async function deleteLiquidacionAction(id: number): Promise<CreateLiquidacionState> {
+    const supabase = await createServerClient()
+
+    try {
+        // 1. Desvincular gastos (gastos_tarea)
+        const { error: errorGastos } = await supabase
+            .from('gastos_tarea')
+            .update({ 
+                liquidado: false, 
+                id_liquidacion: null, 
+                estado: 'aprobado' 
+            })
+            .eq('id_liquidacion', id)
+
+        if (errorGastos) throw errorGastos
+
+        // NEW: 2. Desvincular jornales (partes_de_trabajo)
+        const { error: errorJornales } = await supabase
+            .from('partes_de_trabajo')
+            .update({ 
+                liquidado: false, 
+                id_liquidacion: null 
+            })
+            .eq('id_liquidacion', id)
+
+        if (errorJornales) throw errorJornales
+
+        // 3. Desvincular adelantos (adelantos)
+        const { error: errorAdelantos } = await supabase
+            .from('adelantos')
+            .update({ 
+                estado_liquidado: false, 
+                liquidacion_id: null 
+            })
+            .eq('liquidacion_id', id)
+
+        if (errorAdelantos) throw errorAdelantos
+
+        // 4. Borrar la liquidación
+        const { error: errorLiq } = await supabase
+            .from('liquidaciones_nuevas')
+            .delete()
+            .eq('id', id)
+
+        if (errorLiq) throw errorLiq
+
+        revalidatePath('/dashboard/liquidaciones')
+        return { success: true, message: "liquidacion eliminada y gastos rehabilitados" }
+    } catch (e: any) {
+        console.error("Error deleteLiquidacionAction:", e)
+        return { success: false, message: `error al eliminar: ${e.message}` }
+    }
+}

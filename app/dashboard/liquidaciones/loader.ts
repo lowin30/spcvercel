@@ -15,14 +15,36 @@ export interface LiquidacionDTO {
     email_supervisor?: string
     email_admin?: string
     code_factura?: string
+    id_usuario_supervisor?: string
+    detalle_gastos_json?: Array<{
+        fecha: string
+        descripcion: string
+        monto: number
+    }>
 }
 
-export async function getLiquidaciones(userId: string, role: string): Promise<LiquidacionDTO[]> {
+export interface CuentaCorrienteDTO {
+    usuario_id: string
+    email_supervisor: string
+    total_adelantos_pendientes: number
+    detalle_adelantos_json: Array<{
+        id: string
+        fecha: string
+        monto: number
+        descripcion: string
+    }>
+}
+
+export async function getLiquidaciones(
+    userId: string, 
+    role: string, 
+    filters?: { supervisor?: string; estado?: string }
+): Promise<LiquidacionDTO[]> {
     const supabase = await createServerClient()
 
     // 1. Admin: Ve todo
     if (role === 'admin') {
-        const { data: viewData, error } = await supabase
+        let query = supabase
             .from('vista_liquidaciones_completa')
             .select(`
                 id,
@@ -36,9 +58,18 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
                 gastos_reales,
                 total_supervisor,
                 email_supervisor,
-                email_admin
+                email_admin,
+                id_usuario_supervisor,
+                detalle_gastos_json
             `)
             .order('created_at', { ascending: false })
+
+        // Filtros de Servidor (Platinum Architecture)
+        if (filters?.supervisor && filters.supervisor !== '_todos_') {
+            query = query.eq('email_supervisor', filters.supervisor)
+        }
+
+        const { data: viewData, error } = await query
 
         if (error) {
             console.error("Error fetching liquidaciones (view):", error)
@@ -47,78 +78,104 @@ export async function getLiquidaciones(userId: string, role: string): Promise<Li
 
         const liquidaciones = viewData || []
 
-        // Enriquecer datos faltantes en la vista (pagada, fecha_pago)
-        // buscándolos en la tabla base 'liquidaciones_nuevas'
         if (liquidaciones.length > 0) {
             const ids = liquidaciones.map((l: any) => l.id)
-            const { data: baseData } = await supabase
+            let baseQuery = supabase
                 .from('liquidaciones_nuevas')
                 .select('id, pagada, fecha_pago')
                 .in('id', ids)
+            
+            if (filters?.estado === 'pagadas') {
+                baseQuery = baseQuery.eq('pagada', true)
+            } else if (filters?.estado === 'no_pagadas') {
+                baseQuery = baseQuery.eq('pagada', false)
+            }
+
+            const { data: baseData } = await baseQuery
 
             // Map para acceso rápido
             const baseMap = new Map()
             baseData?.forEach((b: any) => baseMap.set(b.id, b))
 
-            // Fusionar
-            return liquidaciones.map((row: any) => {
-                const extra = baseMap.get(row.id) || {}
+            // Fusionar y filtrar por estado si es necesario
+            const result = liquidaciones.map((row: any) => {
+                const extra = baseMap.get(row.id)
+                if (!extra && (filters?.estado === 'pagadas' || filters?.estado === 'no_pagadas')) return null
+                
                 return {
-                    id: row.id,
-                    created_at: row.created_at,
-                    titulo_tarea: row.titulo_tarea || 'Sin Título',
-                    total_base: row.total_base,
-                    gastos_reales: row.gastos_reales,
-                    ganancia_neta: row.ganancia_neta || 0,
-                    ganancia_supervisor: row.ganancia_supervisor || 0,
-                    ganancia_admin: row.ganancia_admin || 0,
-                    total_supervisor: row.total_supervisor || 0,
-                    code_factura: row.code_factura,
-                    email_supervisor: row.email_supervisor,
-                    email_admin: row.email_admin,
-                    // Campos enriquecidos
-                    pagada: extra.pagada ?? false,
-                    fecha_pago: extra.fecha_pago ?? null
+                    ...row,
+                    pagada: extra?.pagada ?? false,
+                    fecha_pago: extra?.fecha_pago ?? null
                 }
-            })
+            }).filter(Boolean) as LiquidacionDTO[]
+
+            return result
         }
 
         return []
     }
 
-    // 2. Supervisor: Ve SOLO sus liquidaciones mediante la vista pre-enrutada y segura
+    // 2. Supervisor: Ve SOLO sus liquidaciones
     if (role === 'supervisor') {
-        // Aprovechamos la arquitectura nativa SQL. 
-        // Esta vista recorta campos radiactivos a nivel PostgreSQL
-        // Corregido: 'vista_liquidacion_supervisor_detallada' -> 'vista_liquidaciones_supervisores_listado' (Error PGRST205)
-        const { data, error } = await supabase
+        let query = supabase
             .from('vista_liquidaciones_supervisores_listado')
             .select('*')
             .eq('id_usuario_supervisor', userId)
             .order('created_at', { ascending: false })
 
-        if (error) {
-            console.error("Error fetching liquidaciones (supervisor view):", error)
-            throw new Error("Error al cargar sus liquidaciones relativas a la vista acotada")
+        if (filters?.estado === 'pagadas') {
+            query = query.eq('pagada', true)
+        } else if (filters?.estado === 'no_pagadas') {
+            query = query.eq('pagada', false)
         }
 
-        // DTO Sanitization: Map safe public DTO
-        // Extraemos solo lo que sabemos que devuelve la vista limpia
-        return (data || []).map((row: any) => ({
-            id: row.id,
-            created_at: row.created_at,
-            titulo_tarea: row.titulo_tarea, // Ya viene normalizada de la vista
-            total_base: row.total_base,
-            gastos_reales: row.gastos_reales,
-            ganancia_supervisor: row.ganancia_supervisor,
-            total_supervisor: row.total_supervisor,
-            pagada: row.pagada,
-            fecha_pago: row.fecha_pago,
-            email_supervisor: row.email_supervisor
-        }))
+        const { data, error } = await query
+
+        if (error) {
+            console.error("Error fetching liquidaciones (supervisor view):", error)
+            throw new Error("Error al cargar sus liquidaciones")
+        }
+
+        return (data || []) as LiquidacionDTO[]
     }
 
     return []
+}
+
+export async function getCuentaCorriente(email?: string): Promise<CuentaCorrienteDTO | null> {
+    const supabase = await createServerClient()
+    let query = supabase
+        .from('vista_cuenta_corriente_supervisores')
+        .select('*')
+    
+    if (email && email !== '_todos_') {
+        query = query.eq('email_supervisor', email)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+        console.error("Error fetching cuenta corriente:", error)
+        return null
+    }
+
+    // Si pedimos uno especifico, devolvemos ese. Si es global, devolvemos los agregados (para el admin).
+    if (email && email !== '_todos_') {
+        return (data && data.length > 0) ? data[0] as CuentaCorrienteDTO : null
+    }
+
+    // Caso Admin: Suma de todos los supervisores visibles
+    if (!data || data.length === 0) return null
+
+    const total = data.reduce((acc, curr) => acc + (curr.total_adelantos_pendientes || 0), 0)
+    const items = data.flatMap(curr => curr.detalle_adelantos_json || [])
+
+    return {
+        usuario_id: '_global_',
+        email_supervisor: '_todos_',
+        total_adelantos_pendientes: total,
+        detalle_adelantos_json: items
+    }
 }
 
 export async function getSupervisores() {
