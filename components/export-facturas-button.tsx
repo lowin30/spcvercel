@@ -2,10 +2,16 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { FileText, Loader2 } from "lucide-react"
+import { FileText, Loader2, ChevronDown } from "lucide-react"
 import { generarFacturasPDF } from "@/lib/pdf-facturas-generator"
 import { toast } from "sonner"
 import { getPdfFilename, dateToISO } from "@/lib/pdf-naming"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface FacturaParaExportar {
   id: number
@@ -31,7 +37,7 @@ export function ExportFacturasButton({
 }: ExportFacturasButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleExport = async () => {
+  const handleExport = async (sinAjustes: boolean = false) => {
     try {
       setIsLoading(true)
 
@@ -43,6 +49,7 @@ export function ExportFacturasButton({
       const datosExport = {
         facturas,
         nombreAdministrador,
+        ocultarAjustes: sinAjustes
       }
 
       const pdfBlob = await generarFacturasPDF(datosExport)
@@ -53,10 +60,12 @@ export function ExportFacturasButton({
       link.href = url
 
       // Nombre del archivo (centralizado y amigable)
-      const filename = getPdfFilename('facturas_listado', {
+      const tipo = sinAjustes ? 'facturas_resumen' : 'facturas_listado'
+      const filename = getPdfFilename(tipo, {
         admin: nombreAdministrador || 'Todas',
         fecha: dateToISO(new Date()),
       })
+      
       link.download = filename
       document.body.appendChild(link)
       link.click()
@@ -77,24 +86,38 @@ export function ExportFacturasButton({
   }
 
   return (
-    <Button
-      onClick={handleExport}
-      disabled={isLoading || facturas.length === 0}
-      variant="outline"
-      size="sm"
-      className={className}
-    >
-      {isLoading ? (
-        <>
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Generando PDF...
-        </>
-      ) : (
-        <>
-          <FileText className="h-4 w-4 mr-2" />
-          Exportar PDF
-        </>
-      )}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          disabled={isLoading || facturas.length === 0}
+          variant="outline"
+          size="sm"
+          className={className}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generando...
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4 mr-2" />
+              Exportar PDF
+              <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+            </>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-[200px]">
+        <DropdownMenuItem onClick={() => handleExport(false)} className="cursor-pointer">
+          <FileText className="mr-2 h-4 w-4" />
+          Listado Completo
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExport(true)} className="cursor-pointer">
+          <FileText className="mr-2 h-4 w-4 text-primary" />
+          Listado sin Ajustes
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

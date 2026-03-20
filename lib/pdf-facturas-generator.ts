@@ -24,6 +24,7 @@ interface DatosExportFacturas {
     estado?: string
     busqueda?: string
   }
+  ocultarAjustes?: boolean // Nuevo flag
 }
 
 /**
@@ -31,7 +32,7 @@ interface DatosExportFacturas {
  * Compatible con el sistema existente de pdf-generator.ts
  */
 export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Blob> {
-  const { facturas, nombreAdministrador, filtros } = datos
+  const { facturas, nombreAdministrador, filtros, ocultarAjustes = false } = datos
 
   // Calcular totales
   const totalSaldo = facturas.reduce((sum, f) => {
@@ -89,17 +90,24 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
   doc.setTextColor(0, 100, 0) // Verde oscuro
   doc.text(`Saldo Total: $${Math.round(totalSaldo || 0).toLocaleString('es-AR')}`, margenIzquierdo, posicionY)
 
-  doc.setTextColor(200, 50, 50) // Rojo
-  doc.text(
-    `Ajustes Total: $${Math.round(totalAjustes || 0).toLocaleString('es-AR')}`,
-    margenIzquierdo + 80,
-    posicionY
-  )
+  if (!ocultarAjustes) {
+    doc.setTextColor(200, 50, 50) // Rojo
+    doc.text(
+      `Ajustes Total: $${Math.round(totalAjustes || 0).toLocaleString('es-AR')}`,
+      margenIzquierdo + 80,
+      posicionY
+    )
+  }
+  
   doc.setTextColor(0, 0, 0) // Reset a negro
   posicionY += 10
 
   // === TABLA DE FACTURAS ===
-  const headers = [['Nombre', 'AFIP', 'Estado', 'Total', 'Saldo', 'Ajuste']]
+  const headers = [
+    ocultarAjustes 
+      ? ['Nombre', 'AFIP', 'Estado', 'Total', 'Saldo']
+      : ['Nombre', 'AFIP', 'Estado', 'Total', 'Saldo', 'Ajuste']
+  ]
 
   const body = facturas.map((factura) => {
     const saldo = typeof factura.saldo_pendiente === 'string'
@@ -110,14 +118,19 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
       ? parseFloat(factura.total_ajustes)
       : factura.total_ajustes
 
-    return [
+    const row = [
       factura.nombre || factura.code || `Factura #${factura.id}`,
       factura.datos_afip || 'N/A',
       factura.estado_nombre || '-',
       `$${Math.round(factura.total || 0).toLocaleString('es-AR')}`,
       `$${Math.round(saldo || 0).toLocaleString('es-AR')}`,
-      `$${Math.round(ajuste || 0).toLocaleString('es-AR')}`,
     ]
+
+    if (!ocultarAjustes) {
+      row.push(`$${Math.round(ajuste || 0).toLocaleString('es-AR')}`)
+    }
+
+    return row
   })
 
   autoTable(doc, {
@@ -137,12 +150,12 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
       halign: 'center',
     },
     columnStyles: {
-      0: { cellWidth: 80 },  // Nombre (más ancho)
+      0: { cellWidth: ocultarAjustes ? 100 : 80 },  // Nombre (más ancho si no hay ajustes)
       1: { cellWidth: 25 },  // AFIP
       2: { cellWidth: 35 },  // Estado
       3: { cellWidth: 30, halign: 'right' },  // Total
       4: { cellWidth: 30, halign: 'right' },  // Saldo
-      5: { cellWidth: 30, halign: 'right' },  // Ajuste
+      ...(ocultarAjustes ? {} : { 5: { cellWidth: 30, halign: 'right' } }), // Ajuste
     },
     // Aplicar color condicional a la columna Saldo
     didParseCell: function (data) {
@@ -196,15 +209,17 @@ export async function generarFacturasPDF(datos: DatosExportFacturas): Promise<Bl
   doc.text(
     `SALDO TOTAL: $${Math.round(totalSaldo || 0).toLocaleString('es-AR')}`,
     posicionXTotal + 5,
-    posicionFinal + 8
+    posicionFinal + (ocultarAjustes ? 12 : 8)
   )
 
-  doc.setTextColor(200, 50, 50) // Rojo
-  doc.text(
-    `AJUSTES TOTAL: $${Math.round(totalAjustes || 0).toLocaleString('es-AR')}`,
-    posicionXTotal + 5,
-    posicionFinal + 15
-  )
+  if (!ocultarAjustes) {
+    doc.setTextColor(200, 50, 50) // Rojo
+    doc.text(
+      `AJUSTES TOTAL: $${Math.round(totalAjustes || 0).toLocaleString('es-AR')}`,
+      posicionXTotal + 5,
+      posicionFinal + 15
+    )
+  }
 
   // === PIE DE PÁGINA ===
   const totalPaginas = (doc as any).internal.getNumberOfPages()
