@@ -87,7 +87,7 @@ export async function analizarGastoAction(base64Image: string) {
     try {
         // 1. seguridad: verificar sesion y rol admin/supervisor (platinum). ref: scanner de gastos 265
         const user = await validateSessionAndGetUser()
-        if (user.rol !== 'admin' && user.rol !== 'supervisor') {
+        if (!user || (user.rol !== 'admin' && user.rol !== 'supervisor')) {
             throw new Error("acceso denegado: solo personal administrativo o supervisores pueden usar el scanner")
         }
 
@@ -173,6 +173,7 @@ export async function analizarGastoAction(base64Image: string) {
 export async function registrarGastoAction(gastoData: any) {
     try {
         const user = await validateSessionAndGetUser()
+        if (!user) throw new Error("sesion no valida")
         const userId = user.id
 
         // 1. Sanitización de Textos y Validación de Fecha (El Escudo Gold v81.0)
@@ -182,7 +183,7 @@ export async function registrarGastoAction(gastoData: any) {
         const dateObj = new Date(rawDate)
         const finalDate = isNaN(dateObj.getTime()) ? new Date().toISOString().split('T')[0] : rawDate
 
-        const normalizedData = {
+        const normalizedData: any = {
             id_tarea: gastoData.id_tarea,
             monto: parseFloat(gastoData.monto),
             descripcion: cleanGastoText(gastoData.descripcion),
@@ -190,6 +191,7 @@ export async function registrarGastoAction(gastoData: any) {
             fecha_gasto: finalDate, // Campo real en la base de datos (v87.2 fix)
             id_usuario: userId,
             liquidado: gastoData.liquidado ?? false,
+            comprobante_url: gastoData.comprobante_url || null,
             created_at: new Date().toISOString()
         }
 

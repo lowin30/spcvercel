@@ -24,6 +24,7 @@ export function ToolGastoRegistry({
     const [paso, setPaso] = useState<PasoType>('seleccion')
     const [loading, setLoading] = useState(false)
     const [analizandoIA, setAnalizandoIA] = useState(false)
+    const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [tareas, setTareas] = useState<{ id: number; titulo: string; code: string }[]>([])
     const [selectedTareaId, setSelectedTareaId] = useState<string | null>(tareaId ? tareaId.toString() : null)
@@ -150,6 +151,11 @@ export function ToolGastoRegistry({
                     icon: <Sparkles className="w-4 h-4 text-amber-500" />,
                     duration: 3000
                 })
+
+                // Guardar la URL para la persistencia final (v111.0 fix)
+                if (data.cloudinaryUrl) {
+                    setCloudinaryUrl(data.cloudinaryUrl)
+                }
             }
         } catch (error: any) {
             console.error("Error en IA Scanner:", error)
@@ -185,7 +191,8 @@ export function ToolGastoRegistry({
                 fecha_gasto: formData.fecha_gasto,
                 id_usuario: userId,
                 liquidado: false,
-                tipo_gasto: formData.tipo_gasto
+                tipo_gasto: formData.tipo_gasto,
+                comprobante_url: cloudinaryUrl // NEW: Enviar la factura de Cloudinary (v111.0)
             }
 
             // Llamada a la Server Action (Gold Standard v81.0 - Bypass RLS seguro)
@@ -202,6 +209,8 @@ export function ToolGastoRegistry({
                 fecha_gasto: new Date().toISOString().split("T")[0],
                 tipo_gasto: "material"
             })
+            setCloudinaryUrl(null)
+            setPreviewUrl(null)
         } catch (error: any) {
             console.error("Error guardando gasto:", error)
             toast.error(error.message || "Error al guardar el gasto")
