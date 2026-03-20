@@ -273,3 +273,107 @@ export async function registrarGastoAction(gastoData: any) {
         }
     }
 }
+
+/**
+ * Server Action: eliminarGastoAction
+ * Borra un gasto de la base de datos y su comprobante en Cloudinary (Platinum v113.0).
+ */
+export async function eliminarGastoAction(gastoId: number) {
+    try {
+        const user = await validateSessionAndGetUser()
+        if (!user) throw new Error("sesion no valida")
+        const userId = user.id
+
+        // 1. Obtener datos del gasto antes de borrar
+        const { data: gasto, error: errorFetch } = await supabaseAdmin
+            .from('gastos_tarea')
+            .select('*')
+            .eq('id', gastoId)
+            .single()
+
+        if (errorFetch || !gasto) throw new Error("Gasto no encontrado")
+
+        // 2. Validaciones de Seguridad SPC
+        if (user.rol !== 'admin') {
+            if (gasto.id_usuario !== userId) {
+                throw new Error("acceso denegado: este gasto no te pertenece")
+            }
+            if (gasto.liquidado) {
+                throw new Error("acceso denegado: el gasto ya esta liquidado")
+            }
+        }
+
+        // 3. Limpieza Fisica en Cloudinary (si existe comprobante)
+        if (gasto.comprobante_url) {
+            try {
+                const publicId = getPublicIdFromUrl(gasto.comprobante_url)
+                if (publicId) {
+                    await deleteFromCloudinary(publicId)
+                }
+            } catch (error) {
+                console.error("[cloudinary-cleanup-error] Fallo al borrar archivo:", error)
+                // No bloqueamos el borrado de la DB por un error en Cloudinary, pero lo logueamos
+            }
+        }
+
+        // 4. Borrado Atómico en Base de Datos
+        const { error: errorDelete } = await supabaseAdmin
+            .from('gastos_tarea')
+            .delete()
+            .eq('id', gastoId)
+
+        if (errorDelete) throw errorDelete
+
+        // 5. Cache Invalidation
+        if (gasto.id_tarea) {
+            revalidatePath(`/dashboard/tareas/${gasto.id_tarea}`)
+        }
+        revalidatePath('/dashboard/tareas')
+
+        return { success: true, message: "gasto y comprobante eliminados correctamente" }
+
+    } catch (error: any) {
+        console.error("Error en eliminarGastoAction:", error)
+        return { success: false, error: error.message || "error al eliminar el gasto" }
+    }
+}
+
+/**
+ * Utilidad: Extrae el public_id de una URL de Cloudinary
+ */
+function getPublicIdFromUrl(url: string): string | null {
+    try {
+        const parts = url.split('/upload/')
+        if (parts.length < 2) return null
+        let remaining = parts[1]
+        if (remaining.startsWith('v')) {
+            const firstSlash = remaining.indexOf('/')
+            remaining = remaining.substring(firstSlash + 1)
+        }
+        const lastDot = remaining.lastIndexOf('.')
+        if (lastDot !== -1) remaining = remaining.substring(0, lastDot)
+        return remaining
+    } catch {
+        return null
+    }
+}
+
+/**
+ * Utilidad: Llama a la API de Cloudinary para destruir un recurso
+ */
+async function deleteFromCloudinary(publicId: string) {
+    if (!CLOUD_NAME || !API_KEY || !API_SECRET) return
+
+    const timestamp = Math.round(Date.now() / 1000)
+    const params = { public_id: publicId, timestamp }
+    const signature = generateSignature(params, API_SECRET)
+
+    const formData = new FormData()
+    formData.append("public_id", publicId)
+    formData.append("api_key", API_KEY)
+    formData.append("timestamp", timestamp.toString())
+    formData.append("signature", signature)
+
+    const deleteUrl = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/destroy`
+    await fetch(deleteUrl, { method: "POST", body: formData })
+}

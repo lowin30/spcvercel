@@ -5,9 +5,11 @@ import { GastoEvent, ToolGastoPlatinumProps } from "./types"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
-import { Receipt, Eye, ExternalLink, HardHat, Package, Edit, Trash2 } from "lucide-react"
+import { Receipt, Eye, ExternalLink, HardHat, Package, Edit, Trash2, Loader2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { eliminarGastoAction } from "@/app/actions/gastos"
 import { createClient } from "@/lib/supabase-client"
 
 export function ToolGastoHistory({
@@ -78,9 +80,16 @@ export function ToolGastoHistory({
                                         href={gasto.comprobante_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="p-1 rounded-md hover:bg-violet-500/10 text-violet-600 transition-colors"
+                                        className="relative group/thumb overflow-hidden w-8 h-8 rounded-md border border-border/50 hover:border-violet-500 transition-all shadow-sm shrink-0"
                                     >
-                                        <Eye className="w-3.5 h-3.5" />
+                                        <img 
+                                            src={gasto.comprobante_url.replace('/upload/', '/upload/w_120,c_fill,g_auto/')} 
+                                            alt="Factura"
+                                            className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
+                                        />
+                                        <div className="absolute inset-0 bg-violet-600/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                                            <Eye className="w-3 h-3 text-white" />
+                                        </div>
                                     </a>
                                 )}
                                 <div className={cn(
@@ -102,14 +111,15 @@ export function ToolGastoHistory({
                                 </button>
                                 <button
                                     onClick={async () => {
-                                        if (confirm("¿Estás seguro de eliminar este gasto?")) {
-                                            const supabase = createClient()
-                                            const { error } = await supabase.from('gastos_tarea').delete().eq('id', gasto.event_id)
-                                            if (error) {
-                                                toast.error("Error al eliminar")
-                                            } else {
-                                                toast.success("Gasto eliminado")
+                                        if (confirm("¿Estás seguro de eliminar este gasto y su comprobante físico?")) {
+                                            try {
+                                                const result = await eliminarGastoAction(gasto.event_id)
+                                                if (!result.success) throw new Error(result.error)
+                                                
+                                                toast.success("Gasto y archivo eliminados")
                                                 onDelete?.(gasto.event_id)
+                                            } catch (error: any) {
+                                                toast.error(error.message || "Error al eliminar")
                                             }
                                         }
                                     }}
