@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 2. ANÁLISIS CON GROQ (Llama 3.2 Vision)
-        const modelId = "llama-3.2-11b-vision-preview";
+        // 2. ANÁLISIS CON GROQ (Llama 4 Scout Vision)
+        const modelId = "meta-llama/llama-4-scout-17b-16e-instruct";
 
         const prompt = `
       Actúa como un experto contable y sistema OCR avanzado.
