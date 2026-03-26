@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSupabase } from "@/lib/supabase-provider";
 import { useToast } from "@/hooks/use-toast"
+import { updateItemEsMaterial } from "@/app/dashboard/facturas/actions"
 import {
   Dialog,
   DialogContent,
@@ -185,13 +186,10 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
 
   const handleToggleMaterial = async (item: Item) => {
     try {
-      // Actualizar en la base de datos
-      const { error } = await supabase
-        .from("items_factura")
-        .update({ es_material: !item.es_material })
-        .eq("id", item.id);
+      // Usar Server Action para automatizar la sincronización de ajustes (SPC v82.0)
+      const result = await updateItemEsMaterial(item.id, !item.es_material);
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.message);
 
       // Actualizar en el estado local
       setItems(items.map(i =>
@@ -207,7 +205,7 @@ export function GenerarAjustesDialog({ factura, open, onOpenChange }: GenerarAju
 
       toast({
         title: "Item actualizado",
-        description: `${item.descripcion} marcado como ${!item.es_material ? "material" : "mano de obra"}`
+        description: result.message
       });
     } catch (error) {
       console.error("Error al actualizar el item:", error);

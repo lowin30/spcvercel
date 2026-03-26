@@ -14,18 +14,51 @@ export async function updateItemEsMaterial(itemId: number, esMaterial: boolean) 
   const supabase = await createServerClient()
 
   try {
-    // Actualizar el campo es_material del ítem
-    const { error } = await supabase
+    // 1. Actualizar el campo es_material del ítem
+    const { data: item, error: fetchError } = await supabase
       .from('items_factura')
       .update({ es_material: esMaterial })
       .eq('id', itemId)
+      .select('id, id_factura, descripcion, subtotal_item')
+      .single()
 
-    if (error) {
-      console.error('Error al actualizar el ítem:', error)
-      return { success: false, message: `Error al actualizar el ítem: ${error.message}` }
+    if (fetchError || !item) {
+      console.error('Error al actualizar el ítem:', fetchError)
+      return { success: false, message: `Error al actualizar el ítem: ${fetchError?.message || 'No encontrado'}` }
     }
 
-    return { success: true, message: `Ítem actualizado correctamente: ${esMaterial ? 'Es material' : 'No es material'}` }
+    // 2. SINCRONIZACIÓN REACTIVA DE AJUSTES (SPC Protocol v82.0)
+    if (!esMaterial) {
+      // Si es Mano de Obra (false) -> Crear/Actualizar Ajuste (10%)
+      const montoAjuste = Number(item.subtotal_item) * 0.10;
+      
+      const { error: upsertError } = await supabaseAdmin
+        .from('ajustes_facturas')
+        .upsert({
+          id_factura: item.id_factura,
+          id_item: item.id,
+          descripcion_item: item.descripcion,
+          monto_base: item.subtotal_item,
+          porcentaje_ajuste: 10,
+          monto_ajuste: montoAjuste,
+          aprobado: true,
+          pagado: false,
+          created_at: new Date()
+        }, { onConflict: 'id_item' });
+
+      if (upsertError) console.error('Error sincronizando ajuste:', upsertError);
+    } else {
+      // Si es Material (true) -> Eliminar Ajuste
+      const { error: deleteError } = await supabaseAdmin
+        .from('ajustes_facturas')
+        .delete()
+        .eq('id_item', item.id);
+
+      if (deleteError) console.error('Error eliminando ajuste obsoleto:', deleteError);
+    }
+
+    revalidatePath(`/dashboard/facturas/${item.id_factura}`)
+    return { success: true, message: `Ítem actualizado: ${esMaterial ? 'Es material (ajuste eliminado)' : 'Mano de obra (ajuste 10% generado)'}` }
   } catch (error: any) {
     console.error('Error inesperado al actualizar el ítem:', error)
     return { success: false, message: `Error inesperado: ${error.message}` }
@@ -39,7 +72,7 @@ export async function deleteInvoice(invoiceId: number) {
 
   // SECURITY SHIELD v2.0
   const user = await validateSessionAndGetUser();
-  if (user.rol !== 'admin') {
+  if (!user || user.rol !== 'admin') {
     throw new Error('No autorizado: Operación permitida solo para administradores');
   }
 
@@ -226,7 +259,7 @@ export async function createFacturaAction(formData: {
 }) {
   // SECURITY SHIELD v2.0
   const user = await validateSessionAndGetUser();
-  if (user.rol !== 'admin') {
+  if (!user || user.rol !== 'admin') {
     throw new Error('No autorizado: Operación permitida solo para administradores');
   }
 
@@ -273,15 +306,38 @@ export async function createFacturaAction(formData: {
         es_material: item.es_material || false
       }))
 
-      const { error: itemsError } = await supabaseAdmin
+      const { data: itemsInsertados, error: itemsError } = await supabaseAdmin
         .from('items_factura')
         .insert(itemsFactura)
+        .select();
 
       if (itemsError) {
-        // Riesgo: Factura creada sin items. Deberíamos hacer rollback o alertar.
-        // Por "Cirugía Mínima" solo logueamos y retornamos error parcial o advertencia.
         console.error('Error insertando items:', itemsError)
         return { success: false, message: 'Factura creada pero hubo error al guardar los items.' }
+      }
+
+      // 6. SINCRONIZACIÓN INICIAL DE AJUSTES (SPC Protocol v82.1)
+      // Generar automáticamente ajustes del 10% para ítems que NO son materiales
+      const ajustesIniciales = itemsInsertados
+        .filter(item => !item.es_material)
+        .map(item => ({
+          id_factura: facturaInsertada.id,
+          id_item: item.id,
+          descripcion_item: item.descripcion,
+          monto_base: item.subtotal_item,
+          porcentaje_ajuste: 10,
+          monto_ajuste: Number(item.subtotal_item) * 0.10,
+          aprobado: true,
+          pagado: false,
+          created_at: new Date()
+        }));
+
+      if (ajustesIniciales.length > 0) {
+        const { error: ajError } = await supabaseAdmin
+          .from('ajustes_facturas')
+          .insert(ajustesIniciales);
+        
+        if (ajError) console.error('Error al generar ajustes iniciales:', ajError);
       }
     }
 

@@ -31,7 +31,6 @@ interface Item {
     descripcion: string
     cantidad: number
     precio: number
-    es_mano_obra?: boolean
     es_material?: boolean
     isNew?: boolean
 }
@@ -141,7 +140,6 @@ export function FacturaNuevaForm({
     const [items, setItems] = useState<Item[]>(initialItems)
     const [itemModalOpen, setItemModalOpen] = useState<boolean>(false)
     const [editingItem, setEditingItem] = useState<Item | undefined>(undefined)
-    const [tieneManoObra, setTieneManoObra] = useState<boolean>(initialItems.some(i => i.es_mano_obra))
 
     // Calcular subtotal
     const subtotalItems = items.reduce((sum, item) => sum + (item.cantidad * item.precio), 0)
@@ -170,9 +168,6 @@ export function FacturaNuevaForm({
             setItems(prev => [...prev, { id: Date.now(), ...itemData }])
             toast.success("Ítem añadido")
         }
-        // Verificar mano de obra
-        const hayManoObra = items.some(i => !!i.es_mano_obra) || !!itemData.es_mano_obra
-        setTieneManoObra(hayManoObra)
     }
 
     // Handle Submit con Server Action
@@ -195,8 +190,7 @@ export function FacturaNuevaForm({
                     descripcion: i.descripcion,
                     cantidad: i.cantidad,
                     precio: i.precio,
-                    es_mano_obra: i.es_mano_obra || false,
-                    es_material: i.es_material || false
+                    es_material: i.es_material ?? true
                 })),
                 notas: notas
             })

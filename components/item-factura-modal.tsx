@@ -35,8 +35,7 @@ export function ItemFacturaModal({
   const [activeTab, setActiveTab] = useState<string>(editingItem ? "manual" : "producto")
   const [descripcion, setDescripcion] = useState(editingItem?.descripcion || "")
   const [cantidad, setCantidad] = useState(editingItem?.cantidad || 1)
-  const [precio, setPrecio] = useState(editingItem?.precio || 0)
-  const [esManoObra, setEsManoObra] = useState(editingItem?.es_mano_obra || false)
+  const [esMaterial, setEsMaterial] = useState(editingItem?.es_material ?? true)
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null)
 
   const subtotal = cantidad * precio
@@ -45,7 +44,7 @@ export function ItemFacturaModal({
     setDescripcion(editingItem?.descripcion || "")
     setCantidad(editingItem?.cantidad || 1)
     setPrecio(editingItem?.precio || 0)
-    setEsManoObra(editingItem?.es_mano_obra || false)
+    setEsMaterial(editingItem?.es_material ?? true)
     setSelectedProducto(null)
     setActiveTab(editingItem ? "manual" : "producto")
   }
@@ -60,7 +59,7 @@ export function ItemFacturaModal({
       descripcion,
       cantidad,
       precio,
-      es_mano_obra: esManoObra,
+      es_material: esMaterial,
       isNew: true,
     })
     handleClose()
@@ -155,12 +154,12 @@ export function ItemFacturaModal({
                   
                   <div className="flex items-center space-x-2">
                     <Checkbox 
-                      id="es_mano_obra" 
-                      checked={esManoObra}
-                      onCheckedChange={(checked) => setEsManoObra(!!checked)}
+                      id="es_material" 
+                      checked={esMaterial}
+                      onCheckedChange={(checked) => setEsMaterial(!!checked)}
                     />
-                    <Label htmlFor="es_mano_obra" className="text-sm font-normal">
-                      Este ítem corresponde a mano de obra
+                    <Label htmlFor="es_material" className="text-sm font-normal">
+                      Este ítem corresponde a materiales (sin ajuste del 10%)
                     </Label>
                   </div>
                   
@@ -213,12 +212,12 @@ export function ItemFacturaModal({
               
               <div className="flex items-center space-x-2">
                 <Checkbox 
-                  id="es_mano_obra" 
-                  checked={esManoObra}
-                  onCheckedChange={(checked) => setEsManoObra(!!checked)}
+                  id="es_material" 
+                  checked={esMaterial}
+                  onCheckedChange={(checked) => setEsMaterial(!!checked)}
                 />
-                <Label htmlFor="es_mano_obra" className="text-sm font-normal">
-                  Este ítem corresponde a mano de obra
+                <Label htmlFor="es_material" className="text-sm font-normal">
+                  Este ítem corresponde a materiales (sin ajuste del 10%)
                 </Label>
               </div>
               
