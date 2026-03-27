@@ -37,50 +37,55 @@ export async function deleteTask(taskId: number) {
       return { success: false, message: 'no autorizado. solo administradores pueden eliminar tareas.' }
     }
 
-    // 1. verificar si la tarea tiene presupuestos finales asociados
-    const { data: presupuestosData, error: presupuestosError } = await supabaseAdmin
-      .from('presupuestos_finales')
-      .select('id')
-      .eq('id_tarea', taskId)
-      .limit(1)
+    // 1. validaciones de bloqueo (blindaje financiero gold v81.0)
+    // no se borran tareas con actividad economica real para no perder trazabilidad.
+    const [pfCheck, gastosCheck, liqCheck] = await Promise.all([
+      supabaseAdmin.from('presupuestos_finales').select('id').eq('id_tarea', taskId).limit(1),
+      supabaseAdmin.from('gastos_tarea').select('id').eq('id_tarea', taskId).limit(1),
+      supabaseAdmin.from('liquidaciones_nuevas').select('id').eq('id_tarea', taskId).limit(1)
+    ])
 
-    if (presupuestosError) {
-      console.error('error al verificar presupuestos asociados:', presupuestosError)
-      return { success: false, message: 'error al verificar los presupuestos asociados.' }
+    if (pfCheck.data && pfCheck.data.length > 0) {
+      return { success: false, message: 'no se puede eliminar: tiene presupuestos finales asociados.' }
+    }
+    if (gastosCheck.data && gastosCheck.data.length > 0) {
+      return { success: false, message: 'no se puede eliminar: tiene gastos registrados (trazabilidad contable).' }
+    }
+    if (liqCheck.data && liqCheck.data.length > 0) {
+      return { success: false, message: 'no se puede eliminar: tiene liquidaciones asociadas.' }
     }
 
-    if (presupuestosData && presupuestosData.length > 0) {
-      return {
-        success: false,
-        message: 'no se puede eliminar la tarea porque tiene presupuestos finales asociados.'
-      }
-    }
+    // 2. limpieza quirurgica de dependencias operativas
+    // borramos lo operativo que depende de la tarea para liberar las fks.
+    await Promise.all([
+      // comentarios y fotos vinculadas
+      supabaseAdmin.from('comentarios').delete().eq('id_tarea', taskId),
+      // microtareas de captura rapida
+      supabaseAdmin.from('micro_tareas_operativas').delete().eq('id_tarea_padre', taskId),
+      // partes de trabajo (solo si no estan liquidados)
+      supabaseAdmin.from('partes_de_trabajo').delete().eq('id_tarea', taskId).eq('liquidado', false),
+      // asignaciones de cuadrilla
+      supabaseAdmin.from('trabajadores_tareas').delete().eq('id_tarea', taskId),
+      // supervisores asignados
+      supabaseAdmin.from('supervisores_tareas').delete().eq('id_tarea', taskId),
+      // departamentos vinculados
+      supabaseAdmin.from('departamentos_tareas').delete().eq('id_tarea', taskId),
+      // presupuestos base
+      supabaseAdmin.from('presupuestos_base').delete().eq('id_tarea', taskId),
+      // gastos extra de pdf
+      supabaseAdmin.from('gastos_extra_pdf_factura').delete().eq('id_tarea', taskId)
+    ])
 
-    // 2. eliminar presupuestos base asociados a la tarea
-    const { error: presupuestosBaseError } = await supabaseAdmin
-      .from('presupuestos_base')
-      .delete()
-      .eq('id_tarea', taskId)
-
-    if (presupuestosBaseError) {
-      console.error('error al eliminar presupuestos base:', presupuestosBaseError)
-      return { success: false, message: 'error al eliminar los presupuestos base asociados.' }
-    }
-
-    // 3. eliminar asignaciones
-    await (await createServerClient()).from('trabajadores_tareas').delete().eq('id_tarea', taskId)
-    await (await createServerClient()).from('supervisores_tareas').delete().eq('id_tarea', taskId)
-    await (await createServerClient()).from('departamentos_tareas').delete().eq('id_tarea', taskId)
-
-    // 4. eliminar la tarea
+    // 3. eliminacion final de la tarea
     const { error: taskError } = await supabaseAdmin
       .from('tareas')
       .delete()
       .eq('id', taskId)
 
     if (taskError) {
-      console.error('error al eliminar la tarea:', taskError)
-      return { success: false, message: 'error al eliminar la tarea.' }
+      // si falla aqui es porque quedo alguna fk dura (ej. una liquidacion activa)
+      console.error('error al eliminar la tarea (fk activa):', taskError)
+      return { success: false, message: 'no se puede eliminar: existen registros liquidados o bloqueados vinculados.' }
     }
 
     revalidatePath('/dashboard/tareas', 'page')
