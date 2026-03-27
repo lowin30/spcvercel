@@ -52,13 +52,12 @@ export function HistorialGastosFactura({
         .select('*, usuarios(email, color_perfil)')
         .eq('id_tarea', tareaId)
 
-      // Filtrar por tipo según si la factura es de materiales o no
+      // filtrar por tipo segun si la factura es de materiales o no
+      // "otro" se incluye siempre (gastos generales con comprobante valido)
       if (esFacturaMateriales) {
-        // Factura de materiales → mostrar solo gastos de materiales
-        query = query.eq('tipo_gasto', 'material')
+        query = query.in('tipo_gasto', ['material', 'otro'])
       } else {
-        // Factura regular → mostrar mano de obra y manuales
-        query = query.in('tipo_gasto', ['mano_de_obra', 'manual'])
+        query = query.in('tipo_gasto', ['mano_de_obra', 'manual', 'otro'])
       }
 
       const { data, error } = await query.order('fecha_gasto', { ascending: false })

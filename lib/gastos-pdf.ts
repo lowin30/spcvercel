@@ -324,7 +324,8 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
 
     // Formato del total: $XXX.XXX (sin decimales)
     const totalFormateado = montoTotal.toLocaleString('es-CL').replace(/\./g, '')
-    const filename = `${nombreTarea}_Materiales_$${totalFormateado}.pdf`
+    const suffix = opts?.facturaId ? 'Gastos' : 'Materiales'
+    const filename = `${nombreTarea}_${suffix}_$${totalFormateado}.pdf`
 
     return {
       blob: doc.output('blob'),
