@@ -275,12 +275,10 @@ export async function createFacturaAction(formData: {
     const nuevaFactura = {
       id_presupuesto_final: formData.id_presupuesto_final,
       id_presupuesto: formData.id_presupuesto,
-      monto_total: calculatedTotal, // Usamos el total validado
-      total: calculatedTotal,      // Redundancia por compatibilidad si esquema varia
+      total: calculatedTotal,      // Mantener columna real
       id_estado_nuevo: formData.id_estado_nuevo,
       datos_afip: formData.datos_afip,
       id_administrador: formData.id_administrador,
-      // notas: formData.notas // Verificar si existe columna notas en facturas, si no ignorar
     }
 
     // 4. Insertar factura
@@ -435,7 +433,7 @@ export async function updateItemDetails(
 
     await supabaseAdmin
       .from('facturas')
-      .update({ total: newTotal, monto_total: newTotal })
+      .update({ total: newTotal })
       .eq('id', itemActual.id_factura);
 
     revalidatePath(`/dashboard/facturas/${itemActual.id_factura}`);

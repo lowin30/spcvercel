@@ -353,7 +353,7 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                                                     />
                                                 </td>
                                                 <td className="p-3 text-right font-semibold tabular-nums">
-                                                    {formatCurrency(item.total)}
+                                                    {formatCurrency(item.subtotal_item)}
                                                 </td>
                                                 <td className="p-3 text-center">
                                                     {item.es_material !== undefined ? (
@@ -416,7 +416,7 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                                                 />
                                             </div>
                                             <div className="font-bold text-lg text-primary tabular-nums">
-                                                {formatCurrency(item.total)}
+                                                {formatCurrency(item.subtotal_item)}
                                             </div>
                                         </div>
 
