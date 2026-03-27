@@ -15,6 +15,8 @@ import { ProcesadorImagen } from '@/components/procesador-imagen'
 import { GastosExtraPdfButton } from '@/app/dashboard/facturas/[id]/gastos-extra-pdf-button'
 import { EliminarGastoExtraButton } from '@/app/dashboard/facturas/[id]/eliminar-gasto-extra-button'
 import { formatCurrency } from '@/lib/utils'
+import { EditableInvoiceName } from '@/components/facturas/editable-invoice-name'
+import { EditableItemField } from '@/components/facturas/editable-item-field'
 
 // Helper para formato de fechas
 const formatDate = (date: string | null) => {
@@ -74,11 +76,12 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                         </Button>
                     </div>
 
-                    {/* Título contextual */}
+                    {/* Título contextual - Editable [auditoria-ajustes-v82] */}
                     <div>
-                        <h1 className="text-lg sm:text-2xl font-bold tracking-tight">
-                            {factura.nombre || tarea?.titulo || 'Sin título'}
-                        </h1>
+                        <EditableInvoiceName 
+                            id={factura.id} 
+                            initialValue={factura.nombre || tarea?.titulo || ''} 
+                        />
                         <div className="flex flex-wrap items-center gap-2 mt-2">
                             <span className="text-xs sm:text-sm text-muted-foreground font-mono">
                                 {factura.code}
@@ -322,11 +325,33 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                                                 <td className="p-3">
                                                     <div className="flex items-start gap-2">
                                                         <span className="text-muted-foreground font-medium text-sm mt-0.5">{idx + 1}.</span>
-                                                        <span>{item.descripcion || 'Sin descripción'}</span>
+                                                        <EditableItemField 
+                                                            itemId={item.id} 
+                                                            field="descripcion" 
+                                                            initialValue={item.descripcion || ''} 
+                                                            className="flex-1"
+                                                        />
                                                     </div>
                                                 </td>
-                                                <td className="p-3 text-right tabular-nums">{item.cantidad || 1}</td>
-                                                <td className="p-3 text-right tabular-nums">{formatCurrency(item.precio_unitario)}</td>
+                                                <td className="p-3 text-right tabular-nums">
+                                                    <EditableItemField 
+                                                        itemId={item.id} 
+                                                        field="cantidad" 
+                                                        type="number"
+                                                        initialValue={item.cantidad || 1} 
+                                                        className="text-right w-full"
+                                                    />
+                                                </td>
+                                                <td className="p-3 text-right tabular-nums">
+                                                    <EditableItemField 
+                                                        itemId={item.id} 
+                                                        field="precio_unitario" 
+                                                        type="number"
+                                                        initialValue={item.precio_unitario} 
+                                                        formatValue={(v) => formatCurrency(v)}
+                                                        className="text-right w-full font-mono"
+                                                    />
+                                                </td>
                                                 <td className="p-3 text-right font-semibold tabular-nums">
                                                     {formatCurrency(item.total)}
                                                 </td>
@@ -359,18 +384,36 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
                             <div className="md:hidden space-y-3">
                                 {itemsToShow.map((item, idx) => (
                                     <div key={item.id} className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
-                                        {/* Header del item con número y descripción */}
+                                        {/* Header del item con número y descripción editable [auditoria-ajustes-v82] */}
                                         <div className="flex items-start gap-2 mb-3">
                                             <span className="text-primary font-semibold text-sm flex-shrink-0 mt-0.5">{idx + 1}.</span>
-                                            <p className="font-medium leading-snug flex-1">{item.descripcion || 'Sin descripción'}</p>
+                                            <EditableItemField 
+                                                itemId={item.id} 
+                                                field="descripcion" 
+                                                initialValue={item.descripcion || ''} 
+                                                className="font-medium leading-snug flex-1"
+                                            />
                                         </div>
 
-                                        {/* Cálculo y Total */}
+                                        {/* Cálculo y Total editable [auditoria-ajustes-v82] */}
                                         <div className="flex justify-between items-center pt-3 border-t">
-                                            <div className="text-sm text-muted-foreground">
-                                                <span className="tabular-nums">{item.cantidad || 1}</span>
+                                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                                <EditableItemField 
+                                                    itemId={item.id} 
+                                                    field="cantidad" 
+                                                    type="number"
+                                                    initialValue={item.cantidad || 1} 
+                                                    className="w-10 text-center"
+                                                />
                                                 <span className="mx-1">×</span>
-                                                <span className="tabular-nums">{formatCurrency(item.precio_unitario)}</span>
+                                                <EditableItemField 
+                                                    itemId={item.id} 
+                                                    field="precio_unitario" 
+                                                    type="number"
+                                                    initialValue={item.precio_unitario} 
+                                                    formatValue={(v) => formatCurrency(v)}
+                                                    className="font-mono"
+                                                />
                                             </div>
                                             <div className="font-bold text-lg text-primary tabular-nums">
                                                 {formatCurrency(item.total)}

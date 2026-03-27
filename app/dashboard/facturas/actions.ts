@@ -349,3 +349,99 @@ export async function createFacturaAction(formData: {
     return { success: false, message: `Error inesperado: ${error.message}` }
   }
 }
+
+/**
+ * Actualiza el nombre de una factura
+ * [auditoria-ajustes-v82]
+ */
+export async function updateInvoiceName(id: number, nombre: string) {
+  const user = await validateSessionAndGetUser();
+  if (!user || user.rol !== 'admin') throw new Error('No autorizado');
+
+  const { error } = await supabaseAdmin
+    .from('facturas')
+    .update({ nombre })
+    .eq('id', id);
+
+  if (error) return { success: false, message: error.message };
+  revalidatePath(`/dashboard/facturas/${id}`);
+  return { success: true, message: 'Nombre actualizado' };
+}
+
+/**
+ * Actualiza los detalles de un ítem de factura y recalcula totales
+ * [auditoria-ajustes-v82]
+ */
+export async function updateItemDetails(
+  itemId: number, 
+  data: { descripcion?: string; cantidad?: number; precio_unitario?: number }
+) {
+  const user = await validateSessionAndGetUser();
+  if (!user || user.rol !== 'admin') throw new Error('No autorizado');
+
+  try {
+    // 1. Obtener item actual para cálculos
+    const { data: itemActual, error: fetchErr } = await supabaseAdmin
+      .from('items_factura')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+
+    if (fetchErr || !itemActual) return { success: false, message: 'Ítem no encontrado' };
+
+    const newCantidad = data.cantidad !== undefined ? data.cantidad : itemActual.cantidad;
+    const newPrecio = data.precio_unitario !== undefined ? data.precio_unitario : itemActual.precio_unitario;
+    const newSubtotal = Number(newCantidad) * Number(newPrecio);
+
+    // 2. Actualizar el ítem
+    const { error: updateErr } = await supabaseAdmin
+      .from('items_factura')
+      .update({
+        descripcion: data.descripcion ?? itemActual.descripcion,
+        cantidad: newCantidad,
+        precio_unitario: newPrecio,
+        subtotal_item: newSubtotal
+      })
+      .eq('id', itemId);
+
+    if (updateErr) return { success: false, message: updateErr.message };
+
+    // 3. Sincronizar Ajuste si existe
+    const { data: ajusteProp } = await supabaseAdmin
+      .from('ajustes_facturas')
+      .select('id')
+      .eq('id_item', itemId)
+      .single();
+
+    if (ajusteProp) {
+      const nuevoMontoAjuste = newSubtotal * 0.10;
+      await supabaseAdmin
+        .from('ajustes_facturas')
+        .update({
+          descripcion_item: data.descripcion ?? itemActual.descripcion,
+          monto_base: newSubtotal,
+          monto_ajuste: nuevoMontoAjuste
+        })
+        .eq('id_item', itemId);
+    }
+
+    // 4. Recalcular Total de la Factura
+    const { data: allItems } = await supabaseAdmin
+      .from('items_factura')
+      .select('subtotal_item')
+      .eq('id_factura', itemActual.id_factura);
+
+    const newTotal = (allItems || []).reduce((sum, it) => sum + Number(it.subtotal_item), 0);
+
+    await supabaseAdmin
+      .from('facturas')
+      .update({ total: newTotal, monto_total: newTotal })
+      .eq('id', itemActual.id_factura);
+
+    revalidatePath(`/dashboard/facturas/${itemActual.id_factura}`);
+    return { success: true, message: 'Ítem y totales actualizados' };
+
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
