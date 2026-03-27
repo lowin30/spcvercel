@@ -14,7 +14,7 @@ export async function getFacturaById(id: string): Promise<FacturaLoaderData | nu
         const { data: factura, error: facturaError } = await supabaseAdmin
             .from('facturas')
             .select(`
-                id, code, created_at, id_presupuesto, total, pdf_url, datos_afip, enviada, fecha_envio, pagada, fecha_pago, id_estado_nuevo,
+                id, code, nombre, created_at, id_presupuesto, total, pdf_url, datos_afip, enviada, fecha_envio, pagada, fecha_pago, id_estado_nuevo,
                 estados_facturas:id_estado_nuevo (id, nombre, color, codigo),
                 presupuestos_finales!inner (
                     id, code, id_tarea, id_edificio, total,
