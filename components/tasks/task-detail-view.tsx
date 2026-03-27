@@ -56,6 +56,7 @@ interface TaskDetailViewProps {
         presupuestoFinal: any
         proyectados: any[]
         gastos: any[]
+        total_gastos: number
         estados: any[]
         departamentosDisponibles: any[]
         contactos: any[]
@@ -405,6 +406,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                 id_edificio_tarea={tarea?.id_edificio}
                                 presupuestoBase={initialData.presupuestoBase}
                                 presupuestoFinal={initialData.presupuestoFinal}
+                                total_gastos={initialData.total_gastos}
                                 userRol={userDetails?.rol || "trabajador"}
                                 onPresupuestoChange={() => refreshData()}
                             />
@@ -422,7 +424,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                     </TabsTrigger>
                                     <TabsTrigger value="gastos" className="rounded-xl flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                                         <Receipt className="h-4 w-4" />
-                                        <span className="font-semibold">Gastos e IA Scanner</span>
+                                        <span className="font-semibold px-1">Gastos ($ {Math.round(initialData.total_gastos).toLocaleString("es-AR")})</span>
                                     </TabsTrigger>
                                 </TabsList>
 

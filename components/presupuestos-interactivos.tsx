@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
 import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X, Pencil, Zap, Handshake } from "lucide-react"
 import Link from "next/link"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, cn } from "@/lib/utils"
 import { toast as sonnerToast } from "sonner"
 import {
   createPresupuestoBaseAction,
@@ -55,6 +55,7 @@ interface PresupuestosInteractivosProps {
   presupuestoBase: PresupuestoType | null
   presupuestoFinal: PresupuestoType | null
   userRol: "admin" | "supervisor" | "trabajador"
+  total_gastos?: number
   onPresupuestoChange?: () => void
   className?: string
 }
@@ -67,6 +68,7 @@ export function PresupuestosInteractivos({
   presupuestoBase,
   presupuestoFinal,
   userRol,
+  total_gastos = 0,
   onPresupuestoChange,
   className = ""
 }: PresupuestosInteractivosProps) {
@@ -401,6 +403,36 @@ export function PresupuestosInteractivos({
                 <span className="text-xs font-bold text-foreground">{formatCurrency(presupuesto.mano_obra || 0)}</span>
               </div>
             </div>
+
+            {/* Comparativa Gasto Real vs Presupuesto Base (Solo en PB) */}
+            {isBase && (
+              <div className={`mt-1 p-2.5 rounded-xl border border-${accentColor}-100/50 bg-${accentColor}-500/5 space-y-2`}>
+                <div className="flex justify-between items-end">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80 block">Ejecución Real</span>
+                    <p className="text-sm font-black tracking-tight">{formatCurrency(total_gastos)}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80 block">Consumo</span>
+                    <p className={cn(
+                      "text-xs font-black",
+                      (total_gastos > (presupuesto.total || 0)) ? "text-amber-600" : "text-violet-600"
+                    )}>
+                      {presupuesto.total ? Math.round((total_gastos / presupuesto.total) * 100) : 0}%
+                    </p>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden border border-border/20 shadow-inner">
+                  <div 
+                    className={cn(
+                      "h-full transition-all duration-500 rounded-full",
+                      (total_gastos > (presupuesto.total || 0)) ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" : "bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.4)]"
+                    )}
+                    style={{ width: `${Math.min(100, presupuesto.total ? (total_gastos / presupuesto.total) * 100 : 0)}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {(presupuesto.observaciones_admin || presupuesto.nota_pb) && (
               <div className={`text-[10px] bg-amber-500/10 dark:bg-amber-500/5 px-2.5 py-2 rounded-lg border border-amber-500/20 text-amber-700 dark:text-amber-400 mt-2 flex gap-1.5`}>

@@ -402,6 +402,9 @@ export async function getTareaDetail(id: string) {
             };
         }
 
+        // 8. CÁLCULO DE TOTALES FINANCIEROS (Modo Dios)
+        const total_gastos_reales = (gastosDirectRes.data || []).reduce((acc: number, g: any) => acc + (Number(g.monto) || 0), 0);
+
         return {
             tarea: tareaLegacy,
             userDetails: usuario,
@@ -423,6 +426,7 @@ export async function getTareaDetail(id: string) {
             presupuestoFinal: pfFinal,
             proyectados: (tareaData as any).proyectados_json || partesRes.data || [],
             gastos: gastosDirectRes.data || [],
+            total_gastos: total_gastos_reales,
             estados: estadosRes.data || [],
             departamentosDisponibles: departamentosEdificio,
             contactos: contactosEdificio

@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { eliminarGastoAction } from "@/app/actions/gastos"
-import { createClient } from "@/lib/supabase-client"
+import { KPICard } from "../kpi-card"
 
 export function ToolGastoHistory({
     initialData,
@@ -27,6 +27,10 @@ export function ToolGastoHistory({
     onEdit?: (gasto: GastoEvent) => void,
     onDelete?: (id: number) => void
 }) {
+    const total = React.useMemo(() => 
+        initialData.reduce((acc, g) => acc + (Number(g.monto) || 0), 0)
+    , [initialData]);
+
     if (!initialData || initialData.length === 0) {
         return (
             <div className="text-center py-12 opacity-50 space-y-2">
@@ -37,7 +41,20 @@ export function ToolGastoHistory({
     }
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-4">
+            {/* Resumen Platinum Sticky */}
+            <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md py-2 px-1 -mx-1 border-b border-border/10 mb-2">
+                <KPICard 
+                    label="total gastos de tarea"
+                    value={`$ ${Math.round(total).toLocaleString("es-AR")}`}
+                    icon={Receipt}
+                    color="text-violet-600"
+                    bg="bg-violet-500/10"
+                    className="border-violet-500/20 shadow-sm sm:max-w-xs"
+                />
+            </div>
+
+            <div className="space-y-2 pb-4">
             {initialData.map((gasto) => (
                 <div
                     key={gasto.event_id}
@@ -133,6 +150,7 @@ export function ToolGastoHistory({
                     </div>
                 </div>
             ))}
+            </div>
         </div>
     )
 }
