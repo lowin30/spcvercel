@@ -16,7 +16,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     // 1. Obtener presupuesto completo
     const { data: presupuesto, error: pfError } = await supabase
       .from('presupuestos_finales')
-      .select('*, items(*), tareas(titulo, edificios(nombre))')
+      .select('*, items(*), tareas(titulo)')
       .eq('id', presupuestoId)
       .single()
 
@@ -34,10 +34,8 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       throw new Error("El presupuesto no tiene items para facturar.");
     }
 
-    // Configuración de nombre base (Edificio - Tarea)
-    const buildingName = (presupuesto.tareas as any)?.edificios?.nombre;
-    const taskTitle = (presupuesto.tareas as any)?.titulo;
-    const nombreBase = buildingName ? `${buildingName} - ${taskTitle}` : taskTitle;
+    // nombre base: solo titulo de la tarea, en minusculas (gold standard v81.0)
+    const nombreBase = ((presupuesto.tareas as any)?.titulo || 'sin titulo').toLowerCase();
 
     const createdFacturas: number[] = [];
 
@@ -53,7 +51,7 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
           id_presupuesto_final: presupuestoId,
           id_presupuesto: presupuesto.id_presupuesto_base || null,
           id_administrador: presupuesto.id_administrador,
-          nombre: tipoDesc === "Materiales" ? `${nombreBase} (Materiales)` : nombreBase,
+          nombre: tipoDesc === "Materiales" ? `${nombreBase} materiales` : nombreBase,
           total: totalFactura,
           saldo_pendiente: totalFactura,
           total_pagado: 0,
