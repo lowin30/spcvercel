@@ -36,7 +36,7 @@ export async function getDashboardStats() {
         // Usamos Promesas que se resolveran en paralelo
         const queries: any = {
             edificios: supabase.from('edificios').select('*', { count: 'exact', head: true }),
-            telefonos: supabase.from('telefonos_departamento').select('*', { count: 'exact', head: true }),
+            telefonos: supabase.from('contactos').select('*', { count: 'exact', head: true }),
             admins: supabase.from('usuarios').select('*', { count: 'exact', head: true }).eq('rol', 'admin'),
             tareas_activas: supabase.from('tareas').select('*', { count: 'exact', head: true }).eq('finalizada', false)
         }

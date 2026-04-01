@@ -104,24 +104,32 @@ export default function EdificioPage() {
         // Obtener todos los IDs de departamentos
         const idsDepartamentos = departamentosData.map((d: any) => d.id);
 
-        // Consultar todos los teléfonos de estos departamentos
-        const { data: telefonosData, error: telefonosError } = await supabase
-          .from("telefonos_departamento")
-          .select('*')
+        // Consultar todos los contactos de estos departamentos
+        const { data: contactosData, error: contactosError } = await supabase
+          .from("contactos")
+          .select("*")
           .in("departamento_id", idsDepartamentos);
 
-        if (telefonosError) {
-          console.error("Error cargando teléfonos:", telefonosError.message);
+        if (contactosError) {
+          console.error("Error cargando contactos:", contactosError.message);
           toast({
             title: "Advertencia",
-            description: "Se cargaron los departamentos pero hubo un problema al cargar los teléfonos.",
+            description: "Se cargaron los departamentos pero hubo un problema al cargar los contactos.",
             variant: "destructive"
           });
         } else {
-          // Asignar teléfonos a sus departamentos correspondientes
+          // Asignar contactos a sus departamentos correspondientes
           departamentosConTelefonos = departamentosData.map((depto: any) => ({
             ...depto,
-            telefonos: telefonosData?.filter((tel: any) => tel.departamento_id === depto.id) || []
+            telefonos: contactosData?.filter((c: any) => c.departamento_id === depto.id).map((c: any) => ({
+              id: c.id,
+              departamento_id: c.departamento_id,
+              numero: c.telefono,
+              relacion: c.relacion,
+              nombre_contacto: c.nombreReal,
+              es_principal: c.es_principal,
+              notas: c.notas
+            })) || []
           }));
         }
       }
