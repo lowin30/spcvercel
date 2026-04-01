@@ -85,7 +85,12 @@ export default function AjustesClient({ user, initialFacturas, initialAdministra
                 const pendientes = typeof f.total_ajustes_pendientes === 'string'
                     ? parseFloat(f.total_ajustes_pendientes)
                     : f.total_ajustes_pendientes
-                return pendientes > 0
+                const pagadaBool = f.pagada === true || f.pagada === 'true' || f.pagada === 1 || f.pagada === 't'
+                const saldoVal = typeof f.saldo_pendiente === 'string'
+                    ? parseFloat(f.saldo_pendiente)
+                    : (f.saldo_pendiente ?? 0)
+                const saldoCero = Number.isFinite(saldoVal) ? saldoVal <= 0 : false
+                return (pendientes || 0) > 0 && (pagadaBool || saldoCero)
             })
         } else if (vistaActual === 'liquidadas') {
             facturasFiltradas = facturasFiltradas.filter((f: any) => {
@@ -120,6 +125,10 @@ export default function AjustesClient({ user, initialFacturas, initialAdministra
 
     const totalPendientes = todasLasFacturas.reduce((sum, f) => {
         const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
+        const pagadaBool = (f as any).pagada === true || (f as any).pagada === 'true' || (f as any).pagada === 1 || (f as any).pagada === 't'
+        const saldoVal = typeof f.saldo_pendiente === 'string' ? parseFloat(f.saldo_pendiente as any) : ((f.saldo_pendiente as any) ?? 0)
+        const saldoCero = Number.isFinite(saldoVal) ? saldoVal <= 0 : false
+        if (!((pagadaBool || saldoCero))) return sum
         return sum + (val || 0)
     }, 0)
 
@@ -140,7 +149,10 @@ export default function AjustesClient({ user, initialFacturas, initialAdministra
 
     const cantidadPendientes = todasLasFacturas.filter(f => {
         const val = typeof f.total_ajustes_pendientes === 'string' ? parseFloat(f.total_ajustes_pendientes) : f.total_ajustes_pendientes
-        return val > 0
+        const pagadaBool = (f as any).pagada === true || (f as any).pagada === 'true' || (f as any).pagada === 1 || (f as any).pagada === 't'
+        const saldoVal = typeof f.saldo_pendiente === 'string' ? parseFloat(f.saldo_pendiente as any) : ((f.saldo_pendiente as any) ?? 0)
+        const saldoCero = Number.isFinite(saldoVal) ? saldoVal <= 0 : false
+        return (val || 0) > 0 && (pagadaBool || saldoCero)
     }).length
 
     const cantidadLiquidadas = todasLasFacturas.filter(f => {
