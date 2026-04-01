@@ -22,13 +22,16 @@ interface PFCreatePlatinumFormProps {
     task: any
     catalogs: any
     initialPb?: any
+    initialData?: any // Datos del presupuesto final para edición
 }
 
-export function PFCreatePlatinumForm({ task, catalogs, initialPb }: PFCreatePlatinumFormProps) {
+export function PFCreatePlatinumForm({ task, catalogs, initialPb, initialData }: PFCreatePlatinumFormProps) {
     const router = useRouter()
     const [isSaving, setIsSaving] = useState(false)
-    const [items, setItems] = useState<any[]>([])
-    const [observaciones, setObservaciones] = useState("")
+    
+    // Inicialización inteligente para edición
+    const [items, setItems] = useState<any[]>(initialData?.items || [])
+    const [observaciones, setObservaciones] = useState(initialData?.observaciones_admin || "")
     const [isModalOpen, setIsModalOpen] = useState(false)
 
     // Totales calculados en tiempo real
@@ -40,8 +43,12 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb }: PFCreatePlat
         setItems([...items, { ...item, id: crypto.randomUUID() }])
     }
 
-    const removeItem = (id: number) => {
+    const removeItem = (id: number | string) => {
         setItems(items.filter(i => i.id !== id))
+    }
+
+    const updateItem = (id: number | string, field: string, value: any) => {
+        setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
     }
 
     const handleClonarDeBase = () => {
@@ -70,19 +77,21 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb }: PFCreatePlat
         try {
             const res = await saveBudgetAction({
                 tipo: 'final',
-                isEditing: false,
+                isEditing: !!initialData,
+                budgetId: initialData?.id,
                 budgetData: {
                     id_tarea: task.id,
-                    id_presupuesto_base: initialPb?.id || null,
+                    id_presupuesto_base: initialData?.id_presupuesto_base || initialPb?.id || null,
                     id_administrador: task.id_administrador,
                     id_edificio: task.id_edificio,
                     total: totalFinal,
                     materiales: totalMateriales,
                     mano_obra: totalManoObra,
                     observaciones_admin: observaciones,
-                    id_estado: 1 // Borrador inicial
+                    id_estado: initialData?.id_estado || 1 // Mantener estado actual si es edición o 1 (Borrador) si es nuevo
                 },
                 items: items.map(i => ({
+                    id: i.id && typeof i.id === 'number' ? i.id : undefined, // Importante para la sincronización de la server action
                     descripcion: i.descripcion,
                     cantidad: i.cantidad,
                     precio: i.precio,
@@ -92,7 +101,7 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb }: PFCreatePlat
             })
 
             if (res.success) {
-                toast.success("presupuesto final creado con éxito.")
+                toast.success(initialData ? "presupuesto final actualizado con éxito." : "presupuesto final creado con éxito.")
                 router.push(`/dashboard/tareas/${task.id}`)
                 router.refresh()
             } else {
@@ -118,7 +127,7 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb }: PFCreatePlat
                         </Button>
                         <div>
                             <h2 className="text-xl font-black text-foreground tracking-tight italic">
-                                {task?.titulo || 'nuevo presupuesto'}
+                                {initialData ? `editando ${initialData.code}` : (task?.titulo || 'nuevo presupuesto')}
                             </h2>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">
                                 <Building2 className="h-3 w-3" />
@@ -172,19 +181,38 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb }: PFCreatePlat
                                     ) : (
                                         items.map((item, idx) => (
                                             <div key={item.id || idx} className="p-4 flex items-center justify-between gap-4 group hover:bg-secondary/50 transition-all">
-                                                <div className="flex items-start gap-3 min-w-0">
-                                                    <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-md mt-1">
+                                                <div className="flex items-start gap-3 min-w-0 flex-1">
+                                                    <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-md mt-1.5">
                                                         {idx + 1}
                                                     </span>
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-bold text-foreground truncate">{item.descripcion}</p>
-                                                        <div className="flex items-center gap-3 mt-1">
+                                                    <div className="min-w-0 flex-1 space-y-1">
+                                                        <Input 
+                                                            value={item.descripcion}
+                                                            onChange={(e) => updateItem(item.id, 'descripcion', e.target.value)}
+                                                            className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 focus-visible:bg-secondary/30 transition-all text-foreground"
+                                                        />
+                                                        <div className="flex items-center gap-3">
                                                             <Badge variant="outline" className={`text-[8px] h-4 font-black tracking-widest border-0 ${item.es_material ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
                                                                 {item.es_material ? 'material' : 'servicio'}
                                                             </Badge>
-                                                            <span className="text-xs text-muted-foreground">
-                                                                <span className="text-foreground font-bold">{item.cantidad}</span> x {formatCurrency(item.precio)}
-                                                            </span>
+                                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                <Input 
+                                                                    type="number"
+                                                                    value={item.cantidad}
+                                                                    onChange={(e) => updateItem(item.id, 'cantidad', parseFloat(e.target.value) || 0)}
+                                                                    className="h-6 w-12 text-[10px] font-bold text-center bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-indigo-500/30"
+                                                                />
+                                                                <span className="text-[10px] font-bold">x</span>
+                                                                <div className="relative">
+                                                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">$</span>
+                                                                    <Input 
+                                                                        type="number"
+                                                                        value={item.precio}
+                                                                        onChange={(e) => updateItem(item.id, 'precio', parseFloat(e.target.value) || 0)}
+                                                                        className="h-6 w-24 text-[10px] font-bold pl-4 bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-indigo-500/30"
+                                                                    />
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
