@@ -102,7 +102,25 @@ export async function syncGoogleContact(userId: string, data: ContactData, supab
     const relacion = sanitizeSpcV16(data.relacion)
 
     // Format: "{edificio} {depto} {nombre} {relacion}"
-    const fullName = `${edificio} ${depto} ${nombre} ${relacion}`.trim()
+    // SPC v17.1: Inteligencia para evitar redundancia con slugs de DB
+    const edLower = edificio.toLowerCase()
+    const depLower = depto.toLowerCase()
+    const nameLower = nombre.toLowerCase()
+
+    let finalNameParts = []
+    
+    // Si el nombre ya contiene el edificio o el depto (es un slug), no los repetimos
+    const nameIsSlug = nameLower.includes(edLower.split(' ')[0]) || nameLower.includes(depLower)
+    
+    if (!nameIsSlug) {
+        if (edificio) finalNameParts.push(edificio)
+        if (depto) finalNameParts.push(depto)
+    }
+    
+    if (nombre) finalNameParts.push(nombre)
+    if (relacion) finalNameParts.push(relacion)
+
+    const fullName = finalNameParts.join(' ').replace(/\s+/g, ' ').trim()
 
     // 3. Manage Labels (Double Tagging)
     // Label 1: "spc"

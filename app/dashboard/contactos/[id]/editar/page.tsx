@@ -151,9 +151,18 @@ export default function EditarContactoPage() {
         {/* Editor (Componente Unificado) */}
         <div className="lg:col-span-2">
           {editingContact || showAddForm ? (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300" key={editingContact?.id || 'new'}>
               <UnifiedDeptContactForm 
-                contact={editingContact}
+                mode={editingContact ? 'edit' : 'create'}
+                defaultValues={editingContact ? {
+                  id: editingContact.id,
+                  nombre_contacto: editingContact.nombreReal || "",
+                  relacion: editingContact.relacion || "",
+                  numero: editingContact.telefono || "",
+                  es_principal: editingContact.es_principal || false,
+                  notas: editingContact.notas || "",
+                  sin_telefono: !editingContact.telefono
+                } : undefined}
                 edificioId={context.edificio_id}
                 departamentoId={context.id}
                 onSuccess={() => {

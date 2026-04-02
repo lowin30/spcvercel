@@ -475,18 +475,43 @@ export async function createDepartamentoAction(payload: any) {
       throw new Error(deptError.message)
     }
 
-    // 3. Insertar Contactos (si hay)
-    if (contactosData && contactosData.length > 0) {
+    // 3. Normalizar Contactos (Lógica Platinum: Propietario -> Contacto Principal Inteligente)
+    let finalContactos = [...(contactosData || [])]
+    
+    // Si hay un nombre en el campo "propietario", verificamos si ya existe o si se envió en el lote
+    if (deptData.propietario) {
+      const nombreSanitized = sanitizeText(deptData.propietario)
+      
+      // Verificar en DB si ya existe este contacto específico para este depto
+      const { data: existing } = await supabaseAdmin
+        .from("contactos")
+        .select("id")
+        .eq("departamento_id", newDept.id)
+        .eq("nombreReal", nombreSanitized)
+        .maybeSingle()
+
+      if (!existing && !finalContactos.some(c => sanitizeText(c.nombre) === nombreSanitized)) {
+        // Solo agregarlo si no existe en DB Y no viene en el payload de contactosData
+        finalContactos.unshift({
+          nombre: deptData.propietario,
+          relacion: 'Propietario',
+          numero: '',
+          sin_telefono: true,
+          es_principal: true
+        })
+      }
+    }
+
+    if (finalContactos.length > 0) {
       const normalizeForSlug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ñ/g, 'n').replace(/\s+/g, '-')
 
-      const contactosPayload = await Promise.all(contactosData.map(async (c: any, index: number) => {
+      const contactosPayload = await Promise.all(finalContactos.map(async (c: any, index: number) => {
         const nombreSanitized = sanitizeText(c.nombre)
         const relacionSanitized = sanitizeText(c.relacion) || "Otro"
 
         // Generación de Slug (Backend side)
         const slugBase = `${normalizeForSlug(edName)}-${normalizeForSlug(newDept.codigo)}-${normalizeForSlug(nombreSanitized)}`
-
-        // Verificar duplicado de slug de forma básica (pueden haber colisiones en lote si son nombres idénticos)
+        
         let finalSlug = slugBase
         if (index > 0) {
           finalSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`
@@ -501,7 +526,7 @@ export async function createDepartamentoAction(payload: any) {
           departamento: newDept.codigo,
           departamento_id: newDept.id,
           relacion: relacionSanitized,
-          es_principal: index === 0,
+          es_principal: c.es_principal !== undefined ? c.es_principal : index === 0,
           updated_at: new Date().toISOString()
         }
       }))

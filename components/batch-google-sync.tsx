@@ -70,11 +70,15 @@ export function BatchGoogleSync() {
             for (const c of validContacts) {
                 setStats(prev => ({ ...prev, current: processed + 1 }))
 
-                // Prepare Payload matching the form logic
+                // @ts-ignore
+                const edName = Array.isArray(c.departamentos?.edificios) ? c.departamentos?.edificios[0]?.nombre : c.departamentos?.edificios?.nombre
+                // @ts-ignore
+                const depCode = c.departamentos?.codigo || "Sin Depto"
+
                 const googlePayload = {
-                    edificio: c.departamentos?.edificios?.nombre || "Sin Edificio",
-                    depto: c.departamentos?.codigo || "Sin Depto",
-                    nombre: c["nombreReal"] || c.nombre || "Sin Nombre",
+                    edificio: edName || "Sin Edificio",
+                    depto: depCode,
+                    nombre: c["nombreReal"] || (c.nombre && c.nombre.split('-').slice(2).join(' ')) || c.nombre || "Sin Nombre",
                     relacion: c.relacion || "Contacto",
                     telefonos: [c.telefono],
                     emails: []

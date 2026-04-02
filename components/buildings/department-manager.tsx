@@ -113,6 +113,7 @@ export function DepartmentManager({ buildingId }: { buildingId: number }) {
                     // but mapping fields from 'contactos'
                     telefonos: contactosData?.filter((c) => c.departamento_id === depto.id).map(c => ({
                         id: c.id,
+                        departamento_id: depto.id,
                         numero: c.telefono || "Sin teléfono",
                         nombre_contacto: c["nombreReal"] || c.nombre, // Use Human Name
                         es_principal: c.es_principal,
@@ -138,19 +139,19 @@ export function DepartmentManager({ buildingId }: { buildingId: number }) {
             {/* Sección de Departamentos */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Departamentos</CardTitle>
+                    <CardTitle>departamentos</CardTitle>
                     <div className="flex gap-2">
                         <Dialog open={departamentosDialogOpen} onOpenChange={setDepartamentosDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button size="sm" variant="outline" className="flex items-center gap-1">
                                     <Plus className="h-4 w-4" />
-                                    <span className="hidden md:inline">Agregar departamento</span>
-                                    <span className="md:hidden">Agregar</span>
+                                    <span className="hidden md:inline">agregar departamento</span>
+                                    <span className="md:hidden">agregar</span>
                                 </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-md">
                                 <DialogHeader>
-                                    <DialogTitle>Crear Nuevo Departamento</DialogTitle>
+                                    <DialogTitle>crear nuevo departamento</DialogTitle>
                                     <DialogDescription>
                                         Complete los datos para crear un nuevo departamento
                                     </DialogDescription>
@@ -158,25 +159,25 @@ export function DepartmentManager({ buildingId }: { buildingId: number }) {
 
                                 <div className="space-y-4 py-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="codigo">Código *</Label>
+                                        <Label htmlFor="codigo">depto *</Label>
                                         <Input
                                             id="codigo"
                                             value={nuevoDepartamento.codigo}
                                             onChange={(e) => setNuevoDepartamento({ ...nuevoDepartamento, codigo: e.target.value })}
-                                            placeholder="Ej: 1A, 2B, PB"
+                                            placeholder="ej: 1a, 2b, pb"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="propietario">Propietario</Label>
+                                        <Label htmlFor="propietario">nombre</Label>
                                         <Input
                                             id="propietario"
                                             value={nuevoDepartamento.propietario}
                                             onChange={(e) => setNuevoDepartamento({ ...nuevoDepartamento, propietario: e.target.value })}
-                                            placeholder="Nombre del propietario"
+                                            placeholder="nombre"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="notas">Notas</Label>
+                                        <Label htmlFor="notas">notas</Label>
                                         <Textarea
                                             id="notas"
                                             value={nuevoDepartamento.notas}
@@ -246,7 +247,7 @@ export function DepartmentManager({ buildingId }: { buildingId: number }) {
                                                     {cantidadTelefonos > 0 && <Badge variant="outline" className="text-xs"><Phone className="h-3 w-3 mr-1" /> {cantidadTelefonos}</Badge>}
                                                 </div>
                                                 <div className="text-sm text-muted-foreground truncate max-w-[150px]">
-                                                    {depto.propietario || "Sin propietario"}
+                                                    {depto.propietario || "sin nombre"}
                                                 </div>
                                             </div>
                                         </AccordionTrigger>
@@ -283,7 +284,7 @@ export function DepartmentManager({ buildingId }: { buildingId: number }) {
                                                                 setTelefonoDialogOpen(true);
                                                             }}
                                                         >
-                                                            <Plus className="h-3 w-3 mr-1" /> Agregar
+                                                            <User className="w-4 h-4 mr-2" /> contactos asociados
                                                         </Button>
                                                     </div>
 

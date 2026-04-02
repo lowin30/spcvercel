@@ -105,26 +105,26 @@ export function DepartamentoForm({
       {/* ... inputs ... */}
       <div className="space-y-2">
         <Label htmlFor="codigo" className={isChatVariant ? "text-xs font-medium" : "text-sm font-medium"}>
-          Código <span className="text-destructive">*</span>
+          depto <span className="text-destructive">*</span>
         </Label>
         <Input
           id="codigo"
           value={formData.codigo}
           onChange={(e) => onChange({ ...formData, codigo: e.target.value })}
           onBlur={(e) => onChange({ ...formData, codigo: sanitizeText(e.target.value) })}
-          placeholder="Ej: 1A, 2B, PB"
+          placeholder="ej: 1a, 2b, pb"
           className={isChatVariant ? "h-9" : "h-10"}
           disabled={isLoading}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="propietario" className="text-sm font-medium">Propietario</Label>
+        <Label htmlFor="propietario" className="text-sm font-medium">nombre</Label>
         <Input
           id="propietario"
           value={formData.propietario}
           onChange={(e) => onChange({ ...formData, propietario: e.target.value })}
-          placeholder="Nombre del propietario"
+          placeholder="nombre"
           className="h-10"
           disabled={isLoading}
         />

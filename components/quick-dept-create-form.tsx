@@ -247,7 +247,7 @@ export function QuickDeptCreateForm({
                 {/* 1. Departamento CODE */}
                 <div className="space-y-2">
                     <Label htmlFor="dept-code" className={isChatVariant ? "text-sm font-semibold" : "text-base font-semibold"}>
-                        Código Departamento <span className="text-red-500">*</span>
+                        depto <span className="text-red-500">*</span>
                     </Label>
                     <Input
                         id="dept-code"
@@ -257,7 +257,7 @@ export function QuickDeptCreateForm({
                             const cleaned = codigo.trim().replace(/\s+/g, ' ').toUpperCase();
                             setCodigo(cleaned);
                         }}
-                        placeholder="Ej: 1A, PB, LOCAL-3"
+                        placeholder="ej: 1a, pb, local-3"
                         className={isChatVariant ? "text-base font-medium h-9" : "text-lg font-medium h-12"}
                         autoFocus
                         disabled={isSubmitting}

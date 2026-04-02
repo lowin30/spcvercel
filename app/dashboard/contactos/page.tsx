@@ -177,7 +177,11 @@ export default function ContactosPage() {
               id,
               codigo,
               edificio_id,
-              edificios(id, nombre)
+              edificios(
+                id, 
+                nombre,
+                administradores(id, nombre)
+              )
             )
           `)
           .not('departamento_id', 'is', null) // Solo traer los vinculados a dptos
@@ -255,7 +259,15 @@ export default function ContactosPage() {
       if (!telefonosByDepartamento[deptId]) {
         telefonosByDepartamento[deptId] = []
       }
-      telefonosByDepartamento[deptId].push(tel)
+      // Evitar duplicados inteligentes en el renderizado (Solo por número para máxima limpieza)
+      const telNormalizado = tel.telefono?.replace(/\D/g, '')
+      const isDuplicate = telNormalizado && telefonosByDepartamento[deptId].some(
+        existing => existing.telefono?.replace(/\D/g, '') === telNormalizado
+      )
+      
+      if (!isDuplicate) {
+        telefonosByDepartamento[deptId].push(tel)
+      }
     })
 
     setTelefonosPorDepartamento(telefonosByDepartamento)
@@ -514,17 +526,21 @@ export default function ContactosPage() {
           <TableCaption>Lista de contactos disponibles.</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead>Edificio</TableHead>
-              <TableHead>Departamento</TableHead>
-              <TableHead>Contacto</TableHead>
-              <TableHead>Teléfonos</TableHead>
-              <TableHead className="w-[80px] pl-0">Acciones</TableHead>
+              <TableHead>administrador</TableHead>
+              <TableHead>edificio</TableHead>
+              <TableHead>depto</TableHead>
+              <TableHead>contacto</TableHead>
+              <TableHead>telefonos</TableHead>
+              <TableHead className="w-[80px] pl-0">acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {telefonosFiltrados.length > 0 ? (
               telefonosFiltrados.map((telefono) => (
                 <TableRow key={telefono.id}>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {(telefono.departamentos?.edificios as any)?.administradores?.nombre || "—"}
+                  </TableCell>
                   <TableCell>
                     {telefono.departamentos?.edificios?.nombre || "—"}
                   </TableCell>
