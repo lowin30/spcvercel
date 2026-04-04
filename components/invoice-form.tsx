@@ -17,6 +17,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Label } from "@/components/ui/label"
 
 
 import { toast } from "sonner"
@@ -25,6 +26,7 @@ import { toast } from "sonner"
 // Esquema de validación del formulario principal
 const invoiceFormSchema = z.object({
   id_presupuesto: z.string().optional(),
+  id_presupuesto_final: z.string().optional(),
   code: z.string().optional(),
   total: z.coerce.number(),
 })
@@ -92,6 +94,7 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
 
   const defaultValues = {
     id_presupuesto: factura?.id_presupuesto ? String(factura.id_presupuesto) : '',
+    id_presupuesto_final: (factura as any)?.id_presupuesto_final ? String((factura as any).id_presupuesto_final) : '',
     code: factura?.code || (isEditMode ? '' : 'Se generará automáticamente'),
     total: factura?.total || 0,
   };
@@ -162,7 +165,7 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
           {/* Compact form without Card wrapper */}
           <div className="space-y-4">
             <div className="grid gap-4">
-              <FormField control={form.control} name="id_presupuesto" render={({ field }) => (
+              <FormField control={form.control} name="id_presupuesto_final" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs">Presupuesto Asociado</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isEditMode}>
@@ -284,7 +287,7 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="id_presupuesto" render={({ field }) => (
+              <FormField control={form.control} name="id_presupuesto_final" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Presupuesto Asociado</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isEditMode}>

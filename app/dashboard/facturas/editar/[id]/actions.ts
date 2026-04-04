@@ -8,6 +8,7 @@ import { z } from 'zod';
 // Esquema de validación para los datos que vienen del formulario
 const invoiceFormSchema = z.object({
   id_presupuesto: z.string().optional(),
+  id_presupuesto_final: z.string().optional(),
   total: z.coerce.number(),
 });
 
@@ -44,10 +45,18 @@ export async function saveInvoice(
         total: data.total
       };
 
-      if (typeof data.id_presupuesto === 'string' && data.id_presupuesto.trim() !== '') {
-        const bdId = Number(data.id_presupuesto);
-        updatePayload.id_presupuesto = bdId;
-        updatePayload.id_presupuesto_final = bdId; // Sincronización Protocolo v112.1
+      if (typeof data.id_presupuesto_final === 'string' && data.id_presupuesto_final.trim() !== '') {
+        const pfId = Number(data.id_presupuesto_final);
+
+        // Resolución quirúrgica de jerarquía (PF -> PB)
+        const { data: pfData } = await supabaseAdmin
+          .from('presupuestos_finales')
+          .select('id_presupuesto_base')
+          .eq('id', pfId)
+          .single();
+
+        updatePayload.id_presupuesto_final = pfId;
+        updatePayload.id_presupuesto = pfData?.id_presupuesto_base || null;
       }
 
       const { error: updateError } = await supabaseAdmin
@@ -58,7 +67,7 @@ export async function saveInvoice(
         throw updateError;
       }
     } else {
-      if (!data.id_presupuesto) {
+      if (!data.id_presupuesto_final) {
         throw new Error('Debe seleccionar un presupuesto para crear la factura.');
       }
 
@@ -75,7 +84,7 @@ export async function saveInvoice(
             )
           )
         `)
-        .eq('id', data.id_presupuesto)
+        .eq('id', data.id_presupuesto_final)
         .single();
 
       if (presResp.error || !presResp.data) {
@@ -93,13 +102,21 @@ export async function saveInvoice(
       }
       const idEmpresaAsignada = edificio.id_administrador;
 
-      const dataToInsert = {
-        id_presupuesto: Number(data.id_presupuesto),
-        id_presupuesto_final: Number(data.id_presupuesto), // Sincronización Protocolo v112.1
+      const dataToInsert: any = {
+        id_presupuesto_final: Number(data.id_presupuesto_final),
         total: data.total,
         pagada: false,
         id_empresa_asignada: idEmpresaAsignada,
       };
+
+      // Resolver PB para inserción
+      const { data: pfDataNew } = await supabaseAdmin
+        .from('presupuestos_finales')
+        .select('id_presupuesto_base')
+        .eq('id', dataToInsert.id_presupuesto_final)
+        .single();
+
+      dataToInsert.id_presupuesto = pfDataNew?.id_presupuesto_base || null;
       const { data: newFactura, error } = await supabaseAdmin
         .from('facturas')
         .insert(dataToInsert)

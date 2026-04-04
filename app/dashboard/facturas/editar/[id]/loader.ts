@@ -77,8 +77,8 @@ export async function getInvoiceForEdit(id: string): Promise<EditFacturaLoaderDa
         })
 
         // 5. Asegurar que el presupuesto actual esté en la lista (si no está aprobado o cambio estado)
-        if (factura.id_presupuesto) {
-            const isPresupuestoActualEnLista = presupuestosParaForm.some((p: any) => p.id === String(factura.id_presupuesto))
+        if (factura.id_presupuesto_final) {
+            const isPresupuestoActualEnLista = presupuestosParaForm.some((p: any) => p.id === String(factura.id_presupuesto_final))
 
             if (!isPresupuestoActualEnLista) {
                 const { data: presupuestoActual } = await supabaseAdmin
@@ -100,7 +100,7 @@ export async function getInvoiceForEdit(id: string): Promise<EditFacturaLoaderDa
               )
             )
           `)
-                    .eq('id', factura.id_presupuesto)
+                    .eq('id', factura.id_presupuesto_final)
                     .single()
 
                 if (presupuestoActual) {
