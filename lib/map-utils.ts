@@ -54,30 +54,22 @@ export function extractCoordinatesFromUrl(url: string) {
     }
 
     // Formato: https://www.google.com/maps?q=-34.6037,-58.3816
-    if (url.includes("maps") && url.includes("q=")) {
-      const match = url.match(/q=([^&]+)/)
-      if (match && match[1]) {
-        // Verificar si son coordenadas (números separados por coma)
-        if (/^-?\d+(\.\d+)?,-?\d+(\.\d+)?/.test(match[1])) {
-          const coords = match[1].split(",")
-          if (coords.length === 2) {
-            return {
-              lat: Number.parseFloat(coords[0]),
-              lng: Number.parseFloat(coords[1]),
-            }
-          }
-        }
+    const qParamsPattern = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/
+    const qMatch = url.match(qParamsPattern)
+    if (qMatch && qMatch[1] && qMatch[2]) {
+      return {
+        lat: Number.parseFloat(qMatch[1]),
+        lng: Number.parseFloat(qMatch[2]),
       }
     }
 
-    // Formato: https://www.google.com/maps/@-34.6037,-58.3816,15z
-    if (url.includes("maps") && url.includes("@")) {
-      const match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-      if (match && match[1] && match[2]) {
-        return {
-          lat: Number.parseFloat(match[1]),
-          lng: Number.parseFloat(match[2]),
-        }
+    // Formato: https://www.google.com/maps/search/-34.6037,-58.3816
+    const searchPattern = /\/search\/(-?\d+\.\d+),(-?\d+\.\d+)/
+    const searchMatch = url.match(searchPattern)
+    if (searchMatch && searchMatch[1] && searchMatch[2]) {
+      return {
+        lat: Number.parseFloat(searchMatch[1]),
+        lng: Number.parseFloat(searchMatch[2]),
       }
     }
 
@@ -99,18 +91,7 @@ export function extractCoordinatesFromUrl(url: string) {
       }
     }
 
-    // Extraer de la URL completa si contiene coordenadas en cualquier parte
-    const anyCoordinatesPattern = /-?\d+\.\d+,-?\d+\.\d+/
-    const anyCoordinatesMatch = url.match(anyCoordinatesPattern)
-    if (anyCoordinatesMatch) {
-      const coords = anyCoordinatesMatch[0].split(",")
-      if (coords.length === 2) {
-        return {
-          lat: Number.parseFloat(coords[0]),
-          lng: Number.parseFloat(coords[1]),
-        }
-      }
-    }
+    return null
 
     return null
   } catch (error) {

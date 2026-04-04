@@ -35,17 +35,17 @@ export class GoogleMasterService {
             }
 
             // 3. Obtención de Dirección (Geocoding Inverso)
-            // Primero intentamos extraer de la URL misma
+            // Prioridad 1: Extraer de la URL misma (muy rápido y preciso para lo que el usuario ve)
             let rawAddress = extractAddressFromUrl(finalUrl)
 
-            // Si no hay dirección en la URL, usamos Nominatim (u otro servicio si tuviéramos API Key)
+            // Prioridad 2: Si no hay en URL, usar Nominatim (Gratis)
             if (!rawAddress) {
                 rawAddress = await getAddressFromCoordinates(coords.lat, coords.lng)
             }
 
+            // Prioridad 3: Fallback Estructural SPC
             if (!rawAddress) {
-                // Fallback extremo
-                rawAddress = `UBICACIÓN ${coords.lat}, ${coords.lng}`
+                rawAddress = `EDIFICIO EN COORDENADAS ${coords.lat}, ${coords.lng}`
             }
 
             // 4. Sanitización Estricta (SPC Protocol)

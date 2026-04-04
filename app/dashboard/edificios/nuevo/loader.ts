@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 /**
  * NUEVO EDIFICIO LOADER v108.0 (Server-Side Data Loading)
