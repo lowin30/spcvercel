@@ -42,7 +42,7 @@ interface Telefono {
   telefono: string
   relacion: string
   nombreReal: string
-  nombre: string // Slug
+  nombre: string // Slug o nombre consolidado
   es_principal: boolean
   departamento_id: number | string
   notas?: string
@@ -53,6 +53,10 @@ interface Telefono {
     edificios?: {
       id?: number | string
       nombre?: string
+      administradores?: {
+        id?: number | string
+        nombre?: string
+      }
     }
   }
   _totalContactos?: number
@@ -259,7 +263,7 @@ export default function ContactosPage() {
       if (!telefonosByDepartamento[deptId]) {
         telefonosByDepartamento[deptId] = []
       }
-      // Evitar duplicados inteligentes en el renderizado (Solo por número para máxima limpieza)
+      // Evitar duplicados inteligentes en el renderizado
       const telNormalizado = tel.telefono?.replace(/\D/g, '')
       const isDuplicate = telNormalizado && telefonosByDepartamento[deptId].some(
         existing => existing.telefono?.replace(/\D/g, '') === telNormalizado
@@ -274,12 +278,10 @@ export default function ContactosPage() {
 
     // Priorizamos los teléfonos principales para cada departamento
     const telefonosPrincipalesPorDepartamento = Object.values(telefonosByDepartamento).map(telGroup => {
-      // Buscar primero un teléfono principal
       const principal = telGroup.find(tel => tel.es_principal)
       if (principal) {
         return { ...principal, _totalContactos: telGroup.length }
       }
-      // Si no hay principal, usar el primero
       return { ...telGroup[0], _totalContactos: telGroup.length }
     })
 
@@ -336,34 +338,6 @@ export default function ContactosPage() {
     }
   }
 
-  // Estado de carga
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-10 w-10 animate-spin text-gray-500" />
-          <p className="text-lg text-gray-500">Cargando contactos...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Estado de error
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm">
-        <h2 className="text-xl font-semibold text-red-800">Error</h2>
-        <p className="mt-2 text-red-700">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Reintentar
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
@@ -387,7 +361,6 @@ export default function ContactosPage() {
 
       {/* Filtros */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-4 md:mb-6">
-        {/* Filtro por edificio */}
         <div className="space-y-1 sm:space-y-2">
           <label className="text-xs sm:text-sm font-medium">Edificio</label>
           <Select value={edificioSeleccionado} onValueChange={setEdificioSeleccionado}>
@@ -405,7 +378,6 @@ export default function ContactosPage() {
           </Select>
         </div>
 
-        {/* Filtro por departamento */}
         <div className="space-y-1 sm:space-y-2">
           <label className="text-xs sm:text-sm font-medium">Departamento</label>
           <Select value={departamentoSeleccionado} onValueChange={setDepartamentoSeleccionado} disabled={departamentosFiltrados.length === 0}>
@@ -423,7 +395,6 @@ export default function ContactosPage() {
           </Select>
         </div>
 
-        {/* Búsqueda por texto */}
         <div className="space-y-1 sm:space-y-2">
           <label className="text-xs sm:text-sm font-medium">Buscar</label>
           <Input
@@ -436,94 +407,86 @@ export default function ContactosPage() {
       </div>
 
       {/* Lista de contactos */}
-      <div className="rounded-md border w-full max-w-full overflow-hidden">
-        {/* Estilos para dispositivos móviles */}
+      <div className="rounded-md border-0 sm:border w-full max-w-full overflow-hidden">
+        {/* Estilos Lista Ultra-Densa Platinum */}
         <style jsx global>{`
-          /* Estilos para evitar scroll horizontal en móvil */
           @media (max-width: 640px) {            
-            table.contactos-table {
-              width: 100%;
-              table-layout: fixed;
-              border-collapse: collapse;
-              border-spacing: 0;
-            }
-            
-            /* Ocultar columnas de Edificio y Departamento en móvil */
-            table.contactos-table th:nth-child(1),
-            table.contactos-table td:nth-child(1),
-            table.contactos-table th:nth-child(2),
-            table.contactos-table td:nth-child(2) {
+            .contactos-table thead {
               display: none;
             }
             
-            /* Ajustar anchos de las columnas visibles */
-            table.contactos-table th:nth-child(3),
-            table.contactos-table td:nth-child(3) {
-              width: 45%;
-              padding: 8px 4px;
+            .contactos-table, .contactos-table tbody, .contactos-table tr, .contactos-table td {
+              display: block;
+              width: 100%;
             }
             
-            table.contactos-table th:nth-child(4),
-            table.contactos-table td:nth-child(4) {
-              width: 32%;
-              padding: 8px 4px 8px 4px;
-              max-width: 32vw;
-              overflow-x: visible;
-              text-align: right;
-              padding-right: 2px;
-            }
-            
-            table.contactos-table th:nth-child(5),
-            table.contactos-table td:nth-child(5) {
-              width: 23%;
-              padding: 8px 0 8px 0;
-              text-align: center;
-            }
-            
-            /* Centrar los botones de acción */
-            table.contactos-table td:nth-child(5) > div {
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100%;
-            }
-            
-            /* Permitir scroll horizontal dentro de la celda de teléfonos si es necesario */
-            table.contactos-table td:nth-child(4) > div {
-              max-height: 120px;
-              overflow-y: auto;
-              padding-right: 0;
-            }
-            
-            /* Asegurar que el contenido no cause overflow */
-            table.contactos-table td {
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-              vertical-align: top;
+            .contactos-table tr {
+              margin-bottom: 4px; /* Ultra-compacto */
+              border-bottom: 1px solid rgba(0,0,0,0.06);
+              background-color: #fff;
+              padding: 6px 8px; /* Padding Platinum */
             }
 
-            /* Reducir padding general de todas las celdas en móvil */
-            table.contactos-table td {
-              padding-top: 4px;
-              padding-bottom: 4px;
+            .dark .contactos-table tr {
+              background-color: #09090b;
+              border-color: rgba(255,255,255,0.06);
             }
             
-            /* Hacer botones más pequeños en móvil */
-            table.contactos-table button {
-              height: 30px;
-              width: 30px;
+            /* Ocultar celdas redundantes */
+            .contactos-table td:nth-child(1),
+            .contactos-table td:nth-child(2),
+            .contactos-table td:nth-child(3) {
+              display: none;
+            }
+            
+            /* Contenedor Bicameral (Datos vs Acciones) */
+            .contactos-table tr {
+              display: flex !important;
+              justify-content: space-between;
+              align-items: center;
+              gap: 8px;
+            }
+
+            /* Sección Alpha (Izq): Nombre y Metadatos */
+            .contactos-table td:nth-child(4) {
+              flex: 1;
               padding: 0;
+              min-width: 0;
+            }
+
+            /* Sección Omega (Der): Teléfono y Acciones */
+            .contactos-table td:nth-child(5) {
+              display: none; /* Los teléfonos se inyectan en la celda 6 por simplicidad en el flex */
             }
             
-            table.contactos-table button svg {
-              height: 14px;
-              width: 14px;
+            .contactos-table td:nth-child(6) {
+              width: auto;
+              padding: 0;
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              gap: 6px;
+            }
+
+            /* Ajuste de Links de Teléfono en modo ultra-denso */
+            .contactos-mobile-tel {
+              font-size: 0.85rem;
+              font-weight: 600;
+              color: #2563eb;
+              display: flex;
+              align-items: center;
+              gap: 3px;
+              white-space: nowrap;
+            }
+
+            .dark .contactos-mobile-tel {
+              color: #60a5fa;
             }
           }
         `}</style>
+        
         <Table className="contactos-table">
-          <TableCaption>Lista de contactos disponibles.</TableCaption>
+          <TableCaption className="hidden sm:table-caption">Lista de contactos disponibles.</TableCaption>
           <TableHeader>
             <TableRow>
               <TableHead>administrador</TableHead>
@@ -536,81 +499,91 @@ export default function ContactosPage() {
           </TableHeader>
           <TableBody>
             {telefonosFiltrados.length > 0 ? (
-              telefonosFiltrados.map((telefono) => (
-                <TableRow key={telefono.id}>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {(telefono.departamentos?.edificios as any)?.administradores?.nombre || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {telefono.departamentos?.edificios?.nombre || "—"}
-                  </TableCell>
-                  <TableCell>
-                    {telefono.departamentos?.codigo || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">
-                      {telefono.nombreReal || telefono.nombre || "—"}
-                      <div className="hidden sm:block"></div>
-                      <div className="sm:hidden text-xs text-gray-500 truncate">
-                        {telefono.departamentos?.edificios?.nombre || "—"} {telefono.departamentos?.codigo || "—"}
+              telefonosFiltrados.map((telefono) => {
+                const todosTelefonos = telefonosPorDepartamento[telefono.departamento_id.toString()] || [];
+                const telPrincipal = todosTelefonos[0]?.telefono?.replace(/[-\s]/g, '') || "";
+                
+                return (
+                  <TableRow key={telefono.id}>
+                    {/* Celdas ocultas en móvil por CSS */}
+                    <TableCell className="text-muted-foreground text-xs">
+                      {(telefono.departamentos?.edificios as any)?.administradores?.nombre || "—"}
+                    </TableCell>
+                    <TableCell>
+                      {telefono.departamentos?.edificios?.nombre || "—"}
+                    </TableCell>
+                    <TableCell>
+                      {telefono.departamentos?.codigo || "—"}
+                    </TableCell>
+                    
+                    {/* Celda 4: Bloque de Identidad (Alpha) */}
+                    <TableCell>
+                      <div className="flex flex-col min-w-0">
+                        <div className="font-bold text-[13px] sm:text-base truncate leading-tight">
+                          {telefono.nombre || telefono.nombreReal || "—"}
+                        </div>
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          {telefono.es_principal && (
+                            <span className="text-[9px] font-black text-green-700 dark:text-green-400 uppercase">
+                              PRI
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground truncate italic">
+                            {telefono.relacion || (telefono.nombreReal !== telefono.nombre ? telefono.nombreReal : "contacto")}
+                          </span>
+                        </div>
                       </div>
-                      {telefono.es_principal && (
-                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
-                          Principal
-                        </span>
-                      )}
-                      {telefono._totalContactos && telefono._totalContactos > 1 && (
-                        <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
-                          {telefono._totalContactos} contactos
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col items-end">
-                      {telefonosPorDepartamento[telefono.departamento_id.toString()]?.map((tel, index) => (
-                        <a href={`tel:${tel.telefono?.replace(/[-\s]/g, '')}`} key={tel.id} className="block py-0.5 hover:text-blue-600 text-nowrap">
-                          {tel.telefono?.replace(/[-\s]/g, '') || "—"}
-                        </a>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2 justify-center">
-                      {canEditContact && (
-                        <Link href={`/dashboard/contactos/${telefono.departamento_id}/editar`}>
-                          <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" title="Editar contactos del departamento">
-                            <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </TableCell>
+                    
+                    {/* Celda 5: Telefonos (Legacy desktop) */}
+                    <TableCell className="sm:table-cell hidden">
+                      <div className="flex flex-col items-end gap-1">
+                        {todosTelefonos.map((tel) => (
+                          <a key={tel.id} href={`tel:${tel.telefono?.replace(/[-\s]/g, '')}`} className="hover:text-blue-600">
+                             {tel.telefono?.replace(/[-\s]/g, '')}
+                          </a>
+                        ))}
+                      </div>
+                    </TableCell>
+                    
+                    {/* Celda 6: Acciones & Teléfono Rápido (Omega) */}
+                    <TableCell>
+                      {/* Teléfono rápido (Solo móvil) */}
+                      <a 
+                        href={`tel:${telPrincipal}`} 
+                        className="sm:hidden contactos-mobile-tel"
+                      >
+                        <Phone className="h-3.5 w-3.5" />
+                        {telPrincipal.slice(-8)}
+                      </a>
+
+                      <div className="flex gap-1 items-center">
+                        {canEditContact && (
+                          <Link href={`/dashboard/contactos/${telefono.departamento_id}/editar`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-9 sm:w-9">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                        )}
+                        {canDeleteContact && (
+                          <Button
+                            variant="ghost" 
+                            size="icon"
+                            className="h-7 w-7 sm:h-9 sm:w-9"
+                            onClick={() => eliminarTelefono(telefono.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
                           </Button>
-                        </Link>
-                      )}
-                      {canDeleteContact && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 sm:h-9 sm:w-9"
-                          title="Eliminar"
-                          onClick={() => eliminarTelefono(telefono.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-500" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
-                  {departamentos.length === 0 && telefonos.length === 0 ? (
-                    <div className="text-center">
-                      <p className="text-muted-foreground">
-                        No hay datos de departamentos o contactos. Asegúrate de haber ejecutado el script para crear las tablas.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No se encontraron contactos con los filtros aplicados.</p>
-                  )}
+                <TableCell colSpan={6} className="h-24 text-center">
+                   <p className="text-muted-foreground">No se encontraron contactos con los filtros aplicados.</p>
                 </TableCell>
               </TableRow>
             )}
