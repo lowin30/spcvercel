@@ -1176,7 +1176,9 @@ export async function saveBudgetAction(params: {
 
       const toDelete = existingIds.filter(id => !incomingIds.includes(id));
       if (toDelete.length > 0) {
-        await (await createServerClient()).from("items").delete().in("id", toDelete);
+        // fix: usar supabaseAdmin para garantizar escritura sin bloqueo de RLS (gold v93.4)
+        const { error: delError } = await supabaseAdmin.from("items").delete().in("id", toDelete);
+        if (delError) throw new Error(`error al eliminar items: ${delError.message}`);
       }
 
       for (const item of items) {
@@ -1192,9 +1194,12 @@ export async function saveBudgetAction(params: {
         if (item.code) itemPayload.code = item.code;
 
         if (item.id) {
-          await (await createServerClient()).from("items").update(itemPayload).eq("id", item.id);
+          // fix: usar supabaseAdmin para garantizar el update sin bloqueo de RLS (gold v93.4)
+          const { error: updError } = await supabaseAdmin.from("items").update(itemPayload).eq("id", item.id);
+          if (updError) throw new Error(`error al actualizar item ${item.id}: ${updError.message}`);
         } else {
-          await (await createServerClient()).from("items").insert(itemPayload);
+          const { error: insError } = await supabaseAdmin.from("items").insert(itemPayload);
+          if (insError) throw new Error(`error al insertar item: ${insError.message}`);
         }
       }
 
