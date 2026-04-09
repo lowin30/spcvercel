@@ -31,16 +31,23 @@ export default function EditarEdificioPage() {
           return
         }
 
-        // 🛡️ SEGUNDA BARRERA: Extracción del Rol desde el JWT Claim
+        // 🛡️ SINCRONIZACIÓN PLATINUM: Blindaje por Email
+        const email = session.user.email?.toLowerCase()
         const access_token = session.access_token
         const payload = JSON.parse(atob(access_token.split('.')[1]))
-        const userRol = payload.user_metadata?.rol || 'trabajador' // fallback seguro
+        
+        // El Blindaje de Email manda por sobre el JWT (Protocolo v95.1)
+        let userRol = payload.user_metadata?.rol || 'trabajador'
+        if (email === 'lowin30@gmail.com') {
+          userRol = 'admin'
+        }
 
-        if (userRol === 'trabajador') {
-          console.warn(`[SEGUNDA BARRERA] Acceso denegado a Edición para Trabajador (${session.user.email})`)
+        if (userRol !== 'admin' && userRol !== 'supervisor') {
+          console.warn(`[PUENTE DE IDENTIDAD] Acceso denegado a Edición para ${userRol} (${email})`)
           router.push('/dashboard/edificios')
           return
         }
+
 
         // Obtener el edificio
         const { data: edificioData, error: edificioError } = await supabase
