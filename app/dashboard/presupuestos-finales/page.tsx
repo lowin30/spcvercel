@@ -26,7 +26,8 @@ export default async function PresupuestosFinalesPage(props: {
     search: searchParams.query as string,
     adminId: searchParams.adminId as string,
     edificioId: searchParams.edificioId as string,
-    estado: searchParams.tab as string || 'todos',
+    estado: searchParams.tab as string || 'activas',
+
   }
 
   // 2. Obtención de Datos Segura (Server-Side)
