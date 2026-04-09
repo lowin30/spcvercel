@@ -94,6 +94,7 @@ export function ItemPresupuestoModal({
     }
   }, [editingItem, open])
 
+
   // Manejar la selección de un producto
   const handleProductSelect = (producto: Producto) => {
     setProductoSeleccionado(producto)
