@@ -26,6 +26,7 @@ interface Building {
   notas?: string | null
   nombre_administrador?: string | null
   total_departamentos?: number
+  mapa_departamentos_json?: any[] | null
   departamentos_codigos?: string[] | null
 }
 
@@ -124,7 +125,7 @@ export function BuildingList({ buildings, onBuildingUpdated, permissions }: Buil
                 )}
 
                 <p>
-                  {building.total_departamentos || 0} depto{building.total_departamentos !== 1 ? 's' : ''}
+                  {building.total_departamentos || building.mapa_departamentos_json?.length || 0} depto{ (building.total_departamentos || building.mapa_departamentos_json?.length) !== 1 ? 's' : ''}
                   {building.departamentos_codigos && building.departamentos_codigos.length > 0 && (
                     <span className="ml-1 opacity-70">
                       ({building.departamentos_codigos.slice(0, 3).join(', ')}
