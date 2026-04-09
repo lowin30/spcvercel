@@ -28,11 +28,14 @@ export async function GET(request: NextRequest) {
                 },
                 setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
                     cookiesToSet.forEach(({ name, value, options }) => {
-                        // en localhost http, desactivar Secure para que el browser acepte las cookies
-                        const finalOptions = isLocalhost
-                            ? { ...options, secure: false, sameSite: 'lax' as const }
-                            : options
-                        response.cookies.set(name, value, finalOptions)
+                        // Protocolo Platinum: Persistencia extrema (30 días)
+                        const extendedOptions = { 
+                            ...options, 
+                            maxAge: 60 * 60 * 24 * 30,
+                            // en localhost http, desactivar Secure para que el browser acepte las cookies
+                            ...(isLocalhost ? { secure: false, sameSite: 'lax' as const } : {})
+                        }
+                        response.cookies.set(name, value, extendedOptions)
                     })
                     resolveSetAll()
                 },
