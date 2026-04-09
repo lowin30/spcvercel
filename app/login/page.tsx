@@ -39,8 +39,12 @@ function LoginContent() {
     setLoadingGoogle(true)
     
     try {
-      // url limpia sin parametros basura que rompan el parseo del code
-      const redirectUrl = `${window.location.origin}/auth/callback`
+      // 🛡️ SINCRONIZACIÓN PLATINUM: Redirección Dinámica Segura
+      const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+      const redirectUrl = isProduction 
+        ? 'https://spcvercel.vercel.app/auth/callback' 
+        : `${window.location.origin}/auth/callback`
+
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
