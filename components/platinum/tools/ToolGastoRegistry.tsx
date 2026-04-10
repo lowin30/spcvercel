@@ -183,8 +183,13 @@ export function ToolGastoRegistry({
 
         setLoading(true)
         try {
+            // Extracción del ID real (eliminando prefijos G- o J- de la vista platinum v3.0)
+            const realId = editData?.event_id?.toString().includes('-') 
+                ? parseInt(editData.event_id.toString().split('-')[1]) 
+                : editData?.event_id;
+
             const gastoData = {
-                id: editData?.event_id,
+                id: realId,
                 id_tarea: taskToUse,
                 monto: parseFloat(formData.monto),
                 descripcion: formData.descripcion,
@@ -328,7 +333,7 @@ export function ToolGastoRegistry({
                                     placeholder="0.00"
                                 />
                             </div>
-                            <div className="space-y-1.5">
+                             <div className="space-y-1.5">
                                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fecha</Label>
                                 <Input
                                     type="date"
@@ -336,6 +341,24 @@ export function ToolGastoRegistry({
                                     onChange={(e) => setFormData({ ...formData, fecha_gasto: e.target.value })}
                                     className="h-12 rounded-2xl border-border/50 bg-background/50 font-bold"
                                 />
+                            </div>
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-violet-600/70 ml-1">Tipo de Gasto</Label>
+                                <Select
+                                    value={formData.tipo_gasto}
+                                    onValueChange={(val: any) => setFormData({ ...formData, tipo_gasto: val })}
+                                >
+                                    <SelectTrigger className="h-12 rounded-2xl border-violet-500/20 bg-violet-500/5 font-bold">
+                                        <SelectValue placeholder="Tipo de gasto..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-2xl border-border shadow-xl">
+                                        <SelectItem value="material" className="font-medium p-3">Material</SelectItem>
+                                        <SelectItem value="herramienta" className="font-medium p-3">Herramienta</SelectItem>
+                                        <SelectItem value="transporte" className="font-medium p-3">Transporte</SelectItem>
+                                        <SelectItem value="mano_de_obra" className="font-medium p-3">Mano de Obra</SelectItem>
+                                        <SelectItem value="otro" className="font-medium p-3">Otro</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 

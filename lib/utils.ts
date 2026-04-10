@@ -119,7 +119,7 @@ export function sanitizeText(text: string | null | undefined): string {
     .replace(/__n_placeholder__/g, 'ñ')
     .replace(/__N_placeholder__/g, 'Ñ');
 
-  // 3. Final Cleanup (Whitelist: Alphanumeric, spaces, dots, commas, hyphens)
-  // We allow [a-zA-Z0-9 ñÑ .,-] 
-  return result.replace(/[^a-zA-Z0-9ñÑ\s.,-]/g, "").trim();
+  // 3. Final Cleanup (Whitelist: Alphanumeric, spaces, dots, commas, hyphens, underscores)
+  // We allow [a-zA-Z0-9 ñÑ .,-_] 
+  return result.replace(/[^a-zA-Z0-9ñÑ\s.,\-_]/g, "").trim();
 }
