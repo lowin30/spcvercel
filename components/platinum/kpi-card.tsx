@@ -11,6 +11,7 @@ interface KPICardProps {
     bg: string
     description?: string
     className?: string
+    suppressHydrationWarning?: boolean
 }
 
 export function KPICard({
@@ -20,7 +21,8 @@ export function KPICard({
     color,
     bg,
     description,
-    className
+    className,
+    suppressHydrationWarning
 }: KPICardProps) {
     return (
         <div className={cn(
@@ -35,7 +37,7 @@ export function KPICard({
                     {label}
                 </p>
                 <div className="flex items-baseline gap-1">
-                    <p className="text-lg sm:text-2xl font-black tracking-tight truncate">
+                    <p className="text-lg sm:text-2xl font-black tracking-tight truncate" suppressHydrationWarning={suppressHydrationWarning}>
                         {value}
                     </p>
                     {description && (

@@ -86,7 +86,7 @@ DROP VIEW IF EXISTS vista_actividad_maestra_god_mode;
 
 CREATE VIEW vista_actividad_maestra_god_mode AS
 WITH actividad_unificada AS (
-    SELECT partes_de_trabajo.id AS event_id,
+    SELECT ('J-'::text || (partes_de_trabajo.id)::text) AS event_id,
         partes_de_trabajo.fecha,
         partes_de_trabajo.id_trabajador AS id_usuario,
         partes_de_trabajo.id_tarea,
@@ -96,10 +96,12 @@ WITH actividad_unificada AS (
         partes_de_trabajo.liquidado,
         partes_de_trabajo.id_liquidacion,
         partes_de_trabajo.comentarios AS descripcion,
-        partes_de_trabajo.created_at
+        partes_de_trabajo.created_at,
+        partes_de_trabajo.estado,
+        NULL::text AS comprobante_url
        FROM partes_de_trabajo
     UNION ALL
-     SELECT (gastos_tarea.id)::bigint AS event_id,
+     SELECT ('G-'::text || (gastos_tarea.id)::text) AS event_id,
         gastos_tarea.fecha_gasto AS fecha,
         gastos_tarea.id_usuario,
         gastos_tarea.id_tarea,
@@ -109,7 +111,9 @@ WITH actividad_unificada AS (
         gastos_tarea.liquidado,
         gastos_tarea.id_liquidacion,
         gastos_tarea.descripcion,
-        gastos_tarea.created_at
+        gastos_tarea.created_at,
+        'confirmado'::text AS estado,
+        gastos_tarea.comprobante_url
        FROM gastos_tarea
     )
  SELECT a.event_id,

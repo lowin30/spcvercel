@@ -48,7 +48,8 @@ interface DatosTarea {
  * @param tareaId ID de la tarea para generar el PDF
  * @returns Objeto con el blob del PDF, nombre de archivo y monto total
  */
-export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?: number }): Promise<{ blob: Blob, filename: string, montoTotal: number }> {
+export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?: number, mode?: 'materials' | 'full' }): Promise<{ blob: Blob, filename: string, montoTotal: number }> {
+    const reportMode = opts?.mode || (opts?.facturaId ? 'full' : 'materials');
   // Obtener cliente Supabase
   const supabase = createClient()
   if (!supabase) {
@@ -66,14 +67,17 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
     throw new Error(`Error al obtener datos de la tarea: ${errorTarea?.message || 'No se encontró la tarea'}`)
   }
 
-  // Obtener SOLO gastos de MATERIALES con imágenes (procesadas o originales)
-  const { data: gastos, error: errorGastos } = await supabase
+  // Obtener gastos según el modo solicitado (transparencia total platinum v3.0)
+  let query = supabase
     .from('gastos_tarea')
     .select('*')
-    .eq('id_tarea', tareaId)
-    .eq('tipo_gasto', 'material') // ✅ SOLO MATERIALES
-    .or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null') // ✅ SOLO CON FOTOS
-    .order('fecha_gasto', { ascending: true })
+    .eq('id_tarea', tareaId);
+
+  if (reportMode === 'materials') {
+    query = query.eq('tipo_gasto', 'material').or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null');
+  }
+
+  const { data: gastos, error: errorGastos } = await query.order('fecha_gasto', { ascending: true });
 
   if (errorGastos || !gastos) {
     throw new Error(`Error al obtener gastos de la tarea: ${errorGastos?.message || 'No se encontraron gastos'}`)
@@ -106,12 +110,14 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
     }
   }
 
-  // Solo incluir reales con imagen (por si alguna fila no tiene URL)
-  const realesConImagen = (gastosReales as any[]).filter((g) => g?.imagen_procesada_url || g?.comprobante_url)
-  const gastosFinales = [...realesConImagen, ...extras]
+  // Filtrado final basado en lógica de negocio (resiliencia platinum)
+  let gastosFinales = [...(gastos || []), ...extras];
 
+  // Si estamos en modo factura/materiales estricto (antiguo), tal vez filtrar los que NO tienen imagen?
+  // SEGUN AUDITORIA: no queremos que estalle si no hay fotos, solo informarlo.
+  
   if (gastosFinales.length === 0) {
-    throw new Error('No hay gastos para generar el PDF')
+    throw new Error('No hay gastos registrados para generar este reporte');
   }
 
   // Crear instancia de jsPDF
@@ -141,13 +147,13 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(22)
     doc.setTextColor(40, 40, 40)
-    const tituloInforme = opts?.facturaId ? 'Informe de Gastos' : 'Informe de Gastos - MATERIALES'
+    const tituloInforme = reportMode === 'full' ? 'Historial Detallado de Gastos' : 'Informe de Gastos - MATERIALES'
     doc.text(tituloInforme, doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' })
-
+ 
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(14)
-    doc.setTextColor(80, 80, 80)
-    doc.text(`Fecha: ${fechaActual}`, doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' })
+    doc.setFontSize(12) // Reducido levemente para elegancia
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Protocolo Platinum v3.0 | ${fechaActual}`, doc.internal.pageSize.getWidth() / 2, 35, { align: 'center' })
 
     doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
@@ -173,18 +179,42 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
       }
       doc.text(`Fecha de la tarea: ${format(fechaTarea, 'dd/MM/yyyy', { locale: es })}`, margenIzquierdo, 80)
     }
-    doc.text(`Total gastos: $${montoTotal.toLocaleString('es-CL')}`, margenIzquierdo, 90)
-    doc.text(`Número de comprobantes: ${gastosFinales.length}`, margenIzquierdo, 100)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(16, 185, 129) // Color esmeralda para el total (estética positiva)
+    doc.text(`Neto Real Transferido: $${montoTotal.toLocaleString('es-AR')}`, margenIzquierdo, 90)
+    
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    doc.text(`Comprobantes anexados: ${gastosFinales.length}`, margenIzquierdo, 100)
 
-    // Agregar página nueva para cada gasto
+    // --- SUB-TABLA GRIS (ZINC-50) - LEY DE ELITE 1.2 ---
+    if (montoTotal > 0 && reportMode === 'full') {
+        doc.setFillColor(244, 244, 245) // zinc-50 approx
+        doc.rect(margenIzquierdo - 2, 110, 170, 8 + (gastosFinales.length * 6), 'F')
+        
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.setTextColor(82, 82, 91) // zinc-600
+        doc.text('FECHA', margenIzquierdo, 115)
+        doc.text('DESCRIPCION', margenIzquierdo + 30, 115)
+        doc.text('MONTO', margenIzquierdo + 140, 115)
+        
+        doc.setFont('helvetica', 'normal')
+        gastosFinales.forEach((g, idx) => {
+            const yPos = 121 + (idx * 6)
+            const fechaG = g.fecha_gasto || g.fecha || 's/f'
+            doc.text(fechaG.split('T')[0], margenIzquierdo, yPos)
+            doc.text((g.descripcion || 'sin descripcion').substring(0, 45), margenIzquierdo + 30, yPos)
+            doc.text(`$${Number(g.monto).toLocaleString('es-AR')}`, margenIzquierdo + 140, yPos)
+        })
+    }
+
+    // Agregar página nueva para cada gasto (Siempre en página nueva para evitar solapamiento con tabla Platinum)
     for (let i = 0; i < gastosFinales.length; i++) {
+      doc.addPage()
       const gasto = gastosFinales[i]
-      if (i > 0) { // No agregar nueva página después de la portada
-        doc.addPage()
-      } else {
-        // Espacio en blanco después de la portada si solo hay una página
-        doc.text('', margenIzquierdo, 120)
-      }
 
       // Variables para usar en toda la función
       let imageHeight = doc.internal.pageSize.height * 0.7 // 70% de la altura por defecto
@@ -322,9 +352,9 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
       `Tarea${tareaId}`
     ).replace(/[^a-zA-Z0-9\s]/g, '_').trim()
 
-    // Formato del total: $XXX.XXX (sin decimales)
-    const totalFormateado = montoTotal.toLocaleString('es-CL').replace(/\./g, '')
-    const suffix = opts?.facturaId ? 'Gastos' : 'Materiales'
+    // Formato del total: $XXX.XXX (sin decimales argentinizados)
+    const totalFormateado = montoTotal.toLocaleString('es-AR').replace(/\./g, '')
+    const suffix = reportMode === 'full' ? 'Detallado' : 'Materiales'
     const filename = `${nombreTarea}_${suffix}_$${totalFormateado}.pdf`
 
     return {

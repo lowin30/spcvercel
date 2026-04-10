@@ -316,8 +316,8 @@ export async function getTareaDetail(id: string) {
             supabaseAdmin.from("departamentos").select("id, codigo, propietario, edificio_id"),
             supabaseAdmin.from("contactos").select("id, numero:telefono, nombre_contacto:nombreReal, departamento_id, id_padre"),
 
-            // Gastos directos
-            supabaseAdmin.from("gastos_tarea").select("*, usuarios(email, color_perfil)").eq("id_tarea", tareaId).or('liquidado.is.null,liquidado.eq.false,and(liquidado.eq.true,tipo_gasto.eq.material)').order("created_at", { ascending: false }),
+            // Gastos directos - REFACTORIZADO para protocolo platinum v3.0 (transparencia total sin filtros de liquidacion)
+            supabaseAdmin.from("gastos_tarea").select("*, usuarios(id, email, nombre, rol, color_perfil)").eq("id_tarea", tareaId).order("created_at", { ascending: false }),
 
             // Multi-fechas: Proyectados de la agenda (Visitas)
             supabaseAdmin.from("partes_de_trabajo").select("*, usuarios!id_trabajador(id, email, nombre, color_perfil)").eq("id_tarea", tareaId).eq("estado", "proyectado").order("fecha", { ascending: true })
@@ -402,8 +402,37 @@ export async function getTareaDetail(id: string) {
             };
         }
 
-        // 8. CÁLCULO DE TOTALES FINANCIEROS (Modo Dios)
-        const total_gastos_reales = (gastosDirectRes.data || []).reduce((acc: number, g: any) => acc + (Number(g.monto) || 0), 0);
+        // 8. CÁLCULO DE TOTALES FINANCIEROS (Modo Dios) - Usando datos sin filtrar para transparencia total
+        const gastosMapeados = (gastosDirectRes.data || []).map((g: any) => ({
+            event_id: g.id,
+            fecha: g.fecha_gasto || g.created_at?.split('T')[0],
+            id_usuario: g.id_usuario,
+            id_tarea: g.id_tarea,
+            tipo_evento: 'GASTO' as const,
+            detalle_tipo: g.tipo_gasto,
+            monto: Number(g.monto),
+            liquidado: !!g.liquidado,
+            id_liquidacion: g.id_liquidacion,
+            descripcion: g.descripcion,
+            created_at: g.created_at,
+            comprobante_url: g.comprobante_url,
+            imagen_procesada_url: g.imagen_procesada_url,
+            email_usuario: g.usuarios?.email || '',
+            nombre_usuario: g.usuarios?.nombre || '',
+            rol_usuario: g.usuarios?.rol || '',
+            titulo_tarea: tareaData.titulo,
+            codigo_tarea: tareaData.code || tareaData.codigo,
+            nombre_edificio: tareaData.nombre_edificio,
+            direccion_edificio: tareaData.direccion_edificio,
+            id_supervisor: supervisorData?.usuarios?.id || null,
+            ui_metadata: {
+                color_perfil: g.usuarios?.color_perfil || '#888888',
+                icon: g.tipo_gasto === 'material' ? 'package' : 'receipt',
+                status_color: g.liquidado ? '#10b981' : '#f59e0b'
+            }
+        }));
+
+        const total_gastos_reales = gastosMapeados.reduce((acc: number, g: any) => acc + (Number(g.monto) || 0), 0);
 
         return {
             tarea: tareaLegacy,
@@ -425,7 +454,7 @@ export async function getTareaDetail(id: string) {
             presupuestoBase: pbData,
             presupuestoFinal: pfFinal,
             proyectados: (tareaData as any).proyectados_json || partesRes.data || [],
-            gastos: gastosDirectRes.data || [],
+            gastos: gastosMapeados,
             total_gastos: total_gastos_reales,
             estados: estadosRes.data || [],
             departamentosDisponibles: departamentosEdificio,
