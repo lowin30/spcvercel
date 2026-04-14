@@ -6,12 +6,17 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { CandidateTaskDTO } from '@/app/dashboard/liquidaciones/nueva/loader'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Info, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DesgloseGastosReales } from '@/components/desglose-gastos-reales'
-import { CandidateTaskDTO } from '@/app/dashboard/liquidaciones/nueva/loader'
 
 interface LiquidacionesNuevaFormProps {
     initialCandidates: CandidateTaskDTO[]
@@ -59,6 +64,11 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
     const [filtroSupervisor, setFiltroSupervisor] = useState(true) // Solo con supervisor por defecto
     const [supervisorEmail, setSupervisorEmail] = useState<string | '_todos_' | ''>('_todos_')
     const [busquedaTexto, setBusquedaTexto] = useState("")
+    
+    // --- NUEVOS ESTADOS PARA MODO MASIVO (v92.10) ---
+    const [isBulkMode, setIsBulkMode] = useState(false)
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+    const [processingBulk, setProcessingBulk] = useState(false)
 
     // Aplicar filtros visuales localmente
     useEffect(() => {
@@ -253,6 +263,102 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
         }
     }
 
+    // --- NUEVA FUNCIÓN PARA LIQUIDACIÓN MASIVA (v92.10) ---
+    const handleCreateBulkLiquidaciones = async () => {
+        if (selectedIds.size === 0) {
+            toast.error('Selecciona al menos una tarea para liquidar.')
+            return
+        }
+
+        setProcessingBulk(true)
+        let successes = 0
+        let errors = 0
+
+        const { createLiquidacionAction } = await import('@/app/dashboard/liquidaciones/actions')
+        const adminId = currentUserId
+
+        // Procesamiento secuencial para evitar race conditions y sobrecarga
+        for (const id of Array.from(selectedIds)) {
+            const p = initialCandidates.find(item => item.id === id)
+            if (!p || !p.id_supervisor) {
+                errors++
+                continue
+            }
+
+            try {
+                // 1. Obtener gastos reales para esta tarea específica
+                const { data: grData, error: grError } = await supabase.rpc('calcular_gastos_reales_de_tarea', {
+                    p_id_tarea: p.id_tarea
+                })
+
+                if (grError) throw grError
+                const gr = grData || 0
+
+                // 2. Cálculos (Misma lógica que individual)
+                const totalBaseInt = Math.round(p.total ?? 0)
+                const gastosRealesInt = Math.round(gr)
+                const propietario = !!p.es_propietario
+                
+                const gananciaNetaInt = totalBaseInt > 0 ? (totalBaseInt - gastosRealesInt) : 0
+                let gananciaSupervisorInt = Math.round(gananciaNetaInt * 0.5)
+                let gananciaAdminInt = gananciaNetaInt - gananciaSupervisorInt
+                
+                if (propietario) {
+                    gananciaSupervisorInt = 0
+                    gananciaAdminInt = gananciaNetaInt
+                }
+
+                const totalSupervisorInsert = totalBaseInt > 0
+                    ? (propietario ? 0 : (gananciaSupervisorInt + gastosRealesInt))
+                    : (propietario ? 0 : gastosRealesInt)
+
+                const haySobrecostoInsert = (!propietario && totalBaseInt > 0 && gananciaNetaInt < 0)
+                const montoSobrecostoInsert = haySobrecostoInsert ? Math.abs(gananciaNetaInt) : 0
+                
+                const timestamp = new Date().getTime()
+                const randomSuffix = Math.floor(Math.random() * 1000)
+                const code = `LIQ-B-${timestamp}-${randomSuffix}`
+
+                // 3. Preparar FormData
+                const formData = new FormData()
+                formData.append('id_presupuesto_base', p.id.toString())
+                formData.append('id_tarea', p.id_tarea.toString())
+                formData.append('id_usuario_admin', adminId)
+                formData.append('id_usuario_supervisor', p.id_supervisor)
+                formData.append('gastos_reales', gastosRealesInt.toString())
+                formData.append('ganancia_neta', gananciaNetaInt.toString())
+                formData.append('ganancia_supervisor', gananciaSupervisorInt.toString())
+                formData.append('ganancia_admin', gananciaAdminInt.toString())
+                formData.append('total_supervisor', totalSupervisorInsert.toString())
+                formData.append('code', code)
+                formData.append('total_base', totalBaseInt.toString())
+                formData.append('ajuste_admin', "0") // En masa no permitimos ajuste individual por ahora
+                formData.append('sobrecosto', haySobrecostoInsert.toString())
+                formData.append('monto_sobrecosto', montoSobrecostoInsert.toString())
+                formData.append('sobrecosto_supervisor', (haySobrecostoInsert ? Math.abs(Math.round(gananciaNetaInt * 0.5)) : 0).toString())
+                formData.append('sobrecosto_admin', (haySobrecostoInsert ? Math.abs(gananciaNetaInt - Math.round(gananciaNetaInt * 0.5)) : 0).toString())
+
+                const result = await createLiquidacionAction(null, formData)
+                if (result?.success) successes++
+                else errors++
+
+            } catch (err) {
+                console.error(`Error liquidando tarea ${id}:`, err)
+                errors++
+            }
+        }
+
+        setProcessingBulk(false)
+        if (successes > 0) {
+            toast.success(`${successes} liquidaciones creadas con éxito.`)
+            setSelectedIds(new Set())
+            router.refresh()
+        }
+        if (errors > 0) {
+            toast.error(`${errors} tareas fallaron en el proceso masivo.`)
+        }
+    }
+
     return (
         <div className="container mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">Crear Nueva Liquidación de Supervisor</h1>
@@ -299,11 +405,91 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
                     </Card>
 
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0">
                             <CardTitle>1. Seleccionar Tarea a Liquidar</CardTitle>
+                            <div className="flex items-center space-x-2">
+                                <Label htmlFor="bulk-mode" className="text-xs cursor-pointer">Modo Masivo</Label>
+                                <Switch 
+                                    id="bulk-mode" 
+                                    checked={isBulkMode} 
+                                    onCheckedChange={(checked) => {
+                                        setIsBulkMode(checked)
+                                        setSelectedIds(new Set())
+                                    }}
+                                />
+                            </div>
                         </CardHeader>
                         <CardContent>
-                            <Label htmlFor="presupuesto-select">Tarea (Presupuesto Base)</Label>
+                            {isBulkMode ? (
+                                <div className="space-y-4">
+                                    {(supervisorEmail === '_todos_' || !supervisorEmail) ? (
+                                        <Alert>
+                                            <Info className="h-4 w-4" />
+                                            <AlertTitle>Filtro requerido</AlertTitle>
+                                            <AlertDescription>
+                                                Para usar el modo masivo, selecciona primero un supervisor específico.
+                                            </AlertDescription>
+                                        </Alert>
+                                    ) : (
+                                        <div className="border rounded-md">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="bg-zinc-50 dark:bg-zinc-900/50">
+                                                        <TableHead className="w-[40px]">
+                                                            <Checkbox 
+                                                                checked={selectedIds.size === presupuestos.length && presupuestos.length > 0}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setSelectedIds(new Set(presupuestos.map(p => p.id)))
+                                                                    } else {
+                                                                        setSelectedIds(new Set())
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </TableHead>
+                                                        <TableHead>Tarea</TableHead>
+                                                        <TableHead className="text-right">Monto Base</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {presupuestos.length === 0 ? (
+                                                        <TableRow>
+                                                            <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                                                                No hay tareas para liquidar con este filtro.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ) : (
+                                                        presupuestos.map((p) => (
+                                                            <TableRow key={p.id}>
+                                                                <TableCell>
+                                                                    <Checkbox 
+                                                                        checked={selectedIds.has(p.id)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            const next = new Set(selectedIds)
+                                                                            if (checked) next.add(p.id)
+                                                                            else next.delete(p.id)
+                                                                            setSelectedIds(next)
+                                                                        }}
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell className="font-medium">
+                                                                    {p.titulo_tarea}
+                                                                    <div className="text-[10px] text-muted-foreground">{p.code}</div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right font-mono text-xs">
+                                                                    ${p.total?.toLocaleString('es-AR')}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Label htmlFor="presupuesto-select">Tarea (Presupuesto Base)</Label>
                             <Select
                                 value={selectedPresupuestoId}
                                 onValueChange={setSelectedPresupuestoId}
@@ -332,16 +518,35 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
                                     ))}
                                 </SelectContent>
                             </Select>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
-                    <Button
-                        onClick={handleCreateLiquidacion}
-                        disabled={!calculos || isSubmitting}
-                        className="w-full"
-                    >
-                        {isSubmitting ? 'Creando Liquidación...' : 'Crear Liquidación'}
-                    </Button>
+                    {!isBulkMode ? (
+                        <Button
+                            onClick={handleCreateLiquidacion}
+                            disabled={!calculos || isSubmitting}
+                            className="w-full"
+                        >
+                            {isSubmitting ? 'Creando Liquidación...' : 'Crear Liquidación'}
+                        </Button>
+                    ) : (
+                        <Button
+                            onClick={handleCreateBulkLiquidaciones}
+                            disabled={selectedIds.size === 0 || processingBulk}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                        >
+                            {processingBulk ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Procesando {selectedIds.size} tareas...
+                                </>
+                            ) : (
+                                `Liquidar en Lote (${selectedIds.size})`
+                            )}
+                        </Button>
+                    )}
                 </div>
 
                 {/* Columna de Resumen de Cálculo */}

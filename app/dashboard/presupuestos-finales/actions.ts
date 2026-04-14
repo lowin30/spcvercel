@@ -107,6 +107,9 @@ export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
       .from('presupuestos_finales')
       .update({
         id_estado: nuevoEstado,
+        // blindaje quirúrgico: si está facturado, debe estar aprobado lógicamente
+        aprobado: factura ? true : undefined,
+        fecha_aprobacion: factura ? new Date().toISOString() : undefined,
         updated_at: new Date().toISOString()
       })
       .eq('id', presupuestoId)
@@ -114,9 +117,19 @@ export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
     if (error) throw error
 
     // 2. propagar estado a la tarea asociada (spc protocol v85.1)
-    const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea').eq('id', presupuestoId).single()
+    const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea, id_presupuesto_base').eq('id', presupuestoId).single()
     if (pf?.id_tarea) {
       await supabase.from('tareas').update({ id_estado_nuevo: 4 }).eq('id', pf.id_tarea) // estado 4 = enviado
+      
+      // herencia quirúrgica: si facturamos, aprobamos el base para habilitar liquidación
+      if (factura && pf.id_presupuesto_base) {
+        await supabase.from('presupuestos_base').update({ 
+          aprobado: true,
+          fecha_aprobacion: new Date().toISOString()
+        }).eq('id', pf.id_presupuesto_base)
+        console.log(`[SYNC-QUIRURGICO] PB ${pf.id_presupuesto_base} aprobado automáticamente por PF ${presupuestoId} facturado`)
+      }
+
       revalidatePath('/dashboard/tareas')
     }
 

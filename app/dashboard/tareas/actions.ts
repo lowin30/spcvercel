@@ -891,7 +891,7 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
           .single()
 
         if (pfExt?.id_presupuesto_base) {
-          await supabaseAdmin
+          const { error: pbError } = await supabaseAdmin
             .from("presupuestos_base")
             .update({ 
               aprobado: true, 
@@ -899,10 +899,14 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
               updated_at: now
             })
             .eq("id", pfExt.id_presupuesto_base)
-          console.log(`[SYNC] PB ${pfExt.id_presupuesto_base} aprobado por herencia de PF ${id}`)
+          
+          if (pbError) throw pbError;
+          console.log(`[SYNC-PLATINUM] PB ${pfExt.id_presupuesto_base} aprobado exitosamente por herencia de PF ${id}`)
+        } else {
+          console.log(`[SYNC-INFO] PF ${id} no tiene PB asociado para heredar aprobacion.`)
         }
       } catch (syncError) {
-        console.error(`[SYNC] Error en herencia lógica PF->PB:`, syncError)
+        console.error(`[SYNC-ERROR] Fallo critico en herencia logica PF->PB para PF ${id}:`, syncError)
       }
       // ---------------------------------------------------------
 
