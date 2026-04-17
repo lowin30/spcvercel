@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
         "monto": number,       // El total final a pagar. Prioridad al número destacado.
         "descripcion": string, // Nombre del proveedor o resumen breve.
         "fecha": string,       // Formato YYYY-MM-DD. Si no hay año, asume actual.
-        "tipo_gasto": string   // "material", "mano_de_obra" u "otro".
+        "tipo_gasto": "material"  // Siempre material (Requerimiento SPC v3.0).
       }
 
       Reglas:

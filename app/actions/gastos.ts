@@ -4,20 +4,8 @@ import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import Groq from "groq-sdk"
 import crypto from "crypto"
 import { sanitizeText } from "@/lib/utils"
-import { createClient } from "@supabase/supabase-js"
 import { revalidatePath } from "next/cache"
-
-// Cliente administrativo para bypass de RLS en inserciones críticas
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-)
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Credenciales Cloudinary (Server-Side)
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -108,9 +96,9 @@ export async function analizarGastoAction(base64Image: string) {
         "monto": number,
         "descripcion": string,
         "fecha": string, (formato YYYY-MM-DD)
-        "tipo_gasto": string ("material", "mano_de_obra", "otro")
+        "tipo_gasto": "material" // Siempre material (Requerimiento SPC v3.0)
       }
-      REGLAS CRITICAS: descripcion y tipo_gasto en MINUSCULAS y SIN ACENTOS. Preserva 'ñ'.
+      REGLAS CRITICAS: descripcion en MINUSCULAS y SIN ACENTOS. Preserva 'ñ'. solo responde con JSON.
     `
 
         const chatCompletion = await groq.chat.completions.create({
@@ -135,7 +123,7 @@ export async function analizarGastoAction(base64Image: string) {
 
         // 4. Limpieza Post-IA (Doble Escudo Gold Standard)
         if (datos.descripcion) datos.descripcion = cleanGastoText(datos.descripcion)
-        if (datos.tipo_gasto) datos.tipo_gasto = cleanGastoText(datos.tipo_gasto)
+        datos.tipo_gasto = "material" // Fuerza bruta platinum: siempre material.
 
         // Validación de Fecha Robusta
         const parsedDate = new Date(datos.fecha)
@@ -278,20 +266,25 @@ export async function registrarGastoAction(gastoData: any) {
  * Server Action: eliminarGastoAction
  * Borra un gasto de la base de datos y su comprobante en Cloudinary (Platinum v113.0).
  */
-export async function eliminarGastoAction(gastoId: number) {
+export async function eliminarGastoAction(gastoId: any) {
+    const cleanId = String(gastoId).replace('G-', '');
+    console.log(`[audit] intentando eliminar gasto: ${gastoId} (as ID: ${cleanId})`);
     try {
         const user = await validateSessionAndGetUser()
         if (!user) throw new Error("sesion no valida")
         const userId = user.id
 
-        // 1. Obtener datos del gasto antes de borrar
+        // 1. Busqueda Administrativa (Admin Bypass RLS)
         const { data: gasto, error: errorFetch } = await supabaseAdmin
             .from('gastos_tarea')
             .select('*')
-            .eq('id', gastoId)
+            .eq('id', Number(cleanId))
             .single()
 
-        if (errorFetch || !gasto) throw new Error("Gasto no encontrado")
+        if (errorFetch || !gasto) {
+            console.error(`[error] gasto no encontrado o error en fetch:`, errorFetch);
+            throw new Error("gasto no encontrado");
+        }
 
         // 2. Validaciones de Seguridad SPC
         if (user.rol !== 'admin') {
@@ -299,7 +292,7 @@ export async function eliminarGastoAction(gastoId: number) {
                 throw new Error("acceso denegado: este gasto no te pertenece")
             }
             if (gasto.liquidado) {
-                throw new Error("acceso denegado: el gasto ya esta liquidado")
+                throw new Error("acceso denegado: el gasto ya esta liquidado");
             }
         }
 
@@ -320,7 +313,7 @@ export async function eliminarGastoAction(gastoId: number) {
         const { error: errorDelete } = await supabaseAdmin
             .from('gastos_tarea')
             .delete()
-            .eq('id', gastoId)
+            .eq('id', Number(cleanId))
 
         if (errorDelete) throw errorDelete
 
