@@ -95,8 +95,24 @@ export async function getTareasData(filters?: TareasFilterParams) {
                     query = query.eq('id_estado_nuevo', estadoId)
                 }
             }
-            if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
-                const { data: tSup } = await supabase
+            // 🔐 SEGURIDAD: Si es supervisor, forzamos el filtrado por sus tareas asignadas
+            // Independientemente de si viene el filtro en la URL o no.
+            if (rol === 'supervisor') {
+                const targetSupervisorId = (filters.id_supervisor && filters.id_supervisor !== '_todos_') 
+                    ? filters.id_supervisor 
+                    : userId;
+                
+                const { data: tSup } = await supabaseAdmin
+                    .from('supervisores_tareas')
+                    .select('id_tarea')
+                    .eq('id_supervisor', targetSupervisorId)
+                
+                const ids = tSup?.map(t => t.id_tarea) || []
+                if (ids.length > 0) query = query.in('id', ids)
+                else return []
+            } else if (filters.id_supervisor && filters.id_supervisor !== '_todos_') {
+                // Admin filtrando por un supervisor específico
+                const { data: tSup } = await supabaseAdmin
                     .from('supervisores_tareas')
                     .select('id_tarea')
                     .eq('id_supervisor', filters.id_supervisor)
@@ -111,6 +127,17 @@ export async function getTareasData(filters?: TareasFilterParams) {
         } else {
             // Default view: activas
             query = query.eq('finalizada', false).not('id_estado_nuevo', 'in', '(4,7,9,11)');
+            
+            // 🔐 SEGURIDAD: Incluso sin filtros, el supervisor solo ve lo suyo
+            if (rol === 'supervisor') {
+                const { data: tSup } = await supabaseAdmin
+                    .from('supervisores_tareas')
+                    .select('id_tarea')
+                    .eq('id_supervisor', userId)
+                const ids = tSup?.map(t => t.id_tarea) || []
+                if (ids.length > 0) query = query.in('id', ids)
+                else return []
+            }
         }
 
         // 🛡️ Envolver en el Escudo RLS (Captura silenciosa 42501)
@@ -297,7 +324,22 @@ export async function getTareaDetail(id: string) {
         // Los filtros de estado (Activas/Finalizadas) viven en el JS (tabs), no en la vista.
         let primaryView = "vista_tareas_completa";
         if (rol === 'admin') primaryView = "vista_tareas_admin";
-        else if (rol === 'supervisor') primaryView = "vista_tareas_supervisor";
+        else if (rol === 'supervisor') {
+            primaryView = "vista_tareas_supervisor";
+            
+            // 🛡️ GUARDIA DE SEGURIDAD PLATINUM: Verificar asignación real
+            const { data: asignacion } = await supabaseAdmin
+                .from('supervisores_tareas')
+                .select('id_tarea')
+                .eq('id_supervisor', usuario.id)
+                .eq('id_tarea', tareaId)
+                .maybeSingle();
+            
+            if (!asignacion) {
+                console.warn(`🛡️ Intento de acceso no autorizado: Supervisor ${usuario.email} -> Tarea ${tareaId}`);
+                throw new Error("No tienes permiso para ver esta tarea");
+            }
+        }
 
         // 2. CARGA ATÓMICA
         const [tareaRes, comentariosRes, estadosRes, supervisoresDispRes, workersDispRes, depsDispRes, contactosRes, gastosDirectRes, partesRes] = await Promise.all([
