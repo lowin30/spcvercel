@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server'
+import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 
 export interface LiquidacionDTO {
     id: number
@@ -142,14 +143,27 @@ export async function getLiquidaciones(
     return []
 }
 
-export async function getCuentaCorriente(email?: string): Promise<CuentaCorrienteDTO | null> {
+export async function getCuentaCorriente(emailFromUrl?: string): Promise<CuentaCorrienteDTO | null> {
     const supabase = await createServerClient()
+    
+    // 🔐 SEGURIDAD: Obtener el contexto real de sesión
+    const user = await validateSessionAndGetUser()
+    if (!user) return null
+
+    const { rol, email: userEmail } = user
+    let targetEmail = emailFromUrl
+
+    // 🛡️ REGLA PLATINUM: El supervisor solo puede ver su propia información
+    if (rol === 'supervisor') {
+        targetEmail = userEmail
+    }
+
     let query = supabase
         .from('vista_cuenta_corriente_supervisores')
         .select('*')
     
-    if (email && email !== '_todos_') {
-        query = query.eq('email_supervisor', email)
+    if (targetEmail && targetEmail !== '_todos_') {
+        query = query.eq('email_supervisor', targetEmail)
     }
 
     const { data, error } = await query
@@ -159,13 +173,13 @@ export async function getCuentaCorriente(email?: string): Promise<CuentaCorrient
         return null
     }
 
-    // Si pedimos uno especifico, devolvemos ese. Si es global, devolvemos los agregados (para el admin).
-    if (email && email !== '_todos_') {
+    // Si hay un email objetivo (sea por URL para admin o forzado para supervisor), devolvemos ese registro.
+    if (targetEmail && targetEmail !== '_todos_') {
         return (data && data.length > 0) ? data[0] as CuentaCorrienteDTO : null
     }
 
-    // Caso Admin: Suma de todos los supervisores visibles
-    if (!data || data.length === 0) return null
+    // Caso Admin: Suma de todos los supervisores visibles (Solo si no hay email objetivo)
+    if (rol !== 'admin' || !data || data.length === 0) return null
 
     const total = data.reduce((acc, curr) => acc + (curr.total_adelantos_pendientes || 0), 0)
     const items = data.flatMap(curr => curr.detalle_adelantos_json || [])
