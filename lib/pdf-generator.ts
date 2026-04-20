@@ -237,7 +237,7 @@ export async function generarPresupuestoPDF(datos: DatosPresupuesto): Promise<Bl
  * @param tareaId ID de la tarea para la que se generará el PDF de gastos
  * @returns Blob con el PDF generado
  */
-export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blob, filename: string}> {
+export async function generarGastosTareaPDF_deprecated(tareaId: number): Promise<{blob: Blob, filename: string}> {
   const supabase = createClient()
   
   // Definir tipos para los gastos
@@ -326,10 +326,8 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     posicionY += 6
   }
 
-  if (tarea.descripcion) {
-    doc.text(`Descripción: ${tarea.descripcion}`, margenIzquierdo, posicionY)
-    posicionY += 6
-  }
+  // Descripción omitida para protocolo platinum v3.0
+
 
   // Fecha de generación del informe
   const fechaActual = format(new Date(), "d MMMM yyyy", { locale: es })
@@ -337,7 +335,7 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
   posicionY += 10
 
   // Tabla de gastos
-  const headers = [["Fecha", "Descripción", "Categoría", "Monto"]]
+  const headers = [["Fecha", "Categoría", "Monto"]]
 
   const body = (gastos as any[]).map((gasto) => {
     const fechaFormateada = format(new Date(gasto.fecha), "d MMM yyyy", { locale: es })
@@ -352,7 +350,6 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
     
     return [
       fechaFormateada,
-      gasto.descripcion,
       nombreCategoria,
       `$${parseFloat(gasto.monto).toLocaleString("es-AR")}`,
     ]
@@ -373,10 +370,9 @@ export async function generarGastosTareaPDF(tareaId: number): Promise<{blob: Blo
       fontStyle: "bold",
     },
     columnStyles: {
-      0: { cellWidth: 25 }, // Fecha
-      1: { cellWidth: 80 }, // Descripción
-      2: { cellWidth: 40 }, // Categoría
-      3: { cellWidth: 25 }, // Monto
+      0: { cellWidth: 40 }, // Fecha
+      1: { cellWidth: 80 }, // Categoría (aumentado para llenar el espacio)
+      2: { cellWidth: 40 }, // Monto
     },
     didDrawPage: (data: any) => {
       // Actualizar la posición Y después de dibujar la tabla

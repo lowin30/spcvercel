@@ -179,8 +179,19 @@ export async function registrarGastoAction(gastoData: any) {
             fecha_gasto: finalDate, // Campo real en la base de datos (v87.2 fix)
             id_usuario: userId,
             liquidado: gastoData.liquidado ?? false,
-            comprobante_url: gastoData.comprobante_url || null,
-            created_at: new Date().toISOString()
+        }
+
+        // Blindaje Platinum v3.0: Solo actualizar URLs de imagen si se proveen nuevos valores
+        if (gastoData.comprobante_url) {
+            normalizedData.comprobante_url = gastoData.comprobante_url
+        }
+        if (gastoData.imagen_procesada_url) {
+            normalizedData.imagen_procesada_url = gastoData.imagen_procesada_url
+        }
+
+        // Solo establecer created_at en inserciones nuevas
+        if (!gastoData.id) {
+            normalizedData.created_at = new Date().toISOString()
         }
 
         // 2. Blindaje de Seguridad Platinum v81.0 (RLS Manual ante Admin Bypass)

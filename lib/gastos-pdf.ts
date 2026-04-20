@@ -162,10 +162,8 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
 
     doc.setFontSize(14)
     doc.setFont('helvetica', 'normal')
-    if (datosTarea.descripcion) {
-      doc.setFontSize(12)
-      doc.text(`Descripción: ${datosTarea.descripcion}`, margenIzquierdo, 70)
-    }
+    // Descripción de tarea eliminada para minimalismo denso platinum v3.0
+
 
     doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
@@ -198,7 +196,6 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
         doc.setFontSize(9)
         doc.setTextColor(82, 82, 91) // zinc-600
         doc.text('FECHA', margenIzquierdo, 115)
-        doc.text('DESCRIPCION', margenIzquierdo + 30, 115)
         doc.text('MONTO', margenIzquierdo + 140, 115)
         
         doc.setFont('helvetica', 'normal')
@@ -206,7 +203,6 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
             const yPos = 121 + (idx * 6)
             const fechaG = g.fecha_gasto || g.fecha || 's/f'
             doc.text(fechaG.split('T')[0], margenIzquierdo, yPos)
-            doc.text((g.descripcion || 'sin descripcion').substring(0, 45), margenIzquierdo + 30, yPos)
             doc.text(`$${Number(g.monto).toLocaleString('es-AR')}`, margenIzquierdo + 140, yPos)
         })
     }
@@ -307,7 +303,7 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
       })
 
       doc.setFont('helvetica', 'bold')
-      doc.text(`Monto: $${montoFormateado}`, margenIzquierdo, alturaInfo)
+      doc.text(`Neto p/transferir: $${montoFormateado}`, margenIzquierdo, alturaInfo)
 
       // Quitamos fecha y descripción, solo mostramos el monto
 

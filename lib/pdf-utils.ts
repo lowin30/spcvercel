@@ -133,9 +133,8 @@ export async function generateTaskPDF(taskId: number, taskTitle: string): Promis
         
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        doc.text(`Descripción: ${gasto.descripcion}`, 20, infoY + 7);
-        doc.text(`Monto: $${gasto.monto.toLocaleString('es-CL')}`, 20, infoY + 14);
-        doc.text(`Fecha: ${formatDate(gasto.fecha_gasto)}`, 20, infoY + 21);
+        doc.text(`Monto: $${gasto.monto.toLocaleString('es-CL')}`, 20, infoY + 7);
+        doc.text(`Fecha: ${formatDate(gasto.fecha_gasto)}`, 20, infoY + 14);
         
         if (gasto.datos_ocr) {
           let datosOCR;
