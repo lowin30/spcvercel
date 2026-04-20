@@ -28,10 +28,10 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
         id, 
         titulo, 
         finalizada, 
+        se_trabajo,
         id_estado_nuevo
       )
     `)
-        .eq('aprobado', true)
         .eq('tareas.finalizada', true)
         .order('total', { ascending: false })
 
@@ -102,13 +102,20 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
         }
     }
 
-    // 5. Construir lista final filtrada
     const candidates: CandidateTaskDTO[] = []
+    const rawData = (presupuestosData || []) as any[]
 
-    for (const p of presupuestosData) {
+    for (const p of rawData) {
         const idTarea = p.id_tarea
         if (liquidadas.has(idTarea)) continue
         if (tareasRechazadas.has(idTarea)) continue
+
+        // CRITERIO DE ELEGIBILIDAD (OR): 
+        // 1. PB Aprobado administrativamente
+        // 2. O Tarea con trabajo confirmado (se_trabajo = true)
+        const esElegible = p.aprobado === true || p.tareas?.se_trabajo === true;
+        
+        if (!esElegible) continue;
 
         const sup = mapSupervisor.get(idTarea)
 
@@ -123,8 +130,8 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
             id_tarea: p.id_tarea,
             total: p.total,
             aprobado: p.aprobado,
-            titulo_tarea: (p.tareas as any)?.titulo || 'Sin Título',
-            finalizada: (p.tareas as any)?.finalizada,
+            titulo_tarea: p.tareas?.titulo || 'Sin Título',
+            finalizada: p.tareas?.finalizada,
             id_supervisor: sup?.id || null,
             email_supervisor: sup?.email || null,
             es_propietario: sup?.es_propietario || false

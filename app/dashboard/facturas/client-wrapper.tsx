@@ -153,11 +153,10 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            {/* Simplified KPI display for brevity in Bridge - restore full fidelity if critically needed by user */}
-                            <KpiCard label="Falta crear PF" count={kpis.kpis?.pb_finalizada_sin_pf_count} items={kpis.pbSinPf || []} link="/dashboard/presupuestos-finales/nuevo?tipo=final" />
-                            <KpiCard label="PF Borrador antiguo" count={kpis.pfBorrador?.length || 0} items={kpis.pfBorrador || []} warning />
-                            <KpiCard label="PF Enviado sin resp" count={kpis.pfEnviado?.length || 0} items={kpis.pfEnviado || []} critical />
-                            <KpiCard label="PF Aprobado sin fac" count={kpis.kpis?.pf_aprobado_sin_factura_count} items={kpis.pfSinFac || []} link="/dashboard/facturas/nueva" />
+                            <KpiCard label="Falta crear PF" count={kpis.pbSinPf_count} items={kpis.pbSinPf || []} link="/dashboard/presupuestos-finales/nuevo?tipo=final" />
+                            <KpiCard label="PF Borrador antiguo" count={kpis.pfBorrador_count} items={kpis.pfBorrador || []} warning />
+                            <KpiCard label="PF Enviado sin resp" count={kpis.pfEnviado_count} items={kpis.pfEnviado || []} critical />
+                            <KpiCard label="PF Aprobado sin fac" count={kpis.pfSinFac_count} items={kpis.pfSinFac || []} link="/dashboard/facturas/nueva" />
                         </div>
                     </CardContent>
                 </Card>
@@ -261,7 +260,7 @@ function KpiCard({ label, count = 0, items = [], link, warning, critical }: any)
             <div className="text-xs text-muted-foreground">{label}</div>
             <div className={`text-2xl font-bold ${textColor}`}>{count}</div>
             <div className="mt-2 space-y-1">
-                {items.slice(0, 3).map((it: any) => (
+                {items.map((it: any) => (
                     <Link key={it.id_presupuesto_final || it.id_tarea} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-[10px] hover:underline truncate">
                         {it.titulo_tarea || `Tarea #${it.id_tarea}`}
                     </Link>

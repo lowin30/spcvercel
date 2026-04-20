@@ -38,20 +38,25 @@ export async function getInvoiceKPIs(rol: string) {
         pfEnviadoResponse
     ] = await Promise.all([
         (await createServerClient()).from('vista_finanzas_admin').select('*').single(),
-        (await createServerClient()).from('vista_admin_liquidaciones_sin_pf').select('*').order('created_at', { ascending: false }).limit(5),
-        (await createServerClient()).from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(5),
-        (await createServerClient()).from('vista_admin_pb_finalizada_sin_pf').select('*').limit(5),
-        (await createServerClient()).from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(5),
-        (await createServerClient()).from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(5)
+        (await createServerClient()).from('vista_admin_liquidaciones_sin_pf').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
+        (await createServerClient()).from('vista_admin_pf_aprobado_sin_factura').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
+        (await createServerClient()).from('vista_admin_pb_finalizada_sin_pf').select('*', { count: 'exact' }).limit(5),
+        (await createServerClient()).from('vista_admin_pf_borrador_antiguo').select('*', { count: 'exact' }).order('created_at', { ascending: true }).limit(5),
+        (await createServerClient()).from('vista_admin_pf_enviado_sin_aprobar').select('*', { count: 'exact' }).order('updated_at', { ascending: true }).limit(5)
     ]);
 
     return {
         kpis: kpiResponse.data,
         liqSinPf: liqSinPfResponse.data || [],
+        liqSinPf_count: liqSinPfResponse.count || 0,
         pfSinFac: pfSinFacResponse.data || [],
+        pfSinFac_count: pfSinFacResponse.count || 0,
         pbSinPf: pbSinPfResponse.data || [],
+        pbSinPf_count: pbSinPfResponse.count || 0,
         pfBorrador: pfBorradorResponse.data || [],
-        pfEnviado: pfEnviadoResponse.data || []
+        pfBorrador_count: pfBorradorResponse.count || 0,
+        pfEnviado: pfEnviadoResponse.data || [],
+        pfEnviado_count: pfEnviadoResponse.count || 0
     };
 }
 
