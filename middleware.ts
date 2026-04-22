@@ -25,7 +25,8 @@ export async function middleware(request: NextRequest) {
             request,
           })
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set({ name, value, ...options })
+            // Protocolo Platinum: mantener persistencia de 30 dias en cada refresh de token
+            supabaseResponse.cookies.set({ name, value, ...options, maxAge: 60 * 60 * 24 * 30 })
           )
         },
 
