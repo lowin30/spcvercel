@@ -569,7 +569,10 @@ export async function finalizarTareaAction(payload: any) {
       .from("tareas")
       .update({
         finalizada: true,
-        id_estado_nuevo: nuevoEstado
+        id_estado_nuevo: nuevoEstado,
+        se_trabajo: huboTrabajo,
+        descripcion_trabajo_realizado: resumen.trim(),
+        fecha_finalizacion: new Date().toISOString()
       })
       .eq("id", taskId)
 
