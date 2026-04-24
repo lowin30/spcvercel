@@ -264,17 +264,25 @@ export async function obtenerDatosLiquidacion(liquidacionId: number): Promise<Da
     throw new Error(`Error al obtener liquidación: ${error?.message}`)
   }
 
-  // Obtener desglose de gastos
-  let desglose: CategoriaGastos[] = []
-  try {
-    const { data: desgloseData } = await supabase.rpc(
-      'obtener_desglose_gastos_para_liquidacion',
-      { p_id_tarea: liquidacion.id_tarea }
-    )
-    desglose = desgloseData || []
-  } catch (err) {
-    console.error('Error al obtener desglose:', err)
-  }
+  // Obtener desglose de gastos inmutable (desde el snapshot JSON)
+  const detalleSnapshot = (liquidacion.detalle_gastos_json || []) as { tipo: string, fecha: string, descripcion: string, monto: number }[]
+  const materialesDetalle = detalleSnapshot.filter(d => d.tipo === 'material')
+  const jornalesDetalle = detalleSnapshot.filter(d => d.tipo === 'jornal')
+  
+  const desglose: CategoriaGastos[] = [
+    {
+      categoria: 'materiales',
+      cantidad_registros: materialesDetalle.length,
+      monto_total: materialesDetalle.reduce((sum, item) => sum + (item.monto || 0), 0),
+      detalle: materialesDetalle.map((m, i) => ({ id: i, ...m }))
+    },
+    {
+      categoria: 'jornales',
+      cantidad_registros: jornalesDetalle.length,
+      monto_total: jornalesDetalle.reduce((sum, item) => sum + (item.monto || 0), 0),
+      detalle: jornalesDetalle.map((j, i) => ({ id: i, ...j }))
+    }
+  ].filter(cat => cat.cantidad_registros > 0)
 
   return {
     codigo: liquidacion.code,

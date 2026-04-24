@@ -48,15 +48,27 @@ export async function descargarLiquidacionPDF(liquidacionId: number): Promise<vo
       throw new Error(`Error al obtener liquidación: ${liquidacionError?.message || 'No encontrada'}`)
     }
 
-    // 2. Obtener desglose de gastos
-    const { data: desgloseData, error: desgloseError } = await supabase.rpc(
-      'obtener_desglose_gastos_para_liquidacion',
-      { p_id_tarea: liquidacion.id_tarea }
-    )
+    // 2. Obtener desglose de gastos inmutables (desde el snapshot JSON)
+    const detalleSnapshot = (liquidacion.detalle_gastos_json || []) as { tipo: string, fecha: string, descripcion: string, monto: number }[]
+    const materialesDetalle = detalleSnapshot.filter(d => d.tipo === 'material')
+    const jornalesDetalle = detalleSnapshot.filter(d => d.tipo === 'jornal')
+    
+    // Adaptar al formato CategoriaGastos esperado por el generador PDF
+    const desgloseData = [
+      {
+        categoria: 'materiales',
+        cantidad_registros: materialesDetalle.length,
+        monto_total: materialesDetalle.reduce((sum, item) => sum + (item.monto || 0), 0),
+        detalle: materialesDetalle.map((m, i) => ({ id: i, ...m }))
+      },
+      {
+        categoria: 'jornales',
+        cantidad_registros: jornalesDetalle.length,
+        monto_total: jornalesDetalle.reduce((sum, item) => sum + (item.monto || 0), 0),
+        detalle: jornalesDetalle.map((j, i) => ({ id: i, ...j }))
+      }
+    ].filter(cat => cat.cantidad_registros > 0)
 
-    if (desgloseError) {
-      console.warn('No se pudo obtener desglose:', desgloseError)
-    }
 
     // 3. Generar PDF
     const pdfBlob = await generarLiquidacionPDF({
