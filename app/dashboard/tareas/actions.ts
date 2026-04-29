@@ -571,7 +571,7 @@ export async function finalizarTareaAction(payload: any) {
         finalizada: true,
         id_estado_nuevo: nuevoEstado,
         se_trabajo: huboTrabajo,
-        descripcion_trabajo_realizado: resumen.trim(),
+        descripcion_trabajo_realizado: (resumen || "").trim(),
         fecha_finalizacion: new Date().toISOString()
       })
       .eq("id", taskId)
