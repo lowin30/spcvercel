@@ -5,10 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase-client"
 import { formatDateTime } from "@/lib/utils"
-import { Receipt, AlertCircle, CheckCircle, Target, Download } from "lucide-react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { generarGastosTareaPDF } from "@/lib/gastos-pdf"
+import { Receipt, AlertCircle, CheckCircle, Target } from "lucide-react"
 
 interface HistorialGastosFacturaProps {
   facturaId: number
@@ -41,7 +38,7 @@ export function HistorialGastosFactura({
 }: HistorialGastosFacturaProps) {
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [loading, setLoading] = useState(true)
-  const [exportando, setExportando] = useState(false)
+
   const supabase = createClient()
 
   const cargarGastos = async () => {
@@ -77,102 +74,6 @@ export function HistorialGastosFactura({
     cargarGastos()
   }, [tareaId, esFacturaMateriales])
 
-  // Función para guardar el PDF en Supabase y actualizar la tarea
-  const guardarPDFEnSupabase = async (blob: Blob, filename: string, tareaId: number): Promise<string> => {
-    const supabase = createClient();
-    if (!supabase) throw new Error("No se pudo obtener cliente de Supabase");
-    
-    const fileExt = filename.split('.').pop();
-    const filePath = `tarea_${tareaId}/${Date.now()}_${Math.floor(Math.random() * 10000)}.${fileExt}`;
-    
-    // Subir archivo a Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('comprobantes')
-      .upload(filePath, blob, {
-        contentType: 'application/pdf',
-        cacheControl: '3600'
-      });
-      
-    if (uploadError) {
-      throw new Error(`Error al subir PDF: ${uploadError.message}`);
-    }
-    
-    // Obtener URL pública
-    const { data: urlData } = supabase.storage
-      .from('comprobantes')
-      .getPublicUrl(filePath);
-      
-    const pdfUrl = urlData?.publicUrl;
-    if (!pdfUrl) throw new Error("No se pudo obtener URL pública del PDF");
-    
-    // Actualizar la tarea con la URL del PDF
-    const { error: updateError } = await supabase
-      .from('tareas')
-      .update({ gastos_tarea_pdf: pdfUrl })
-      .eq('id', tareaId);
-      
-    if (updateError) {
-      throw new Error(`Error al actualizar tarea: ${updateError.message}`);
-    }
-    
-    return pdfUrl;
-  };
-  
-  // Función para exportar a PDF los gastos (SOLO MATERIALES CON FOTOS)
-  const exportarPDF = async () => {
-    // Validar que existan gastos para exportar
-    if (!gastos || gastos.length === 0) {
-      toast.error('No hay gastos para exportar');
-      return;
-    }
-    
-    try {
-      setExportando(true);
-      toast.info('Generando PDF de materiales con fotos...');
-      
-      // Generar el PDF (solo materiales con imágenes)
-      const resultado = await generarGastosTareaPDF(tareaId);
-      
-      // Verificar si hay materiales con fotos
-      if (resultado.montoTotal === 0) {
-        toast.warning('⚠️ No hay gastos de materiales con fotos para exportar');
-        setExportando(false);
-        return;
-      }
-      
-      // Mostrar el monto total
-      toast.success(`PDF generado: $${resultado.montoTotal.toLocaleString('es-CL')} en materiales`);
-      
-      // Descargar el archivo automáticamente
-      const url = window.URL.createObjectURL(resultado.blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', resultado.filename);
-      document.body.appendChild(link);
-      link.click();
-      
-      // Limpiar recursos del DOM después de descargar
-      setTimeout(() => {
-        link.parentNode?.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
-      
-      // Guardar la referencia en Supabase
-      try {
-        const pdfUrl = await guardarPDFEnSupabase(resultado.blob, resultado.filename, tareaId);
-        toast.success('✅ PDF de materiales descargado y guardado en base de datos');
-      } catch (storageError: any) {
-        console.error('Error al guardar en Supabase:', storageError);
-        toast.error(`El PDF se descargó pero no se pudo guardar: ${storageError.message}`);
-      }
-      
-    } catch (error: any) {
-      console.error('Error al exportar PDF:', error);
-      toast.error(`Error al generar PDF: ${error.message || 'Error desconocido'}`);
-    } finally {
-      setExportando(false);
-    }
-  };
 
   const getConfianzaColor = (confianza: number | null) => {
     if (!confianza) return "text-gray-500"
@@ -238,21 +139,6 @@ export function HistorialGastosFactura({
             </Badge>
           )}
         </div>
-        
-        {/* Botón exportar PDF */}
-        {gastos.length > 0 && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => exportarPDF()}
-            disabled={exportando}
-            className="text-xs h-8 whitespace-nowrap"
-            title="Exporta solo gastos de materiales con fotos"
-          >
-            <Download className="h-3 w-3 mr-1" />
-            {exportando ? 'Generando...' : 'PDF Materiales'}
-          </Button>
-        )}
       </div>
 
       {/* Lista de gastos (solo lectura) */}

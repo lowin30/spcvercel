@@ -48,7 +48,7 @@ interface DatosTarea {
  * @param tareaId ID de la tarea para generar el PDF
  * @returns Objeto con el blob del PDF, nombre de archivo y monto total
  */
-export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?: number, mode?: 'materials' | 'full' }): Promise<{ blob: Blob, filename: string, montoTotal: number }> {
+export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?: number, mode?: 'materials' | 'comprobantes' | 'full' }): Promise<{ blob: Blob, filename: string, montoTotal: number }> {
     const reportMode = opts?.mode || (opts?.facturaId ? 'full' : 'materials');
   // Obtener cliente Supabase
   const supabase = createClient()
@@ -75,6 +75,10 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
 
   if (reportMode === 'materials') {
     query = query.eq('tipo_gasto', 'material').or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null');
+  }
+
+  if (reportMode === 'comprobantes') {
+    query = query.or('imagen_procesada_url.not.is.null,comprobante_url.not.is.null');
   }
 
   const { data: gastos, error: errorGastos } = await query.order('fecha_gasto', { ascending: true });
@@ -111,7 +115,7 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
   }
 
   // Filtrado final basado en lógica de negocio (resiliencia platinum)
-  let gastosFinales = [...(gastos || []), ...extras];
+  let gastosFinales = [...(opts?.facturaId ? gastosReales : (gastos || [])), ...extras];
 
   // Si estamos en modo factura/materiales estricto (antiguo), tal vez filtrar los que NO tienen imagen?
   // SEGUN AUDITORIA: no queremos que estalle si no hay fotos, solo informarlo.
@@ -147,7 +151,11 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(22)
     doc.setTextColor(40, 40, 40)
-    const tituloInforme = reportMode === 'full' ? 'Historial Detallado de Gastos' : 'Informe de Gastos - MATERIALES'
+    const tituloInforme = reportMode === 'full'
+      ? 'Historial Detallado de Gastos'
+      : reportMode === 'comprobantes'
+          ? 'Comprobantes de Gastos'
+          : 'Informe de Gastos - MATERIALES'
     doc.text(tituloInforme, doc.internal.pageSize.getWidth() / 2, 25, { align: 'center' })
  
     doc.setFont('helvetica', 'normal')
@@ -350,7 +358,7 @@ export async function generarGastosTareaPDF(tareaId: number, opts?: { facturaId?
 
     // Formato del total: $XXX.XXX (sin decimales argentinizados)
     const totalFormateado = montoTotal.toLocaleString('es-AR').replace(/\./g, '')
-    const suffix = reportMode === 'full' ? 'Detallado' : 'Materiales'
+    const suffix = reportMode === 'full' ? 'Detallado' : reportMode === 'comprobantes' ? 'Comprobantes' : 'Materiales'
     const filename = `${nombreTarea}_${suffix}_$${totalFormateado}.pdf`
 
     return {

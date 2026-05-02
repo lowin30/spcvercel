@@ -92,7 +92,7 @@ export function ToolGastoHistory({
                     />
                     <div className="flex items-center gap-1">
                         <button
-                            onClick={() => handleDownloadPDF('materials')}
+                            onClick={() => handleDownloadPDF('comprobantes')}
                             disabled={isGenerating}
                             className={cn(
                                 "flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-95 shadow-sm border",
