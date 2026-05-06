@@ -23,6 +23,7 @@ interface AdminData {
   estado: string;
   aplica_ajustes: boolean;
   porcentaje_default: number;
+  requiere_dos_facturas: boolean;
 }
 
 export default function EditarAdministradorPage() {
@@ -33,6 +34,7 @@ export default function EditarAdministradorPage() {
   const [estado, setEstado] = useState("activo");
   const [aplicaAjustes, setAplicaAjustes] = useState(false);
   const [porcentajeAjuste, setPorcentajeAjuste] = useState(0);
+  const [requiereDosFacturas, setRequiereDosFacturas] = useState(true);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,7 @@ export default function EditarAdministradorPage() {
           setEstado(data.estado);
           setAplicaAjustes(data.aplica_ajustes || false);
           setPorcentajeAjuste(data.porcentaje_default || 0);
+          setRequiereDosFacturas(data.requiere_dos_facturas ?? true);
         } else if (!fetchError) { 
           setError("No se encontró el administrador.");
         }
@@ -147,7 +150,8 @@ export default function EditarAdministradorPage() {
           email2: email2.trim() || null,
           estado, 
           aplica_ajustes: aplicaAjustes,
-          porcentaje_default: porcentajeAjuste
+          porcentaje_default: porcentajeAjuste,
+          requiere_dos_facturas: requiereDosFacturas
         })
         .eq("id", id);
 
@@ -312,6 +316,23 @@ export default function EditarAdministradorPage() {
                 id="aplica_ajustes"
                 checked={aplicaAjustes}
                 onCheckedChange={setAplicaAjustes}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="flex items-center justify-between space-x-4 p-4 border rounded-lg">
+              <div className="flex-1">
+                <Label htmlFor="requiere_dos_facturas" className="text-base font-medium">
+                  Dividir facturación (Materiales / Mano de Obra)
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Cuando está activado, se generarán dos facturas separadas al convertir un presupuesto. De lo contrario, se generará una sola factura.
+                </p>
+              </div>
+              <Switch
+                id="requiere_dos_facturas"
+                checked={requiereDosFacturas}
+                onCheckedChange={setRequiereDosFacturas}
                 disabled={isSubmitting}
               />
             </div>

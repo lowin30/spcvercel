@@ -30,6 +30,7 @@ interface DatosPresupuesto {
   notas?: string[]
   terminosCondiciones?: string[]
   totalPresupuesto: number
+  descuento_monto?: number
 }
 
 /**
@@ -187,11 +188,18 @@ export async function generarPresupuestoPDF(datos: DatosPresupuesto): Promise<Bl
       posicionY = data.cursor.y + 8
       
       // Añadir el Total debajo de la tabla, formato "Total $XXXX"
+      // Si hay descuento, mostrarlo antes del total
+      if (datos.descuento_monto && datos.descuento_monto > 0) {
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "normal")
+        doc.text(`Descuento: -$${datos.descuento_monto.toLocaleString()}`, posicionDerecha, posicionY, { align: "right" })
+        posicionY += 6
+      }
+
       doc.setFontSize(14)
       doc.setFont("helvetica", "bold")
       // Alineado a la derecha como solicita el usuario
-      doc.text(`Total $${datos.totalPresupuesto.toLocaleString()}`, posicionDerecha, posicionY, { align: "right" })
-    },
+      doc.text(`Total $${datos.totalPresupuesto.toLocaleString()}`, posicionDerecha, posicionY, { align: "right" })    },
   })
 
   // Notas

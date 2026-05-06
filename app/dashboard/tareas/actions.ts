@@ -1137,13 +1137,15 @@ export async function saveBudgetAction(params: {
       return { success: false, message: 'solo los administradores pueden gestionar presupuestos finales.' };
     }
 
-    // asegurar campos obligatorios (constraint audit v93.3.4)
+    // asegurar campos obligatorios y calcular total neto en servidor (platinum robust v2.1)
     if (tipo === 'final') {
       budgetData.ajuste_admin = budgetData.ajuste_admin ?? 0;
       budgetData.total_base = budgetData.total_base ?? 0;
       budgetData.materiales = budgetData.materiales ?? 0;
       budgetData.mano_obra = budgetData.mano_obra ?? 0;
-      budgetData.total = budgetData.total ?? 0;
+      budgetData.descuento_monto = budgetData.descuento_monto ?? 0;
+      // el total siempre se recalcula en el servidor por seguridad
+      budgetData.total = (budgetData.materiales + budgetData.mano_obra) - budgetData.descuento_monto;
     } else if (tipo === 'base') {
       // remover total ya que es una columna generated always en presupuestos_base
       delete budgetData.total;

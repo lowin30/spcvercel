@@ -30,6 +30,7 @@ interface ExportPresupuestoButtonProps {
   notas?: string[]
   terminosCondiciones?: string[]
   totalPresupuesto: number
+  descuentoMonto?: number
 }
 
 export function ExportPresupuestoButton({
@@ -42,6 +43,7 @@ export function ExportPresupuestoButton({
   notas,
   terminosCondiciones,
   totalPresupuesto,
+  descuentoMonto,
 }: ExportPresupuestoButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
 
@@ -61,6 +63,7 @@ export function ExportPresupuestoButton({
         ],
         terminosCondiciones: terminosCondiciones || ["metodo de pago: anticipo 50% saldo al terminar el trabajo"],
         totalPresupuesto,
+        descuento_monto: descuentoMonto,
       }
 
       const pdfBlob = await generarPresupuestoPDF(datosPresupuesto)
@@ -70,10 +73,11 @@ export function ExportPresupuestoButton({
       const link = document.createElement("a")
       link.href = url
       
-      // Usar el nombre de la tarea para el archivo en lugar del código
+      // Usar el nombre de la tarea + el total para el archivo
+      const totalFormateado = totalPresupuesto.toLocaleString("es-AR", { maximumFractionDigits: 0 })
       const nombreArchivo = cliente.tarea 
-        ? `Presupuesto_${cliente.tarea}` 
-        : `Presupuesto_${codigo}_${format(fecha, "dd-MM-yyyy")}`
+        ? `Presupuesto_${cliente.tarea}_$${totalFormateado}` 
+        : `Presupuesto_${codigo}_${format(fecha, "dd-MM-yyyy")}_$${totalFormateado}`
         
       // Eliminar caracteres inválidos para nombres de archivos
       const nombreArchivoLimpio = nombreArchivo.replace(/[\/:*?"<>|]/g, "-")

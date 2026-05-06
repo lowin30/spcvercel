@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { 
     LayoutDashboard, Building2, Package, Hammer, 
     Plus, Send, Loader2, ReceiptText, Trash2, 
-    ArrowLeft, Calculator, Wand2, Zap
+    ArrowLeft, Calculator, Wand2, Zap, Tag
 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
@@ -32,12 +32,14 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb, initialData }:
     // Inicialización inteligente para edición
     const [items, setItems] = useState<any[]>(initialData?.items || [])
     const [observaciones, setObservaciones] = useState(initialData?.observaciones_admin || "")
+    const [descuentoMonto, setDescuentoMonto] = useState<number>(initialData?.descuento_monto || 0)
     const [isModalOpen, setIsModalOpen] = useState(false)
 
     // Totales calculados en tiempo real
     const totalMateriales = items.filter(i => i.es_material).reduce((s, i) => s + (i.cantidad * i.precio), 0)
     const totalManoObra = items.filter(i => !i.es_material).reduce((s, i) => s + (i.cantidad * i.precio), 0)
-    const totalFinal = totalMateriales + totalManoObra
+    const descuentoSugerido = Math.round(totalManoObra * 0.10) // helper 10% de MO
+    const totalFinal = Math.max(0, totalMateriales + totalManoObra - descuentoMonto)
 
     const handleAddItem = (item: any) => {
         setItems([...items, { ...item, id: crypto.randomUUID() }])
@@ -87,6 +89,7 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb, initialData }:
                     total: totalFinal,
                     materiales: totalMateriales,
                     mano_obra: totalManoObra,
+                    descuento_monto: descuentoMonto,
                     observaciones_admin: observaciones,
                     id_estado: initialData?.id_estado || 1 // Mantener estado actual si es edición o 1 (Borrador) si es nuevo
                 },
@@ -292,11 +295,62 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb, initialData }:
                                         value={totalManoObra} 
                                         color="text-amber-600 dark:text-amber-400"
                                     />
+
+                                    {/* campo de descuento — visible solo cuando hay mano de obra */}
+                                    {totalManoObra > 0 && (
+                                        <div className="pt-3 border-t border-border/50 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Tag className="h-3 w-3 text-rose-500" />
+                                                    descuento
+                                                </span>
+                                                {descuentoSugerido > 0 && descuentoMonto === 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDescuentoMonto(descuentoSugerido)}
+                                                        className="text-[9px] font-black text-rose-500/70 hover:text-rose-500 underline underline-offset-2 transition-colors"
+                                                    >
+                                                        aplicar 10% ({formatCurrency(descuentoSugerido)})
+                                                    </button>
+                                                )}
+                                                {descuentoMonto > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDescuentoMonto(0)}
+                                                        className="text-[9px] font-black text-muted-foreground hover:text-rose-500 underline underline-offset-2 transition-colors"
+                                                    >
+                                                        quitar descuento
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">$</span>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={totalManoObra}
+                                                    value={descuentoMonto || ''}
+                                                    onChange={(e) => {
+                                                        const v = Math.round(parseFloat(e.target.value) || 0)
+                                                        setDescuentoMonto(Math.min(v, totalManoObra))
+                                                    }}
+                                                    placeholder="0"
+                                                    className="pl-7 h-9 bg-secondary/50 border-none text-sm font-black focus-visible:ring-1 focus-visible:ring-rose-500/30 text-rose-600 dark:text-rose-400"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="pt-4 border-t border-border space-y-1 text-right">
                                         <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">total del presupuesto</p>
                                         <p className="text-3xl font-black text-foreground tracking-tighter">
                                             {formatCurrency(totalFinal)}
                                         </p>
+                                        {descuentoMonto > 0 && (
+                                            <p className="text-[10px] text-rose-500 font-bold">
+                                                descuento aplicado: -{formatCurrency(descuentoMonto)}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

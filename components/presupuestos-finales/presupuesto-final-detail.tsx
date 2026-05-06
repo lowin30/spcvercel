@@ -80,6 +80,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
             total: item.cantidad * item.precio,
         })),
         totalPresupuesto: presupuesto.total,
+        descuentoMonto: presupuesto.descuento_monto || 0,
     };
 
     return (
@@ -245,6 +246,12 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                             <span className="text-muted-foreground">Materiales</span>
                             <span className="font-medium text-foreground">{formatCurrency(presupuesto.materiales || 0)}</span>
                         </div>
+                        {presupuesto.descuento_monto > 0 && (
+                            <div className="flex justify-between items-center text-sm text-red-600 dark:text-red-400 font-medium bg-red-50/50 dark:bg-red-900/20 px-2 py-1 rounded border border-red-100 dark:border-red-800/30">
+                                <span>Descuento Especial</span>
+                                <span>-{formatCurrency(presupuesto.descuento_monto)}</span>
+                            </div>
+                        )}
                         <div className="pt-4 border-t flex justify-between items-end">
                             <span className="text-sm font-bold text-muted-foreground uppercase">Total Final</span>
                             <span className="text-3xl font-black tracking-tighter text-primary">
