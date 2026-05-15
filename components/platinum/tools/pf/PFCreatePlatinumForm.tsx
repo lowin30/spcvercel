@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { 
     LayoutDashboard, Building2, Package, Hammer, 
     Plus, Send, Loader2, ReceiptText, Trash2, 
-    ArrowLeft, Calculator, Wand2, Zap, Tag
+    ArrowLeft, Calculator, Wand2, Zap, Tag, Check
 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner"
@@ -183,54 +183,72 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb, initialData }:
                                         </div>
                                     ) : (
                                         items.map((item, idx) => (
-                                            <div key={item.id || idx} className="p-4 flex items-center justify-between gap-4 group hover:bg-secondary/50 transition-all">
-                                                <div className="flex items-start gap-3 min-w-0 flex-1">
-                                                    <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-md mt-1.5">
+                                            <div key={item.id || idx} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 group hover:bg-secondary/40 transition-all">
+                                                <div className="flex items-start gap-3 min-w-0 w-full sm:flex-1">
+                                                    <span className="text-[9px] font-mono text-muted-foreground bg-secondary/80 px-1.5 py-0.5 rounded mt-1.5 shrink-0">
                                                         {idx + 1}
                                                     </span>
-                                                    <div className="min-w-0 flex-1 space-y-1">
-                                                        <Input 
+                                                    <div className="min-w-0 flex-1">
+                                                        <Textarea 
                                                             value={item.descripcion}
                                                             onChange={(e) => updateItem(item.id, 'descripcion', e.target.value)}
-                                                            className="h-7 text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 focus-visible:bg-secondary/30 transition-all text-foreground"
+                                                            rows={3}
+                                                            className="text-sm font-bold bg-transparent border-none p-0 focus-visible:ring-0 focus-visible:bg-secondary/30 transition-all text-foreground resize-none min-h-[60px] w-full"
                                                         />
-                                                        <div className="flex items-center gap-3">
-                                                            <Badge variant="outline" className={`text-[8px] h-4 font-black tracking-widest border-0 ${item.es_material ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}`}>
-                                                                {item.es_material ? 'material' : 'servicio'}
-                                                            </Badge>
-                                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-none border-border/20">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateItem(item.id, 'es_material', !item.es_material)}
+                                                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black tracking-widest uppercase transition-all active:scale-95 border border-transparent ${
+                                                                item.es_material 
+                                                                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 border-blue-500/20' 
+                                                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border-amber-500/20'
+                                                            }`}
+                                                        >
+                                                            {item.es_material ? <Package className="h-2.5 w-2.5" /> : <Hammer className="h-2.5 w-2.5" />}
+                                                            {item.es_material ? 'material' : 'servicio'}
+                                                            <div className={`h-2.5 w-2.5 rounded-sm border border-current flex items-center justify-center ml-0.5 ${item.es_material ? 'bg-blue-500/20' : 'bg-transparent'}`}>
+                                                                {item.es_material && <Check className="h-2 w-2 stroke-[4px]" />}
+                                                            </div>
+                                                        </button>
+
+                                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                            <Input 
+                                                                type="number"
+                                                                value={item.cantidad}
+                                                                onChange={(e) => updateItem(item.id, 'cantidad', parseFloat(e.target.value) || 0)}
+                                                                className="h-6 w-10 sm:w-12 text-[10px] font-bold text-center bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-indigo-500/30"
+                                                            />
+                                                            <span className="text-[10px] font-bold">x</span>
+                                                            <div className="relative">
+                                                                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">$</span>
                                                                 <Input 
                                                                     type="number"
-                                                                    value={item.cantidad}
-                                                                    onChange={(e) => updateItem(item.id, 'cantidad', parseFloat(e.target.value) || 0)}
-                                                                    className="h-6 w-12 text-[10px] font-bold text-center bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-indigo-500/30"
+                                                                    value={item.precio}
+                                                                    onChange={(e) => updateItem(item.id, 'precio', parseFloat(e.target.value) || 0)}
+                                                                    className="h-6 w-20 sm:w-24 text-[10px] font-bold pl-4 bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-indigo-500/30"
                                                                 />
-                                                                <span className="text-[10px] font-bold">x</span>
-                                                                <div className="relative">
-                                                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">$</span>
-                                                                    <Input 
-                                                                        type="number"
-                                                                        value={item.precio}
-                                                                        onChange={(e) => updateItem(item.id, 'precio', parseFloat(e.target.value) || 0)}
-                                                                        className="h-6 w-24 text-[10px] font-bold pl-4 bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-indigo-500/30"
-                                                                    />
-                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">
-                                                        {formatCurrency(item.cantidad * item.precio)}
-                                                    </p>
-                                                    <Button 
-                                                        size="icon" 
-                                                        variant="ghost" 
-                                                        className="h-8 w-8 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10"
-                                                        onClick={() => removeItem(item.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+
+                                                    <div className="flex items-center gap-3 shrink-0">
+                                                        <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                                                            {formatCurrency(item.cantidad * item.precio)}
+                                                        </p>
+                                                        <Button 
+                                                            size="icon" 
+                                                            variant="ghost" 
+                                                            className="h-8 w-8 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-full"
+                                                            onClick={() => removeItem(item.id)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))

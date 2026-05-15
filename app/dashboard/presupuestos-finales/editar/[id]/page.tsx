@@ -49,7 +49,7 @@ export default async function EditarPresupuestoFinalPage({ params }: Props) {
       <PFCreatePlatinumForm 
         task={taskData} 
         catalogs={catalogs}
-        initialPb={presupuesto.id_presupuesto_base}
+        initialPb={presupuesto.presupuestos_base}
         initialData={{
           ...presupuesto,
           items // Inyectamos los items cargados por el loader

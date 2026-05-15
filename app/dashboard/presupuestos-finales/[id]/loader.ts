@@ -53,14 +53,18 @@ export async function getPresupuestoFinalById(id: string): Promise<PresupuestoFi
         // La vista ya trae 'presupuestos_base'? Si no, lo cargamos.
         // La vista vista_presupuestos_finales_completa suele tener relaciones.
         // Pero para asegurar el 'total' del base:
+        let pbFull = null;
         let presupuestoBaseTotal = 0;
         if (presupuesto.id_presupuesto_base) { // Si existe la columna de relación
             const { data: pb } = await supabaseAdmin
                 .from("presupuestos_base")
-                .select("total")
+                .select("id, code, total, items_json")
                 .eq("id", presupuesto.id_presupuesto_base)
                 .single()
-            if (pb) presupuestoBaseTotal = pb.total
+            if (pb) {
+                presupuestoBaseTotal = pb.total
+                pbFull = pb
+            }
         } else {
             // Intentar buscar por relación inversa o lógica negocio?
             // En el componente original: presupuesto.presupuestos_base?.total
@@ -74,7 +78,7 @@ export async function getPresupuestoFinalById(id: string): Promise<PresupuestoFi
             ...presupuesto,
             estados_presupuestos: presupuestoConEstado?.estados_presupuestos || null,
             edificio_info: edificioInfo,
-            presupuestos_base: presupuesto.presupuestos_base || { total: presupuestoBaseTotal } // Fallback/Enhance
+            presupuestos_base: pbFull || { total: presupuestoBaseTotal } // Fallback/Enhance
         }
 
         return {
