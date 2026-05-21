@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Loader2, MessageSquare, AlertCircle } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { finalizarTareaAction } from "@/app/dashboard/tareas/actions"
+import { finalizarTareaAction, quickCloneTask } from "@/app/dashboard/tareas/actions"
 
 interface FinalizarTareaDialogProps {
   open: boolean
@@ -153,9 +153,6 @@ export function FinalizarTareaDialog({
       // NUEVA LOGICA DE CONTINUIDAD (CLONADO DIRECTO - AUTO SAVE)
       if (continuarTarea && rubrosContinuidad.length > 0) {
         toast.loading("creando tarea de seguimiento...")
-
-        // Importación dinámica para evitar problemas de SSR si no se usara
-        const { quickCloneTask } = await import('@/app/dashboard/tareas/actions')
 
         const res = await quickCloneTask(tareaId, rubrosContinuidad)
 
