@@ -43,6 +43,19 @@ const naturalSortDesc = (a: string, b: string) => {
     return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' })
 }
 
+const isDefaultTitle = (title: string, buildingName: string, depts: { codigo: string }[]) => {
+    if (!title) return true
+    if (title === buildingName) return true
+    if (!title.startsWith(buildingName)) return false
+    
+    const remaining = title.substring(buildingName.length).trim()
+    if (!remaining) return true
+
+    const parts = remaining.split(/[-\s]+/).filter(Boolean)
+    const deptCodes = new Set(depts.map(d => d.codigo.toUpperCase()))
+    return parts.every(part => deptCodes.has(part.toUpperCase()))
+}
+
 // ... existing WizardState ...
 
 const STEPS = [
@@ -101,6 +114,7 @@ export function TaskWizard({
 
     // --- Estado Sub-Dialogo Departamento ---
     const [isDeptDialogOpen, setIsDeptDialogOpen] = useState(false)
+    const [isTitleManuallyEdited, setIsTitleManuallyEdited] = useState(mode === 'edit')
 
     // --- Efectos de Carga Inicial ---
     useEffect(() => {
@@ -123,7 +137,7 @@ export function TaskWizard({
             console.log("Wizard: Departments loaded", res.data.length)
             // Aplicar ordenamiento natural descendente
             const sorted = [...res.data].sort((a, b) => naturalSortDesc(a.codigo, b.codigo))
-            setDepartamentos(sorted)
+            setDepartamentos(sorted.map((d: any) => ({ ...d, id: d.id.toString() })))
         } else {
             console.error("Error loading departments:", res.message)
             toast.error("Error al cargar departamentos: " + (res.message || "Desconocido"))
@@ -191,31 +205,30 @@ export function TaskWizard({
 
     // --- Auto-Title Logic ---
     useEffect(() => {
-        // En modo edición, no autogenerar el título si ya existe uno (respetar lo que viene de DB)
-        if (mode === 'edit') return
+        if (isTitleManuallyEdited) return
 
         if (formData.id_edificio && edificios.length > 0) {
             const edificio = edificios.find(e => e.id === formData.id_edificio)
-            let newTitle = edificio?.nombre || ""
+            if (!edificio) return
+            let newTitle = edificio.nombre || ""
 
             const deptosCodes = departamentos
                 .filter(d => formData.departamentos_ids.includes(d.id))
                 .map(d => d.codigo)
                 .sort(naturalSortDesc)
-                .join("-")
+                .join(" ")
 
             if (deptosCodes) newTitle += ` ${deptosCodes}`
 
-            setFormData(prev => {
-                // Solo actualizar si el título está vacío o empieza con el nombre del edificio
-                if (!prev.titulo || prev.titulo.startsWith(edificio?.nombre || '')) {
+            const isDefault = isDefaultTitle(formData.titulo, edificio.nombre, departamentos)
+            if (isDefault) {
+                setFormData(prev => {
                     if (prev.titulo === newTitle) return prev
                     return { ...prev, titulo: newTitle }
-                }
-                return prev
-            })
+                })
+            }
         }
-    }, [formData.id_edificio, formData.departamentos_ids, edificios, departamentos, mode])
+    }, [formData.id_edificio, formData.departamentos_ids, edificios, departamentos, isTitleManuallyEdited])
 
 
 
@@ -267,6 +280,7 @@ export function TaskWizard({
                 if (onSuccess) {
                     onSuccess(taskId, "UPDATED")
                 } else {
+                    router.push("/dashboard/tareas")
                     router.refresh()
                 }
 
@@ -345,15 +359,26 @@ export function TaskWizard({
                         options={departamentos.map(d => ({ value: d.id, label: `${d.codigo} ${d.propietario ? `(${d.propietario})` : ''}` }))}
                         selected={formData.departamentos_ids}
                         onChange={(v) => {
-                            // Protección crítica: No dejar que el MultiSelect limpie la selección 
-                            // si todavía no se han cargado las opciones (options.length === 0) 
-                            // y estamos en modo edición (donde ya traemos IDs).
+                            // Protección crítica: No dejar que el MultiSelect limpie la selección
+                            // si todavía no se han cargado las opciones y estamos en modo edición.
                             if (mode === 'edit' && departamentos.length === 0 && v.length === 0) {
-                                console.log("Wizard: Ignorando intento de limpieza de departamentos (opciones no cargadas aún)")
                                 return
                             }
 
-                            console.log("Wizard: Departments changed to", v)
+                            // El usuario cambió departamentos explícitamente: recalcular título siempre
+                            const edificio = edificios.find(e => e.id === formData.id_edificio)
+                            if (edificio) {
+                                const codes = departamentos
+                                    .filter(d => v.includes(d.id))
+                                    .map(d => d.codigo)
+                                    .sort(naturalSortDesc)
+                                    .join(" ")
+                                const newTitle = codes ? `${edificio.nombre} ${codes}` : edificio.nombre
+                                setIsTitleManuallyEdited(false)
+                                setFormData(prev => ({ ...prev, departamentos_ids: v, titulo: newTitle }))
+                                return
+                            }
+
                             setFormData(prev => ({ ...prev, departamentos_ids: v }))
                         }}
                         placeholder={departamentos.length > 0 ? "Selecciona departamentos (opcional)" : "Cargando departamentos..."}
@@ -416,7 +441,10 @@ export function TaskWizard({
                 <Input
                     ref={titleInputRef}
                     value={formData.titulo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, titulo: e.target.value }))}
+                    onChange={(e) => {
+                        setIsTitleManuallyEdited(true)
+                        setFormData(prev => ({ ...prev, titulo: e.target.value }))
+                    }}
                     onBlur={(e) => setFormData(prev => ({ ...prev, titulo: sanitizeText(e.target.value) }))}
                     placeholder="Ej: Edificio Central 5B - Filtración"
                 />
