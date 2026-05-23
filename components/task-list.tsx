@@ -158,7 +158,18 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
       if (result.success) {
         toast.success("tarea eliminada con exito")
       } else {
-        toast.error("error al eliminar la tarea")
+        if (result.message && result.message.includes("gastos registrados")) {
+          toast.error(result.message, {
+            description: "podes eliminar los gastos desde el detalle de la tarea.",
+            action: {
+              label: "ir a la tarea",
+              onClick: () => router.push(`/dashboard/tareas/${taskId}`)
+            },
+            duration: 10000
+          })
+        } else {
+          toast.error(result.message || "error al eliminar la tarea")
+        }
       }
     } catch (error) {
       toast.error("ocurrio un error inesperado")

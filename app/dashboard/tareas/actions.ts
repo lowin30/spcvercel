@@ -31,25 +31,42 @@ export async function deleteTask(taskId: number) {
   }
 
   try {
-    const { rol } = await validateSessionAndGetUser()
+    const user = await validateSessionAndGetUser()
+    if (!user) {
+      return { success: false, message: 'sesion no valida.' }
+    }
+    const { rol, id: userId } = user
 
-    if (rol !== 'admin') {
-      return { success: false, message: 'no autorizado. solo administradores pueden eliminar tareas.' }
+    if (rol !== 'admin' && rol !== 'supervisor') {
+      return { success: false, message: 'no autorizado. solo administradores o supervisores asignados pueden eliminar tareas.' }
+    }
+
+    if (rol === 'supervisor') {
+      const { data: superCheck } = await supabaseAdmin
+        .from('supervisores_tareas')
+        .select('id')
+        .eq('id_tarea', taskId)
+        .eq('id_supervisor', userId)
+        .limit(1)
+
+      if (!superCheck || superCheck.length === 0) {
+        return { success: false, message: 'no autorizado. solo el supervisor asignado a esta tarea puede eliminarla.' }
+      }
     }
 
     // 1. validaciones de bloqueo (blindaje financiero gold v81.0)
     // no se borran tareas con actividad economica real para no perder trazabilidad.
     const [pfCheck, gastosCheck, liqCheck] = await Promise.all([
       supabaseAdmin.from('presupuestos_finales').select('id').eq('id_tarea', taskId).limit(1),
-      supabaseAdmin.from('gastos_tarea').select('id').eq('id_tarea', taskId).limit(1),
+      supabaseAdmin.from('gastos_tarea').select('id', { count: 'exact' }).eq('id_tarea', taskId),
       supabaseAdmin.from('liquidaciones_nuevas').select('id').eq('id_tarea', taskId).limit(1)
     ])
 
     if (pfCheck.data && pfCheck.data.length > 0) {
       return { success: false, message: 'no se puede eliminar: tiene presupuestos finales asociados.' }
     }
-    if (gastosCheck.data && gastosCheck.data.length > 0) {
-      return { success: false, message: 'no se puede eliminar: tiene gastos registrados (trazabilidad contable).' }
+    if (gastosCheck.count && gastosCheck.count > 0) {
+      return { success: false, message: `no se puede eliminar: tiene ${gastosCheck.count} gastos registrados (trazabilidad contable).` }
     }
     if (liqCheck.data && liqCheck.data.length > 0) {
       return { success: false, message: 'no se puede eliminar: tiene liquidaciones asociadas.' }
