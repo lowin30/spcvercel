@@ -11,8 +11,11 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase-client"
 import { ToolGastoPlatinumProps } from "./types"
 import { analizarGastoAction, registrarGastoAction } from "@/app/actions/gastos"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 type PasoType = 'seleccion' | 'procesando' | 'confirmacion' | 'completado'
+
+type ModoImagenType = 'original' | 'suave' | 'fuerte'
 
 export function ToolGastoRegistry({
     tareaId,
@@ -27,6 +30,34 @@ export function ToolGastoRegistry({
     const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null)
     const [imagenProcesadaUrl, setImagenProcesadaUrl] = useState<string | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+    const [modoImagen, setModoImagen] = useState<ModoImagenType>('suave')
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('spc_modo_imagen')
+            if (saved === 'original' || saved === 'suave' || saved === 'fuerte') {
+                setModoImagen(saved as ModoImagenType)
+            }
+        } catch { }
+    }, [])
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('spc_modo_imagen', modoImagen)
+        } catch { }
+    }, [modoImagen])
+
+    const generarUrlProcesada = (originalUrl: string, modo: ModoImagenType): string => {
+        switch (modo) {
+            case 'fuerte':
+                return originalUrl.replace('/upload/', '/upload/e_grayscale,e_contrast:40,e_sharpen:80/')
+            case 'suave':
+                return originalUrl.replace('/upload/', '/upload/e_grayscale,e_contrast:20,e_sharpen:40/')
+            case 'original':
+            default:
+                return originalUrl
+        }
+    }
     const [tareas, setTareas] = useState<{ id: number; titulo: string; code: string }[]>([])
     const [selectedTareaId, setSelectedTareaId] = useState<string | null>(tareaId ? tareaId.toString() : null)
 
@@ -192,6 +223,11 @@ export function ToolGastoRegistry({
                 ? parseInt(editData.event_id.toString().split('-')[1]) 
                 : editData?.event_id;
 
+            // generar url procesada dinamicamente segun el modo elegido (sin subir segundo archivo)
+            const finalImagenProcesadaUrl = comprobanteUrl
+                ? generarUrlProcesada(comprobanteUrl, modoImagen)
+                : null
+
             const gastoData = {
                 id: realId,
                 id_tarea: taskToUse,
@@ -202,7 +238,7 @@ export function ToolGastoRegistry({
                 liquidado: false,
                 tipo_gasto: formData.tipo_gasto,
                 comprobante_url: comprobanteUrl,
-                imagen_procesada_url: imagenProcesadaUrl
+                imagen_procesada_url: finalImagenProcesadaUrl
             }
 
             // Llamada a la Server Action (Gold Standard v81.0 - Bypass RLS seguro)
@@ -239,8 +275,34 @@ export function ToolGastoRegistry({
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                        className="space-y-4 w-full"
                     >
+                        {/* Selector de modo de imagen (protocolo platinum) */}
+                        <div className="space-y-2 bg-slate-50/50 dark:bg-zinc-900/50 p-3 rounded-2xl border border-slate-200/50 dark:border-zinc-800/50">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 ml-1">
+                                modo de imagen
+                            </Label>
+                            <RadioGroup
+                                value={modoImagen}
+                                onValueChange={(v) => setModoImagen(v as ModoImagenType)}
+                                className="grid grid-cols-3 gap-2"
+                            >
+                                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-950 p-2 rounded-xl border border-slate-200/60 dark:border-zinc-800/60 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all">
+                                    <RadioGroupItem value="original" id="modo_original_reg" />
+                                    <Label htmlFor="modo_original_reg" className="cursor-pointer text-xs font-bold text-slate-700 dark:text-zinc-300">original</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-950 p-2 rounded-xl border border-slate-200/60 dark:border-zinc-800/60 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all">
+                                    <RadioGroupItem value="suave" id="modo_suave_reg" />
+                                    <Label htmlFor="modo_suave_reg" className="cursor-pointer text-xs font-bold text-slate-700 dark:text-zinc-300">suave</Label>
+                                </div>
+                                <div className="flex items-center space-x-2 bg-white dark:bg-zinc-950 p-2 rounded-xl border border-slate-200/60 dark:border-zinc-800/60 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all">
+                                    <RadioGroupItem value="fuerte" id="modo_fuerte_reg" />
+                                    <Label htmlFor="modo_fuerte_reg" className="cursor-pointer text-xs font-bold text-slate-700 dark:text-zinc-300">fuerte</Label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Button
                             variant="outline"
                             className="h-32 rounded-3xl border-2 border-dashed flex flex-col gap-2 hover:border-violet-500 hover:bg-violet-500/5 transition-all duration-300"
@@ -268,6 +330,7 @@ export function ToolGastoRegistry({
                             <Edit3 className="w-8 h-8 text-blue-600" />
                             <span className="text-xs font-black uppercase tracking-widest">Manual</span>
                         </Button>
+                        </div>
                     </motion.div>
                 )}
 
