@@ -142,7 +142,9 @@ export async function analizarGastoAction(base64Image: string) {
         return {
             success: true,
             datos,
-            cloudinaryUrl: optimizedImageUrl
+            cloudinaryUrl: optimizedImageUrl,
+            comprobanteUrl: originalUrl,
+            imagenProcesadaUrl: optimizedImageUrl
         }
 
     } catch (error: any) {

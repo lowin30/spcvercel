@@ -168,6 +168,20 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
     }
   }
 
+  const aplicarUmbralizacionExtraSuave = (data: Uint8ClampedArray, umbral: number): void => {
+    const u = Math.max(140, Math.min(185, umbral - 5))
+    for (let i = 0; i < data.length; i += 4) {
+      const v = data[i]
+      if (v < u) {
+        const nv = Math.max(0, Math.floor(v * 0.9 + 5))
+        data[i] = data[i + 1] = data[i + 2] = nv
+      } else {
+        const nv = Math.min(250, Math.floor(v + 5))
+        data[i] = data[i + 1] = data[i + 2] = nv
+      }
+    }
+  }
+
   // Función para calcular umbral óptimo usando método de Otsu
   const calcularUmbralOtsu = (histograma: number[], pixelesTotales: number): number => {
     let sumaTotal = 0
@@ -263,8 +277,8 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
       if (modoImagen !== 'original') {
         for (let i = 0; i < data.length; i += 4) {
           const grayValue = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-          const contrastFactor = modoImagen === 'fuerte' ? 1.3 : 1.1
-          const brightness = modoImagen === 'fuerte' ? 10 : 2
+          const contrastFactor = modoImagen === 'fuerte' ? 1.1 : 1.05
+          const brightness = modoImagen === 'fuerte' ? 2 : 1
           const contrastedValue = Math.min(255, Math.max(0, (grayValue - 128) * contrastFactor + 128 + brightness))
           data[i] = contrastedValue
           data[i + 1] = contrastedValue
@@ -280,9 +294,9 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
         umbralOscuro = calcularUmbralOtsu(histograma, pixelesTotales)
         console.log('Umbral adaptativo calculado:', umbralOscuro)
         if (modoImagen === 'suave') {
-          aplicarUmbralizacionSuave(data, umbralOscuro)
+          aplicarUmbralizacionExtraSuave(data, umbralOscuro)
         } else {
-          aplicarUmbralizacionAdaptativa(data, umbralOscuro)
+          aplicarUmbralizacionSuave(data, umbralOscuro)
         }
         ctx.putImageData(imageData, 0, 0)
         console.log('Umbralización aplicada')
@@ -469,8 +483,8 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
     }
   }
 
-  // Función para subir a Cloudinary vía API route signed (más seguro)
-  const subirACloudinaryOptimizado = async (file: File): Promise<string | null> => {
+  // sube la imagen original limpia a cloudinary y retorna la url pura sin filtros
+  const subirACloudinaryOriginal = async (file: File): Promise<string | null> => {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -482,26 +496,39 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Error upload API:", errorData);
+        console.error("[upload] error api:", errorData);
         throw new Error(errorData.error || 'Error al subir imagen');
       }
 
       const data = await response.json();
 
       if (!data.success || !data.url) {
-        throw new Error('Respuesta inválida del servidor');
+        throw new Error('Respuesta invalida del servidor');
       }
 
-      // Aplicar filtros de mejora de OCR: mejorar contraste y enfocar agresivamente
-      const originalUrl = data.url;
-      const optimizedUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/");
-
-      console.log("Imagen subida y optimizada:", optimizedUrl);
-      return optimizedUrl;
+      // retornar url original limpia. los filtros se aplican dinamicamente via url de cloudinary
+      console.log("[upload] imagen original subida:", data.url);
+      return data.url;
     } catch (error: any) {
-      console.error("Error subiendo a Cloudinary:", error);
+      console.error("[upload] error subiendo a cloudinary:", error);
       toast.error(`Error subiendo imagen: ${error.message || 'Error desconocido'}`);
       return null;
+    }
+  };
+
+  // genera la url procesada dinamicamente segun el modo elegido por el usuario
+  const generarUrlProcesada = (originalUrl: string, modo: ModoImagenType): string => {
+    switch (modo) {
+      case 'fuerte':
+        // escala de grises con contraste marcado y nitidez (antiguo modo suave)
+        return originalUrl.replace('/upload/', '/upload/e_grayscale,e_contrast:40,e_sharpen:80/');
+      case 'suave':
+        // escala de grises con contraste y nitidez moderados (modo intermedio)
+        return originalUrl.replace('/upload/', '/upload/e_grayscale,e_contrast:20,e_sharpen:40/');
+      case 'original':
+      default:
+        // sin filtros: retorna la url original pura
+        return originalUrl;
     }
   };
 
@@ -515,10 +542,10 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
       setAnalizandoIA(true);
       toast.info("🤖 Analizando comprobante con lA...", { duration: 2000 });
 
-      // OPTIMIZACIÓN: Redimensionar imagen para no enviar un payload gigante (max 1024px)
+      // redimensionar imagen para ocr (1600px preserva detalles en tickets arrugados)
       const imageBitmap = await createImageBitmap(file);
       const canvas = document.createElement('canvas');
-      const MAX_SIZE = 1024;
+      const MAX_SIZE = 1600;
 
       let width = imageBitmap.width;
       let height = imageBitmap.height;
@@ -651,33 +678,25 @@ export function ProcesadorImagen({ tareaId, tareaCodigo = '', tareaTitulo = '', 
       const ahora = new Date()
       const timestamp = `${ahora.getFullYear()}${String(ahora.getMonth() + 1).padStart(2, '0')}${String(ahora.getDate()).padStart(2, '0')}_${String(ahora.getHours()).padStart(2, '0')}${String(ahora.getMinutes()).padStart(2, '0')}${String(ahora.getSeconds()).padStart(2, '0')}`
 
-      // Subir imágenes a Cloudinary
-      let comprobanteUrl = null
-      let imagenProcesadaUrl = null
+      // subir un solo archivo original limpio a cloudinary
+      let comprobanteUrl: string | null = null
+      let imagenProcesadaUrl: string | null = null
 
-      // Subir imagen original a Cloudinary
       if (imagen) {
-        toast.info('Subiendo imagen original...')
-        comprobanteUrl = await subirACloudinaryOptimizado(imagen)
-        
+        toast.info('Subiendo comprobante...')
+        comprobanteUrl = await subirACloudinaryOriginal(imagen)
+
         if (!comprobanteUrl) {
-          throw new Error('Error al subir imagen original a Cloudinary')
+          throw new Error('Error al subir imagen a Cloudinary')
         }
+
+        // generar url procesada dinamicamente segun el modo elegido (sin subir segundo archivo)
+        imagenProcesadaUrl = generarUrlProcesada(comprobanteUrl, modoImagen)
+        console.log(`[guardar] modo=${modoImagen} | original=${comprobanteUrl} | procesada=${imagenProcesadaUrl}`)
       }
 
-      // Subir imagen procesada a Cloudinary
-      if (imagenProcesada) {
-        toast.info('Subiendo imagen procesada...')
-        imagenProcesadaUrl = await subirACloudinaryOptimizado(imagenProcesada)
-        
-        if (!imagenProcesadaUrl) {
-          throw new Error('Error al subir imagen procesada a Cloudinary')
-        }
-      }
-
-      // Si ambas imágenes fallaron al subirse, no podemos continuar
-      if (!comprobanteUrl && !imagenProcesadaUrl) {
-        throw new Error('No se pudo subir ninguna de las imágenes')
+      if (!comprobanteUrl) {
+        throw new Error('No se pudo subir la imagen')
       }
 
       // Incluir información del gasto en el campo descripcion para facilitar búsquedas posteriores

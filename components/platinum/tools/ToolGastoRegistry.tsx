@@ -24,7 +24,8 @@ export function ToolGastoRegistry({
     const [paso, setPaso] = useState<PasoType>('seleccion')
     const [loading, setLoading] = useState(false)
     const [analizandoIA, setAnalizandoIA] = useState(false)
-    const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null)
+    const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null)
+    const [imagenProcesadaUrl, setImagenProcesadaUrl] = useState<string | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [tareas, setTareas] = useState<{ id: number; titulo: string; code: string }[]>([])
     const [selectedTareaId, setSelectedTareaId] = useState<string | null>(tareaId ? tareaId.toString() : null)
@@ -152,9 +153,12 @@ export function ToolGastoRegistry({
                     duration: 3000
                 })
 
-                // Guardar la URL para la persistencia final (v111.0 fix)
-                if (data.cloudinaryUrl) {
-                    setCloudinaryUrl(data.cloudinaryUrl)
+                // guardar las urls para la persistencia final (v112.0)
+                if (data.comprobanteUrl) {
+                    setComprobanteUrl(data.comprobanteUrl)
+                }
+                if (data.imagenProcesadaUrl) {
+                    setImagenProcesadaUrl(data.imagenProcesadaUrl)
                 }
             }
         } catch (error: any) {
@@ -197,7 +201,8 @@ export function ToolGastoRegistry({
                 id_usuario: userId,
                 liquidado: false,
                 tipo_gasto: formData.tipo_gasto,
-                comprobante_url: cloudinaryUrl // NEW: Enviar la factura de Cloudinary (v111.0)
+                comprobante_url: comprobanteUrl,
+                imagen_procesada_url: imagenProcesadaUrl
             }
 
             // Llamada a la Server Action (Gold Standard v81.0 - Bypass RLS seguro)
@@ -214,7 +219,8 @@ export function ToolGastoRegistry({
                 fecha_gasto: new Date().toISOString().split("T")[0],
                 tipo_gasto: "material"
             })
-            setCloudinaryUrl(null)
+            setComprobanteUrl(null)
+            setImagenProcesadaUrl(null)
             setPreviewUrl(null)
         } catch (error: any) {
             console.error("Error guardando gasto:", error)
