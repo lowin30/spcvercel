@@ -29,20 +29,21 @@ export async function getInvoiceKPIs(rol: string) {
     if (rol !== 'admin') return null;
 
     // Fetch various KPIs in parallel using Service Role
+    const supabase = await createServerClient();
     const [
         kpiResponse,
         liqSinPfResponse,
         pfSinFacResponse,
         pbSinPfResponse,
-        pfBorradorResponse,
+        tareasActivasSinPfResponse,
         pfEnviadoResponse
     ] = await Promise.all([
-        (await createServerClient()).from('vista_finanzas_admin').select('*').single(),
-        (await createServerClient()).from('vista_admin_liquidaciones_sin_pf').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
-        (await createServerClient()).from('vista_admin_pf_aprobado_sin_factura').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
-        (await createServerClient()).from('vista_admin_pb_finalizada_sin_pf').select('*', { count: 'exact' }).limit(5),
-        (await createServerClient()).from('vista_admin_pf_borrador_antiguo').select('*', { count: 'exact' }).order('created_at', { ascending: true }).limit(5),
-        (await createServerClient()).from('vista_admin_pf_enviado_sin_aprobar').select('*', { count: 'exact' }).order('updated_at', { ascending: true }).limit(5)
+        supabase.from('vista_finanzas_admin').select('*').single(),
+        supabase.from('vista_admin_liquidaciones_sin_pf').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
+        supabase.from('vista_admin_pf_aprobado_sin_factura').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
+        supabase.from('vista_admin_pb_finalizada_sin_pf').select('*', { count: 'exact' }).limit(5),
+        supabase.from('vista_tareas_admin').select('id, titulo, created_at', { count: 'exact' }).eq('finalizada', false).not('id_estado_nuevo', 'in', '(4,7,9,11)').eq('tiene_presupuesto_base', true).eq('tiene_presupuesto_final', false).order('created_at', { ascending: true }).limit(5),
+        supabase.from('vista_admin_pf_enviado_sin_aprobar').select('*', { count: 'exact' }).order('updated_at', { ascending: true }).limit(5)
     ]);
 
     return {
@@ -53,8 +54,8 @@ export async function getInvoiceKPIs(rol: string) {
         pfSinFac_count: pfSinFacResponse.count || 0,
         pbSinPf: pbSinPfResponse.data || [],
         pbSinPf_count: pbSinPfResponse.count || 0,
-        pfBorrador: pfBorradorResponse.data || [],
-        pfBorrador_count: pfBorradorResponse.count || 0,
+        tareasActivasSinPf: (tareasActivasSinPfResponse.data || []).map((t: any) => ({ id_tarea: t.id, titulo_tarea: t.titulo })),
+        tareasActivasSinPf_count: tareasActivasSinPfResponse.count || 0,
         pfEnviado: pfEnviadoResponse.data || [],
         pfEnviado_count: pfEnviadoResponse.count || 0
     };
