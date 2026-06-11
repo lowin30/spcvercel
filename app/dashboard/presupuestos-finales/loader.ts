@@ -198,38 +198,3 @@ export async function getPresupuestosCounts(rol: string, userId: string, filters
     }
 }
 
-/**
- * Obtener KPIs y recordatorios de administración (Solo Admin)
- */
-export async function getKpisAdmin(rol: string) {
-    if (rol !== 'admin') return null;
-    const supabase = await createServerClient()
-
-    const [
-        kpisRes,
-        pbSinPfRes,
-        pbSinAprobarRes,
-        pfAgingRes,
-        pfBorradorRes,
-        pfEnviadoRes,
-        pfAprobadoRes
-    ] = await Promise.all([
-        supabase.from('vista_finanzas_admin').select('*').maybeSingle(),
-        supabase.from('vista_admin_pb_finalizada_sin_pf').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('vista_admin_pb_sin_aprobar').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('vista_admin_pf_enviado_sin_actividad').select('*').order('dias_desde_envio', { ascending: false }).limit(50),
-        supabase.from('vista_admin_pf_borrador_antiguo').select('*').order('created_at', { ascending: true }).limit(50),
-        supabase.from('vista_admin_pf_enviado_sin_aprobar').select('*').order('updated_at', { ascending: true }).limit(50),
-        supabase.from('vista_admin_pf_aprobado_sin_factura').select('*').order('created_at', { ascending: false }).limit(50)
-    ]);
-
-    return {
-        kpis: kpisRes.data || null,
-        pbSinPf: pbSinPfRes.data || [],
-        pbSinAprobar: pbSinAprobarRes.data || [],
-        pfAging: pfAgingRes.data || [],
-        pfBorrador: pfBorradorRes.data || [],
-        pfEnviado: pfEnviadoRes.data || [],
-        pfAprobado: pfAprobadoRes.data || []
-    };
-}

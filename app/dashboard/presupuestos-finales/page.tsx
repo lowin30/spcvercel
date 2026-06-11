@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { getPresupuestosFinales, getKpisAdmin, getAdministradores, getEstadosPresupuestos, getPresupuestosCounts } from "./loader"
+import { getPresupuestosFinales, getAdministradores, getEstadosPresupuestos, getPresupuestosCounts } from "./loader"
 import { validateSessionAndGetUser } from "@/lib/auth-bridge"
 import { redirect } from "next/navigation"
 import PresupuestosFinalesClient from "./presupuestos-finales-client"
@@ -32,9 +32,8 @@ export default async function PresupuestosFinalesPage(props: {
 
   // 2. Obtención de Datos Segura (Server-Side)
   // Se ejecuta en paralelo para máxima velocidad
-  const [presupuestos, kpisData, administradores, estadosLookup, tabCounts] = await Promise.all([
+  const [presupuestos, administradores, estadosLookup, tabCounts] = await Promise.all([
     getPresupuestosFinales(rol, user.id, filters),
-    getKpisAdmin(rol),
     getAdministradores(rol),
     getEstadosPresupuestos(),
     getPresupuestosCounts(rol, user.id, {
@@ -56,7 +55,6 @@ export default async function PresupuestosFinalesPage(props: {
           {/* Pasamos los datos seguros al cliente */}
           <PresupuestosFinalesClient
             initialData={presupuestos}
-            kpisData={kpisData}
             administradores={administradores}
             estadosLookup={estadosLookup}
             tabCounts={tabCounts}

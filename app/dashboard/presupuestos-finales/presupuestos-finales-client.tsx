@@ -15,7 +15,6 @@ import { ToolPFWrapper } from "@/components/platinum/tools/pf/ToolPFWrapper"
 
 interface PresupuestosFinalesClientProps {
     initialData: any[]
-    kpisData: any
     administradores: any[]
     estadosLookup: { id: number, nombre: string, color: string, codigo: string }[]
     tabCounts: { activas: number, borrador: number, enviado: number, aceptado: number, facturado: number, todos: number }
@@ -25,7 +24,6 @@ interface PresupuestosFinalesClientProps {
 
 export default function PresupuestosFinalesClient({
     initialData,
-    kpisData,
     administradores,
     estadosLookup,
     tabCounts,
@@ -149,39 +147,6 @@ export default function PresupuestosFinalesClient({
                 </div>
             </div>
 
-            {/* Smart KPIs: Operational Bottlenecks - Mobile Friendly One-Line */}
-            {userRol === 'admin' && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <KpiStrip
-                        label="Por ser PF"
-                        count={kpisData?.pbSinPf?.length || 0}
-                        color="amber"
-                        icon={<FileClock className="h-4 w-4" />}
-                        description="Bases finalizadas sin PF"
-                    />
-                    <KpiStrip
-                        label="Enviados"
-                        count={kpisData?.pfEnviado?.length || 0}
-                        color="blue"
-                        icon={<SendHorizontal className="h-4 w-4" />}
-                        description="En revisión por cliente"
-                    />
-                    <KpiStrip
-                        label="Por Facturar"
-                        count={kpisData?.pfAprobado?.length || 0}
-                        color="green"
-                        icon={<ThumbsUp className="h-4 w-4" />}
-                        description="Listos para facturación"
-                    />
-                    <KpiStrip
-                        label="Borradores"
-                        count={kpisData?.pfBorrador?.length || 0}
-                        color="purple"
-                        icon={<Clock className="h-4 w-4" />}
-                        description="Ediciones pendientes"
-                    />
-                </div>
-            )}
 
             {/* Filtros Inteligentes - Platinum Glassmorphism */}
             <Card className="border-none shadow-xl bg-white/60 dark:bg-black/40 backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">

@@ -56,7 +56,6 @@ WHERE id_estado_nuevo <> 9
 | 6 | `vista_admin_liquidaciones_sin_pf` | Administrador: liquidaciones sin presupuesto final | ✅ Segura |
 | 7 | `vista_admin_pf_enviado_sin_actividad` | Administrador: presupuestos finales enviados sin actividad | ✅ Segura |
 | 8 | `vista_pb_supervisor` | Presupuestos base para supervisores | ✅ Segura |
-| 9 | `vista_admin_pf_borrador_antiguo` | Administrador: borradores antiguos de presupuestos finales | ✅ Segura |
 | 10 | `vista_pb_admin` | Presupuestos base para administradores | ✅ Segura |
 | 11 | `vista_admin_recordatorios_tareas_unificada` | Recordatorios unificados para administradores | ✅ Segura |
 | 12 | `vista_admin_pb_finalizada_sin_pf` | Administrador: presupuestos base finalizados sin presupuesto final | ✅ Segura |
