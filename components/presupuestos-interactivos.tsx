@@ -37,11 +37,12 @@ export interface PresupuestoType {
   aprobado?: boolean
   rechazado?: boolean
   observaciones?: string
-  observaciones_admin?: string  // ← Agregado
+  observaciones_admin?: string
   nota_pb?: string
   // Relaciones
   id_tarea?: number
-  id_estado?: number  // ← Agregado para referencia a estados_presupuestos
+  id_estado?: number  // ID del estado en estados_presupuestos
+  estado_codigo?: string  // codigo del estado (ej: 'facturado', 'aceptado')
   // Estado de facturación (solo para presupuestos finales)
   tiene_facturas?: boolean
   facturas_pagadas?: boolean
@@ -559,7 +560,8 @@ export function PresupuestosInteractivos({
                       </p>
                     </div>
                     <div className="flex gap-2">
-                      {!presupuestoFinalLocal.aprobado && (
+                      {/* Solo mostrar boton Aprobar si el PF NO esta facturado */}
+                      {!presupuestoFinalLocal.aprobado && presupuestoFinalLocal.estado_codigo !== 'facturado' && (
                         <BudgetApproveAction
                           budgetId={presupuestoFinalLocal.id}
                           tipo="final"

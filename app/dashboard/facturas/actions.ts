@@ -184,19 +184,28 @@ export async function deleteInvoice(invoiceId: number) {
 
         // 4.1 Actualizar el estado del presupuesto según si quedan facturas
         if (!quedanFacturas) {
-          // Si NO quedan facturas, volver a estado "presupuestado" y desaprobar
+          // Si NO quedan facturas, volver a estado "aceptado" (paso previo a facturado) y desaprobar
+          // Buscamos el ID dinamicamente para no hardcodear
+          const { data: estadoAceptado } = await supabaseAdmin
+            .from('estados_presupuestos')
+            .select('id')
+            .eq('codigo', 'aceptado')
+            .single()
+
+          const idEstadoAceptado = estadoAceptado?.id ?? 3 // fallback seguro
+
           const { error: updateError } = await supabaseAdmin
             .from('presupuestos_finales')
             .update({
-              id_estado: 3,      // Estado "presupuestado"
-              aprobado: false    // Desaprobar el presupuesto
+              id_estado: idEstadoAceptado,
+              aprobado: false
             })
             .eq('id', idPresupuestoFinal)
 
           if (updateError) {
             console.error('Error al actualizar estado del presupuesto:', updateError)
           } else {
-            console.log(`Presupuesto ${idPresupuestoFinal} actualizado a estado "presupuestado" (id_estado: 3) y desaprobado`)
+            console.log(`Presupuesto ${idPresupuestoFinal} actualizado a estado "aceptado" (id_estado: ${idEstadoAceptado}) y desaprobado`)
             revalidatePath('/dashboard/presupuestos-finales')
             revalidatePath(`/dashboard/presupuestos-finales/${idPresupuestoFinal}`)
             revalidatePath(`/dashboard/presupuestos-finales/editar/${idPresupuestoFinal}`)

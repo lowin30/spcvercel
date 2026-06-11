@@ -23,9 +23,9 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
 
     if (pfError || !presupuesto) throw new Error("Presupuesto no encontrado")
 
-    // 2. Verificar si ya está facturado
-    const { data: existente } = await supabase.from('facturas').select('id').eq('id_presupuesto_final', presupuestoId).maybeSingle()
-    if (existente) return { success: false, message: "Este presupuesto ya tiene una factura asociada" }
+    // 2. Verificar si ya está facturado (busca cualquier factura existente)
+    const { data: facturasExistentes } = await supabase.from('facturas').select('id').eq('id_presupuesto_final', presupuestoId).limit(1)
+    if (facturasExistentes && facturasExistentes.length > 0) return { success: false, message: "Este presupuesto ya tiene facturas asociadas" }
 
     // 3. Separar los items en Materiales y Mano de Obra
     const itemsMateriales = presupuesto.items?.filter((i: any) => i.es_material === true) || []
@@ -119,10 +119,13 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
       }
     }
 
-    // 6. Actualizar estado del presupuesto a 'facturado'
+    // 6. Actualizar estado del presupuesto a 'facturado' (columna correcta: id_estado)
     const { data: estFacturado } = await supabase.from('estados_presupuestos').select('id').eq('codigo', 'facturado').single()
     if (estFacturado) {
-      await supabase.from('presupuestos_finales').update({ id_estado_nuevo: estFacturado.id }).eq('id', presupuestoId)
+      await supabase.from('presupuestos_finales').update({
+        id_estado: estFacturado.id,
+        aprobado: true
+      }).eq('id', presupuestoId)
     }
 
     revalidatePath('/dashboard/presupuestos-finales')

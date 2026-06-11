@@ -380,6 +380,10 @@ export async function getTareaDetail(id: string) {
             if (pfFinal) {
                 pfFinal.tiene_facturas = finanzas.tiene_facturas;
                 pfFinal.facturas_pagadas = finanzas.facturas_pagadas;
+                // Mapear estado_codigo desde id_estado para que la UI pueda evaluar estado sin query extra
+                // estados_presupuestos: 1=borrador, 2=enviado, 3=aceptado, 4=facturado, 5=rechazado
+                const estadosMap: Record<number, string> = { 1: 'borrador', 2: 'enviado', 3: 'aceptado', 4: 'facturado', 5: 'rechazado' }
+                pfFinal.estado_codigo = estadosMap[pfFinal.id_estado] || null
             }
         }
         // B. Gastos y PB (Supervisor)

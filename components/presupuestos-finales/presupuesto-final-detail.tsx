@@ -118,6 +118,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                         <AprobadoCheckbox
                             presupuestoId={presupuesto.id}
                             initialValue={presupuesto.aprobado || false}
+                            estadoCodigo={presupuesto.estados_presupuestos?.codigo}
                         />
                     </div>
                     <ExportPresupuestoButton
@@ -149,11 +150,13 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                                     <Edit className="h-4 w-4" /> Editar Presupuesto
                                 </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/facturas/nueva?presupuesto_final_id=${presupuesto.id}`} className="flex items-center gap-2">
-                                    <ReceiptText className="h-4 w-4" /> Crear Factura
-                                </Link>
-                            </DropdownMenuItem>
+                            {presupuesto.estados_presupuestos?.codigo !== 'facturado' && (
+                                <DropdownMenuItem asChild>
+                                    <Link href={`/dashboard/facturas/nueva?presupuesto_final_id=${presupuesto.id}`} className="flex items-center gap-2">
+                                        <ReceiptText className="h-4 w-4" /> Crear Factura
+                                    </Link>
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -163,12 +166,22 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
             <div className="md:hidden flex flex-col gap-3">
                 <div className="bg-muted/30 p-4 rounded-xl border flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className={`h-3 w-3 rounded-full animate-pulse ${presupuesto.aprobado ? 'bg-green-500' : 'bg-amber-500'}`} />
-                        <span className="text-sm font-semibold">{presupuesto.aprobado ? 'Presupuesto Aprobado' : 'Pendiente de Aprobación'}</span>
+                        <div className={`h-3 w-3 rounded-full animate-pulse ${
+                            presupuesto.estados_presupuestos?.codigo === 'facturado'
+                                ? 'bg-emerald-500'
+                                : presupuesto.aprobado ? 'bg-green-500' : 'bg-amber-500'
+                        }`} />
+                        <span className="text-sm font-semibold">
+                            {presupuesto.estados_presupuestos?.codigo === 'facturado'
+                                ? 'Facturado'
+                                : presupuesto.aprobado ? 'Presupuesto Aprobado' : 'Pendiente de Aprobación'
+                            }
+                        </span>
                     </div>
                     <AprobadoCheckbox
                         presupuestoId={presupuesto.id}
                         initialValue={presupuesto.aprobado || false}
+                        estadoCodigo={presupuesto.estados_presupuestos?.codigo}
                     />
                 </div>
             </div>
