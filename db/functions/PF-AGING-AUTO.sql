@@ -13,7 +13,7 @@ DECLARE
   v_system_user_id uuid := '00000000-0000-0000-0000-000000000000';
 BEGIN
   -- 1. Seguridad: Solo admins o el propio sistema (postgres)
-  IF NOT (public.check_user_role('admin') OR current_user = 'postgres') THEN
+  IF NOT (COALESCE(public.get_my_role(), '') = 'admin' OR current_user = 'postgres') THEN
     RETURN 0;
   END IF;
 
@@ -30,16 +30,16 @@ BEGIN
     WHERE 
       -- A. Solo tareas NO finalizadas
       COALESCE(t.finalizada, false) = false
-      -- B. REGLA ORO: Solo tareas en estado 'Enviado' (4). 
-      -- Si están en 'Aprobado' o cualquier otro, NO se cierran.
-      AND t.id_estado_nuevo = 4
+      -- B. REGLA ORO: Tareas en estado 'Presupuestado' (3) o 'Enviado' (4)
+      -- Si están en 'Aprobado' o cualquier otro estado posterior, NO se cierran.
+      AND t.id_estado_nuevo IN (3, 4)
       -- C. REGLA ROBUSTEZ: updated_at debe ser antiguo (mínimo 30 días)
       AND t.updated_at < (NOW() - INTERVAL '30 days')
       -- D. NO hay Partes de Trabajo nuevos
       AND NOT EXISTS (
         SELECT 1 FROM public.partes_de_trabajo pdt
         WHERE pdt.id_tarea = c.id_tarea
-          AND (pdt.created_at >= c.fecha_envio OR pdt.updated_at >= c.fecha_envio)
+          AND (pdt.created_at >= c.fecha_envio OR (pdt.fecha IS NOT NULL AND pdt.fecha >= c.fecha_envio::date))
       )
       -- E. NO hay Gastos nuevos
       AND NOT EXISTS (
@@ -53,14 +53,6 @@ BEGIN
         WHERE com.id_tarea = c.id_tarea
           AND com.created_at >= c.fecha_envio
           AND com.id_usuario IS DISTINCT FROM v_system_user_id
-      )
-      -- G. NUEVO: NO hay Cambios de Estado manuales nuevos
-      AND NOT EXISTS (
-        SELECT 1 FROM public.historial_estados hist
-        WHERE hist.tipo_entidad = 'tarea' 
-          AND hist.id_entidad = c.id_tarea
-          AND hist.created_at >= c.fecha_envio
-          AND hist.id_usuario IS DISTINCT FROM v_system_user_id
       )
   ),
   consolidated AS (
@@ -92,17 +84,6 @@ BEGIN
       E'\nFecha original envío PF: ' || to_char(u.fecha_envio, 'YYYY-MM-DD'),
       u.id_tarea,
       v_system_user_id
-    FROM updated u
-  ),
-  ins_hist AS (
-    INSERT INTO public.historial_estados (tipo_entidad, id_entidad, estado_nuevo, id_usuario, comentario, created_at)
-    SELECT
-      'tarea',
-      u.id_tarea,
-      'vencido',
-      v_system_user_id,
-      'Auto-finalización automatizada por inactividad prolongada (V3 Platinium)',
-      NOW()
     FROM updated u
   )
   SELECT COUNT(*) INTO v_rows FROM updated;

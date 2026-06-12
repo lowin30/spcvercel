@@ -155,28 +155,48 @@ export async function desaprobarPresupuesto(presupuestoId: number) {
       throw new Error("No tienes permisos para realizar esta acción")
     }
 
-    // 1. Obtener ID del estado 'presupuestado'
-    const { data: estPresupuestado } = await supabase
+    // 1. Obtener ID del estado 'rechazado'
+    const { data: estRechazado } = await supabase
       .from('estados_presupuestos')
       .select('id')
-      .eq('codigo', 'presupuestado')
+      .eq('codigo', 'rechazado')
       .single()
 
-    if (!estPresupuestado) throw new Error("Estado 'presupuestado' no encontrado")
+    if (!estRechazado) throw new Error("Estado 'rechazado' no encontrado")
 
     // 2. Actualizar el presupuesto
     const { error } = await supabase
       .from('presupuestos_finales')
-      .update({ id_estado_nuevo: estPresupuestado.id })
+      .update({ 
+        id_estado: estRechazado.id,
+        aprobado: false 
+      })
       .eq('id', presupuestoId)
 
     if (error) throw error
+
+    // 3. Propagar retroceso a la tarea asociada
+    const { data: pf } = await supabase
+      .from('presupuestos_finales')
+      .select('id_tarea')
+      .eq('id', presupuestoId)
+      .single()
+
+    if (pf?.id_tarea) {
+      await supabase
+        .from('tareas')
+        .update({ 
+          id_estado_nuevo: 3, // 3 = presupuestado
+          finalizada: false
+        })
+        .eq('id', pf.id_tarea)
+    }
 
     revalidatePath('/dashboard/presupuestos-finales')
 
     return {
       success: true,
-      message: "Presupuesto desaprobado correctamente"
+      message: "Presupuesto desaprobado y rechazado correctamente"
     }
 
   } catch (error: any) {

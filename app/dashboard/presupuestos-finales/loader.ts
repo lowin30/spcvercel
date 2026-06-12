@@ -48,7 +48,7 @@ export async function getPresupuestosFinales(rol: string, userId: string, filter
             }
             else if (estado === "borrador") query = query.eq('id_estado', 1)
             else if (estado === "enviado") query = query.eq('id_estado', 2)
-            else if (estado === "aceptado") query = query.or('id_estado.eq.3,aprobado.eq.true')
+            else if (estado === "aceptado") query = query.eq('id_estado', 3)
             else if (estado === "facturado") query = query.eq('id_estado', 4)
             else if (estado === "rechazado") query = query.or('id_estado.eq.5,rechazado.eq.true')
         }
@@ -192,7 +192,7 @@ export async function getPresupuestosCounts(rol: string, userId: string, filters
         activas: data.filter(p => p.id_estado === 1 || p.id_estado === 3 || p.id_estado === null).length,
         borrador: data.filter(p => p.id_estado === 1).length,
         enviado: data.filter(p => p.id_estado === 2).length,
-        aceptado: data.filter(p => p.id_estado === 3 || p.aprobado === true).length,
+        aceptado: data.filter(p => p.id_estado === 3).length,
         facturado: data.filter(p => p.id_estado === 4).length,
         todos: data.length,
     }

@@ -21,7 +21,8 @@ export const ESTADOS_FALLBACK: EstadoTarea[] = [
   { id: 6, codigo: "facturado", nombre: "Facturado", color: "#f97316", orden: 6 },
   { id: 7, codigo: "terminado", nombre: "Terminado", color: "#10b981", orden: 7 },
   { id: 8, codigo: "reclamado", nombre: "Reclamado", color: "#ef4444", orden: 8 },
-  { id: 9, codigo: "liquidada", nombre: "Liquidada", color: "#8b5cf6", orden: 9 }
+  { id: 9, codigo: "liquidada", nombre: "Liquidada", color: "#8b5cf6", orden: 9 },
+  { id: 12, codigo: "base", nombre: "Presupuesto Base", color: "#7c3aed", orden: 12 }
 ];
 
 // Cache en memoria para estados
