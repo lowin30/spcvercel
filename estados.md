@@ -85,5 +85,7 @@ este documento describe el catalogo de estados de tareas, presupuestos y factura
     *   se inserto el nuevo estado `12` ("Presupuesto Base") en la tabla `estados_tareas`.
     *   se agrego la columna fisica `base_liquidada` a `presupuestos_base` y se incorporo en las vistas `vista_presupuestos_base_completa`, `vista_pb_supervisor` y `vista_pb_admin`.
     *   se modifico `sync_factura_pagada()` para no finalizar tareas si el supervisor tiene un presupuesto base pendiente de liquidar.
-    *   se creo el trigger `trg_liquidacion_pagada_actualiza_pb_y_tarea` para sincronizar `base_liquidada` y finalizar la tarea tras el cobro del supervisor.
+6.  **elegibilidad en alta de liquidaciones:**
+    *   se modifico el loader de `/dashboard/liquidaciones/nueva` para que permita traer presupuestos base de tareas terminadas o finalizadas (cambiando el filtro restrictivo de `finalizada = true` por un OR de `finalizada = true` o `se_trabajo = true`).
+    *   esto destraba las liquidaciones internas a supervisores cuando el trabajo ya fue completado de manera fisica (`se_trabajo = true`), incluso si la tarea aun no esta administrativamente finalizada.
 

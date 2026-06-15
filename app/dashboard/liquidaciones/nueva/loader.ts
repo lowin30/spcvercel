@@ -32,7 +32,7 @@ export async function getCandidateTasks(userId: string, role: string): Promise<C
         id_estado_nuevo
       )
     `)
-        .eq('tareas.finalizada', true)
+        .or('finalizada.eq.true,se_trabajo.eq.true', { foreignTable: 'tareas' })
         .order('total', { ascending: false })
 
     if (pbError) {
