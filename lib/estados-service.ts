@@ -15,14 +15,14 @@ export interface EstadoTarea {
 export const ESTADOS_FALLBACK: EstadoTarea[] = [
   { id: 1, codigo: "organizar", nombre: "Organizar", color: "#6b7280", orden: 1 },
   { id: 2, codigo: "preguntar", nombre: "Preguntar", color: "#3b82f6", orden: 2 },
-  { id: 3, codigo: "presupuestado", nombre: "Presupuestado", color: "#8b5cf6", orden: 3 },
-  { id: 4, codigo: "enviado", nombre: "Enviado", color: "#6366f1", orden: 4 },
-  { id: 5, codigo: "aprobado", nombre: "Aprobado", color: "#16a34a", orden: 5 },
-  { id: 6, codigo: "facturado", nombre: "Facturado", color: "#f97316", orden: 6 },
-  { id: 7, codigo: "terminado", nombre: "Terminado", color: "#10b981", orden: 7 },
-  { id: 8, codigo: "reclamado", nombre: "Reclamado", color: "#ef4444", orden: 8 },
-  { id: 9, codigo: "liquidada", nombre: "Liquidada", color: "#8b5cf6", orden: 9 },
-  { id: 12, codigo: "base", nombre: "Presupuesto Base", color: "#7c3aed", orden: 12 }
+  { id: 12, codigo: "base", nombre: "Presupuesto Base", color: "#7c3aed", orden: 3 },
+  { id: 3, codigo: "presupuestado", nombre: "Presupuestado", color: "#8b5cf6", orden: 4 },
+  { id: 4, codigo: "enviado", nombre: "Enviado", color: "#6366f1", orden: 5 },
+  { id: 5, codigo: "aprobado", nombre: "Aprobado", color: "#16a34a", orden: 6 },
+  { id: 6, codigo: "facturado", nombre: "Facturado", color: "#f97316", orden: 7 },
+  { id: 7, codigo: "terminado", nombre: "Terminado", color: "#10b981", orden: 8 },
+  { id: 8, codigo: "reclamado", nombre: "Reclamado", color: "#ef4444", orden: 9 },
+  { id: 9, codigo: "liquidada", nombre: "Liquidada", color: "#8b5cf6", orden: 10 }
 ];
 
 // Cache en memoria para estados

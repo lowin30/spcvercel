@@ -9,6 +9,7 @@ este documento describe el catalogo de estados de tareas, presupuestos y factura
 ### 1.1 estados de tareas (`estados_tareas`)
 *   **id 1 (organizar):** tarea recien creada o en planificacion.
 *   **id 2 (preguntar):** consulta operativa o con el cliente.
+*   **id 12 (base):** presupuesto base creado por el supervisor.
 *   **id 3 (presupuestado):** tarea que ya cuenta con un presupuesto final creado.
 *   **id 4 (enviado):** presupuesto final enviado al cliente/administracion.
 *   **id 5 (aprobado):** presupuesto final aprobado por el cliente.
@@ -18,7 +19,6 @@ este documento describe el catalogo de estados de tareas, presupuestos y factura
 *   **id 9 (liquidada):** tarea finalizada con la totalidad de sus facturas pagadas y liquidaciones internas de supervisor saldadas.
 *   **id 10 (posible):** tarea potencial o pre-presupuesto.
 *   **id 11 (vencido):** cerrada de forma automatica o sin respuesta del cliente.
-*   **id 12 (base):** presupuesto base creado por el supervisor.
 
 ### 1.2 estados de presupuestos finales (`estados_presupuestos`)
 *   **id 1 (borrador):** pf en edicion.
@@ -88,4 +88,7 @@ este documento describe el catalogo de estados de tareas, presupuestos y factura
 6.  **elegibilidad en alta de liquidaciones:**
     *   se modifico el loader de `/dashboard/liquidaciones/nueva` para que permita traer presupuestos base de tareas terminadas o finalizadas (cambiando el filtro restrictivo de `finalizada = true` por un OR de `finalizada = true` o `se_trabajo = true`).
     *   esto destraba las liquidaciones internas a supervisores cuando el trabajo ya fue completado de manera fisica (`se_trabajo = true`), incluso si la tarea aun no esta administrativamente finalizada.
+7.  **reordenamiento de estados de tareas:**
+    *   se modifico la columna `orden` en la tabla `estados_tareas` mediante una transaccion sql para reubicar "Presupuesto Base" (id 12) en el puesto 3 (antes de "Presupuestado"), desplazando los siguientes estados una posicion hacia adelante de forma automatica.
+    *   se actualizo el array `ESTADOS_FALLBACK` en `lib/estados-service.ts` para reflejar con exactitud este cambio en el orden de presentacion visual.
 
