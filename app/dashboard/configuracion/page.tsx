@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import { getConfiguracionData } from "./loader"
 import ConfiguracionPageClient from "./configuracion-page-client"
 
+export const dynamic = 'force-dynamic'
+
 /**
  * CONFIGURACIÓN PAGE v106.0 (Server-Side Data Loading)
  * Server Component que:
@@ -14,6 +16,10 @@ import ConfiguracionPageClient from "./configuracion-page-client"
 export default async function ConfiguracionPage() {
   // 1. EL GATEKEEPER (Bridge Protocol)
   const user = await validateSessionAndGetUser()
+
+  if (!user) {
+    redirect('/login')
+  }
 
   // 2. RECHAZO INMEDIATO
   if (user.rol !== 'admin') {

@@ -33,9 +33,9 @@ export async function validateSessionAndGetUser(): Promise<SPCUser | null> {
     // 1. Si Supabase falla, intentamos rescate por Email (Hybrid Handshake v95.1)
     let email = user?.email || null
     
-    // si no hay email despues del intento de rescate, retornamos null silenciosamente
+    // si no hay email despues del intento de rescate, redirigimos al login
     if (!email) {
-        return null
+        redirect('/login')
     }
 
     // 3. Extraer Rol desde el JWT (The Platinum Standard)
@@ -97,7 +97,7 @@ export async function validateSessionAndGetUser(): Promise<SPCUser | null> {
         .single()
 
     if (!usuario) {
-        return null
+        redirect('/login')
     }
 
     return {
