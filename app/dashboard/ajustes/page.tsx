@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import { getAjustesData } from "./loader"
 import AjustesClient from "./ajustes-client"
 
+export const dynamic = 'force-dynamic'
+
 /**
  * AJUSTES PAGE v105.0 (Server-Side Data Loading)
  * Server Component que:
