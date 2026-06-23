@@ -32,23 +32,6 @@ export async function validateSessionAndGetUser(): Promise<SPCUser | null> {
 
     // 1. Si Supabase falla, intentamos rescate por Email (Hybrid Handshake v95.1)
     let email = user?.email || null
-
-    if (!email) {
-        const cookieStore = await cookies()
-        const descopeSession = cookieStore.get('DS')?.value
-        
-        if (descopeSession) {
-            // BUGFIX: Como medida de emergencia, buscamos el último login exitoso en la tabla usuarios.
-            const { data: lastUser } = await supabaseAdmin
-                .from('usuarios')
-                .select('email')
-                .order('ultimo_acceso', { ascending: false })
-                .limit(1)
-                .single()
-            
-            email = lastUser?.email || null
-        }
-    }
     
     // si no hay email despues del intento de rescate, retornamos null silenciosamente
     if (!email) {

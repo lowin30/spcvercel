@@ -14,6 +14,7 @@ interface SuperIntelligentSearchProps {
   additionalParams?: Record<string, any>
   onResults: (results: any[]) => void
   onLoading?: (loading: boolean) => void
+  onQueryChange?: (query: string) => void
   minChars?: number
   debounceMs?: number
   showRelevanceInfo?: boolean
@@ -26,6 +27,7 @@ export function SuperIntelligentSearch({
   additionalParams = {},
   onResults,
   onLoading,
+  onQueryChange,
   minChars = 2,
   debounceMs = 300,
   showRelevanceInfo = true,
@@ -102,6 +104,7 @@ export function SuperIntelligentSearch({
 
   const handleClear = () => {
     setQuery("")
+    onQueryChange?.("")
     setStats(null)
     setError(null)
   }
@@ -114,7 +117,10 @@ export function SuperIntelligentSearch({
           type="text"
           placeholder={placeholder}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            onQueryChange?.(e.target.value)
+          }}
           className="pl-10 pr-20"
           autoComplete="off"
           spellCheck="false"

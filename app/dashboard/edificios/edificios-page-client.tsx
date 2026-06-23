@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState, useCallback } from "react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { BuildingList } from "@/components/building-list"
 import Link from "next/link"
-import { Plus, Search, Loader2, Filter, X, RefreshCw } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Plus, Search, Filter, X, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { useDebouncedCallback } from "use-debounce"
 
 interface Permissions {
     canCreateBuilding: boolean;
@@ -31,57 +32,47 @@ export default function EdificiosPageClient({
     userRol,
     permissions
 }: EdificiosPageClientProps) {
-    const [searchTerm, setSearchTerm] = useState('')
-    const [administradores] = useState(initialAdministradores)
-    const [activeFilters, setActiveFilters] = useState<{
-        administrador?: string,
-    }>({})
-
     const router = useRouter()
-    const params = useSearchParams()
-    const searchQuery = params.get('q') || ''
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
 
-    // Inicializar búsqueda si viene en la URL
-    useEffect(() => {
-        if (searchQuery) {
-            setSearchTerm(searchQuery)
-        }
-    }, [searchQuery])
+    const currentSearch = searchParams.get('search') || ''
+    const currentAdmin = searchParams.get('id_administrador') || ''
 
-    // Filtrado 100% client-side sobre datos precargados del servidor
-    const edificiosFiltrados = useMemo(() => {
-        let filtered = [...initialEdificios]
+    // Helper para actualizar query string
+    const createQueryString = useCallback(
+        (deltas: Record<string, string | null>) => {
+            const params = new URLSearchParams(searchParams.toString())
+            for (const [key, value] of Object.entries(deltas)) {
+                if (value === null || value === '_todos_' || value === '') {
+                    params.delete(key)
+                } else {
+                    params.set(key, value)
+                }
+            }
+            return params.toString()
+        },
+        [searchParams]
+    )
 
-        // Filtro por término de búsqueda
-        if (searchTerm) {
-            const termLower = searchTerm.toLowerCase()
-            filtered = filtered.filter(edificio =>
-                edificio.nombre?.toLowerCase().includes(termLower) ||
-                edificio.direccion?.toLowerCase().includes(termLower) ||
-                edificio.cuit?.toLowerCase().includes(termLower)
-            )
-        }
+    const handleSearch = useDebouncedCallback((term: string) => {
+        const query = createQueryString({ search: term })
+        router.replace(pathname + '?' + query)
+    }, 300)
 
-        // Filtro por administrador
-        if (activeFilters.administrador) {
-            const idAdminFiltro = parseInt(activeFilters.administrador, 10)
-            filtered = filtered.filter(edificio =>
-                edificio.id_administrador === idAdminFiltro
-            )
-        }
+    const updateFilter = (key: string, value: string | null) => {
+        const query = createQueryString({ [key]: value })
+        router.push(pathname + '?' + query)
+    }
 
-        return filtered
-    }, [initialEdificios, searchTerm, activeFilters])
-
-    // Filtrar por estado
-    const edificiosActivos = edificiosFiltrados.filter(
+    // Filtrar por estado de los devueltos del servidor
+    const edificiosActivos = initialEdificios.filter(
         (edificio) => edificio.estado === "activo" || edificio.estado === "en_obra"
     )
-    const edificiosInactivos = edificiosFiltrados.filter(
+    const edificiosInactivos = initialEdificios.filter(
         (edificio) => edificio.estado === "finalizado"
     )
 
-    // Callback para refrescar datos desde el servidor
     const handleBuildingUpdated = () => {
         router.refresh()
     }
@@ -106,14 +97,10 @@ export default function EdificiosPageClient({
                         type="search"
                         placeholder="Buscar por nombre, dirección, CUIT..."
                         className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        defaultValue={currentSearch}
+                        onChange={(e) => handleSearch(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" size="icon" onClick={() => setActiveFilters(prev => ({ ...prev }))}
-                    title="Filtros avanzados">
-                    <Filter className="h-4 w-4" />
-                </Button>
             </div>
 
             {/* Filtros avanzados */}
@@ -128,20 +115,18 @@ export default function EdificiosPageClient({
                         <div className="space-y-2">
                             <p className="text-sm">Administrador</p>
                             <Select
-                                value={activeFilters.administrador || '_todos_'}
-                                onValueChange={(value) =>
-                                    setActiveFilters(prev => value === '_todos_' ? { ...prev, administrador: undefined } : { ...prev, administrador: value })
-                                }
+                                value={currentAdmin || '_todos_'}
+                                onValueChange={(value) => updateFilter('id_administrador', value)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Todos los administradores" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="_todos_">Todos los administradores</SelectItem>
-                                    {administradores
+                                    {initialAdministradores
                                         .sort((a, b) => a.nombre.localeCompare(b.nombre))
                                         .map(admin => (
-                                            <SelectItem key={admin.id} value={admin.id}>
+                                            <SelectItem key={admin.id} value={admin.id.toString()}>
                                                 {admin.nombre}
                                             </SelectItem>
                                         ))
@@ -152,15 +137,12 @@ export default function EdificiosPageClient({
                     </div>
 
                     {/* Botón para limpiar filtros */}
-                    {(activeFilters.administrador !== undefined || searchTerm) && (
+                    {(currentAdmin || currentSearch) && (
                         <div className="mt-4 flex justify-end">
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => {
-                                    setActiveFilters({})
-                                    setSearchTerm('')
-                                }}
+                                onClick={() => router.push(pathname)}
                                 className="flex items-center gap-2"
                             >
                                 <RefreshCw className="h-4 w-4" />
@@ -170,25 +152,25 @@ export default function EdificiosPageClient({
                     )}
 
                     {/* Mostrar filtros activos */}
-                    {(activeFilters.administrador !== undefined || searchTerm) && (
+                    {(currentAdmin || currentSearch) && (
                         <div className="flex flex-wrap gap-2 mt-4 border-t pt-4">
                             <p className="text-sm font-medium mr-2">Filtros activos:</p>
-                            {searchTerm && (
+                            {currentSearch && (
                                 <Badge variant="outline" className="flex items-center gap-1">
-                                    Búsqueda: {searchTerm}
+                                    Búsqueda: {currentSearch}
                                     <button
-                                        onClick={() => setSearchTerm('')}
+                                        onClick={() => updateFilter('search', null)}
                                         className="ml-1 rounded-full hover:bg-gray-200 p-0.5"
                                     >
                                         <X className="h-3 w-3" />
                                     </button>
                                 </Badge>
                             )}
-                            {activeFilters.administrador && (
+                            {currentAdmin && (
                                 <Badge variant="outline" className="flex items-center gap-1">
-                                    Administrador: {administradores.find(a => a.id === activeFilters.administrador)?.nombre || 'Desconocido'}
+                                    Administrador: {initialAdministradores.find(a => a.id.toString() === currentAdmin)?.nombre || 'Desconocido'}
                                     <button
-                                        onClick={() => setActiveFilters(prev => ({ ...prev, administrador: undefined }))}
+                                        onClick={() => updateFilter('id_administrador', null)}
                                         className="ml-1 rounded-full hover:bg-gray-200 p-0.5"
                                     >
                                         <X className="h-3 w-3" />

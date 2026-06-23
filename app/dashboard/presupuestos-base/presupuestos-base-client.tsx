@@ -33,6 +33,8 @@ interface PresupuestosBaseClientProps {
   userId: string
 }
 
+import { useDebouncedCallback } from "use-debounce"
+
 export function PresupuestosBaseClient({ presupuestos, userRole, userId }: PresupuestosBaseClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -51,8 +53,13 @@ export function PresupuestosBaseClient({ presupuestos, userRole, userId }: Presu
     router.push(`?${params.toString()}`)
   }
 
+  const debounceBusqueda = useDebouncedCallback((val: string) => {
+    updateUrl('q', val)
+  }, 500)
+
   const handleBusqueda = (e: React.FormEvent) => {
     e.preventDefault()
+    debounceBusqueda.cancel()
     updateUrl('q', busqueda)
   }
 
@@ -160,7 +167,10 @@ export function PresupuestosBaseClient({ presupuestos, userRole, userId }: Presu
             <Input
               placeholder="Buscar por título, edificio o administrador..."
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => {
+                setBusqueda(e.target.value)
+                debounceBusqueda(e.target.value)
+              }}
               className="pl-12 h-12 bg-muted/30 border-border/50 rounded-xl focus:ring-violet-600 focus:border-violet-600 transition-all text-base"
             />
           </div>

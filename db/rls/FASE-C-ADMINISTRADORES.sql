@@ -7,9 +7,9 @@ AS RESTRICTIVE
 FOR SELECT
 TO public
 USING (
-  check_user_role('admin'::text)
-  OR check_user_role('supervisor'::text)
-  OR check_user_role('trabajador'::text)
+  (jwt_rol() = 'admin'::text)
+  OR (jwt_rol() = 'supervisor'::text)
+  OR (jwt_rol() = 'trabajador'::text)
 );
 
 -- RESTRICTIVE INSERT: solo admin
@@ -18,7 +18,7 @@ ON public.administradores
 AS RESTRICTIVE
 FOR INSERT
 TO public
-WITH CHECK (check_user_role('admin'::text));
+WITH CHECK ((jwt_rol() = 'admin'::text));
 
 -- RESTRICTIVE UPDATE: solo admin
 CREATE POLICY phase_c_administradores_restrictive_update
@@ -26,8 +26,8 @@ ON public.administradores
 AS RESTRICTIVE
 FOR UPDATE
 TO public
-USING (check_user_role('admin'::text))
-WITH CHECK (check_user_role('admin'::text));
+USING ((jwt_rol() = 'admin'::text))
+WITH CHECK ((jwt_rol() = 'admin'::text));
 
 -- RESTRICTIVE DELETE: solo admin
 CREATE POLICY phase_c_administradores_restrictive_delete
@@ -35,6 +35,6 @@ ON public.administradores
 AS RESTRICTIVE
 FOR DELETE
 TO public
-USING (check_user_role('admin'::text));
+USING ((jwt_rol() = 'admin'::text));
 
 COMMIT;

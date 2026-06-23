@@ -12,7 +12,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import FacturasClientWrapper from "./client-wrapper"
 
-export default async function FacturasPage() {
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
+
+export default async function FacturasPage(props: {
+  searchParams: SearchParams
+}) {
   const user = await validateSessionAndGetUser()
   const { rol } = user
 
@@ -21,9 +25,15 @@ export default async function FacturasPage() {
     return <div className="p-8 text-center text-red-600">Acceso restringido. Requiere rol de Administrador.</div>
   }
 
+  const searchParams = await props.searchParams
+  const search = typeof searchParams.search === 'string' ? searchParams.search : undefined
+  const id_administrador = typeof searchParams.id_administrador === 'string' ? searchParams.id_administrador : undefined
+  const id_estado = typeof searchParams.id_estado === 'string' ? searchParams.id_estado : undefined
+  const id_edificio = typeof searchParams.id_edificio === 'string' ? searchParams.id_edificio : undefined
+
   // Parallel Data Fetching
   const [facturas, kmisData, filtrosData] = await Promise.all([
-    getFacturas(rol, user.id),
+    getFacturas(rol, user.id, { search, id_administrador, id_estado, id_edificio }),
     getInvoiceKPIs(rol),
     getFiltrosData(rol)
   ])

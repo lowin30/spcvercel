@@ -56,31 +56,52 @@ export function ProductoPicker({
 
   // Filtrar productos cuando cambian los filtros
   useEffect(() => {
-    if (!productos.length) return
+    // Si no hay término de búsqueda o es menor a 2 caracteres, usar filtrado local en memoria
+    if (!searchTerm || searchTerm.trim().length < 2) {
+      let result = [...productos]
 
-    let result = [...productos]
+      // Aplicar filtro de categoría
+      if (categoriaFilter && categoriaFilter !== "all") {
+        result = result.filter((producto) => producto.categoria_id === categoriaFilter)
+      }
 
-    // Aplicar filtro de búsqueda
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(
-        (producto) =>
-          producto.nombre.toLowerCase().includes(term) ||
-          producto.code.toString().includes(term) ||
-          (producto.descripcion && producto.descripcion.toLowerCase().includes(term)),
-      )
+      // Solo mostrar productos activos
+      result = result.filter((producto) => producto.activo)
+
+      setFilteredProductos(result)
+      setIsLoading(false)
+      return
     }
 
-    // Aplicar filtro de categoría
-    if (categoriaFilter && categoriaFilter !== "all") {
-      result = result.filter((producto) => producto.categoria_id === categoriaFilter)
-    }
+    // Búsqueda inteligente con debounce de 300ms llamando a la RPC buscar_productos_super_inteligente
+    setIsLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.rpc('buscar_productos_super_inteligente', {
+          p_query: searchTerm.trim(),
+          p_categoria_id: categoriaFilter === "all" ? null : categoriaFilter,
+          p_activo: true, // Solo mostrar activos
+          p_limit: 50
+        })
 
-    // Solo mostrar productos activos
-    result = result.filter((producto) => producto.activo)
+        if (error) throw error
 
-    setFilteredProductos(result)
-  }, [productos, searchTerm, categoriaFilter])
+        // Mapear los campos devueltos por la RPC para compatibilidad con la interfaz
+        const mapped = (data || []).map((p: any) => ({
+          ...p,
+          categorias_productos: p.categoria_nombre ? { nombre: p.categoria_nombre } : null
+        }))
+
+        setFilteredProductos(mapped)
+      } catch (err) {
+        console.error("Error al realizar la búsqueda inteligente de productos:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [productos, searchTerm, categoriaFilter, supabase])
 
   const loadProductos = async () => {
     setIsLoading(true)

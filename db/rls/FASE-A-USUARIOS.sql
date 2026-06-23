@@ -51,8 +51,8 @@ AS RESTRICTIVE
 FOR SELECT
 TO public
 USING (
-  check_user_role('admin'::text)
-  OR check_user_role('supervisor'::text)
+  (jwt_rol() = 'admin'::text)
+  OR (jwt_rol() = 'supervisor'::text)
   OR (id = auth.uid())
 );
 
@@ -63,7 +63,7 @@ AS RESTRICTIVE
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR (id = auth.uid())
 );
 
@@ -74,11 +74,11 @@ AS RESTRICTIVE
 FOR UPDATE
 TO authenticated
 USING (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR (id = auth.uid())
 )
 WITH CHECK (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR (id = auth.uid())
 );
 
@@ -89,7 +89,7 @@ AS RESTRICTIVE
 FOR DELETE
 TO authenticated
 USING (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR (id = auth.uid())
 );
 

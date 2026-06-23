@@ -9,12 +9,21 @@ export const dynamic = 'force-dynamic';
  * EDIFICIOS PAGE v140.0 (Protocolo Triple Barrera)
  * Server Component que carga datos con RLS y el objeto Permission.
  */
-export default async function EdificiosPage() {
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
+
+export default async function EdificiosPage(props: {
+  searchParams: SearchParams
+}) {
   // 1. EL GATEKEEPER (Bridge Protocol)
   const user = await validateSessionAndGetUser()
+  const searchParams = await props.searchParams
+
+  const search = typeof searchParams.search === 'string' ? searchParams.search : undefined
+  const id_administrador = typeof searchParams.id_administrador === 'string' ? searchParams.id_administrador : undefined
+  const estado = typeof searchParams.estado === 'string' ? searchParams.estado : undefined
 
   // 2. PRECARGA DE DATOS SEGUROS
-  const { edificios, administradores, permissions } = await getEdificiosData()
+  const { edificios, administradores, permissions } = await getEdificiosData({ search, id_administrador, estado })
 
   // 3. PASE VIP con datos precargados
   return (

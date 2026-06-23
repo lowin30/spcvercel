@@ -156,8 +156,6 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         return filteredData;
 
-        return filteredData;
-
     } catch (error) {
         console.error("Loader Error:", error);
         if ((error as any).message?.includes("No hay sesión")) {
@@ -527,10 +525,11 @@ export async function getCatalogsForWizard() {
         console.error("Error validando sesion en catalogos:", e);
     }
 
+    const supabase = await createServerClient();
     const [adminsRes, supervisorsRes, workersRes] = await Promise.all([
-        (await createServerClient()).from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
-        (await createServerClient()).from('usuarios').select('id, email, code').eq('rol', 'supervisor'),
-        (await createServerClient()).from('usuarios').select('id, email, code').eq('rol', 'trabajador')
+        supabase.from('administradores').select('id, nombre').eq('estado', 'activo').order('nombre'),
+        supabase.from('usuarios').select('id, email, code').eq('rol', 'supervisor'),
+        supabase.from('usuarios').select('id, email, code').eq('rol', 'trabajador')
     ])
 
     return {

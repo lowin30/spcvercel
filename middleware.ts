@@ -53,15 +53,10 @@ export async function middleware(request: NextRequest) {
 
   // Si no hay usuario y la ruta no es pública
   if (!user && !isPublicRoute) {
-    if (isLocalhost) {
-      // Dejar pasar en localhost para que el Dashboard (cliente) resuelva la race condition
-      return NextResponse.next();
-    } else {
-      // En produccion mantenemos la redireccion fuerte por seguridad SSR
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
+    // Redirección fuerte por seguridad SSR en todos los entornos
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
   // Si hay usuario o se detecta la cookie de Supabase en crudo y está en /login, forzar dashboard

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { Plus, Search, Filter, AlertTriangle } from "lucide-react"
+import { Plus, Search, Filter, AlertTriangle, X, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ExportFacturasButton } from "@/components/export-facturas-button"
 import { InvoiceList } from "@/components/invoice-list"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { useDebouncedCallback } from "use-debounce"
 
 interface FacturasClientWrapperProps {
     initialFacturas: any[]
@@ -23,53 +25,63 @@ interface FacturasClientWrapperProps {
 }
 
 export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, userRole }: FacturasClientWrapperProps) {
-    // State for filtering
-    const [searchQuery, setSearchQuery] = useState("")
-    const [filtroAdmin, setFiltroAdmin] = useState<number | null>(null)
-    const [filtroEdificio, setFiltroEdificio] = useState<number | null>(null)
-    const [filtroEstado, setFiltroEstado] = useState<number | null>(null)
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+
+    const currentSearch = searchParams.get('search') || ''
+    const currentAdmin = searchParams.get('id_administrador') || ''
+    const currentEdificio = searchParams.get('id_edificio') || ''
+    const currentEstado = searchParams.get('id_estado') || ''
+
     const [vistaActual, setVistaActual] = useState<'borrador' | 'pendientes' | 'pagadas' | 'todas'>('borrador')
     const [isMounted, setIsMounted] = useState(false)
 
-    // Recuperar filtros de localStorage al montar el componente
+    // Recuperar el tab de localStorage al montar
     useEffect(() => {
         setIsMounted(true)
-        const saved = localStorage.getItem('spc_filtros_facturas')
+        const saved = localStorage.getItem('spc_filtros_facturas_tab')
         if (saved) {
-            try {
-                const parsed = JSON.parse(saved)
-                if (parsed.searchQuery !== undefined) setSearchQuery(parsed.searchQuery)
-                if (parsed.filtroAdmin !== undefined) setFiltroAdmin(parsed.filtroAdmin)
-                if (parsed.filtroEdificio !== undefined) setFiltroEdificio(parsed.filtroEdificio)
-                if (parsed.filtroEstado !== undefined) setFiltroEstado(parsed.filtroEstado)
-                if (parsed.vistaActual !== undefined) setVistaActual(parsed.vistaActual)
-            } catch (e) {
-                console.error("Error parsing facturas filters from local storage", e)
-            }
+            setVistaActual(saved as any)
         }
     }, [])
 
-    // Guardar filtros en localStorage cada vez que cambien
+    // Guardar el tab en localStorage
     useEffect(() => {
         if (!isMounted) return
-        localStorage.setItem('spc_filtros_facturas', JSON.stringify({
-            searchQuery, filtroAdmin, filtroEdificio, filtroEstado, vistaActual
-        }))
-    }, [searchQuery, filtroAdmin, filtroEdificio, filtroEstado, vistaActual, isMounted])
+        localStorage.setItem('spc_filtros_facturas_tab', vistaActual)
+    }, [vistaActual, isMounted])
 
-    // Derived Data (Client-side filtering of the server dataset)
-    // NOTE: For large datasets, this should be server-side params. Assuming fit-in-memory for now per Protocol "Bridge" phase 1.
+    const createQueryString = useCallback(
+        (deltas: Record<string, string | null>) => {
+            const params = new URLSearchParams(searchParams.toString())
+            for (const [key, value] of Object.entries(deltas)) {
+                if (value === null || value === 'todos' || value === '') {
+                    params.delete(key)
+                } else {
+                    params.set(key, value)
+                }
+            }
+            return params.toString()
+        },
+        [searchParams]
+    )
 
-    // Helpers for names
-    const getNombreAdministrador = (id: number | null) => filtros.administradores.find(a => a.id === id)?.nombre || "Sin administrador"
-    const getNombreEstado = (id: number | null) => filtros.estados.find(e => e.id === id)?.nombre || "Sin estado"
+    const handleSearch = useDebouncedCallback((term: string) => {
+        const query = createQueryString({ search: term })
+        router.replace(pathname + '?' + query)
+    }, 300)
 
-    // Ensure initialFacturas is array
+    const updateFilter = (deltas: Record<string, string | null>) => {
+        const query = createQueryString(deltas)
+        router.push(pathname + '?' + query)
+    }
+
     const safeFacturas = initialFacturas || []
 
     const filteredFacturas = useMemo(() => {
         return safeFacturas.filter(invoice => {
-            // 1. Tab Logic
+            // Tab Logic
             if (vistaActual === 'borrador') {
                 if (invoice.id_estado_nuevo !== 1) return false;
             } else if (vistaActual === 'pendientes') {
@@ -77,35 +89,9 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
             } else if (vistaActual === 'pagadas') {
                 if ((invoice.saldo_pendiente ?? 0) > 0) return false;
             }
-            // 'todas' → sin filtro de tab
-
-            // 2. Admin Filter
-            if (filtroAdmin && invoice.id_administrador !== filtroAdmin) return false;
-
-            // 3. Building Filter
-            if (filtroEdificio && invoice.id_edificio !== filtroEdificio) return false; // NOTE: verify 'id_edificio' exists in flat view
-
-            // 4. State Filter
-            if (filtroEstado && invoice.id_estado_nuevo !== filtroEstado) return false;
-
-            // 5. Search
-            if (searchQuery) {
-                const q = searchQuery.toLowerCase()
-                // Scan robusto (Incluyendo AFIP)
-                const match =
-                    invoice.code?.toLowerCase().includes(q) ||
-                    invoice.nombre?.toLowerCase().includes(q) ||
-                    invoice.nombre_edificio?.toLowerCase().includes(q) ||
-                    invoice.titulo_tarea?.toLowerCase().includes(q) ||
-                    invoice.presupuesto_final_code?.toLowerCase().includes(q) ||
-                    (invoice.datos_afip !== null && invoice.datos_afip !== undefined && String(invoice.datos_afip).toLowerCase().includes(q));
-
-                if (!match) return false;
-            }
-
             return true;
         })
-    }, [safeFacturas, vistaActual, filtroAdmin, filtroEdificio, filtroEstado, searchQuery]);
+    }, [safeFacturas, vistaActual]);
 
     // Totals
     const totalBorrador = safeFacturas.filter(f => f.id_estado_nuevo === 1).length
@@ -133,7 +119,7 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                 <div className="flex gap-2">
                     <ExportFacturasButton
                         facturas={facturasExport}
-                        nombreAdministrador={filtros.administradores.find(a => a.id === filtroAdmin)?.nombre}
+                        nombreAdministrador={filtros.administradores.find(a => String(a.id) === currentAdmin)?.nombre}
                     />
                     <Button asChild>
                         <Link href="/dashboard/presupuestos-base/nuevo">
@@ -199,46 +185,81 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
             {/* Filters */}
             <Card>
                 <CardHeader><CardTitle className="text-sm flex items-center"><Filter className="w-4 h-4 mr-2" /> Filtros</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-xs font-medium">Buscar</label>
-                        <div className="relative">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="Buscar..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-8" />
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium">Buscar</label>
+                            <div className="relative">
+                                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar..."
+                                    defaultValue={currentSearch}
+                                    onChange={e => handleSearch(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium">Administrador</label>
+                            <Select
+                                value={currentAdmin || 'todos'}
+                                onValueChange={v => {
+                                    updateFilter({
+                                        id_administrador: v === 'todos' ? null : v,
+                                        id_edificio: null // Reseteamos el edificio
+                                    })
+                                }}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    {filtros.administradores.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.nombre}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium">Edificio</label>
+                            <Select
+                                value={currentEdificio || 'todos'}
+                                onValueChange={v => updateFilter({ id_edificio: v === 'todos' ? null : v })}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    {filtros.edificios
+                                        .filter(e => !currentAdmin || String(e.id_administrador) === currentAdmin)
+                                        .map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-medium">Estado</label>
+                            <Select
+                                value={currentEstado || 'todos'}
+                                onValueChange={v => updateFilter({ id_estado: v === 'todos' ? null : v })}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    {filtros.estados.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-medium">Administrador</label>
-                        <Select value={filtroAdmin?.toString() || 'todos'} onValueChange={v => { setFiltroAdmin(v === 'todos' ? null : Number(v)); setFiltroEdificio(null); }}>
-                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="todos">Todos</SelectItem>
-                                {filtros.administradores.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.nombre}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-medium">Edificio</label>
-                        <Select value={filtroEdificio?.toString() || 'todos'} onValueChange={v => setFiltroEdificio(v === 'todos' ? null : Number(v))}>
-                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="todos">Todos</SelectItem>
-                                {filtros.edificios
-                                    .filter(e => !filtroAdmin || e.id_administrador === filtroAdmin)
-                                    .map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-medium">Estado</label>
-                        <Select value={filtroEstado?.toString() || 'todos'} onValueChange={v => setFiltroEstado(v === 'todos' ? null : Number(v))}>
-                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="todos">Todos</SelectItem>
-                                {filtros.estados.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+
+                    {(currentAdmin || currentEdificio || currentEstado || currentSearch) && (
+                        <div className="flex justify-end mt-4 border-t pt-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => router.push(pathname)}
+                                className="flex items-center gap-2"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Limpiar filtros
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

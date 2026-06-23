@@ -10,6 +10,7 @@ import { Plus, Loader2, Phone, Trash2, Pencil } from "lucide-react"
 import { createClient } from "@/lib/supabase-client"
 import { useToast } from "@/components/ui/use-toast"
 import { BatchGoogleSync } from "@/components/batch-google-sync"
+import { useDebouncedCallback } from "use-debounce"
 import {
   Table,
   TableBody,
@@ -77,6 +78,11 @@ export default function ContactosPage() {
   const [edificioSeleccionado, setEdificioSeleccionado] = useState<string>("todos")
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState<string>("todos")
   const [busqueda, setBusqueda] = useState<string>("")
+  const [inputVal, setInputVal] = useState<string>("")
+
+  const debounceBusqueda = useDebouncedCallback((val: string) => {
+    setBusqueda(val)
+  }, 350)
 
   // Datos filtrados
   const [departamentosFiltrados, setDepartamentosFiltrados] = useState<Departamento[]>([])
@@ -399,8 +405,11 @@ export default function ContactosPage() {
           <label className="text-xs sm:text-sm font-medium">Buscar</label>
           <Input
             placeholder="Buscar contacto..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
+            value={inputVal}
+            onChange={(e) => {
+              setInputVal(e.target.value)
+              debounceBusqueda(e.target.value)
+            }}
             className="h-8 sm:h-10 text-xs sm:text-sm"
           />
         </div>

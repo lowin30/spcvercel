@@ -7,7 +7,7 @@ AS RESTRICTIVE
 FOR SELECT
 TO public
 USING (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR EXISTS (
     SELECT 1
     FROM public.supervisores_tareas st
@@ -23,7 +23,7 @@ AS RESTRICTIVE
 FOR INSERT
 TO public
 WITH CHECK (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR EXISTS (
     SELECT 1
     FROM public.supervisores_tareas st
@@ -39,7 +39,7 @@ AS RESTRICTIVE
 FOR UPDATE
 TO public
 USING (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR EXISTS (
     SELECT 1
     FROM public.supervisores_tareas st
@@ -48,7 +48,7 @@ USING (
   )
 )
 WITH CHECK (
-  check_user_role('admin'::text)
+  (jwt_rol() = 'admin'::text)
   OR EXISTS (
     SELECT 1
     FROM public.supervisores_tareas st
@@ -63,6 +63,6 @@ ON public.presupuestos_base
 AS RESTRICTIVE
 FOR DELETE
 TO public
-USING (check_user_role('admin'::text));
+USING ((jwt_rol() = 'admin'::text));
 
 COMMIT;

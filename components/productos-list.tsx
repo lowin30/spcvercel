@@ -216,7 +216,9 @@ export function ProductosList({ initialProductos, categorias }: ProductosListPro
             }}
             onResults={(results) => {
               setSearchResults(results)
-              setSearchQuery(results.length > 0 ? "searching" : "")
+            }}
+            onQueryChange={(q) => {
+              setSearchQuery(q)
             }}
             onLoading={setSearching}
             minChars={2}
