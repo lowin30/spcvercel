@@ -4,15 +4,12 @@ import React, { useEffect, useState, Suspense } from "react"
 import { Toaster } from "sonner"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { createClient } from "@/lib/supabase-client"
-import { AIAssistantGroq } from "@/components/ai-assistant-groq"
 import { MicroTareaTool } from "@/components/platinum/tools/microtareas/MicroTareaTool"
 import { MicroTareaFAB } from "@/components/platinum/tools/microtareas/MicroTareaFAB"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
 }
-
-const ENABLE_AI_ASSISTANT = false
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [userDetails, setUserDetails] = useState<any>(null)
@@ -52,9 +49,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <React.Fragment key="dashboard-main-content">
           {children}
         </React.Fragment>
-        {ENABLE_AI_ASSISTANT && userDetails?.rol !== 'sin_rol' && (
-          <AIAssistantGroq key="ai-assistant-component" />
-        )}
       </DashboardShell>
       <Suspense fallback={null}>
         <MicroTareaTool />

@@ -66,27 +66,13 @@ export async function POST(request: NextRequest) {
 
         const result = await uploadResponse.json()
 
-        // Intentar extraer texto del PDF
-        let extractedText = ''
-        if (file.type === 'application/pdf') {
-            try {
-                const pdfParse = require('pdf-parse')
-                const pdfData = await pdfParse(buffer)
-                extractedText = pdfData.text || ''
-                console.log(`PDF parsed: ${extractedText.length} characters`)
-            } catch (pdfError) {
-                console.log('Could not extract PDF text:', pdfError)
-                // No es crítico, continuar sin texto
-            }
-        }
-
         return NextResponse.json({
             success: true,
             url: result.secure_url,
             publicId: result.public_id,
             format: result.format,
             size: result.bytes,
-            extractedText: extractedText
+            extractedText: ''
         })
 
     } catch (error: any) {

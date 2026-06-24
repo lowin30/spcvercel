@@ -7,7 +7,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { SupabaseProvider } from "@/lib/supabase-provider"
 import SWRegister from "@/components/sw-register"
-import { AiChatWidget } from "@/components/ai-chat-widget"
 import { AuthProvider } from '@descope/nextjs-sdk'
 
 const inter = Inter({ subsets: ["latin"] })
@@ -30,7 +29,6 @@ export default function RootLayout({
               {children}
               <Toaster />
               <SWRegister />
-              <AiChatWidget />
             </SupabaseProvider>
           </AuthProvider>
         </ThemeProvider>

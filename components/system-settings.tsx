@@ -10,8 +10,6 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Save, ShieldAlert } from "lucide-react"
 import { MFASecuritySection } from "@/components/mfa-security-section"
-import { AIToolsManager } from "@/components/ai-tools-manager"
-import { KnowledgeBaseManager } from "@/components/knowledge-base-manager"
 import { actualizarPreferenciasUsuario } from "@/app/actions/perfil-actions"
 import { useRouter } from "next/navigation"
 
@@ -76,13 +74,11 @@ export function SystemSettings({ user }: SystemSettingsProps) {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 bg-muted/50">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 bg-muted/50">
           <TabsTrigger value="general" className="py-2">General</TabsTrigger>
           <TabsTrigger value="tasks" className="py-2">Tareas</TabsTrigger>
           <TabsTrigger value="financial" className="py-2">Financiera</TabsTrigger>
           <TabsTrigger value="security" className="py-2">Seguridad</TabsTrigger>
-          <TabsTrigger value="aitools" className="py-2">AI Tools</TabsTrigger>
-          <TabsTrigger value="knowledge" className="py-2">Knowledge Base</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-4">
@@ -226,12 +222,6 @@ export function SystemSettings({ user }: SystemSettingsProps) {
 
         <TabsContent value="security" className="mt-4">
           <MFASecuritySection />
-        </TabsContent>
-        <TabsContent value="aitools" className="mt-4">
-          <AIToolsManager />
-        </TabsContent>
-        <TabsContent value="knowledge" className="mt-4">
-          <KnowledgeBaseManager />
         </TabsContent>
       </Tabs>
     </div>
