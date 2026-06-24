@@ -203,7 +203,7 @@ export async function deleteInvoice(invoiceId: number) {
                 if (pf?.id_tarea) {
                     const { data: estadoTarea } = await supabase.from('estados_tareas').select('id').eq('codigo', 'presupuestado').single();
                     if (estadoTarea) {
-                        await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea);
+                        await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea).not('id_estado_nuevo', 'in', '(7,9,11)').eq('finalizada', false);
                     }
                 }
             }
@@ -260,7 +260,7 @@ export async function desaprobarPresupuesto(presupuestoId: number) {
         if (pf?.id_tarea) {
             const { data: estadoTarea } = await supabase.from('estados_tareas').select('id').eq('codigo', 'presupuestado').single();
             if (estadoTarea) {
-                await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea);
+                await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea).not('id_estado_nuevo', 'in', '(7,9,11)').eq('finalizada', false);
             }
         }
 

@@ -217,6 +217,8 @@ export async function deleteInvoice(invoiceId: number) {
               .from('tareas')
               .update({ id_estado_nuevo: 3 }) // Estado "presupuestado" (id: 3)
               .eq('id', idTarea)
+              .not('id_estado_nuevo', 'in', '(7,9,11)')
+              .eq('finalizada', false)
 
             if (tareaError) {
               console.error('Error al actualizar estado de la tarea:', tareaError)

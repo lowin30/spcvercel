@@ -96,6 +96,8 @@ export async function marcarFacturaComoEnviada(facturaId: number) {
                 .from('tareas')
                 .update({ id_estado_nuevo: estadoTareaFacturado.id, updated_at: new Date().toISOString() })
                 .eq('id', tareaIdFromPf)
+                .not('id_estado_nuevo', 'in', '(7,9,11)')
+                .eq('finalizada', false)
               if (updTareaErr) {
                 console.error('Error al actualizar tarea a facturado:', updTareaErr)
               }

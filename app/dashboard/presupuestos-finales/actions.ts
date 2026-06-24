@@ -71,7 +71,7 @@ export async function deleteBudget(budgetId: number) {
 
     // 4. restaurar estado de tarea si aplica
     if (pf?.id_tarea) {
-      await supabase.from('tareas').update({ id_estado_nuevo: 1 }).eq('id', pf.id_tarea)
+      await supabase.from('tareas').update({ id_estado_nuevo: 1 }).eq('id', pf.id_tarea).not('id_estado_nuevo', 'in', '(7,9,11)').eq('finalizada', false)
       revalidatePath('/dashboard/tareas')
     }
 
@@ -119,7 +119,7 @@ export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
     // 2. propagar estado a la tarea asociada (spc protocol v85.1)
     const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea, id_presupuesto_base').eq('id', presupuestoId).single()
     if (pf?.id_tarea) {
-      await supabase.from('tareas').update({ id_estado_nuevo: 4 }).eq('id', pf.id_tarea) // estado 4 = enviado
+      await supabase.from('tareas').update({ id_estado_nuevo: 4 }).eq('id', pf.id_tarea).not('id_estado_nuevo', 'in', '(7,9,11)').eq('finalizada', false) // estado 4 = enviado
       
       // herencia quirúrgica: si facturamos, aprobamos el base para habilitar liquidación
       if (factura && pf.id_presupuesto_base) {
