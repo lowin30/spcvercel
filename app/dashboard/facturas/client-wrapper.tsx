@@ -140,7 +140,7 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                     <CardContent>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <KpiCard label="Falta crear PF" count={kpis.pbSinPf_count} items={kpis.pbSinPf || []} link="/dashboard/presupuestos-finales/nuevo?tipo=final" />
-                            <KpiCard label="Activas sin PF" count={kpis.tareasActivasSinPf_count} items={kpis.tareasActivasSinPf || []} warning />
+                            <KpiCard label="Falta crear PF (activas)" count={kpis.tareasActivasSinPf_count} items={kpis.tareasActivasSinPf || []} warning />
                             <KpiCard label="PF Enviado sin resp" count={kpis.pfEnviado_count} items={kpis.pfEnviado || []} critical />
                             <KpiCard label="PF Aprobado sin fac" count={kpis.pfSinFac_count} items={kpis.pfSinFac || []} link="/dashboard/facturas/nueva" />
                         </div>

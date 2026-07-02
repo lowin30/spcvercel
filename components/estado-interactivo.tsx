@@ -84,7 +84,7 @@ export function EstadoInteractivo({
   const [estadoActual, setEstadoActual] = useState<Estado | null>(null)
   const [esTareaFinalizada, setEsTareaFinalizada] = useState<boolean>(esFinalizada)
   const [isLoading, setIsLoading] = useState(false)
-  const [readOnly] = useState(userRol === 'trabajador')
+  const [readOnly] = useState(userRol !== 'admin')
 
   // Cargar los estados según el tipo de entidad desde el servicio centralizado
   useEffect(() => {
