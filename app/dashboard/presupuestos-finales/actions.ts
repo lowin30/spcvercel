@@ -107,6 +107,7 @@ export async function marcarPresupuestoComoEnviado(presupuestoId: number) {
       .from('presupuestos_finales')
       .update({
         id_estado: nuevoEstado,
+        enviado: true, // Sincronización de columna booleana
         // blindaje quirúrgico: si está facturado, debe estar aprobado lógicamente
         aprobado: factura ? true : undefined,
         fecha_aprobacion: factura ? new Date().toISOString() : undefined,
