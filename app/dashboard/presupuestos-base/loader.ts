@@ -99,8 +99,13 @@ export async function getPresupuestoBaseById(id: string) {
         .eq('id', id)
         .single();
 
-    if (error) {
+    if (error || !data) {
         console.error("Error fetching PB:", error);
+        return null;
+    }
+
+    if (user.rol === 'supervisor' && data.id_supervisor !== user.id) {
+        console.warn(`[SECURITY] Supervisor ${user.email} intento acceder a PB ${id} de otro supervisor`);
         return null;
     }
 

@@ -117,11 +117,25 @@ export async function deletePresupuestoBase(id: number) {
 
 export async function createPresupuestoBase(data: any) {
   try {
-    const { rol } = await validateSessionAndGetUser()
+    const { rol, id: userId } = await validateSessionAndGetUser()
     const supabase = await createServerClient()
 
     if (rol !== 'admin' && rol !== 'supervisor') {
       return { success: false, error: "No autorizado" }
+    }
+
+    // Validar asignacion de tarea para supervisores
+    if (rol === 'supervisor') {
+      const { data: asignacion } = await supabase
+        .from('supervisores_tareas')
+        .select('id')
+        .eq('id_tarea', data.id_tarea)
+        .eq('id_supervisor', userId)
+        .maybeSingle()
+
+      if (!asignacion) {
+        return { success: false, error: "no tienes asignada esta tarea para crearle un presupuesto base" }
+      }
     }
 
     // --- ENRIQUECIMIENTO PLATINUM ---
