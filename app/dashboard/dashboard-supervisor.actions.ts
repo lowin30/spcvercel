@@ -42,12 +42,27 @@ export async function getDashboardSupervisorData() {
             .select('ganancia_supervisor_mes, liquidaciones_pendientes, presupuestos_base_monto_total')
             .maybeSingle()
 
-        // 2. Traer SOLO tareas ACTIVAS desde la super vista
-        // Filtro identico al de /dashboard/tareas solapa "Activas":
-        //   finalizada = false AND id_estado_nuevo NOT IN (4=Enviado, 7=Terminado, 9=Liquidada, 11=Vencido)
+        // 2. Obtener los IDs de tareas asignadas al supervisor para aplicar seguridad de acceso
+        const { data: tareasSupervisadas } = await supabase
+            .from('supervisores_tareas')
+            .select('id_tarea')
+            .eq('id_supervisor', authUser.id);
+        
+        const tareasIds = tareasSupervisadas?.map(t => t.id_tarea) || [];
+
+        if (tareasIds.length === 0) {
+            return {
+                success: true,
+                kpis: kpis || {},
+                bloques: { bloque1: [], bloque2: [], bloque3: [] }
+            };
+        }
+
+        // 3. Traer SOLO tareas ACTIVAS del supervisor desde la super vista
         const { data: tareasRaw, error } = await supabase
             .from('vista_tareas_supervisor')
             .select('*')
+            .in('id', tareasIds)
             .eq('finalizada', false)
             .not('id_estado_nuevo', 'in', '(4,7,9,11)')
             .order('updated_at', { ascending: false })
