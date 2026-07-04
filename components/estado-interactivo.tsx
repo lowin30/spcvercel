@@ -160,7 +160,7 @@ export function EstadoInteractivo({
 
   // Manejar el cambio del estado finalizado
   const handleFinalizadaChange = async (checked: boolean) => {
-    if (readOnly) return;
+    if (userRol !== 'admin' && userRol !== 'supervisor') return;
 
     // Si se intenta marcar como finalizada, mostrar el diálogo
     if (checked && onShowFinalizarDialog) {
@@ -222,7 +222,7 @@ export function EstadoInteractivo({
             <Button
               size="sm"
               onClick={() => handleFinalizadaChange(true)}
-              disabled={readOnly}
+              disabled={userRol !== 'admin' && userRol !== 'supervisor'}
               className="bg-green-600 hover:bg-green-700 text-white font-medium"
             >
               finalizar tarea
