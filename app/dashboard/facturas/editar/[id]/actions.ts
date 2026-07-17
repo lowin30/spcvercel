@@ -18,6 +18,7 @@ const itemSchema = z.object({
   cantidad: z.coerce.number(),
   precio_unitario: z.coerce.number(),
   subtotal_item: z.coerce.number(),
+  es_material: z.boolean().optional(),
 });
 
 export async function saveInvoice(
@@ -155,7 +156,7 @@ export async function saveInvoice(
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
           subtotal_item: item.subtotal_item,
-          es_material: false, // Integridad Protocolo v112.1
+          es_material: item.es_material || false,
         };
         if (item.id) obj.id = item.id;
         return obj;

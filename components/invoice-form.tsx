@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 
 
 import { toast } from "sonner"
@@ -51,6 +52,7 @@ interface ItemFactura {
   cantidad: number;
   precio_unitario: number;
   subtotal_item: number; // Corregido para coincidir con la DB
+  es_material?: boolean;
 }
 
 interface InvoiceFormProps {
@@ -226,6 +228,17 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
                           onChange={(e) => handleItemChange(index, 'precio_unitario', parseFloat(e.target.value) || 0)}
                           className="text-[10px] h-6 w-20 bg-muted/40 border-none px-1"
                         />
+                        <div className="flex items-center space-x-1 ml-2">
+                          <Checkbox
+                            id={`es-material-chat-${index}`}
+                            checked={item.es_material || false}
+                            onCheckedChange={(checked) => handleItemChange(index, 'es_material', !!checked)}
+                            className="h-3.5 w-3.5"
+                          />
+                          <Label htmlFor={`es-material-chat-${index}`} className="text-[9px] text-muted-foreground cursor-pointer">
+                            Mat.
+                          </Label>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-primary truncate">
@@ -277,6 +290,7 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
                       <TableHead className="w-12 text-center text-xs font-bold uppercase tracking-wider py-3 px-0">Cant.</TableHead>
                       <TableHead className="w-24 text-right text-xs font-bold uppercase tracking-wider py-3 px-0">P. Unit</TableHead>
                       <TableHead className="w-28 text-right text-xs font-bold uppercase tracking-wider py-3 pl-0 pr-2">Subtotal</TableHead>
+                      <TableHead className="w-20 text-center text-xs font-bold uppercase tracking-wider py-3 px-0">Mat.</TableHead>
                       <TableHead className="w-8 px-0"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -315,6 +329,14 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
                           <span className="font-bold text-sm text-primary whitespace-nowrap">
                             ${(item.subtotal_item || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}
                           </span>
+                        </TableCell>
+                        <TableCell className="py-2 px-1 align-top pt-3 text-center w-20">
+                          <div className="flex items-center justify-center h-8">
+                            <Checkbox
+                              checked={item.es_material || false}
+                              onCheckedChange={(checked) => handleItemChange(index, 'es_material', !!checked)}
+                            />
+                          </div>
                         </TableCell>
                         <TableCell className="py-2 px-0 align-top pt-3 text-right w-8">
                           <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)} className="h-7 w-7 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all rounded-full opacity-100">
@@ -374,6 +396,18 @@ export function InvoiceForm({ presupuestos, factura, items: initialItems = [], o
                         <span className="font-black text-base text-primary leading-none">
                           ${item.subtotal_item.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
                         </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-zinc-50 dark:border-zinc-900 pt-2 mt-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`es-material-mobile-${index}`}
+                          checked={item.es_material || false}
+                          onCheckedChange={(checked) => handleItemChange(index, 'es_material', !!checked)}
+                        />
+                        <Label htmlFor={`es-material-mobile-${index}`} className="text-xs text-muted-foreground font-medium cursor-pointer">
+                          Es Material
+                        </Label>
                       </div>
                     </div>
                   </div>
