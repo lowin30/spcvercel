@@ -167,11 +167,10 @@ export function ToolGastoRegistry({
 
             const base64data = canvas.toDataURL('image/jpeg', 0.8)
 
-            // 2. Llamada a la Server Action (Gold Standard v81.0)
+            // 2. Llamada a la Server Action
             const data = await analizarGastoAction(base64data)
 
             if (data.success && data.datos) {
-                console.log("IA Detectó:", data.datos)
                 setFormData(prev => ({
                     ...prev,
                     monto: data.datos.monto ? Math.round(data.datos.monto).toString() : prev.monto,
@@ -194,7 +193,6 @@ export function ToolGastoRegistry({
             }
         } catch (error: any) {
             console.error("Error en IA Scanner:", error)
-            // Error amigable pero permitimos seguir
             toast.warning("La IA tuvo un problema técnico, pero puedes completar los datos manualmente.", {
                 duration: 5000
             })
@@ -202,6 +200,7 @@ export function ToolGastoRegistry({
             setAnalizandoIA(false)
         }
     }
+
 
     const handleGuardar = async () => {
         if (!formData.monto || !formData.descripcion) {

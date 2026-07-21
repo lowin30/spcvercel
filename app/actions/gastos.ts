@@ -73,21 +73,21 @@ function cleanGastoText(text: string): string {
 
 export async function analizarGastoAction(base64Image: string) {
     try {
-        // 1. seguridad: verificar sesion y rol admin/supervisor (platinum). ref: scanner de gastos 265
+        // 1. seguridad: verificar sesion y rol admin/supervisor (platinum)
         const user = await validateSessionAndGetUser()
         if (!user || (user.rol !== 'admin' && user.rol !== 'supervisor')) {
             throw new Error("acceso denegado: solo personal administrativo o supervisores pueden usar el scanner")
         }
 
-        // 2. Gestión de Imagen: Subida segura a Cloudinary
+        // 2. Gestion de Imagen: Subida segura a Cloudinary
         const originalUrl = await uploadToCloudinary(base64Image, "spc/gastos_analysis_gold")
         const optimizedImageUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/")
 
-        // 3. ia: llamada a groq (modelo llama 4 scout). sin acentos.
+        // 3. ia: llamada a groq (modelo llama-4-maverick - vision)
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-        const modelId = "meta-llama/llama-4-scout-17b-16e-instruct"
+        const modelId = "meta-llama/llama-4-maverick-17b-128e-instruct"
 
-        console.log("[ia-scanner-audit] ejecutando vision con llama-4-scout-17b (v87.0)")
+        console.log("[ia-scanner] ejecutando vision con llama-4-maverick-17b")
 
         const prompt = `
       Actúa como experto contable. Analiza la imagen del comprobante.
@@ -117,7 +117,7 @@ export async function analizarGastoAction(base64Image: string) {
         })
 
         const content = chatCompletion.choices[0]?.message?.content
-        if (!content) throw new Error("IA retornó respuesta vacía")
+        if (!content) throw new Error("IA retorno respuesta vacia")
 
         const datos = JSON.parse(content)
 
@@ -125,7 +125,7 @@ export async function analizarGastoAction(base64Image: string) {
         if (datos.descripcion) datos.descripcion = cleanGastoText(datos.descripcion)
         datos.tipo_gasto = "material" // Fuerza bruta platinum: siempre material.
 
-        // Validación de Fecha Robusta
+        // Validacion de Fecha Robusta
         const parsedDate = new Date(datos.fecha)
         if (!datos.fecha || isNaN(parsedDate.getTime())) {
             datos.fecha_gasto = new Date().toISOString().split('T')[0] // Hoy por defecto
@@ -155,6 +155,8 @@ export async function analizarGastoAction(base64Image: string) {
         }
     }
 }
+
+
 
 /**
  * Server Action: registrarGastoAction
