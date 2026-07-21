@@ -79,7 +79,13 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
     const [estadosCat] = useState<any[]>(initialData.estados || [])
 
     // Derived state
-    const [esTareaFinalizada, setEsTareaFinalizada] = useState(Boolean(initialData.tarea.finalizada))
+    const isTaskFinished = (t: any) => {
+        if (!t) return false
+        const estadoId = t.id_estado_nuevo != null ? Number(t.id_estado_nuevo) : (t.estado != null ? Number(t.estado) : null)
+        return Boolean(t.finalizada || t.fecha_finalizacion || (estadoId && [7, 9, 11].includes(estadoId)))
+    }
+
+    const [esTareaFinalizada, setEsTareaFinalizada] = useState(isTaskFinished(initialData.tarea))
     const [estadoActualId, setEstadoActualId] = useState<number | null>(
         initialData.tarea.id_estado_nuevo != null ? Number(initialData.tarea.id_estado_nuevo) :
             initialData.tarea.estado != null ? Number(initialData.tarea.estado) : null
@@ -108,7 +114,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
             setTarea(initialData.tarea)
             setTempTitle(initialData.tarea.titulo || "")
             setTempDesc(initialData.tarea.descripcion || "")
-            setEsTareaFinalizada(Boolean(initialData.tarea.finalizada))
+            setEsTareaFinalizada(isTaskFinished(initialData.tarea))
             const newEstadoId = initialData.tarea.id_estado_nuevo != null ? Number(initialData.tarea.id_estado_nuevo) :
                 initialData.tarea.estado != null ? Number(initialData.tarea.estado) : null
             setEstadoActualId(newEstadoId)
@@ -304,9 +310,6 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                                     <Badge variant="outline" className="ml-2">{tarea.edificios.cuit}</Badge>
                                                 )}
                                             </>
-                                        )}
-                                        {esTareaFinalizada && (
-                                            <Badge variant="outline" className="bg-gray-200">Finalizada</Badge>
                                         )}
                                     </CardDescription>
                                 </div>

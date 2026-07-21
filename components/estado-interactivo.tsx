@@ -215,26 +215,22 @@ export function EstadoInteractivo({
   };
 
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       {tipoEntidad === "tarea" && (
-        <div className="flex items-center mr-2">
+        <div className="flex items-center">
           {!esTareaFinalizada ? (
             <Button
               size="sm"
               onClick={() => handleFinalizadaChange(true)}
               disabled={userRol !== 'admin' && userRol !== 'supervisor'}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium"
+              className="h-7 px-2.5 text-[11px] font-extrabold uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-all"
             >
               finalizar tarea
             </Button>
           ) : (
-            <Button
-              size="sm"
-              disabled
-              className="bg-slate-400 text-white font-medium"
-            >
+            <Badge variant="outline" className="h-7 px-2.5 text-[11px] font-extrabold uppercase tracking-wider bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 rounded-lg">
               finalizada
-            </Button>
+            </Badge>
           )}
         </div>
       )}
