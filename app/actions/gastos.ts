@@ -83,11 +83,11 @@ export async function analizarGastoAction(base64Image: string) {
         const originalUrl = await uploadToCloudinary(base64Image, "spc/gastos_analysis_gold")
         const optimizedImageUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/")
 
-        // 3. ia: llamada a groq (modelo llama-4-maverick - vision)
+        // 3. ia: llamada a groq (modelo vision activo qwen/qwen3.6-27b)
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-        const modelId = "meta-llama/llama-4-maverick-17b-128e-instruct"
+        const modelId = "qwen/qwen3.6-27b"
 
-        console.log("[ia-scanner] ejecutando vision con llama-4-maverick-17b")
+        console.log("[ia-scanner] ejecutando vision con qwen/qwen3.6-27b")
 
         const prompt = `
       Actúa como experto contable. Analiza la imagen del comprobante.
