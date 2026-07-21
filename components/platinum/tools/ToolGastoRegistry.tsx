@@ -367,6 +367,19 @@ export function ToolGastoRegistry({
                         animate={{ opacity: 1, y: 0 }}
                         className="space-y-4"
                     >
+                        {(previewUrl || comprobanteUrl) && (
+                            <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 dark:border-zinc-800 bg-slate-900/5 dark:bg-zinc-950 flex flex-col items-center justify-center p-3">
+                                <img
+                                    src={comprobanteUrl ? generarUrlProcesada(comprobanteUrl, modoImagen) : (previewUrl || '')}
+                                    alt="Comprobante"
+                                    className="max-h-52 object-contain rounded-xl shadow-md border border-slate-200/50 dark:border-zinc-800/50"
+                                />
+                                <span className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 bg-white/80 dark:bg-zinc-900/80 px-3 py-1 rounded-full border border-slate-200/50 dark:border-zinc-800/50">
+                                    modo de imagen: {modoImagen}
+                                </span>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {!tareaId && (
                                 <div className="space-y-1.5 sm:col-span-2">
