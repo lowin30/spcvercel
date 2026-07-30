@@ -80,6 +80,11 @@ export async function getTareasData(filters?: TareasFilterParams) {
                         // Pestaña Finalizadas: finalizada = true O estados (7, 9, 11)
                         query = query.or('finalizada.eq.true,id_estado_nuevo.in.(7,9,11)');
                         break;
+                    case 'por_cobrar': {
+                        // Solo tareas donde se trabajo y no esten cerradas sin respuesta (vencido = 11)
+                        query = query.eq('se_trabajo', true).neq('id_estado_nuevo', 11);
+                        break;
+                    }
                 }
             }
 
@@ -145,14 +150,26 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         if (!result.success) {
             console.warn("🛡️ Pilot RLS Blocked Tareas query para user:", userId);
-            // El usuario carece de los permisos RLS indicados
             return [];
         }
 
         let filteredData = result.data || [];
 
-        // 6. Aplicar Regla de Negocio (Eliminado: ya no hay filtros ocultos para supervisor)
-        // El usuario solicitó que todos vean lo mismo basándose en 'finalizada' y estados clave.
+        // 6. Post-filtro para tab 'por_cobrar': excluir tareas ya liquidadas
+        if (filters?.view === 'por_cobrar') {
+            // Buscar ids de tareas que ya tienen liquidacion creada
+            const idsEnVista = filteredData.map((t: any) => t.id).filter(Boolean);
+            let idsYaLiquidados = new Set<number>();
+            if (idsEnVista.length > 0) {
+                const { data: liqs } = await supabaseAdmin
+                    .from('liquidaciones_nuevas')
+                    .select('id_tarea')
+                    .in('id_tarea', idsEnVista);
+                if (liqs) liqs.forEach((l: any) => idsYaLiquidados.add(l.id_tarea));
+            }
+            // Excluir tareas ya liquidadas
+            filteredData = filteredData.filter((t: any) => !idsYaLiquidados.has(t.id));
+        }
 
         return filteredData;
 
@@ -168,7 +185,7 @@ export async function getTareasData(filters?: TareasFilterParams) {
 export async function getTareasCounts(filters?: TareasFilterParams) {
     try {
         const usuario = await validateSessionAndGetUser()
-        if (!usuario) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        if (!usuario) return { activas: 0, enviadas: 0, finalizadas: 0, por_cobrar: 0, todas: 0 }
 
         const { id: userId, rol } = usuario
 
@@ -180,7 +197,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
         // Solicitamos tiene_presupuesto_base para el cálculo de conteo del supervisor
         let query = supabaseAdmin
             .from(primaryView)
-            .select(rol === 'supervisor' ? 'id_estado_nuevo, finalizada, tiene_presupuesto_base' : 'id_estado_nuevo, finalizada');
+            .select('id, id_estado_nuevo, finalizada, se_trabajo');
 
         // Aplicamos seguridad por rol
         if (rol === 'admin') {
@@ -227,13 +244,14 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
 
         const { data: tareas } = await query
 
-        if (!tareas) return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        if (!tareas) return { activas: 0, enviadas: 0, finalizadas: 0, por_cobrar: 0, todas: 0 }
 
         // Agrupamos y contamos en JS (eficiente para el volumen esperado)
         const counts = {
             activas: 0,
             enviadas: 0,
             finalizadas: 0,
+            por_cobrar: 0,
             todas: tareas.length
         }
 
@@ -247,15 +265,38 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
             } else if (isSent) {
                 counts.enviadas++;
             } else {
-                // Si no está finalizada ni enviada, está activa
                 counts.activas++;
             }
         });
 
+        // Conteo de por_cobrar: tareas terminadas con pb sin liquidar y sin liquidacion creada
+        const idsTerminadas = tareas
+            .filter((t: any) => t.se_trabajo === true && t.id_estado_nuevo !== 11)
+            .map((t: any) => t.id)
+            .filter(Boolean);
+
+        if (idsTerminadas.length > 0) {
+            const [pbPendientes, liquidadasExistentes] = await Promise.all([
+                supabaseAdmin
+                    .from('presupuestos_base')
+                    .select('id_tarea')
+                    .in('id_tarea', idsTerminadas)
+                    .eq('base_liquidada', false),
+                supabaseAdmin
+                    .from('liquidaciones_nuevas')
+                    .select('id_tarea')
+                    .in('id_tarea', idsTerminadas)
+            ]);
+            const idsConLiquidacion = new Set((liquidadasExistentes.data || []).map((l: any) => l.id_tarea));
+            counts.por_cobrar = (pbPendientes.data || [])
+                .filter((pb: any) => !idsConLiquidacion.has(pb.id_tarea))
+                .length;
+        }
+
         return counts
     } catch (e) {
         console.error("Error calculating counts:", e)
-        return { activas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+        return { activas: 0, enviadas: 0, finalizadas: 0, por_cobrar: 0, todas: 0 }
     }
 }
 

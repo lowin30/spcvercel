@@ -24,7 +24,7 @@ type Props = {
     initialUserDetails: any
     initialRecordatorios: any[]
     initialPresupuestosBase?: Record<string, any>
-    initialCounts: { activas: number, enviadas: number, finalizadas: number, todas: number }
+    initialCounts: { activas: number, enviadas: number, finalizadas: number, por_cobrar: number, todas: number }
     crearPresupuestoMode: boolean
     catalogs?: {
         administradores: any[]
@@ -132,6 +132,15 @@ export default function TareasClientPage({
                 <TabsList className="bg-slate-100 dark:bg-slate-900 p-1 border rounded-lg h-auto flex-wrap">
                     <TabsTrigger value="activas" className="px-4 py-2">activas [{initialCounts.activas}]</TabsTrigger>
                     <TabsTrigger value="enviadas" className="px-4 py-2">enviadas [{initialCounts.enviadas}]</TabsTrigger>
+                    {/* Tab por rol: supervisor ve 'por cobrar', admin ve 'por liquidar' */}
+                    {(userDetails?.rol === 'supervisor' || userDetails?.rol === 'admin') && initialCounts.por_cobrar > 0 && (
+                        <TabsTrigger value="por_cobrar" className="px-4 py-2 relative">
+                            {userDetails?.rol === 'supervisor' ? 'por cobrar' : 'por liquidar'}
+                            <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.5 min-w-[18px]">
+                                {initialCounts.por_cobrar}
+                            </span>
+                        </TabsTrigger>
+                    )}
                     <TabsTrigger value="finalizadas" className="px-4 py-2">finalizadas [{initialCounts.finalizadas}]</TabsTrigger>
                     <TabsTrigger value="todas" className="px-4 py-2">todas [{initialCounts.todas}]</TabsTrigger>
                 </TabsList>

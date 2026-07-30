@@ -67,7 +67,7 @@ export default async function TareasPage({ searchParams }: Props) {
 
   let initialTareas: any[] = []
   let initialPresupuestosBase = {}
-  let initialCounts = { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+  let initialCounts = { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, por_cobrar: 0, todas: 0 }
   let recordatorios: any[] = []
   let catalogs: any = null
 
@@ -105,7 +105,7 @@ export default async function TareasPage({ searchParams }: Props) {
   } catch (error) {
     console.error("Critical Data Fetch Error:", error)
     initialTareas = []
-    initialCounts = { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, todas: 0 }
+    initialCounts = { activas: 0, aprobadas: 0, enviadas: 0, finalizadas: 0, por_cobrar: 0, todas: 0 }
     recordatorios = []
     catalogs = { administradores: [], edificios: [], supervisores: [], estados: [] }
   }
