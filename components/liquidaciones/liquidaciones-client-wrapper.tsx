@@ -251,7 +251,8 @@ export function LiquidacionesClientWrapper({
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
-                a.download = `pago_liquidaciones_${new Date().toISOString().split('T')[0]}.pdf`
+                const supervisorUser = supEmail ? supEmail.split('@')[0] : 'general'
+                a.download = `liquidaciones_${supervisorUser}_${new Date().toISOString().split('T')[0]}.pdf`
                 a.click()
                 URL.revokeObjectURL(url)
 
