@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { PlusCircle, Loader2, Landmark, ChevronDown, ChevronUp, History, Info, Trash2, Check, X, Edit2 } from 'lucide-react'
+import { PlusCircle, Loader2, Landmark, ChevronDown, ChevronUp, History, Info, Trash2, Check, X, Edit2, Search, ExternalLink } from 'lucide-react'
 import { formatDate } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -20,6 +20,7 @@ import { AdelantoTool } from '@/components/tools/AdelantoTool'
 import { createAdelantoAction, deleteAdelantoAction, updateAdelantoAction, deleteLiquidacionAction } from "@/app/dashboard/liquidaciones/actions"
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { motion, AnimatePresence } from 'framer-motion'
+import Fuse from 'fuse.js'
 
 interface LiquidacionesClientWrapperProps {
     initialLiquidaciones: LiquidacionDTO[]
@@ -44,6 +45,7 @@ export function LiquidacionesClientWrapper({
     const [editingAdelantoId, setEditingAdelantoId] = useState<string | null>(null)
     const [editValues, setEditValues] = useState<{ id: string, descripcion: string, monto: number } | null>(null)
     const [isActionLoading, setIsActionLoading] = useState<string | null>(null)
+    const [searchTerm, setSearchTerm] = useState('')
 
     // Filtros desde URL (Next.js 15 Server-First)
     const supervisorEmail = searchParams.get('supervisor') || '_todos_'
@@ -71,14 +73,35 @@ export function LiquidacionesClientWrapper({
         }).format(amount);
     };
 
-    const visibleTaskIds = liquidaciones.filter(l => !l.pagada).map(l => l.id)
+    // Fuse.js: busqueda difusa tolerante a errores y palabras parciales
+    const fuseInstance = useMemo(() => new Fuse(liquidaciones, {
+        keys: [
+            { name: 'titulo_tarea', weight: 0.7 },
+            { name: 'code', weight: 0.15 },
+            { name: 'code_factura', weight: 0.15 }
+        ],
+        threshold: 0.35,
+        minMatchCharLength: 2,
+        ignoreLocation: true,
+    }), [liquidaciones])
+
+    const liquidacionesFiltradas = useMemo(() => {
+        if (!searchTerm.trim()) return liquidaciones
+        return fuseInstance.search(searchTerm).map(r => r.item)
+    }, [searchTerm, liquidaciones, fuseInstance])
+
+    // KPIs sobre resultados filtrados
+    const kpiPendiente = useMemo(() => liquidacionesFiltradas.filter(l => !l.pagada).reduce((acc, l) => acc + (l.total_supervisor || 0), 0), [liquidacionesFiltradas])
+    const kpiPagado = useMemo(() => liquidacionesFiltradas.filter(l => l.pagada).reduce((acc, l) => acc + (l.total_supervisor || 0), 0), [liquidacionesFiltradas])
+
+    const visibleTaskIds = liquidacionesFiltradas.filter(l => !l.pagada).map(l => l.id)
     const visibleAdvanceIds = initialCuentaCorriente?.detalle_adelantos_json.map(a => a.id) || []
     const allVisibleIds = [...visibleTaskIds, ...visibleAdvanceIds]
 
     const allSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.includes(id))
     const isIndeterminate = allVisibleIds.some(id => selectedIds.includes(id)) && !allSelected
-    
-    // Calculo de totales (Solo impagas seleccionadas)
+
+    // Calculo de totales sobre TODAS las liquidaciones (conserva seleccion al buscar)
     const totals = liquidaciones.reduce((acc, liq) => {
         if (selectedIds.includes(liq.id) && !liq.pagada) {
             acc.bruto += (liq.total_supervisor || 0)
@@ -307,36 +330,58 @@ export function LiquidacionesClientWrapper({
                 </div>
             </div>
 
-            {/* Filtros Platinum */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {userRole === 'admin' && (
+            {/* Buscador Fuzzy Platinum */}
+            <div className="space-y-3">
+                <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    <Input
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        placeholder="buscar por tarea, codigo... (tolera errores)"
+                        className="pl-10 pr-10 h-12 rounded-2xl bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 text-sm"
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-1"
+                            aria-label="limpiar busqueda"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Filtros secundarios */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {userRole === 'admin' && (
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">filtrar por supervisor</label>
+                            <Select value={supervisorEmail} onValueChange={(v) => updateFilters('supervisor', v)}>
+                                <SelectTrigger className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-zinc-300 h-11 rounded-2xl">
+                                    <SelectValue placeholder="todos los supervisores" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                                    <SelectItem value="_todos_">todos los supervisores</SelectItem>
+                                    {supervisores.map(s => (
+                                        <SelectItem key={s.id} value={s.email}>{s.email}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">filtrar por supervisor</label>
-                        <Select value={supervisorEmail} onValueChange={(v) => updateFilters('supervisor', v)}>
+                        <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">estado de pago</label>
+                        <Select value={estado} onValueChange={(v) => updateFilters('estado', v)}>
                             <SelectTrigger className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-zinc-300 h-11 rounded-2xl">
-                                <SelectValue placeholder="todos los supervisores" />
+                                <SelectValue placeholder="estado" />
                             </SelectTrigger>
                             <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
-                                <SelectItem value="_todos_">todos los supervisores</SelectItem>
-                                {supervisores.map(s => (
-                                    <SelectItem key={s.id} value={s.email}>{s.email}</SelectItem>
-                                ))}
+                                <SelectItem value="no_pagadas">no pagadas</SelectItem>
+                                <SelectItem value="pagadas">pagadas</SelectItem>
+                                <SelectItem value="todas">todas</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
-                )}
-                <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-zinc-500 ml-1">estado de pago</label>
-                    <Select value={estado} onValueChange={(v) => updateFilters('estado', v)}>
-                        <SelectTrigger className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-zinc-300 h-11 rounded-2xl">
-                            <SelectValue placeholder="estado" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
-                            <SelectItem value="no_pagadas">no pagadas</SelectItem>
-                            <SelectItem value="pagadas">pagadas</SelectItem>
-                            <SelectItem value="todas">todas</SelectItem>
-                        </SelectContent>
-                    </Select>
                 </div>
             </div>
 
@@ -385,6 +430,30 @@ export function LiquidacionesClientWrapper({
                 )}
             </AnimatePresence>
 
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <Card className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-900 rounded-2xl">
+                    <CardContent className="p-3">
+                        <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">pendiente</p>
+                        <p className="text-lg font-black text-rose-600 dark:text-rose-400 mt-0.5">{formatCurrency(kpiPendiente)}</p>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-900 rounded-2xl">
+                    <CardContent className="p-3">
+                        <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">cobrado</p>
+                        <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(kpiPagado)}</p>
+                    </CardContent>
+                </Card>
+                {initialCuentaCorriente && initialCuentaCorriente.total_adelantos_pendientes > 0 && (
+                    <Card className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-900 rounded-2xl col-span-2 sm:col-span-1">
+                        <CardContent className="p-3">
+                            <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">adelantos activos</p>
+                            <p className="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">-{formatCurrency(initialCuentaCorriente.total_adelantos_pendientes)}</p>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
             {/* Listado Principal - Platinum Cards */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
@@ -393,7 +462,9 @@ export function LiquidacionesClientWrapper({
                         onCheckedChange={toggleSelectAll} 
                         className="rounded-md border-zinc-300 dark:border-zinc-700 data-[state=checked]:bg-zinc-900 dark:data-[state=checked]:bg-zinc-100" 
                     />
-                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-600">seleccionar toda la lista ({allVisibleIds.length})</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-600">
+                        {searchTerm ? `${liquidacionesFiltradas.length} resultado${liquidacionesFiltradas.length !== 1 ? 's' : ''}` : `seleccionar toda la lista (${allVisibleIds.length})`}
+                    </span>
                 </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -539,13 +610,14 @@ export function LiquidacionesClientWrapper({
                         </Card>
                     )}
 
-                    {liquidaciones.length > 0 ? (
-                        liquidaciones.map((liq) => {
+                    {liquidacionesFiltradas.length > 0 ? (
+                        liquidacionesFiltradas.map((liq) => {
                             const bruto = liq.total_supervisor || 0
+                            const tareaCode = `TAR-${String(liq.id_tarea).padStart(5, '0')}`
 
                             return (
                                 <Card key={liq.id} className={`bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-800 transition-colors rounded-3xl overflow-hidden group ${selectedIds.includes(liq.id) ? 'ring-1 ring-emerald-500/30 border-emerald-500/20' : ''}`}>
-                                    <div className="p-4 sm:p-5 flex items-start gap-4">
+                                    <div className="p-4 sm:p-5 flex items-start gap-3">
                                         <div className="pt-1">
                                             <Checkbox 
                                                 checked={selectedIds.includes(liq.id)} 
@@ -554,27 +626,33 @@ export function LiquidacionesClientWrapper({
                                                 className="h-5 w-5 rounded-lg border-zinc-700 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
                                             />
                                         </div>
-                                        <div className="flex-1 min-w-0 space-y-4">
+                                        <div className="flex-1 min-w-0 space-y-3">
                                             <div className="flex items-start justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <h3 className="font-bold text-zinc-950 dark:text-zinc-100 truncate">{liq.titulo_tarea || 'sin titulo'}</h3>
-                                                    <div className="flex items-center gap-3 mt-1">
-                                                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-tighter">{liq.code_factura || 'SIN-COD'}</span>
-                                                        <span className="text-zinc-800">•</span>
-                                                        <span className="text-[10px] font-bold text-zinc-500">{formatDate(liq.created_at)}</span>
-                                                        {liq.pagada && <Badge className="bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-500 text-[9px] font-black uppercase px-1.5 h-4">pagada</Badge>}
+                                                <div className="min-w-0 flex-1">
+                                                    {/* Link directo a la tarea */}
+                                                    <Link
+                                                        href={`/dashboard/tareas/${liq.id_tarea}`}
+                                                        className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 hover:underline mb-1"
+                                                    >
+                                                        {tareaCode}
+                                                        <ExternalLink className="h-2.5 w-2.5" />
+                                                    </Link>
+                                                    <h3 className="font-bold text-zinc-950 dark:text-zinc-100 leading-tight">{liq.titulo_tarea || 'sin titulo'}</h3>
+                                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                                                        <span className="text-[10px] font-black text-zinc-400 uppercase tracking-tighter">{liq.code}</span>
+                                                        {/* Solo admin ve el codigo de factura */}
+                                                        {userRole === 'admin' && liq.code_factura && (
+                                                            <>
+                                                                <span className="text-zinc-300 dark:text-zinc-700">·</span>
+                                                                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-tighter">{liq.code_factura}</span>
+                                                            </>
+                                                        )}
+                                                        <span className="text-zinc-300 dark:text-zinc-700">·</span>
+                                                        <span className="text-[10px] font-bold text-zinc-400">{formatDate(liq.created_at)}</span>
+                                                        {liq.pagada && <Badge className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-400 text-[9px] font-black uppercase px-1.5 h-4">pagada</Badge>}
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        asChild 
-                                                        className="h-8 w-8 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl"
-                                                    >
-                                                        <Link href={`/dashboard/liquidaciones/${liq.id}`}><Info className="h-4 w-4" /></Link>
-                                                    </Button>
-                                                    
+                                                <div className="flex items-center gap-1 shrink-0">
                                                     {userRole === 'admin' && (
                                                         <Button 
                                                             variant="ghost" 
@@ -593,10 +671,9 @@ export function LiquidacionesClientWrapper({
                                             </div>
 
                                             <div className="flex flex-col p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-900">
-                                                <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-500">total bruto a liquidar</span>
+                                                <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-500">{liq.pagada ? 'cobrado' : 'a cobrar'}</span>
                                                 <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 leading-none mt-1">{formatCurrency(bruto)}</span>
                                             </div>
-
                                         </div>
                                     </div>
                                 </Card>
