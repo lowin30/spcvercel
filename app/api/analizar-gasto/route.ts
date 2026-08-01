@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import crypto from "crypto";
+import { VISION_MODEL } from "@/lib/ai/config";
 
 export const maxDuration = 30; // 30 segundos timeout Vercel
 
@@ -99,8 +100,8 @@ export async function POST(req: NextRequest) {
         // 2. ANALISIS CON GROQ (cadena de pensamiento para maxima precision numerica)
         // Modelo primario: llama-4-scout-17b (modelo multimodal nativo de groq activo en 2026)
         // Fallback automatico: reintento en el mismo modelo en caso de error transitorio
-        const MODELO_PRIMARIO = "meta-llama/llama-4-scout-17b-16e-instruct";
-        const MODELO_FALLBACK = "meta-llama/llama-4-scout-17b-16e-instruct";
+        const MODELO_PRIMARIO = VISION_MODEL;
+        const MODELO_FALLBACK = VISION_MODEL;
 
         const prompt = `Eres un sistema OCR de precision industrial especializado en facturas y tickets de obra en Argentina.
 

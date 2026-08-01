@@ -6,6 +6,7 @@ import crypto from "crypto"
 import { sanitizeText } from "@/lib/utils"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { VISION_MODEL } from "@/lib/ai/config";
 
 // Credenciales Cloudinary (Server-Side)
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -85,9 +86,9 @@ export async function analizarGastoAction(base64Image: string) {
 
         // 3. ia: llamada a groq (modelo vision activo qwen/qwen3.6-27b)
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-        const modelId = "qwen/qwen3.6-27b"
+        const modelId = VISION_MODEL
 
-        console.log("[ia-scanner] ejecutando vision con qwen/qwen3.6-27b")
+        console.log(`[ia-scanner] ejecutando vision con ${VISION_MODEL}`)
 
         const prompt = `
       Actúa como experto contable. Analiza la imagen del comprobante.
