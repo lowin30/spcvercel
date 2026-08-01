@@ -3,6 +3,8 @@ import { validateSessionAndGetUser } from '@/lib/auth-bridge'
 
 export interface LiquidacionDTO {
     id: number
+    code?: string
+    id_tarea?: number
     created_at: string
     titulo_tarea: string
     total_base?: number
@@ -49,6 +51,8 @@ export async function getLiquidaciones(
             .from('vista_liquidaciones_completa')
             .select(`
                 id,
+                code,
+                id_tarea,
                 created_at,
                 ganancia_neta,
                 ganancia_supervisor,
