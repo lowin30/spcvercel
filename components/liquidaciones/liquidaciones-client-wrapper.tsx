@@ -652,7 +652,16 @@ export function LiquidacionesClientWrapper({
                                                         {liq.pagada && <Badge className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-400 text-[9px] font-black uppercase px-1.5 h-4">pagada</Badge>}
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0">
+                                                <div className="flex items-center gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        asChild 
+                                                        className="h-8 w-8 text-zinc-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-xl"
+                                                    >
+                                                        <Link href={`/dashboard/liquidaciones/${liq.id}`}><Info className="h-4 w-4" /></Link>
+                                                    </Button>
+                                                    
                                                     {userRole === 'admin' && (
                                                         <Button 
                                                             variant="ghost" 
