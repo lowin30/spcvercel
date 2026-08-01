@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import crypto from "crypto";
-import { VISION_MODEL } from "@/lib/ai/config";
+import { VISION_MODEL, VISION_PROMPT } from "@/lib/ai/config";
 
 export const maxDuration = 30; // 30 segundos timeout Vercel
 
@@ -103,28 +103,7 @@ export async function POST(req: NextRequest) {
         const MODELO_PRIMARIO = VISION_MODEL;
         const MODELO_FALLBACK = VISION_MODEL;
 
-        const prompt = `Eres un sistema OCR de precision industrial especializado en facturas y tickets de obra en Argentina.
-
-PASO 1 - TRANSCRIPCION: Lee y transcribe textualmente TODO el texto visible en la imagen, incluyendo numeros, fechas y montos.
-PASO 2 - IDENTIFICACION: Del texto transcripto, identifica:
-  - El MONTO TOTAL a pagar (busca palabras como "total", "importe", "$", el numero mas grande y destacado)
-  - El PROVEEDOR o descripcion del gasto
-  - La FECHA del comprobante (formato YYYY-MM-DD, si no hay año usa el actual)
-
-Devuelve UNICAMENTE este objeto JSON, sin texto adicional:
-{
-  "transcripcion": "todo el texto visible del ticket...",
-  "monto": number,
-  "descripcion": "proveedor o descripcion breve en minusculas sin acentos",
-  "fecha": "YYYY-MM-DD",
-  "tipo_gasto": "material"
-}
-
-REGLAS CRITICAS:
-- Si el monto tiene punto como separador de miles (ej: 45.100), el monto es 45100.
-- Si el monto tiene coma como decimal (ej: 1.500,50), el monto es 1500.
-- Nunca inventes montos. Si no puedes leer el monto con certeza, pon 0.
-- descripcion siempre en minusculas y sin acentos. preserva la letra n con tilde (ñ).`;
+        const prompt = VISION_PROMPT;
 
         let chatCompletion;
         let modeloUsado = MODELO_PRIMARIO;

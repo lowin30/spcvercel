@@ -6,7 +6,7 @@ import crypto from "crypto"
 import { sanitizeText } from "@/lib/utils"
 import { revalidatePath } from "next/cache"
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { VISION_MODEL } from "@/lib/ai/config";
+import { VISION_MODEL, VISION_PROMPT } from "@/lib/ai/config";
 
 // Credenciales Cloudinary (Server-Side)
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
@@ -90,17 +90,7 @@ export async function analizarGastoAction(base64Image: string) {
 
         console.log(`[ia-scanner] ejecutando vision con ${VISION_MODEL}`)
 
-        const prompt = `
-      Actúa como experto contable. Analiza la imagen del comprobante.
-      Extrae exclusivamente a JSON puro:
-      {
-        "monto": number,
-        "descripcion": string,
-        "fecha": string, (formato YYYY-MM-DD)
-        "tipo_gasto": "material" // Siempre material (Requerimiento SPC v3.0)
-      }
-      REGLAS CRITICAS: descripcion en MINUSCULAS y SIN ACENTOS. Preserva 'ñ'. solo responde con JSON.
-    `
+        const prompt = VISION_PROMPT
 
         const chatCompletion = await groq.chat.completions.create({
             model: modelId,
