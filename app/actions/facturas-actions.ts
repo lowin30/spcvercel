@@ -199,13 +199,12 @@ export async function deleteInvoice(invoiceId: number) {
                 }).eq('id', factura.id_presupuesto_final);
             }
 
-                // Update Tarea if linked
-                const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea').eq('id', factura.id_presupuesto_final).single();
-                if (pf?.id_tarea) {
-                    const { data: estadoTarea } = await supabase.from('estados_tareas').select('id').eq('codigo', 'presupuestado').single();
-                    if (estadoTarea) {
-                        await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea).not('id_estado_nuevo', 'in', '(7,9,11)').eq('finalizada', false);
-                    }
+            // Update Tarea if linked
+            const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea').eq('id', factura.id_presupuesto_final).single();
+            if (pf?.id_tarea) {
+                const { data: estadoTarea } = await supabase.from('estados_tareas').select('id').eq('codigo', 'presupuestado').single();
+                if (estadoTarea) {
+                    await supabase.from('tareas').update({ id_estado_nuevo: estadoTarea.id }).eq('id', pf.id_tarea).not('id_estado_nuevo', 'in', '(7,9,11)').eq('finalizada', false);
                 }
             }
         }
