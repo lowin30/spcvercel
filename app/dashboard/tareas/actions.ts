@@ -1217,7 +1217,7 @@ export async function saveBudgetAction(params: {
           producto_id: item.producto_id || null,
           es_material: item.es_material ?? (item.es_producto ? true : false),
         };
-        if (item.code) itemPayload.code = item.code;
+        if (item.code && !item.id) itemPayload.code = item.code;
 
         if (item.id) {
           // fix: usar supabaseAdmin para garantizar el update sin bloqueo de RLS (gold v93.4)
