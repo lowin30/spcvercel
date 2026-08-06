@@ -170,26 +170,34 @@ export function ToolGastoRegistry({
             // 2. Llamada a la Server Action
             const data = await analizarGastoAction(base64data)
 
+            // preservar urls si se subio a Cloudinary exitosamente
+            if (data.comprobanteUrl) {
+                setComprobanteUrl(data.comprobanteUrl)
+            }
+            if (data.imagenProcesadaUrl) {
+                setImagenProcesadaUrl(data.imagenProcesadaUrl)
+            }
+
             if (data.success && data.datos) {
                 setFormData(prev => ({
                     ...prev,
                     monto: data.datos.monto ? Math.round(data.datos.monto).toString() : prev.monto,
                     descripcion: data.datos.descripcion || prev.descripcion,
                     fecha_gasto: data.datos.fecha_gasto || prev.fecha_gasto,
-                    tipo_gasto: (data.datos.tipo_gasto || 'material') as any
+                    tipo_gasto: "material"
                 }))
                 toast.success("✨ ¡Datos detectados automáticamente!", {
                     icon: <Sparkles className="w-4 h-4 text-amber-500" />,
                     duration: 3000
                 })
-
-                // guardar las urls para la persistencia final (v112.0)
-                if (data.comprobanteUrl) {
-                    setComprobanteUrl(data.comprobanteUrl)
-                }
-                if (data.imagenProcesadaUrl) {
-                    setImagenProcesadaUrl(data.imagenProcesadaUrl)
-                }
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    tipo_gasto: "material"
+                }))
+                toast.warning("La IA no pudo interpretar el comprobante. Completa los datos manualmente.", {
+                    duration: 5000
+                })
             }
         } catch (error: any) {
             console.error("Error en IA Scanner:", error)
@@ -235,7 +243,7 @@ export function ToolGastoRegistry({
                 fecha_gasto: formData.fecha_gasto,
                 id_usuario: userId,
                 liquidado: false,
-                tipo_gasto: formData.tipo_gasto,
+                tipo_gasto: comprobanteUrl ? "material" : formData.tipo_gasto,
                 comprobante_url: comprobanteUrl,
                 imagen_procesada_url: finalImagenProcesadaUrl
             }
@@ -424,12 +432,15 @@ export function ToolGastoRegistry({
                                 />
                             </div>
                             <div className="space-y-1.5 sm:col-span-2">
-                                <Label className="text-[10px] font-black uppercase tracking-widest text-violet-600/70 ml-1">Tipo de Gasto</Label>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-violet-600/70 ml-1">
+                                    Tipo de Gasto {comprobanteUrl && "(Comprobante = Material Fijo)"}
+                                </Label>
                                 <Select
-                                    value={formData.tipo_gasto}
+                                    value={comprobanteUrl ? "material" : formData.tipo_gasto}
                                     onValueChange={(val: any) => setFormData({ ...formData, tipo_gasto: val })}
+                                    disabled={Boolean(comprobanteUrl)}
                                 >
-                                    <SelectTrigger className="h-12 rounded-2xl border-violet-500/20 bg-violet-500/5 font-bold">
+                                    <SelectTrigger className="h-12 rounded-2xl border-violet-500/20 bg-violet-500/5 font-bold disabled:opacity-80">
                                         <SelectValue placeholder="Tipo de gasto..." />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl border-border shadow-xl">

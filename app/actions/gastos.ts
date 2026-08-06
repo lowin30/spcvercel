@@ -73,6 +73,9 @@ function cleanGastoText(text: string): string {
 }
 
 export async function analizarGastoAction(base64Image: string) {
+    let originalUrl: string | null = null
+    let optimizedImageUrl: string | null = null
+
     try {
         // 1. seguridad: verificar sesion y rol admin/supervisor (platinum)
         const user = await validateSessionAndGetUser()
@@ -81,8 +84,8 @@ export async function analizarGastoAction(base64Image: string) {
         }
 
         // 2. Gestion de Imagen: Subida segura a Cloudinary
-        const originalUrl = await uploadToCloudinary(base64Image, "spc/gastos_analysis_gold")
-        const optimizedImageUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/")
+        originalUrl = await uploadToCloudinary(base64Image, "spc/gastos_analysis_gold")
+        optimizedImageUrl = originalUrl.replace("/upload/", "/upload/e_improve,e_sharpen:100/")
 
         // 3. ia: llamada a groq (modelo vision activo qwen/qwen3.6-27b)
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
@@ -142,7 +145,9 @@ export async function analizarGastoAction(base64Image: string) {
         console.error("Error en analizarGastoAction:", error)
         return {
             success: false,
-            error: error.message || "Error procesando con IA"
+            error: error.message || "Error procesando con IA",
+            comprobanteUrl: originalUrl,
+            imagenProcesadaUrl: optimizedImageUrl
         }
     }
 }
@@ -160,17 +165,19 @@ export async function registrarGastoAction(gastoData: any) {
         const userId = user.id
 
         // 1. Sanitización de Textos y Validación de Fecha (El Escudo Gold v81.0)
-        // Soportamos 'fecha' (desde DB) y 'fecha_gasto' (desde UI)
-        // Soportamos 'fecha_gasto' (desde UI o IA)
         const rawDate = gastoData.fecha_gasto
         const dateObj = new Date(rawDate)
         const finalDate = isNaN(dateObj.getTime()) ? new Date().toISOString().split('T')[0] : rawDate
+
+        // Regla estricta Platinum: Si tiene comprobante, forzar siempre tipo_gasto = 'material'
+        const tieneComprobante = Boolean(gastoData.comprobante_url || gastoData.imagen_procesada_url)
+        const tipoGastoFinal = tieneComprobante ? "material" : cleanGastoText(gastoData.tipo_gasto)
 
         const normalizedData: any = {
             id_tarea: gastoData.id_tarea,
             monto: parseFloat(gastoData.monto),
             descripcion: cleanGastoText(gastoData.descripcion),
-            tipo_gasto: cleanGastoText(gastoData.tipo_gasto),
+            tipo_gasto: tipoGastoFinal,
             fecha_gasto: finalDate, // Campo real en la base de datos (v87.2 fix)
             id_usuario: userId,
             liquidado: gastoData.liquidado ?? false,
