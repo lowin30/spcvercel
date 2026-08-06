@@ -184,28 +184,29 @@ export async function deleteInvoice(invoiceId: number) {
 
         // 4.1 Actualizar el estado del presupuesto según si quedan facturas
         if (!quedanFacturas) {
-          // Si NO quedan facturas, volver a estado "aceptado" (paso previo a facturado) y desaprobar
+          // Si NO quedan facturas, volver a estado "borrador" (permite edicion o eliminacion) y desaprobar
           // Buscamos el ID dinamicamente para no hardcodear
-          const { data: estadoAceptado } = await supabaseAdmin
+          const { data: estadoBorrador } = await supabaseAdmin
             .from('estados_presupuestos')
             .select('id')
-            .eq('codigo', 'aceptado')
+            .eq('codigo', 'borrador')
             .single()
 
-          const idEstadoAceptado = estadoAceptado?.id ?? 3 // fallback seguro
+          const idEstadoBorrador = estadoBorrador?.id ?? 1 // fallback seguro (1 = borrador)
 
           const { error: updateError } = await supabaseAdmin
             .from('presupuestos_finales')
             .update({
-              id_estado: idEstadoAceptado,
-              aprobado: false
+              id_estado: idEstadoBorrador,
+              aprobado: false,
+              enviado: false
             })
             .eq('id', idPresupuestoFinal)
 
           if (updateError) {
             console.error('Error al actualizar estado del presupuesto:', updateError)
           } else {
-            console.log(`Presupuesto ${idPresupuestoFinal} actualizado a estado "aceptado" (id_estado: ${idEstadoAceptado}) y desaprobado`)
+            console.log(`Presupuesto ${idPresupuestoFinal} actualizado a estado "borrador" (id_estado: ${idEstadoBorrador}) y desaprobado`)
             revalidatePath('/dashboard/presupuestos-finales')
             revalidatePath(`/dashboard/presupuestos-finales/${idPresupuestoFinal}`)
             revalidatePath(`/dashboard/presupuestos-finales/editar/${idPresupuestoFinal}`)

@@ -189,14 +189,15 @@ export async function deleteInvoice(invoiceId: number) {
         if (factura?.id_presupuesto_final) {
             const { count: remaining } = await supabase.from('facturas').select('*', { count: 'exact', head: true }).eq('id_presupuesto_final', factura.id_presupuesto_final);
             if (remaining === 0) {
-                // Rollback to 'presupuestado' / desaprobar
-                const { data: estadoPresupuestado } = await supabase.from('estados_presupuestos').select('id').eq('codigo', 'presupuestado').single(); // 3
-                if (estadoPresupuestado) {
-                    await supabase.from('presupuestos_finales').update({
-                        id_estado: estadoPresupuestado.id,
-                        aprobado: false
-                    }).eq('id', factura.id_presupuesto_final);
-                }
+                // Rollback to 'borrador' / desaprobar
+                const { data: estadoBorrador } = await supabase.from('estados_presupuestos').select('id').eq('codigo', 'borrador').single();
+                const idEstadoBorrador = estadoBorrador?.id ?? 1;
+                await supabase.from('presupuestos_finales').update({
+                    id_estado: idEstadoBorrador,
+                    aprobado: false,
+                    enviado: false
+                }).eq('id', factura.id_presupuesto_final);
+            }
 
                 // Update Tarea if linked
                 const { data: pf } = await supabase.from('presupuestos_finales').select('id_tarea').eq('id', factura.id_presupuesto_final).single();
