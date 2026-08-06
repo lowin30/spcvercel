@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { DashboardShell } from "@/components/dashboard-shell"
 import { ProductoForm } from "@/components/producto-form"
 import { Loader2 } from "lucide-react"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase-client"
 
 export default function EditarProductoPage({ params }: { params: { id: string } }) {

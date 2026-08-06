@@ -436,7 +436,7 @@ export function CategoriasTab({ categorias: initialCategorias }: CategoriasTabPr
                         <AlertDialogHeader>
                           <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Esta acción eliminará la categoría "{categoria.nombre}" permanentemente.
+                            Esta acción eliminará la categoría &quot;{categoria.nombre}&quot; permanentemente.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

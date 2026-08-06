@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { CategoriasProductosList } from "@/components/categorias-productos-list"
 import { Loader2 } from "lucide-react"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase-client"
 
 export default function CategoriasProductosPage() {
