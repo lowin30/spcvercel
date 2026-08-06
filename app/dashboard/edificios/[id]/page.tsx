@@ -408,7 +408,7 @@ export default function EdificioPage() {
                 No hay departamentos
               </p>
               <p className="text-[10px] text-muted-foreground">
-                Haz clic en "Gestionar"
+                Haz clic en &quot;Gestionar&quot;
               </p>
             </div>
           )}

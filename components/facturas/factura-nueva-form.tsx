@@ -70,6 +70,16 @@ export function FacturaNuevaForm({
 }: FacturaNuevaFormProps) {
     const router = useRouter()
 
+    // Estados
+    const [guardando, setGuardando] = useState(false)
+    const [estadoSeleccionado, setEstadoSeleccionado] = useState<number>(1) // Borrador por defecto
+    const [numeroFactura, setNumeroFactura] = useState<string>("") // Campo datos_afip
+    const [fechaVencimiento, setFechaVencimiento] = useState<Date>(new Date(new Date().setDate(new Date().getDate() + 30)))
+    const [notas, setNotas] = useState<string>("")
+    const [items, setItems] = useState<Item[]>(initialItems)
+    const [itemModalOpen, setItemModalOpen] = useState<boolean>(false)
+    const [editingItem, setEditingItem] = useState<Item | undefined>(undefined)
+
     // 🔌 Selector de Presupuesto (Si no hay presupuesto seleccionado)
     if (!presupuesto) {
         return (
@@ -130,16 +140,6 @@ export function FacturaNuevaForm({
             </div>
         )
     }
-
-    // Estados
-    const [guardando, setGuardando] = useState(false)
-    const [estadoSeleccionado, setEstadoSeleccionado] = useState<number>(1) // Borrador por defecto
-    const [numeroFactura, setNumeroFactura] = useState<string>("") // Campo datos_afip
-    const [fechaVencimiento, setFechaVencimiento] = useState<Date>(new Date(new Date().setDate(new Date().getDate() + 30)))
-    const [notas, setNotas] = useState<string>("")
-    const [items, setItems] = useState<Item[]>(initialItems)
-    const [itemModalOpen, setItemModalOpen] = useState<boolean>(false)
-    const [editingItem, setEditingItem] = useState<Item | undefined>(undefined)
 
     // Calcular subtotal
     const subtotalItems = items.reduce((sum, item) => sum + (item.cantidad * item.precio), 0)

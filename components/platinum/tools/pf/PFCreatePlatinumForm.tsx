@@ -178,7 +178,7 @@ export function PFCreatePlatinumForm({ task, catalogs, initialPb, initialData }:
                                             </div>
                                             <div>
                                                 <p className="text-sm font-bold text-muted-foreground">no hay ítems cargados</p>
-                                                <p className="text-[11px] text-muted-foreground uppercase tracking-tight mt-1">presioná el botón "+" para empezar</p>
+                                                <p className="text-[11px] text-muted-foreground uppercase tracking-tight mt-1">presioná el botón &quot;+&quot; para empezar</p>
                                             </div>
                                         </div>
                                     ) : (

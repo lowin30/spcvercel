@@ -394,7 +394,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-amber-900/80 leading-relaxed italic">
-                            "{presupuesto.observaciones_admin}"
+                            &quot;{presupuesto.observaciones_admin}&quot;
                         </p>
                     </CardContent>
                 </Card>

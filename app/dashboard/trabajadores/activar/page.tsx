@@ -123,7 +123,7 @@ export default function ActivarTrabajadorPage() {
           {success && (
             <div className="bg-green-100 p-4 rounded-md text-green-800">
               <p className="font-bold">¡Trabajador activado correctamente!</p>
-              <p>Ahora el trabajador debería aparecer como "Activo" y estar disponible para asignación en tareas.</p>
+              <p>Ahora el trabajador debería aparecer como &quot;Activo&quot; y estar disponible para asignación en tareas.</p>
               <p className="text-sm mt-2">Nota: Si el problema persiste, puede haber un problema adicional de permisos en Supabase RLS.</p>
             </div>
           )}
