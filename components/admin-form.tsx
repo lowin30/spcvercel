@@ -1,10 +1,9 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
-import { useSupabase } from "@/lib/supabase-provider"
-import { useToast } from "@/components/ui/use-toast"
+import { createClient } from "@/lib/supabase-client"
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,40 +25,36 @@ export function AdminForm({ initialData, isChatVariant = false, onSuccess }: Adm
   const [estado, setEstado] = useState(initialData?.estado || "activo")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const { supabase } = useSupabase()
-  const { toast } = useToast()
   const router = useRouter()
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!nombre.trim() || !telefono.trim()) {
-      toast({
-        title: "Error",
-        description: "Por favor completa los campos requeridos",
-        variant: "destructive",
-      })
+      toast.error("Por favor completa los campos requeridos")
       return
     }
 
-    // Validar formato de teléfono
-    if (!/^[0-9]{10,15}$/.test(telefono)) {
-      toast({
-        title: "Error",
-        description: "El teléfono debe contener entre 10 y 15 dígitos numéricos",
-        variant: "destructive",
-      })
+    // Sanitizar teléfono para permitir formatos WhatsApp como "+54 9 11 3082-0608"
+    const digitsOnly = telefono.replace(/[^0-9]/g, "")
+
+    // Validar que queden entre 8 y 15 dígitos
+    if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+      toast.error("El teléfono debe contener entre 8 y 15 números")
       return
     }
 
     setIsSubmitting(true)
 
     try {
+      const cleanedNombre = sanitizeText(nombre)
+
       const { data, error } = await supabase
         .from("administradores")
         .insert({
-          nombre,
-          telefono,
+          nombre: cleanedNombre,
+          telefono: digitsOnly,
           estado,
         })
         .select()
@@ -69,31 +64,23 @@ export function AdminForm({ initialData, isChatVariant = false, onSuccess }: Adm
         throw new Error(error.message)
       }
 
-      toast({
-        title: "Administrador creado",
-        description: "El administrador ha sido creado correctamente",
-      })
+      toast.success("Administrador creado correctamente")
 
-      // Chat variant: trigger success callback
       if (isChatVariant && onSuccess) {
         onSuccess()
       } else {
         router.push(`/dashboard/administradores/${data.id}`)
+        router.refresh()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al crear administrador:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo crear el administrador",
-        variant: "destructive",
-      })
+      toast.error(error?.message || "No se pudo crear el administrador")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Conditional rendering for chat variant
-  const FormContent = () => (
+  const formFields = (
     <>
       <div className="space-y-2">
         <Label htmlFor="nombre">Nombre *</Label>
@@ -101,7 +88,6 @@ export function AdminForm({ initialData, isChatVariant = false, onSuccess }: Adm
           id="nombre"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          onBlur={(e) => setNombre(sanitizeText(e.target.value))}
           placeholder="NOMBRE DEL ADMINISTRADOR"
           required
           disabled={isSubmitting}
@@ -114,11 +100,11 @@ export function AdminForm({ initialData, isChatVariant = false, onSuccess }: Adm
           id="telefono"
           value={telefono}
           onChange={(e) => setTelefono(e.target.value)}
-          placeholder="1155667788"
+          placeholder="+54 9 11 3082-0608"
           required
           disabled={isSubmitting}
         />
-        <p className="text-xs text-muted-foreground">Ingresa solo números (entre 10 y 15 dígitos)</p>
+        <p className="text-xs text-muted-foreground">Podés pegar directamente tu número de WhatsApp (ej: +54 9 11 3082-0608)</p>
       </div>
 
       <div className="space-y-2">
@@ -139,7 +125,7 @@ export function AdminForm({ initialData, isChatVariant = false, onSuccess }: Adm
   if (isChatVariant) {
     return (
       <form onSubmit={handleSubmit} className="space-y-3">
-        <FormContent />
+        {formFields}
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
           {isSubmitting ? "Guardando..." : "Crear Admin"}
@@ -156,7 +142,7 @@ export function AdminForm({ initialData, isChatVariant = false, onSuccess }: Adm
             <CardTitle>Información del Administrador</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <FormContent />
+            {formFields}
           </CardContent>
           <CardFooter className="flex justify-center">
             <Button type="submit" disabled={isSubmitting} size="lg" className="w-full max-w-md py-6 text-lg">
