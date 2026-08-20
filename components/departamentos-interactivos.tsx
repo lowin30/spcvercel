@@ -1066,8 +1066,11 @@ export function DepartamentosInteractivos({
       {(() => {
         const telefonosFiltrados = telefonos.filter(tel => {
           const tieneNombre = tel.nombre_contacto && tel.nombre_contacto.trim() !== "";
-          const esDeDeptoVinculado = departamentos.some(d => Number(d.id) === tel.departamento_id);
-          const esGlobalConIdentidad = tel.departamento_id === null && tieneNombre;
+          const esDeDeptoVinculado = departamentos.some(d => 
+            Number(d.id) === Number(tel.departamento_id) || 
+            d.codigo.toLowerCase() === String((tel as any).departamento || '').toLowerCase()
+          );
+          const esGlobalConIdentidad = !tel.departamento_id && tieneNombre;
 
           return esDeDeptoVinculado || esGlobalConIdentidad;
         });

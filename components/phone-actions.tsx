@@ -34,35 +34,36 @@ export function PhoneActions({ numero, nombre }: PhoneActionsProps) {
   }
 
   return (
-    <div className="flex gap-1">
-      <Button 
-        size="sm" 
-        variant="ghost" 
-        className="h-7 w-7 p-0 hover:bg-green-50"
-        onClick={() => window.open(whatsappUrl, '_blank')}
-        title={`WhatsApp a ${nombre || 'contacto'}`}
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <a
+        href={whatsappUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20 border border-green-500/30 transition-all"
+        title={`Abrir WhatsApp wa.me a ${nombre || 'contacto'}`}
       >
-        <MessageCircle className="h-4 w-4 text-green-600" />
-      </Button>
-      
+        <MessageCircle className="h-3.5 w-3.5 fill-green-600 text-green-600 dark:text-green-400 shrink-0" />
+        <span>{numero}</span>
+      </a>
+
       <Button 
         size="sm" 
         variant="ghost" 
-        className="h-7 w-7 p-0"
+        className="h-6 w-6 p-0 hover:bg-slate-100 dark:hover:bg-zinc-800"
         onClick={() => window.open(telUrl)}
         title={`Llamar a ${nombre || 'contacto'}`}
       >
-        <Phone className="h-4 w-4" />
+        <Phone className="h-3.5 w-3.5" />
       </Button>
       
       <Button 
         size="sm" 
         variant="ghost" 
-        className="h-7 w-7 p-0"
+        className="h-6 w-6 p-0 hover:bg-slate-100 dark:hover:bg-zinc-800"
         onClick={copyToClipboard}
         title="Copiar número"
       >
-        <Copy className="h-4 w-4 text-muted-foreground" />
+        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
       </Button>
     </div>
   )
