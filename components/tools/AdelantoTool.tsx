@@ -102,7 +102,7 @@ export function AdelantoTool({ supervisores, onClose }: AdelantoToolProps) {
                                     id="fecha"
                                     name="fecha"
                                     type="date"
-                                    defaultValue={new Date().toISOString().split("T")[0]}
+                                    defaultValue={new Date().toLocaleDateString("sv-SE")}
                                     required
                                     className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 h-11 rounded-xl focus:ring-emerald-500/20"
                                 />

@@ -86,7 +86,7 @@ export async function createAdelantoAction(formData: FormData): Promise<CreateLi
         usuario_id: rawData.usuario_id as string,
         monto: Number(rawData.monto),
         descripcion: rawData.descripcion as string,
-        fecha: rawData.fecha as string || new Date().toISOString().split('T')[0]
+        fecha: (rawData.fecha as string) || new Date().toLocaleDateString("sv-SE")
     }
 
     if (!payload.usuario_id || !payload.monto) {

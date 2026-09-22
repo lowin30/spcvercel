@@ -34,19 +34,33 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
+  const childrenArray = React.Children.toArray(children)
+
   // Verificar si ya hay un DialogTitle en los children
-  const hasDialogTitle = React.Children.toArray(children).some(
+  const hasDialogTitle = childrenArray.some(
     (child) => {
       if (React.isValidElement(child)) {
-        // Verificar si el componente es un DialogHeader
         if (child.type === DialogHeader) {
-          // Buscar DialogTitle dentro de los hijos de DialogHeader
           return React.Children.toArray(child.props.children).some(
             (headerChild) => React.isValidElement(headerChild) && headerChild.type === DialogTitle
           )
         }
-        // Verificar si el componente es un DialogTitle
         return child.type === DialogTitle
+      }
+      return false
+    }
+  )
+
+  // Verificar si ya hay un DialogDescription en los children
+  const hasDialogDescription = childrenArray.some(
+    (child) => {
+      if (React.isValidElement(child)) {
+        if (child.type === DialogHeader) {
+          return React.Children.toArray(child.props.children).some(
+            (headerChild) => React.isValidElement(headerChild) && headerChild.type === DialogDescription
+          )
+        }
+        return child.type === DialogDescription
       }
       return false
     }
@@ -63,11 +77,16 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {/* Agregar un DialogTitle oculto si no hay uno en los children */}
+        {/* Agregar DialogTitle y DialogDescription ocultos si no existen en los children */}
         {!hasDialogTitle && (
           <DialogPrimitive.Title className="hidden">
             <VisuallyHidden>Diálogo</VisuallyHidden>
           </DialogPrimitive.Title>
+        )}
+        {!hasDialogDescription && (
+          <DialogPrimitive.Description className="hidden">
+            <VisuallyHidden>Descripción del diálogo</VisuallyHidden>
+          </DialogPrimitive.Description>
         )}
         {children}
         <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">

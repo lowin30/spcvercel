@@ -40,6 +40,7 @@ export function LiquidacionesClientWrapper({
     const searchParams = useSearchParams()
 
     const [loading, setLoading] = useState(false)
+    const [isAdelantoOpen, setIsAdelantoOpen] = useState(false)
     const [selectedIds, setSelectedIds] = useState<(number | string)[]>([])
     const [expandedAdelantos, setExpandedAdelantos] = useState<number[]>([])
     const [editingAdelantoId, setEditingAdelantoId] = useState<string | null>(null)
@@ -306,7 +307,7 @@ export function LiquidacionesClientWrapper({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     {userRole === 'admin' && (
-                        <Dialog>
+                        <Dialog open={isAdelantoOpen} onOpenChange={setIsAdelantoOpen}>
                             <DialogTrigger asChild>
                                 <Button variant="outline" className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-2xl">
                                     <Landmark className="mr-2 h-4 w-4" />
@@ -314,7 +315,13 @@ export function LiquidacionesClientWrapper({
                                 </Button>
                             </DialogTrigger>
                             <DialogContent className="p-0 bg-transparent border-none sm:max-w-md">
-                                <AdelantoTool supervisores={supervisores} />
+                                <AdelantoTool 
+                                    supervisores={supervisores} 
+                                    onClose={() => {
+                                        setIsAdelantoOpen(false)
+                                        router.refresh()
+                                    }}
+                                />
                             </DialogContent>
                         </Dialog>
                     )}
