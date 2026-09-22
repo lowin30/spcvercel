@@ -245,15 +245,32 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
                 throw new Error(result?.message || "Error desconocido al crear liquidación")
             }
 
-            toast.success('Liquidación creada con éxito!')
+            // Identificar supervisor de la tarea actual
+            const currentSupervisorId = selectedPresupuesto.id_supervisor
+            const currentSupervisorEmail = selectedPresupuesto.email_supervisor
+
+            // Verificar si quedan más tareas candidatas para este mismo supervisor
+            const remainingTasksForSup = presupuestos.filter(
+                p => p.id.toString() !== selectedPresupuestoId && 
+                (p.id_supervisor === currentSupervisorId || (currentSupervisorEmail && p.email_supervisor === currentSupervisorEmail))
+            )
 
             // Reset y Refrescar
-            router.refresh()
             setSelectedPresupuestoId('')
             setGastosReales(null)
             setAjusteAdmin(0)
-            // Router Push opcional si se quiere redirigir
-            // router.push('/dashboard/liquidaciones')
+
+            if (remainingTasksForSup.length > 0) {
+                toast.success(`Liquidación creada con éxito. Quedan ${remainingTasksForSup.length} tarea(s) pendiente(s) para este supervisor.`)
+                if (userRole === 'admin' && currentSupervisorEmail) {
+                    setSupervisorEmail(currentSupervisorEmail)
+                }
+                router.refresh()
+            } else {
+                toast.success('Liquidación creada con éxito. Redirigiendo a liquidaciones...')
+                router.push('/dashboard/liquidaciones')
+                router.refresh()
+            }
 
         } catch (error: any) {
             toast.error('Error al crear la liquidación: ' + error.message)
@@ -350,8 +367,9 @@ export function LiquidacionesNuevaForm({ initialCandidates, userRole, supervisor
 
         setProcessingBulk(false)
         if (successes > 0) {
-            toast.success(`${successes} liquidaciones creadas con éxito.`)
+            toast.success(`${successes} liquidación(es) creada(s) con éxito. Redirigiendo...`)
             setSelectedIds(new Set())
+            router.push('/dashboard/liquidaciones')
             router.refresh()
         }
         if (errors > 0) {
