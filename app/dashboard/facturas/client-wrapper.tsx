@@ -36,21 +36,42 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
 
     const [vistaActual, setVistaActual] = useState<'borrador' | 'pendientes' | 'pagadas' | 'todas'>('borrador')
     const [isMounted, setIsMounted] = useState(false)
+    const [searchValue, setSearchValue] = useState(currentSearch)
 
-    // Recuperar el tab de localStorage al montar
+    const STORAGE_KEY_PARAMS = 'spc_filtros_facturas_params'
+
+    useEffect(() => {
+        setSearchValue(currentSearch)
+    }, [currentSearch])
+
+    // Recuperar el tab y filtros de localStorage al montar
     useEffect(() => {
         setIsMounted(true)
         const saved = localStorage.getItem('spc_filtros_facturas_tab')
         if (saved) {
             setVistaActual(saved as any)
         }
-    }, [])
 
-    // Guardar el tab en localStorage
+        const hasUrlParams = Array.from(searchParams.keys()).some(k => ['search', 'id_administrador', 'id_edificio', 'id_estado'].includes(k))
+        const savedParams = localStorage.getItem(STORAGE_KEY_PARAMS)
+
+        if (!hasUrlParams && savedParams) {
+            router.replace(`${pathname}?${savedParams}`)
+        }
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Guardar el tab y parametros de URL en localStorage
     useEffect(() => {
         if (!isMounted) return
         localStorage.setItem('spc_filtros_facturas_tab', vistaActual)
-    }, [vistaActual, isMounted])
+
+        const currentQuery = searchParams.toString()
+        if (currentQuery) {
+            localStorage.setItem(STORAGE_KEY_PARAMS, currentQuery)
+        } else {
+            localStorage.removeItem(STORAGE_KEY_PARAMS)
+        }
+    }, [vistaActual, searchParams, isMounted])
 
     const createQueryString = useCallback(
         (deltas: Record<string, string | null>) => {
@@ -193,8 +214,11 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="Buscar..."
-                                    defaultValue={currentSearch}
-                                    onChange={e => handleSearch(e.target.value)}
+                                    value={searchValue}
+                                    onChange={e => {
+                                        setSearchValue(e.target.value)
+                                        handleSearch(e.target.value)
+                                    }}
                                     className="pl-8"
                                 />
                             </div>
@@ -252,7 +276,11 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => router.push(pathname)}
+                                onClick={() => {
+                                    localStorage.removeItem(STORAGE_KEY_PARAMS)
+                                    setSearchValue('')
+                                    router.push(pathname)
+                                }}
                                 className="flex items-center gap-2"
                             >
                                 <RefreshCw className="h-4 w-4" />
