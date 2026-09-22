@@ -107,6 +107,7 @@ export async function analizarGastoAction(base64Image: string) {
                 }
             ],
             temperature: 0,
+            max_tokens: 500,
             response_format: { type: "json_object" }
         })
 

@@ -22,7 +22,12 @@ interface MobileNavProps {
 export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -40,7 +45,7 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
   }, [pathname])
 
   return (
-    <header className="md:hidden" role="banner">
+    <header className="md:hidden" role="banner" suppressHydrationWarning>
       <nav className="flex h-14 items-center justify-between border-b px-3" role="navigation" aria-label="Navegación principal">
         {/* Botón de menú con mejor accesibilidad */}
         <Button
@@ -65,8 +70,6 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
             priority
             className="w-40 h-10 object-contain"
           />
-
-
         </div>
 
         {/* Controles de la derecha */}
@@ -85,23 +88,24 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
         </div>
       </nav>
 
-      {/* Panel lateral - Siempre presente en el DOM pero visualmente oculto cuando está cerrado */}
-      <Sheet open={open} onOpenChange={setOpen} modal={false}>
-        <SheetContent
-          side="left"
-          className="w-72 p-0"
-          id="mobile-menu-panel"
-        // Eliminamos preventDefault que causa problemas de foco
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Menú Principal</SheetTitle>
-            <SheetDescription>
-              Navegación principal y opciones de la cuenta.
-            </SheetDescription>
-          </SheetHeader>
-          <MobileMenuExpanded userDetails={userDetails} colorPerfil={colorPerfil} />
-        </SheetContent>
-      </Sheet>
+      {/* Panel lateral - Renderizado solo tras el montaje en el cliente para evitar hidratacion fallida con Radix Portal */}
+      {mounted && (
+        <Sheet open={open} onOpenChange={setOpen} modal={false}>
+          <SheetContent
+            side="left"
+            className="w-72 p-0"
+            id="mobile-menu-panel"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>Menú Principal</SheetTitle>
+              <SheetDescription>
+                Navegación principal y opciones de la cuenta.
+              </SheetDescription>
+            </SheetHeader>
+            <MobileMenuExpanded userDetails={userDetails} colorPerfil={colorPerfil} />
+          </SheetContent>
+        </Sheet>
+      )}
     </header>
   )
 }

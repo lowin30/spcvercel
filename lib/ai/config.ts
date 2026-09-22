@@ -3,7 +3,7 @@
  * Garantiza consistencia absoluta de modelo y prompt en toda la aplicación.
  */
 
-export const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+export const VISION_MODEL = "qwen/qwen3.8-27b";
 
 
 export const VISION_PROMPT = `

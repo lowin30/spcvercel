@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
                 model: MODELO_PRIMARIO,
                 temperature: 0,
                 response_format: { type: "json_object" },
-                max_tokens: 1024,
+                max_tokens: 500,
             });
         } catch (primaryError: any) {
             console.warn(`[ocr] modelo primario fallo (${primaryError.message}), usando fallback: ${MODELO_FALLBACK}`);
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
                 model: MODELO_FALLBACK,
                 temperature: 0,
                 response_format: { type: "json_object" },
-                max_tokens: 1024,
+                max_tokens: 500,
             });
         }
 
