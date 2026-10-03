@@ -17,6 +17,7 @@ import { EliminarGastoExtraButton } from '@/app/dashboard/facturas/[id]/eliminar
 import { formatCurrency } from '@/lib/utils'
 import { EditableInvoiceName } from '@/components/facturas/editable-invoice-name'
 import { EditableItemField } from '@/components/facturas/editable-item-field'
+import { ExportFacturaDetalleButton } from '@/components/export-factura-detalle-button'
 
 // Helper para formato de fechas
 const formatDate = (date: string | null) => {
@@ -62,6 +63,32 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
     const extrasTotal = Array.isArray(extras)
         ? (extras as any[]).reduce((sum, g: any) => sum + (Number(g?.monto) || 0), 0)
         : 0
+
+    const datosParaPDF = {
+        facturaId: factura.id,
+        codigo: factura.code || `#${factura.id}`,
+        fecha: new Date(factura.created_at || Date.now()),
+        datos_afip: factura.datos_afip || null,
+        cliente: {
+            nombre: edificio?.nombre || factura.nombre_edificio || 'N/A',
+            cuit: edificio?.cuit || '',
+            tarea: factura.nombre || tarea?.titulo || ''
+        },
+        items: (itemsToShow || []).map((item: any) => {
+            const cant = Number(item.cantidad) || 1
+            const precio = Number(item.precio_unitario ?? item.precio ?? item.tarifa ?? item.monto ?? 0)
+            const itemTotal = Number(item.subtotal_item ?? item.total ?? (cant * precio))
+            return {
+                id: item.id,
+                descripcion: item.descripcion || '',
+                cantidad: cant,
+                tarifa: precio,
+                total: itemTotal,
+            }
+        }),
+        totalFactura: Number(factura.total) || 0,
+        descuentoMonto: Number(presupuestoFinal?.descuento_monto || 0),
+    }
 
     return (
         <div className="space-y-6">
@@ -120,6 +147,7 @@ export function FacturaDetail({ factura, items: itemsToShow, extras }: FacturaDe
 
                 {/* Botones de acción responsive */}
                 <div className="flex items-center gap-2 flex-wrap">
+                    <ExportFacturaDetalleButton {...datosParaPDF} />
                     <MarcarEnviadaButton facturaId={factura.id} enviada={factura.enviada} />
                     {tarea?.id && (
                         <GastosExtraPdfButton tareaId={Number(tarea.id)} facturaId={Number(factura.id)} />
