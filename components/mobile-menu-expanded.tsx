@@ -143,6 +143,12 @@ export function MobileMenuExpanded({ userDetails, colorPerfil = '#3498db' }: Mob
       role: ["admin"],
     },
     {
+      href: "/dashboard/auditoria",
+      icon: FileBarChart,
+      title: "auditoria",
+      role: ["admin"],
+    },
+    {
       href: "/dashboard/configuracion",
       icon: Settings,
       title: "configuracion",

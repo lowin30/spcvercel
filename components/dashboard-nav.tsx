@@ -24,6 +24,7 @@ import {
   User,
   LogOut,
   Zap,
+  FileBarChart,
 } from "lucide-react"
 
 interface NavItem {
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { title: "ajustes", href: "/dashboard/ajustes", icon: Shield, roles: ["admin"] },
   { title: "comprobantes", href: "/dashboard/comprobantes", icon: Shield, roles: ["admin"] },
   { title: "pagos", href: "/dashboard/pagos", icon: CreditCard, roles: ["admin"] },
+  { title: "auditoria", href: "/dashboard/auditoria", icon: FileBarChart, roles: ["admin"] },
   { title: "configuracion", href: "/dashboard/configuracion", icon: Settings, roles: ["admin"] },
 ]
 
