@@ -227,15 +227,12 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                       <TableCell>
                         <div className="flex flex-col">
                           {payment.factura_id ? (
-                            <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline">
-                              {payment.factura_code}
+                            <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-bold text-primary hover:underline">
+                              {payment.factura_numero_afip ? `AFIP N° ${payment.factura_numero_afip}` : (payment.factura_code || '-')}
                             </Link>
                           ) : (
-                            <span className="font-medium">{payment.factura_code}</span>
-                          )}
-                          {payment.factura_numero_afip && (
-                            <span className="text-xs text-muted-foreground">
-                              afip: {payment.factura_numero_afip}
+                            <span className="font-bold">
+                              {payment.factura_numero_afip ? `AFIP N° ${payment.factura_numero_afip}` : (payment.factura_code || '-')}
                             </span>
                           )}
                         </div>
@@ -296,15 +293,12 @@ export default function PaymentsTable({ payments }: PaymentsTableProps) {
                           </CardTitle>
                           <CardDescription className="mt-1 space-y-0.5">
                             {payment.factura_id ? (
-                              <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-medium text-primary hover:underline text-sm block">
-                                Factura: {payment.factura_code}
+                              <Link href={`/dashboard/facturas/${payment.factura_id}`} className="font-semibold text-primary hover:underline text-sm block">
+                                AFIP N° {payment.factura_numero_afip || payment.factura_code}
                               </Link>
                             ) : (
-                              <span className="text-sm block">Factura: {payment.factura_code}</span>
-                            )}
-                            {payment.factura_numero_afip && (
-                              <span className="text-xs block text-muted-foreground">
-                                afip: {payment.factura_numero_afip}
+                              <span className="text-sm font-semibold block">
+                                AFIP N° {payment.factura_numero_afip || payment.factura_code}
                               </span>
                             )}
                           </CardDescription>

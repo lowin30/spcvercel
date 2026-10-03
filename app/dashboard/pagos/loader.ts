@@ -75,6 +75,12 @@ export async function getPagos(filters?: PagosFilterParams): Promise<PagoEnrique
                 case 'fecha_asc':
                     query = query.order('fecha_pago', { ascending: true }).order('id_pago', { ascending: true });
                     break;
+                case 'edificio_asc':
+                    query = query.order('edificio_nombre', { ascending: true }).order('fecha_pago', { ascending: false });
+                    break;
+                case 'edificio_desc':
+                    query = query.order('edificio_nombre', { ascending: false }).order('fecha_pago', { ascending: false });
+                    break;
                 case 'monto_desc':
                     query = query.order('monto_pago', { ascending: false });
                     break;

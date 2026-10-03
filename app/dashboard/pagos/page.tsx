@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getPagos, getFiltrosMetadata } from './loader';
 import { validateSessionAndGetUser } from '@/lib/auth-bridge';
 import { PagosFilterBar } from './pagos-filter-bar';
+import { ExportPagosButton } from '@/components/export-pagos-button';
 
 export default async function PagosPage({
   searchParams,
@@ -45,7 +46,12 @@ export default async function PagosPage({
   // Extraer modalidades únicas para el filtro
   const modalidades = Array.from(new Set(rawPayments.map(p => p.modalidad).filter(Boolean)));
 
-  // 3. Mapeo para compatibilidad con PaymentsTable legacy (temporal hasta v89.4)
+  // Obtener el nombre del administrador seleccionado para el reporte
+  const selectedAdmin = resolvedParams.adm && resolvedParams.adm !== 'all'
+    ? metadata.administradores.find(a => a.id.toString() === resolvedParams.adm)?.nombre
+    : undefined;
+
+  // 3. Mapeo para compatibilidad con PaymentsTable legacy
   const payments = rawPayments.map(p => ({
     id: p.id_pago.toString(),
     monto_pagado: p.monto_pago,
@@ -67,12 +73,19 @@ export default async function PagosPage({
 
   return (
     <div className="space-y-4 sm:space-y-6 px-2 sm:px-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+        <div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight uppercase">historial de pagos</h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1 lowercase italic">
             trazabilidad total: administradores, edificios, tareas y presupuestos.
           </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <ExportPagosButton
+            pagos={rawPayments}
+            nombreAdministrador={selectedAdmin}
+            rangoFechas={{ desde: resolvedParams.desde, hasta: resolvedParams.hasta }}
+          />
         </div>
       </div>
 

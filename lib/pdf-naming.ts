@@ -3,6 +3,7 @@ export type PdfTipo =
   | 'liquidacion_supervisor'
   | 'facturas_listado'
   | 'facturas_resumen'
+  | 'pagos_listado'
   | 'presupuesto'
   | 'gastos_tarea'
 
@@ -77,6 +78,11 @@ export function getPdfFilename(tipo: PdfTipo, datos: any): string {
       const admin = sanitizeFilename(datos.admin || 'Todas')
       const fecha = datos.fecha || 'fecha'
       return `Facturas_Resumen_${admin}_${fecha}.pdf`
+    }
+    case 'pagos_listado': {
+      const admin = sanitizeFilename(datos.admin || 'Todos')
+      const fecha = datos.fecha || 'fecha'
+      return `Pagos_${admin}_${fecha}.pdf`
     }
     case 'presupuesto': {
       const codigo = sanitizeFilename(datos.codigo || 'Presupuesto')

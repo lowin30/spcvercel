@@ -28,6 +28,31 @@ export function PagosFilterBar({ administradores, edificios, modalidades }: Pago
     const [hasta, setHasta] = useState(searchParams.get('hasta') || '')
     const [sort, setSort] = useState(searchParams.get('sort') || 'fecha_desc')
 
+    const STORAGE_KEY_PARAMS = 'spc_filtros_pagos_params'
+    const [isMounted, setIsMounted] = useState(false)
+
+    // Restaurar filtros de localStorage al montar si la URL viene limpia
+    useEffect(() => {
+        setIsMounted(true)
+        const hasUrlParams = Array.from(searchParams.keys()).some(k => ['q', 'adm', 'edificio', 'mod', 'desde', 'hasta', 'sort'].includes(k))
+        const savedParams = localStorage.getItem(STORAGE_KEY_PARAMS)
+
+        if (!hasUrlParams && savedParams) {
+            router.replace(`${pathname}?${savedParams}`)
+        }
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Sincronizar cambios de searchParams con localStorage
+    useEffect(() => {
+        if (!isMounted) return
+        const currentQuery = searchParams.toString()
+        if (currentQuery) {
+            localStorage.setItem(STORAGE_KEY_PARAMS, currentQuery)
+        } else {
+            localStorage.removeItem(STORAGE_KEY_PARAMS)
+        }
+    }, [searchParams, isMounted])
+
     // Debounce para busqueda por texto
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -52,6 +77,7 @@ export function PagosFilterBar({ administradores, edificios, modalidades }: Pago
     }
 
     const resetFilters = () => {
+        localStorage.removeItem(STORAGE_KEY_PARAMS)
         setQ('')
         setAdm('all')
         setEdificio('all')
@@ -163,6 +189,8 @@ export function PagosFilterBar({ administradores, edificios, modalidades }: Pago
                                 <SelectContent>
                                     <SelectItem value="fecha_desc">mas reciente</SelectItem>
                                     <SelectItem value="fecha_asc">mas antiguo</SelectItem>
+                                    <SelectItem value="edificio_asc">edificio (a-z)</SelectItem>
+                                    <SelectItem value="edificio_desc">edificio (z-a)</SelectItem>
                                     <SelectItem value="monto_desc">mayor monto</SelectItem>
                                     <SelectItem value="monto_asc">menor monto</SelectItem>
                                 </SelectContent>
