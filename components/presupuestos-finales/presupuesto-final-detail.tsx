@@ -227,7 +227,16 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Tarea Relacionada</p>
-                                <p className="text-base font-medium">{presupuesto.titulo_tarea || 'N/A'}</p>
+                                {(presupuesto.id_tarea || presupuesto.tareas?.id) ? (
+                                    <Link
+                                        href={`/dashboard/tareas/${presupuesto.id_tarea || presupuesto.tareas?.id}`}
+                                        className="text-base font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors block"
+                                    >
+                                        {presupuesto.titulo_tarea || presupuesto.tareas?.titulo || 'N/A'}
+                                    </Link>
+                                ) : (
+                                    <p className="text-base font-medium">{presupuesto.titulo_tarea || presupuesto.tareas?.titulo || 'N/A'}</p>
+                                )}
                             </div>
                             <div className="space-y-1">
                                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Fechas</p>

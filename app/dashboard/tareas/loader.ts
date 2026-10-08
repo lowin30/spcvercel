@@ -41,6 +41,7 @@ export type TareasFilterParams = {
     id_supervisor?: string
     search?: string
     view?: string
+    sort?: string
 }
 
 export async function getTareasData(filters?: TareasFilterParams) {
@@ -155,23 +156,75 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         let filteredData = result.data || [];
 
-        // 6. Post-filtro para tab 'por_cobrar': excluir tareas ya liquidadas
-        if (filters?.view === 'por_cobrar') {
-            // Buscar ids de tareas que ya tienen liquidacion creada
-            const idsEnVista = filteredData.map((t: any) => t.id).filter(Boolean);
-            let idsYaLiquidados = new Set<number>();
-            if (idsEnVista.length > 0) {
-                const { data: liqs } = await supabaseAdmin
-                    .from('liquidaciones_nuevas')
-                    .select('id_tarea')
-                    .in('id_tarea', idsEnVista);
-                if (liqs) liqs.forEach((l: any) => idsYaLiquidados.add(l.id_tarea));
+        // 6. Post-filtro para tab 'por_cobrar': solo excluir tareas cuyas liquidaciones ya fueron PAGADAS
+        const idsEnVista = filteredData.map((t: any) => t.id).filter(Boolean);
+        let liqsMap = new Map<number, { pagada: boolean; fecha_pago: string | null; total_supervisor: number | null }>();
+
+        if (idsEnVista.length > 0) {
+            const { data: liqs } = await supabaseAdmin
+                .from('liquidaciones_nuevas')
+                .select('id_tarea, pagada, fecha_pago, created_at, total_supervisor')
+                .in('id_tarea', idsEnVista);
+
+            if (liqs) {
+                liqs.forEach((l: any) => {
+                    liqsMap.set(l.id_tarea, {
+                        pagada: !!l.pagada,
+                        fecha_pago: l.fecha_pago || l.created_at || null,
+                        total_supervisor: Number(l.total_supervisor) || 0
+                    });
+                });
             }
-            // Excluir tareas ya liquidadas
-            filteredData = filteredData.filter((t: any) => !idsYaLiquidados.has(t.id));
         }
 
-        return filteredData;
+        if (filters?.view === 'por_cobrar') {
+            filteredData = filteredData.filter((t: any) => {
+                const liq = liqsMap.get(t.id);
+                return !liq || !liq.pagada; // Mantener si no tiene liquidacion o si la liquidacion NO fue pagada aun
+            });
+        }
+
+        // Mapear info de liquidacion/pago en cada tarea
+        let enrichedData = filteredData.map((t: any) => {
+            const liq = liqsMap.get(t.id);
+            return {
+                ...t,
+                tiene_liquidacion_impaga: liq ? !liq.pagada : false,
+                fecha_pago: liq?.fecha_pago || null,
+                monto_cobrado: liq?.total_supervisor || null,
+                pagada: liq?.pagada || false
+            };
+        });
+
+        // 7. Ordenamiento dinamico (Sort parameter)
+        const sortOption = filters?.sort || (filters?.view === 'finalizadas' ? 'ultimo_pago' : 'recientes');
+
+        enrichedData.sort((a: any, b: any) => {
+            if (sortOption === 'ultimo_pago') {
+                const dateA = a.fecha_pago ? new Date(a.fecha_pago).getTime() : 0;
+                const dateB = b.fecha_pago ? new Date(b.fecha_pago).getTime() : 0;
+                if (dateA !== dateB) return dateB - dateA; // Mas reciente cobrado primero
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            } else if (sortOption === 'visita') {
+                const dateA = a.fecha_visita ? new Date(a.fecha_visita).getTime() : Infinity;
+                const dateB = b.fecha_visita ? new Date(b.fecha_visita).getTime() : Infinity;
+                if (dateA !== dateB) return dateA - dateB; // Mas proxima primero
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            } else if (sortOption === 'alfabetico') {
+                const titleA = (a.titulo || '').toLowerCase();
+                const titleB = (b.titulo || '').toLowerCase();
+                return titleA.localeCompare(titleB);
+            } else if (sortOption === 'supervisor') {
+                const supA = (a.supervisores_emails || '').toLowerCase();
+                const supB = (b.supervisores_emails || '').toLowerCase();
+                return supA.localeCompare(supB);
+            } else {
+                // Default: recientes por created_at
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            }
+        });
+
+        return enrichedData;
 
     } catch (error) {
         console.error("Loader Error:", error);
@@ -269,27 +322,27 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
             }
         });
 
-        // Conteo de por_cobrar: tareas terminadas con pb sin liquidar y sin liquidacion creada
+        // Conteo de por_cobrar: tareas terminadas cuyo pago al supervisor sigue pendiente (sin liquidacion o con liquidacion impaga)
         const idsTerminadas = tareas
             .filter((t: any) => t.se_trabajo === true && t.id_estado_nuevo !== 11)
             .map((t: any) => t.id)
             .filter(Boolean);
 
         if (idsTerminadas.length > 0) {
-            const [pbPendientes, liquidadasExistentes] = await Promise.all([
+            const [pbPendientes, liquidadasPagadas] = await Promise.all([
                 supabaseAdmin
                     .from('presupuestos_base')
                     .select('id_tarea')
-                    .in('id_tarea', idsTerminadas)
-                    .eq('base_liquidada', false),
+                    .in('id_tarea', idsTerminadas),
                 supabaseAdmin
                     .from('liquidaciones_nuevas')
                     .select('id_tarea')
                     .in('id_tarea', idsTerminadas)
+                    .eq('pagada', true)
             ]);
-            const idsConLiquidacion = new Set((liquidadasExistentes.data || []).map((l: any) => l.id_tarea));
+            const idsConPago = new Set((liquidadasPagadas.data || []).map((l: any) => l.id_tarea));
             counts.por_cobrar = (pbPendientes.data || [])
-                .filter((pb: any) => !idsConLiquidacion.has(pb.id_tarea))
+                .filter((pb: any) => !idsConPago.has(pb.id_tarea))
                 .length;
         }
 

@@ -62,7 +62,8 @@ export default async function TareasPage({ searchParams }: Props) {
     estado: params.estado as string,
     id_supervisor: params.id_supervisor as string,
     search: params.search as string,
-    view: params.view as string
+    view: params.view as string,
+    sort: params.sort as string
   }
 
   let initialTareas: any[] = []

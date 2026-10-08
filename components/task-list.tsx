@@ -286,10 +286,20 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                         )}
                       </div>
                       <div className="flex justify-between items-center mt-4 pt-4 border-t text-sm">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge className={getEstadoColor(task.id_estado_nuevo)}>
                             {task.estado_tarea?.toLowerCase()}
                           </Badge>
+                          {(task as any).tiene_liquidacion_impaga && (
+                            <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10 text-xs px-2 py-0.5 font-semibold">
+                              liquidada (impaga)
+                            </Badge>
+                          )}
+                          {(task as any).pagada && (task as any).fecha_pago && (
+                            <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-xs px-2 py-0.5 font-semibold">
+                              ✓ cobrada el {formatDateTime((task as any).fecha_pago)}
+                            </Badge>
+                          )}
                         </div>
 
                       </div>
@@ -348,9 +358,21 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                         </Link>
                       </TableCell>
                       <TableCell className="px-2 py-3 whitespace-nowrap">
-                        <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5`}>
-                          {task.estado_tarea?.toLowerCase()}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5`}>
+                            {task.estado_tarea?.toLowerCase()}
+                          </Badge>
+                          {(task as any).tiene_liquidacion_impaga && (
+                            <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10 text-[10px] px-1.5 py-0.5 font-semibold">
+                              liquidada (impaga)
+                            </Badge>
+                          )}
+                          {(task as any).pagada && (task as any).fecha_pago && (
+                            <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 text-[10px] px-1.5 py-0.5 font-semibold">
+                              ✓ cobrada el {formatDateTime((task as any).fecha_pago)}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="px-2 py-3 whitespace-nowrap">
                         {task.fecha_visita ? (
