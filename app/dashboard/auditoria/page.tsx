@@ -29,6 +29,7 @@ export default async function AuditoriaPage() {
       initialSupervisores={data.supervisores}
       initialAdministradores={data.administradores}
       initialLogs={data.logs}
+      totalesGlobales={data.totalesGlobales}
     />
   )
 }

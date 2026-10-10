@@ -67,6 +67,32 @@ export async function saveInvoice(
       if (updateError) {
         throw updateError;
       }
+
+      // Sincronizar detalle de pagos si la factura ya estaba pagada en su totalidad
+      const { data: existingFactura } = await supabaseAdmin
+        .from('facturas')
+        .select('pagada')
+        .eq('id', facturaId)
+        .single();
+
+      if (existingFactura?.pagada) {
+        const { data: existingPagos } = await supabaseAdmin
+          .from('pagos_facturas')
+          .select('id, modalidad_pago')
+          .eq('id_factura', facturaId);
+
+        if (existingPagos && existingPagos.length === 1 && existingPagos[0].modalidad_pago === 'total') {
+          await supabaseAdmin
+            .from('pagos_facturas')
+            .update({ monto_pagado: data.total })
+            .eq('id', existingPagos[0].id);
+
+          await supabaseAdmin
+            .from('facturas')
+            .update({ total_pagado: data.total, saldo_pendiente: 0 })
+            .eq('id', facturaId);
+        }
+      }
     } else {
       if (!data.id_presupuesto_final) {
         throw new Error('Debe seleccionar un presupuesto para crear la factura.');

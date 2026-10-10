@@ -19,13 +19,17 @@ import {
     CheckCircle2, 
     AlertTriangle,
     Layers,
-    DollarSign
+    DollarSign,
+    Filter,
+    X,
+    Building
 } from "lucide-react"
 import type { 
     BalanceTareaDTO, 
     BalanceSupervisorAgrupado, 
     BalanceAdministradorAgrupado, 
-    AuditoriaForenseLogDTO 
+    AuditoriaForenseLogDTO,
+    BalanceGlobalDTO
 } from "./loader"
 
 interface AuditoriaClientProps {
@@ -34,6 +38,7 @@ interface AuditoriaClientProps {
     initialSupervisores: BalanceSupervisorAgrupado[]
     initialAdministradores: BalanceAdministradorAgrupado[]
     initialLogs: AuditoriaForenseLogDTO[]
+    totalesGlobales?: BalanceGlobalDTO
 }
 
 export default function AuditoriaClient({
@@ -41,10 +46,306 @@ export default function AuditoriaClient({
     initialBalances,
     initialSupervisores,
     initialAdministradores,
-    initialLogs
+    initialLogs,
+    totalesGlobales
 }: AuditoriaClientProps) {
     const [tabActiva, setTabActiva] = useState("supervisores")
     const [busqueda, setBusqueda] = useState("")
+
+    // Estados de Filtros Inteligentes
+    const [mesDesde, setMesDesde] = useState<string>("todos")
+    const [mesHasta, setMesHasta] = useState<string>("todos")
+    const [filtroEdificio, setFiltroEdificio] = useState<string>("todos")
+    const [filtroAdmin, setFiltroAdmin] = useState<string>("todos")
+    const [filtroSupervisor, setFiltroSupervisor] = useState<string>("todos")
+
+    // Opciones para desplegables derivadas de la data
+    const mesesOpciones = useMemo(() => {
+        const set = new Set<string>()
+        initialBalances.forEach(b => {
+            const fechaRef = b.fecha_ultimo_cobro || b.fecha_tarea
+            if (fechaRef && fechaRef.length >= 7) {
+                set.add(fechaRef.substring(0, 7))
+            }
+        })
+        return Array.from(set).sort().reverse()
+    }, [initialBalances])
+
+    const edificiosOpciones = useMemo(() => {
+        const set = new Set<string>()
+        initialBalances.forEach(b => {
+            if (b.nombre_edificio) set.add(b.nombre_edificio)
+        })
+        return Array.from(set).sort()
+    }, [initialBalances])
+
+    const adminsOpciones = useMemo(() => {
+        const set = new Set<string>()
+        initialBalances.forEach(b => {
+            if (b.nombre_administrador) set.add(b.nombre_administrador)
+        })
+        return Array.from(set).sort()
+    }, [initialBalances])
+
+    const supervisoresOpciones = useMemo(() => {
+        const set = new Set<string>()
+        initialBalances.forEach(b => {
+            if (b.nombre_supervisor && b.nombre_supervisor !== 'no asignado') {
+                set.add(b.nombre_supervisor)
+            }
+        })
+        return Array.from(set).sort()
+    }, [initialBalances])
+
+    const hayFiltroActivo = mesDesde !== "todos" || mesHasta !== "todos" || filtroEdificio !== "todos" || filtroAdmin !== "todos" || filtroSupervisor !== "todos" || busqueda.trim() !== ""
+
+    const limpiarFiltros = () => {
+        setMesDesde("todos")
+        setMesHasta("todos")
+        setFiltroEdificio("todos")
+        setFiltroAdmin("todos")
+        setFiltroSupervisor("todos")
+        setBusqueda("")
+    }
+
+    const aplicarPresetMes = (preset: 'ultimos-2' | 'ultimos-4' | 'ene-jun-2026' | 'este-ano' | 'todo') => {
+        if (preset === 'todo') {
+            setMesDesde("todos")
+            setMesHasta("todos")
+            return
+        }
+        if (preset === 'ultimos-2') {
+            const hasta = mesesOpciones[0] || "todos"
+            const desde = mesesOpciones[1] || hasta
+            setMesDesde(desde)
+            setMesHasta(hasta)
+            return
+        }
+        if (preset === 'ultimos-4') {
+            const hasta = mesesOpciones[0] || "todos"
+            const desde = mesesOpciones[3] || mesesOpciones[mesesOpciones.length - 1] || hasta
+            setMesDesde(desde)
+            setMesHasta(hasta)
+            return
+        }
+        if (preset === 'ene-jun-2026') {
+            setMesDesde("2026-01")
+            setMesHasta("2026-06")
+            return
+        }
+        if (preset === 'este-ano') {
+            setMesDesde("2026-01")
+            setMesHasta("2026-12")
+            return
+        }
+    }
+
+    // Filtro multinivel de balances completos
+    const balancesFiltrados = useMemo(() => {
+        return initialBalances.filter(b => {
+            if (busqueda.trim()) {
+                const q = busqueda.toLowerCase().trim()
+                const matchTxt = b.titulo_tarea.toLowerCase().includes(q) ||
+                    b.codigo_tarea.toLowerCase().includes(q) ||
+                    b.nombre_edificio.toLowerCase().includes(q) ||
+                    b.nombre_administrador.toLowerCase().includes(q) ||
+                    (b.nombre_supervisor?.toLowerCase().includes(q) ?? false)
+                if (!matchTxt) return false
+            }
+            if (mesDesde !== "todos" || mesHasta !== "todos") {
+                const fechaRef = b.fecha_ultimo_cobro || b.fecha_tarea
+                if (!fechaRef || fechaRef.length < 7) return false
+                const mesRef = fechaRef.substring(0, 7)
+                if (mesDesde !== "todos" && mesRef < mesDesde) return false
+                if (mesHasta !== "todos" && mesRef > mesHasta) return false
+            }
+            if (filtroEdificio !== "todos") {
+                if (b.nombre_edificio !== filtroEdificio) return false
+            }
+            if (filtroAdmin !== "todos") {
+                if (b.nombre_administrador !== filtroAdmin) return false
+            }
+            if (filtroSupervisor !== "todos") {
+                if (b.nombre_supervisor !== filtroSupervisor) return false
+            }
+            return true
+        })
+    }, [initialBalances, busqueda, mesDesde, mesHasta, filtroEdificio, filtroAdmin, filtroSupervisor])
+
+    // Reagregacion por edificio reactiva al filtro
+    const edificiosAgrupados = useMemo(() => {
+        const map = new Map<string, {
+            nombre_edificio: string
+            nombre_administrador: string
+            tareas_totales: number
+            total_cobrado: number
+            gastos_totales: number
+            ganancia_supervisor: number
+            ganancia_neta: number
+            margen_pct: number
+        }>()
+
+        balancesFiltrados.forEach(b => {
+            const key = b.nombre_edificio || 'sin edificio'
+            if (!map.has(key)) {
+                map.set(key, {
+                    nombre_edificio: key,
+                    nombre_administrador: b.nombre_administrador || 'sin admin',
+                    tareas_totales: 0,
+                    total_cobrado: 0,
+                    gastos_totales: 0,
+                    ganancia_supervisor: 0,
+                    ganancia_neta: 0,
+                    margen_pct: 0
+                })
+            }
+            const item = map.get(key)!
+            item.tareas_totales += 1
+            item.total_cobrado += b.total_cobrado_real
+            item.gastos_totales += b.gastos_reales_liquidacion
+            item.ganancia_supervisor += b.ganancia_supervisor
+        })
+
+        return Array.from(map.values()).map(e => {
+            const gananciaNeta = e.total_cobrado - e.gastos_totales - e.ganancia_supervisor
+            const margen = e.total_cobrado > 0 ? Math.round((gananciaNeta / e.total_cobrado) * 100) : 0
+            return {
+                ...e,
+                ganancia_neta: gananciaNeta,
+                margen_pct: margen
+            }
+        }).sort((a, b) => b.ganancia_neta - a.ganancia_neta)
+    }, [balancesFiltrados])
+
+    // Supervisores dinamicos reactivos a los filtros
+    const supervisoresDinamicos = useMemo(() => {
+        if (!hayFiltroActivo) return initialSupervisores
+
+        const supMap = new Map<string, BalanceSupervisorAgrupado>()
+        initialSupervisores.forEach(s => {
+            supMap.set(s.id_supervisor, {
+                ...s,
+                tareas_totales: 0,
+                tareas_liquidadas: 0,
+                total_pb: 0,
+                gastos_reales: 0,
+                gastos_pendientes: 0,
+                ganancia_supervisor: 0,
+                ganancia_admin: 0,
+                total_cobrado_cliente: 0,
+                ganancia_real_spc: 0,
+                eficiencia_pct: 0
+            })
+        })
+
+        balancesFiltrados.forEach(b => {
+            if (!b.id_supervisor || !supMap.has(b.id_supervisor)) return
+            const sup = supMap.get(b.id_supervisor)!
+            sup.tareas_totales += 1
+            if (b.id_liquidacion) {
+                sup.tareas_liquidadas += 1
+            }
+            sup.total_pb += b.total_pb
+            sup.gastos_reales += b.gastos_reales_liquidacion
+            sup.ganancia_supervisor += b.ganancia_supervisor
+            sup.ganancia_admin += b.ganancia_admin
+            sup.total_cobrado_cliente += b.total_cobrado_real
+        })
+
+        return Array.from(supMap.values())
+            .filter(s => s.tareas_totales > 0 || s.tareas_liquidadas > 0)
+            .map(s => {
+                const eficiencia = s.total_pb > 0 
+                    ? Math.round(((s.total_pb - s.gastos_reales) / s.total_pb) * 100)
+                    : 0
+                const gananciaReal = Math.round(s.total_cobrado_cliente - s.gastos_reales - s.ganancia_supervisor)
+                return {
+                    ...s,
+                    ganancia_real_spc: gananciaReal,
+                    eficiencia_pct: eficiencia
+                }
+            })
+            .sort((a, b) => b.ganancia_real_spc - a.ganancia_real_spc)
+    }, [hayFiltroActivo, initialSupervisores, balancesFiltrados])
+
+    // Administradores dinamicos reactivos a los filtros
+    const administradoresDinamicos = useMemo(() => {
+        if (!hayFiltroActivo) return initialAdministradores
+
+        const admMap = new Map<number, BalanceAdministradorAgrupado>()
+        initialAdministradores.forEach(a => {
+            admMap.set(a.id_administrador, {
+                ...a,
+                total_obras: 0,
+                tareas_totales: 0,
+                tareas_cobradas_100: 0,
+                facturas_pendientes_count: 0,
+                total_pb: 0,
+                total_pf: 0,
+                total_facturado: 0,
+                total_cobrado: 0,
+                saldo_adeudado: 0,
+                gastos_totales: 0,
+                ganancia_supervisor_total: 0,
+                costo_total_obras: 0,
+                ganancia_liquida: 0,
+                aporte_spc_pct: 0,
+                margen_neto_pct: 0,
+                ratio_cobranza_pct: 0
+            })
+        })
+
+        balancesFiltrados.forEach(b => {
+            if (!b.id_administrador || !admMap.has(b.id_administrador)) return
+            const adm = admMap.get(b.id_administrador)!
+            adm.tareas_totales += 1
+            adm.total_obras += 1
+            if (b.total_cobrado_real > 0 && b.saldo_pendiente_factura === 0) {
+                adm.tareas_cobradas_100 += 1
+            }
+            if (b.saldo_pendiente_factura > 0) {
+                adm.facturas_pendientes_count += 1
+            }
+            adm.total_pb += b.total_pb
+            adm.total_pf += b.total_pf
+            adm.total_facturado += b.total_facturado_neto
+            adm.total_cobrado += b.total_cobrado_real
+            adm.saldo_adeudado += b.saldo_pendiente_factura
+            adm.gastos_totales += b.gastos_reales_liquidacion
+            adm.ganancia_supervisor_total += b.ganancia_supervisor
+        })
+
+        const totalGananciaFiltrada = Array.from(admMap.values()).reduce((acc, a) => {
+            const g = a.total_cobrado - a.gastos_totales - a.ganancia_supervisor_total
+            return acc + (g > 0 ? g : 0)
+        }, 0)
+
+        return Array.from(admMap.values())
+            .filter(a => a.tareas_totales > 0 || a.total_cobrado > 0 || a.total_facturado > 0)
+            .map(a => {
+                const ratio = a.total_facturado > 0 
+                    ? Math.round((a.total_cobrado / a.total_facturado) * 100)
+                    : 0
+                const costoTotal = a.gastos_totales + a.ganancia_supervisor_total
+                const gananciaLiquida = a.total_cobrado - costoTotal
+                const aportePct = totalGananciaFiltrada > 0 && gananciaLiquida > 0
+                    ? Math.round((gananciaLiquida / totalGananciaFiltrada) * 100)
+                    : 0
+                const margenNeto = a.total_cobrado > 0
+                    ? Math.round((gananciaLiquida / a.total_cobrado) * 100)
+                    : 0
+
+                return {
+                    ...a,
+                    costo_total_obras: costoTotal,
+                    ganancia_liquida: gananciaLiquida,
+                    aporte_spc_pct: aportePct,
+                    margen_neto_pct: margenNeto,
+                    ratio_cobranza_pct: ratio
+                }
+            })
+            .sort((a, b) => b.ganancia_liquida - a.ganancia_liquida)
+    }, [hayFiltroActivo, initialAdministradores, balancesFiltrados])
 
     // Estados para Comparador Cara a Cara (Supervisores)
     const [supAId, setSupAId] = useState<string>(initialSupervisores[0]?.id_supervisor || "")
@@ -54,30 +355,31 @@ export default function AuditoriaClient({
     const [admAId, setAdmAId] = useState<string>(initialAdministradores[0]?.id_administrador?.toString() || "")
     const [admBId, setAdmBId] = useState<string>(initialAdministradores[1]?.id_administrador?.toString() || "")
 
-    // Objetos seleccionados para cara a cara
-    const supervisorA = useMemo(() => initialSupervisores.find(s => s.id_supervisor === supAId), [initialSupervisores, supAId])
-    const supervisorB = useMemo(() => initialSupervisores.find(s => s.id_supervisor === supBId), [initialSupervisores, supBId])
+    // Objetos seleccionados para cara a cara vinculados a listas dinamicas
+    const supervisorA = useMemo(() => supervisoresDinamicos.find(s => s.id_supervisor === supAId) || supervisoresDinamicos[0], [supervisoresDinamicos, supAId])
+    const supervisorB = useMemo(() => supervisoresDinamicos.find(s => s.id_supervisor === supBId) || supervisoresDinamicos[1], [supervisoresDinamicos, supBId])
 
-    const adminA = useMemo(() => initialAdministradores.find(a => a.id_administrador.toString() === admAId), [initialAdministradores, admAId])
-    const adminB = useMemo(() => initialAdministradores.find(a => a.id_administrador.toString() === admBId), [initialAdministradores, admBId])
+    const adminA = useMemo(() => administradoresDinamicos.find(a => a.id_administrador.toString() === admAId) || administradoresDinamicos[0], [administradoresDinamicos, admAId])
+    const adminB = useMemo(() => administradoresDinamicos.find(a => a.id_administrador.toString() === admBId) || administradoresDinamicos[1], [administradoresDinamicos, admBId])
 
-    // Filtro de balances completos
-    const balancesFiltrados = useMemo(() => {
-        if (!busqueda.trim()) return initialBalances
-        const q = busqueda.toLowerCase().trim()
-        return initialBalances.filter(b => 
-            b.titulo_tarea.toLowerCase().includes(q) ||
-            b.codigo_tarea.toLowerCase().includes(q) ||
-            b.nombre_edificio.toLowerCase().includes(q) ||
-            b.nombre_administrador.toLowerCase().includes(q) ||
-            b.nombre_supervisor?.toLowerCase().includes(q)
-        )
-    }, [initialBalances, busqueda])
+    // Totales de Alto Nivel — Reactivos si hay un filtro activo
+    const totalCobradoGeneral = useMemo(() => {
+        if (hayFiltroActivo) {
+            return balancesFiltrados.reduce((acc, b) => acc + b.total_cobrado_real, 0)
+        }
+        return totalesGlobales?.total_cobrado ?? initialAdministradores.reduce((acc, a) => acc + a.total_cobrado, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales, initialAdministradores])
 
-    // Totales de Alto Nivel — fuente: initialAdministradores (sin duplicacion por join de facturas)
-    const totalCobradoGeneral = useMemo(() => initialAdministradores.reduce((acc, a) => acc + a.total_cobrado, 0), [initialAdministradores])
-    const totalGastadoGeneral = useMemo(() => initialAdministradores.reduce((acc, a) => acc + a.gastos_totales + a.ganancia_supervisor_total, 0), [initialAdministradores])
-    const totalGananciaEmpresa = useMemo(() => initialAdministradores.reduce((acc, a) => acc + a.ganancia_liquida, 0), [initialAdministradores])
+    const totalGastadoGeneral = useMemo(() => {
+        if (hayFiltroActivo) {
+            return balancesFiltrados.reduce((acc, b) => acc + b.gastos_reales_liquidacion + b.ganancia_supervisor, 0)
+        }
+        return totalesGlobales?.total_gastado ?? initialAdministradores.reduce((acc, a) => acc + a.gastos_totales + a.ganancia_supervisor_total, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales, initialAdministradores])
+
+    const totalGananciaEmpresa = useMemo(() => {
+        return totalCobradoGeneral - totalGastadoGeneral
+    }, [totalCobradoGeneral, totalGastadoGeneral])
 
     return (
         <div className="space-y-6">
@@ -91,12 +393,176 @@ export default function AuditoriaClient({
                         panel de control financiero, balance integral y trazabilidad inmutable de operaciones
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 font-mono text-xs">
-                        soberania admin
-                    </Badge>
-                </div>
             </div>
+
+            {/* Panel de Filtros Inteligentes Unificados */}
+            <Card className="border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 p-3">
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                            <Filter className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>filtros inteligentes de auditoria</span>
+                            {hayFiltroActivo && (
+                                <Badge variant="secondary" className="text-[10px] bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-0">
+                                    filtro activo ({balancesFiltrados.length} obras)
+                                </Badge>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-zinc-400 font-medium mr-1 hidden sm:inline">atajos:</span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => aplicarPresetMes('ultimos-2')}
+                                className="h-6 px-2 text-[10px] bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                            >
+                                ultimos 2m
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => aplicarPresetMes('ultimos-4')}
+                                className="h-6 px-2 text-[10px] bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                            >
+                                ultimos 4m
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => aplicarPresetMes('ene-jun-2026')}
+                                className="h-6 px-2 text-[10px] bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                            >
+                                ene - jun 2026
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => aplicarPresetMes('este-ano')}
+                                className="h-6 px-2 text-[10px] bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-zinc-200 dark:border-zinc-800"
+                            >
+                                todo 2026
+                            </Button>
+                            {hayFiltroActivo && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={limpiarFiltros}
+                                    className="h-6 px-2 text-[10px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 flex items-center gap-1"
+                                >
+                                    <X className="h-3 w-3" />
+                                    <span>limpiar</span>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                        {/* 1. Desde mes */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-medium text-zinc-500 uppercase">desde mes</label>
+                            <Select value={mesDesde} onValueChange={setMesDesde}>
+                                <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                                    <SelectValue placeholder="inicio" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">inicio histórico</SelectItem>
+                                    {mesesOpciones.map(m => (
+                                        <SelectItem key={m} value={m}>
+                                            {m}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* 2. Hasta mes */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-medium text-zinc-500 uppercase">hasta mes</label>
+                            <Select value={mesHasta} onValueChange={setMesHasta}>
+                                <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                                    <SelectValue placeholder="fin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">hasta el final</SelectItem>
+                                    {mesesOpciones.map(m => (
+                                        <SelectItem key={m} value={m}>
+                                            {m}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* 2. Edificio */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-medium text-zinc-500 uppercase">edificio</label>
+                            <Select value={filtroEdificio} onValueChange={setFiltroEdificio}>
+                                <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                                    <SelectValue placeholder="todos los edificios" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">todos los edificios ({edificiosOpciones.length})</SelectItem>
+                                    {edificiosOpciones.map(e => (
+                                        <SelectItem key={e} value={e}>
+                                            {e}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* 3. Administrador */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-medium text-zinc-500 uppercase">administrador</label>
+                            <Select value={filtroAdmin} onValueChange={setFiltroAdmin}>
+                                <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                                    <SelectValue placeholder="todos los admins" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">todos los admins ({adminsOpciones.length})</SelectItem>
+                                    {adminsOpciones.map(a => (
+                                        <SelectItem key={a} value={a}>
+                                            {a}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* 4. Supervisor */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-medium text-zinc-500 uppercase">supervisor</label>
+                            <Select value={filtroSupervisor} onValueChange={setFiltroSupervisor}>
+                                <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                                    <SelectValue placeholder="todos los supervisores" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">todos los supervisores ({supervisoresOpciones.length})</SelectItem>
+                                    {supervisoresOpciones.map(s => (
+                                        <SelectItem key={s} value={s}>
+                                            {s}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* 5. Buscador rapido */}
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-medium text-zinc-500 uppercase">busqueda libre</label>
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-zinc-400" />
+                                <Input
+                                    placeholder="buscar tarea o edif..."
+                                    value={busqueda}
+                                    onChange={(e) => setBusqueda(e.target.value)}
+                                    className="h-8 pl-8 text-xs bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Card>
 
             {/* Tarjetas KPI de Resumen General */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -141,7 +607,7 @@ export default function AuditoriaClient({
 
             {/* Pestañas de Auditoria */}
             <Tabs value={tabActiva} onValueChange={setTabActiva} className="w-full">
-                <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full bg-zinc-100 dark:bg-zinc-900 p-1">
+                <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full bg-zinc-100 dark:bg-zinc-900 p-1">
                     <TabsTrigger value="supervisores" className="text-xs sm:text-sm flex items-center gap-1.5">
                         <Users className="h-4 w-4" />
                         <span>supervisores</span>
@@ -149,6 +615,10 @@ export default function AuditoriaClient({
                     <TabsTrigger value="administradores" className="text-xs sm:text-sm flex items-center gap-1.5">
                         <Building2 className="h-4 w-4" />
                         <span>administradores</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="edificios" className="text-xs sm:text-sm flex items-center gap-1.5">
+                        <Building className="h-4 w-4" />
+                        <span>edificios</span>
                     </TabsTrigger>
                     <TabsTrigger value="trazabilidad" className="text-xs sm:text-sm flex items-center gap-1.5">
                         <Layers className="h-4 w-4" />
@@ -182,7 +652,7 @@ export default function AuditoriaClient({
                                             <SelectValue placeholder="seleccionar supervisor" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {initialSupervisores.map(s => (
+                                            {supervisoresDinamicos.map(s => (
                                                 <SelectItem key={s.id_supervisor} value={s.id_supervisor}>
                                                     {s.nombre_supervisor} ({s.email_supervisor})
                                                 </SelectItem>
@@ -197,7 +667,7 @@ export default function AuditoriaClient({
                                             <SelectValue placeholder="seleccionar supervisor" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {initialSupervisores.map(s => (
+                                            {supervisoresDinamicos.map(s => (
                                                 <SelectItem key={s.id_supervisor} value={s.id_supervisor}>
                                                     {s.nombre_supervisor} ({s.email_supervisor})
                                                 </SelectItem>
@@ -219,9 +689,16 @@ export default function AuditoriaClient({
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <p className="text-zinc-500">ganancia spc</p>
+                                                <p className="text-zinc-500">ganancia real spc</p>
                                                 <p className="font-bold text-emerald-600 text-sm">
-                                                    ${Math.round(supervisorA.ganancia_admin).toLocaleString("es-AR")}
+                                                    ${Math.round(supervisorA.ganancia_real_spc).toLocaleString("es-AR")}
+                                                </p>
+                                                <p className="text-[10px] text-zinc-400">pb: ${Math.round(supervisorA.ganancia_admin).toLocaleString("es-AR")}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-zinc-500">cobrado clientes</p>
+                                                <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">
+                                                    ${Math.round(supervisorA.total_cobrado_cliente).toLocaleString("es-AR")}
                                                 </p>
                                             </div>
                                             <div>
@@ -229,17 +706,16 @@ export default function AuditoriaClient({
                                                 <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">
                                                     ${Math.round(supervisorA.gastos_reales).toLocaleString("es-AR")}
                                                 </p>
+                                                {supervisorA.gastos_pendientes > 0 && (
+                                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                        pend: ${Math.round(supervisorA.gastos_pendientes).toLocaleString("es-AR")}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div>
                                                 <p className="text-zinc-500">eficiencia pb</p>
                                                 <p className={`font-semibold ${supervisorA.eficiencia_pct >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                                                     {supervisorA.eficiencia_pct}%
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-zinc-500">sobrecostos</p>
-                                                <p className={`font-semibold ${supervisorA.sobrecostos_count > 0 ? "text-red-500" : "text-zinc-500"}`}>
-                                                    {supervisorA.sobrecostos_count} (${Math.round(supervisorA.monto_sobrecostos).toLocaleString("es-AR")})
                                                 </p>
                                             </div>
                                         </div>
@@ -255,9 +731,16 @@ export default function AuditoriaClient({
                                         </div>
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                             <div>
-                                                <p className="text-zinc-500">ganancia spc</p>
+                                                <p className="text-zinc-500">ganancia real spc</p>
                                                 <p className="font-bold text-emerald-600 text-sm">
-                                                    ${Math.round(supervisorB.ganancia_admin).toLocaleString("es-AR")}
+                                                    ${Math.round(supervisorB.ganancia_real_spc).toLocaleString("es-AR")}
+                                                </p>
+                                                <p className="text-[10px] text-zinc-400">pb: ${Math.round(supervisorB.ganancia_admin).toLocaleString("es-AR")}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-zinc-500">cobrado clientes</p>
+                                                <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">
+                                                    ${Math.round(supervisorB.total_cobrado_cliente).toLocaleString("es-AR")}
                                                 </p>
                                             </div>
                                             <div>
@@ -265,17 +748,16 @@ export default function AuditoriaClient({
                                                 <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">
                                                     ${Math.round(supervisorB.gastos_reales).toLocaleString("es-AR")}
                                                 </p>
+                                                {supervisorB.gastos_pendientes > 0 && (
+                                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                        pend: ${Math.round(supervisorB.gastos_pendientes).toLocaleString("es-AR")}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div>
                                                 <p className="text-zinc-500">eficiencia pb</p>
                                                 <p className={`font-semibold ${supervisorB.eficiencia_pct >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                                                     {supervisorB.eficiencia_pct}%
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <p className="text-zinc-500">sobrecostos</p>
-                                                <p className={`font-semibold ${supervisorB.sobrecostos_count > 0 ? "text-red-500" : "text-zinc-500"}`}>
-                                                    {supervisorB.sobrecostos_count} (${Math.round(supervisorB.monto_sobrecostos).toLocaleString("es-AR")})
                                                 </p>
                                             </div>
                                         </div>
@@ -289,7 +771,7 @@ export default function AuditoriaClient({
                     <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base font-semibold">ranking general de supervisores</CardTitle>
-                            <CardDescription className="text-xs">ordenado por ganancia liquida dejada a la empresa</CardDescription>
+                            <CardDescription className="text-xs">ordenado por ganancia liquida total dejada a la empresa</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 overflow-x-auto">
                             <table className="w-full text-xs text-left border-collapse">
@@ -299,13 +781,15 @@ export default function AuditoriaClient({
                                         <th className="p-3 text-center">tareas liq.</th>
                                         <th className="p-3 text-right">presup. base</th>
                                         <th className="p-3 text-right">gastos reales</th>
+                                        <th className="p-3 text-right text-amber-600 dark:text-amber-400">gastos pend.</th>
                                         <th className="p-3 text-right">ganancia sup.</th>
-                                        <th className="p-3 text-right font-bold text-emerald-600">ganancia spc</th>
+                                        <th className="p-3 text-right">cobrado cliente</th>
+                                        <th className="p-3 text-right font-bold text-emerald-600">ganancia real spc</th>
                                         <th className="p-3 text-center">eficiencia</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                    {initialSupervisores.map((sup, idx) => (
+                                    {supervisoresDinamicos.map((sup, idx) => (
                                         <tr key={sup.id_supervisor} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
                                             <td className="p-3">
                                                 <div className="font-semibold">{sup.nombre_supervisor}</div>
@@ -314,9 +798,26 @@ export default function AuditoriaClient({
                                             <td className="p-3 text-center">{sup.tareas_liquidadas} / {sup.tareas_totales}</td>
                                             <td className="p-3 text-right">${Math.round(sup.total_pb).toLocaleString("es-AR")}</td>
                                             <td className="p-3 text-right">${Math.round(sup.gastos_reales).toLocaleString("es-AR")}</td>
+                                            <td className="p-3 text-right">
+                                                {sup.gastos_pendientes > 0 ? (
+                                                    <span className="font-medium text-amber-600 dark:text-amber-400">
+                                                        ${Math.round(sup.gastos_pendientes).toLocaleString("es-AR")}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-zinc-400">$0</span>
+                                                )}
+                                            </td>
                                             <td className="p-3 text-right">${Math.round(sup.ganancia_supervisor).toLocaleString("es-AR")}</td>
-                                            <td className="p-3 text-right font-bold text-emerald-600">
-                                                ${Math.round(sup.ganancia_admin).toLocaleString("es-AR")}
+                                            <td className="p-3 text-right font-medium text-zinc-700 dark:text-zinc-300">
+                                                ${Math.round(sup.total_cobrado_cliente).toLocaleString("es-AR")}
+                                            </td>
+                                            <td className="p-3 text-right">
+                                                <div className="font-bold text-emerald-600">
+                                                    ${Math.round(sup.ganancia_real_spc).toLocaleString("es-AR")}
+                                                </div>
+                                                <div className="text-[10px] text-zinc-400">
+                                                    pb: ${Math.round(sup.ganancia_admin).toLocaleString("es-AR")}
+                                                </div>
                                             </td>
                                             <td className="p-3 text-center">
                                                 <Badge variant="outline" className={sup.eficiencia_pct >= 0 ? "border-emerald-500 text-emerald-600" : "border-red-500 text-red-500"}>
@@ -325,9 +826,9 @@ export default function AuditoriaClient({
                                             </td>
                                         </tr>
                                     ))}
-                                    {initialSupervisores.length === 0 && (
+                                    {supervisoresDinamicos.length === 0 && (
                                         <tr>
-                                            <td colSpan={7} className="p-4 text-center text-zinc-400">no hay datos de liquidaciones de supervisores</td>
+                                            <td colSpan={9} className="p-4 text-center text-zinc-400">no hay datos de liquidaciones de supervisores para los filtros seleccionados</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -358,7 +859,7 @@ export default function AuditoriaClient({
                                             <SelectValue placeholder="seleccionar administrador" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {initialAdministradores.map(a => (
+                                            {administradoresDinamicos.map(a => (
                                                 <SelectItem key={a.id_administrador} value={a.id_administrador.toString()}>
                                                     {a.nombre_administrador}
                                                 </SelectItem>
@@ -373,7 +874,7 @@ export default function AuditoriaClient({
                                             <SelectValue placeholder="seleccionar administrador" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {initialAdministradores.map(a => (
+                                            {administradoresDinamicos.map(a => (
                                                 <SelectItem key={a.id_administrador} value={a.id_administrador.toString()}>
                                                     {a.nombre_administrador}
                                                 </SelectItem>
@@ -396,6 +897,12 @@ export default function AuditoriaClient({
                                                 </p>
                                             </div>
                                             <div>
+                                                <p className="text-zinc-500">aporte a spc</p>
+                                                <p className="font-bold text-emerald-600 text-sm">
+                                                    {adminA.aporte_spc_pct}%
+                                                </p>
+                                            </div>
+                                            <div>
                                                 <p className="text-zinc-500">total cobrado</p>
                                                 <p className="font-semibold text-sm">
                                                     ${Math.round(adminA.total_cobrado).toLocaleString("es-AR")}
@@ -408,15 +915,15 @@ export default function AuditoriaClient({
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-zinc-500">tasa cobro</p>
+                                                <p className="text-zinc-500">costo obras total</p>
                                                 <p className="font-semibold text-zinc-700 dark:text-zinc-300">
-                                                    {adminA.ratio_cobranza_pct}%
+                                                    ${Math.round(adminA.costo_total_obras).toLocaleString("es-AR")}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-zinc-500">facturas pendientes</p>
-                                                <p className={`font-semibold ${adminA.facturas_pendientes_count > 0 ? "text-amber-600" : "text-zinc-400"}`}>
-                                                    {adminA.facturas_pendientes_count}
+                                                <p className="text-zinc-500">tareas cerradas</p>
+                                                <p className="font-semibold text-zinc-700 dark:text-zinc-300">
+                                                    {adminA.tareas_cobradas_100} / {adminA.tareas_totales}
                                                 </p>
                                             </div>
                                         </div>
@@ -433,6 +940,12 @@ export default function AuditoriaClient({
                                                 </p>
                                             </div>
                                             <div>
+                                                <p className="text-zinc-500">aporte a spc</p>
+                                                <p className="font-bold text-emerald-600 text-sm">
+                                                    {adminB.aporte_spc_pct}%
+                                                </p>
+                                            </div>
+                                            <div>
                                                 <p className="text-zinc-500">total cobrado</p>
                                                 <p className="font-semibold text-sm">
                                                     ${Math.round(adminB.total_cobrado).toLocaleString("es-AR")}
@@ -445,15 +958,15 @@ export default function AuditoriaClient({
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-zinc-500">tasa cobro</p>
+                                                <p className="text-zinc-500">costo obras total</p>
                                                 <p className="font-semibold text-zinc-700 dark:text-zinc-300">
-                                                    {adminB.ratio_cobranza_pct}%
+                                                    ${Math.round(adminB.costo_total_obras).toLocaleString("es-AR")}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-zinc-500">facturas pendientes</p>
-                                                <p className={`font-semibold ${adminB.facturas_pendientes_count > 0 ? "text-amber-600" : "text-zinc-400"}`}>
-                                                    {adminB.facturas_pendientes_count}
+                                                <p className="text-zinc-500">tareas cerradas</p>
+                                                <p className="font-semibold text-zinc-700 dark:text-zinc-300">
+                                                    {adminB.tareas_cobradas_100} / {adminB.tareas_totales}
                                                 </p>
                                             </div>
                                         </div>
@@ -467,51 +980,67 @@ export default function AuditoriaClient({
                     <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base font-semibold">rentabilidad por administrador</CardTitle>
-                            <CardDescription className="text-xs">ordenado por ganancia liquida en mano (cobros menos gastos directos)</CardDescription>
+                            <CardDescription className="text-xs">ordenado por ganancia liquida en mano (cobros menos costos totales de obra)</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 overflow-x-auto">
                             <table className="w-full text-xs text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 font-medium">
                                         <th className="p-3">administrador</th>
-                                        <th className="p-3 text-center">facturas</th>
-                                        <th className="p-3 text-center">pend.</th>
+                                        <th className="p-3 text-center">tareas cerradas</th>
                                         <th className="p-3 text-right">facturado</th>
                                         <th className="p-3 text-right">cobrado</th>
                                         <th className="p-3 text-right">deuda pendiente</th>
-                                        <th className="p-3 text-right">gastos obras</th>
+                                        <th className="p-3 text-right">costo obras</th>
                                         <th className="p-3 text-right font-bold text-emerald-600">ganancia liquida</th>
-                                        <th className="p-3 text-center">cobranza %</th>
+                                        <th className="p-3 text-center font-bold text-emerald-600">aporte spc %</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                    {initialAdministradores.map((adm) => (
+                                    {administradoresDinamicos.map((adm) => (
                                         <tr key={adm.id_administrador} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
                                             <td className="p-3 font-semibold">{adm.nombre_administrador}</td>
-                                            <td className="p-3 text-center">{adm.total_obras}</td>
                                             <td className="p-3 text-center">
-                                                {adm.facturas_pendientes_count > 0
-                                                    ? <span className="text-amber-600 font-semibold">{adm.facturas_pendientes_count}</span>
-                                                    : <span className="text-zinc-400">—</span>
-                                                }
+                                                <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                                    {adm.tareas_cobradas_100} / {adm.tareas_totales}
+                                                </div>
+                                                <div className="text-[10px] text-zinc-400">
+                                                    {adm.total_obras} facturas
+                                                </div>
                                             </td>
                                             <td className="p-3 text-right">${Math.round(adm.total_facturado).toLocaleString("es-AR")}</td>
                                             <td className="p-3 text-right font-semibold">${Math.round(adm.total_cobrado).toLocaleString("es-AR")}</td>
-                                            <td className="p-3 text-right text-amber-600">${Math.round(adm.saldo_adeudado).toLocaleString("es-AR")}</td>
-                                            <td className="p-3 text-right">${Math.round(adm.gastos_totales).toLocaleString("es-AR")}</td>
+                                            <td className="p-3 text-right text-amber-600">
+                                                {adm.saldo_adeudado > 0 ? (
+                                                    `$${Math.round(adm.saldo_adeudado).toLocaleString("es-AR")}`
+                                                ) : (
+                                                    <span className="text-zinc-400">$0</span>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-right">
+                                                <div className="font-medium text-zinc-800 dark:text-zinc-200">
+                                                    ${Math.round(adm.costo_total_obras).toLocaleString("es-AR")}
+                                                </div>
+                                                <div className="text-[10px] text-zinc-400">
+                                                    mat: ${Math.round(adm.gastos_totales).toLocaleString("es-AR")} / sup: ${Math.round(adm.ganancia_supervisor_total).toLocaleString("es-AR")}
+                                                </div>
+                                            </td>
                                             <td className="p-3 text-right font-bold text-emerald-600">
                                                 ${Math.round(adm.ganancia_liquida).toLocaleString("es-AR")}
                                             </td>
                                             <td className="p-3 text-center">
-                                                <Badge variant="outline" className={adm.ratio_cobranza_pct >= 80 ? "border-emerald-500 text-emerald-600" : "border-amber-500 text-amber-600"}>
-                                                    {adm.ratio_cobranza_pct}%
+                                                <Badge variant="outline" className={adm.aporte_spc_pct > 0 ? "border-emerald-500 text-emerald-600 font-bold" : "border-zinc-400 text-zinc-400"}>
+                                                    {adm.aporte_spc_pct}%
                                                 </Badge>
+                                                <div className="text-[10px] text-zinc-400 mt-0.5">
+                                                    margen: {adm.margen_neto_pct}%
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {initialAdministradores.length === 0 && (
+                                    {administradoresDinamicos.length === 0 && (
                                         <tr>
-                                            <td colSpan={9} className="p-4 text-center text-zinc-400">no hay registros de administradores</td>
+                                            <td colSpan={8} className="p-4 text-center text-zinc-400">no hay registros de administradores para los filtros seleccionados</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -520,7 +1049,71 @@ export default function AuditoriaClient({
                     </Card>
                 </TabsContent>
 
-                {/* 3. SECCION TRAZABILIDAD (PB -> PF -> FACTURADO -> COBRADO) */}
+                {/* 3. SECCION EDIFICIOS (RANKING Y RENTABILIDAD POR EDIFICIO) */}
+                <TabsContent value="edificios" className="space-y-4 mt-4">
+                    <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                <Building className="h-4 w-4 text-emerald-600" />
+                                rentabilidad y ganancia neta por edificio
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                ranking de consorcios ordenado por ganancia neta spc generada (cobrado menos costos de obra)
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0 overflow-x-auto">
+                            <table className="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 font-medium">
+                                        <th className="p-3">edificio</th>
+                                        <th className="p-3">administrador</th>
+                                        <th className="p-3 text-center">obras</th>
+                                        <th className="p-3 text-right">total cobrado</th>
+                                        <th className="p-3 text-right">costos obra</th>
+                                        <th className="p-3 text-right font-bold text-emerald-600">ganancia neta spc</th>
+                                        <th className="p-3 text-center">% margen</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                                    {edificiosAgrupados.map((e) => (
+                                        <tr key={e.nombre_edificio} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
+                                            <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                                                {e.nombre_edificio}
+                                            </td>
+                                            <td className="p-3 text-zinc-600 dark:text-zinc-400">
+                                                {e.nombre_administrador}
+                                            </td>
+                                            <td className="p-3 text-center font-mono font-medium">
+                                                {e.tareas_totales}
+                                            </td>
+                                            <td className="p-3 text-right font-medium">
+                                                ${Math.round(e.total_cobrado).toLocaleString("es-AR")}
+                                            </td>
+                                            <td className="p-3 text-right text-zinc-500">
+                                                ${Math.round(e.gastos_totales + e.ganancia_supervisor).toLocaleString("es-AR")}
+                                            </td>
+                                            <td className="p-3 text-right font-bold text-emerald-600">
+                                                ${Math.round(e.ganancia_neta).toLocaleString("es-AR")}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <Badge variant="outline" className={e.margen_pct >= 50 ? "border-emerald-500 text-emerald-600 font-bold" : "border-zinc-400 text-zinc-400"}>
+                                                    {e.margen_pct}%
+                                                </Badge>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {edificiosAgrupados.length === 0 && (
+                                        <tr>
+                                            <td colSpan={7} className="p-4 text-center text-zinc-400">no hay registros de edificios para los filtros seleccionados</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* 4. SECCION TRAZABILIDAD (PB -> PF -> FACTURADO -> COBRADO) */}
                 <TabsContent value="trazabilidad" className="space-y-4 mt-4">
                     <div className="flex items-center gap-2 max-w-sm">
                         <Search className="h-4 w-4 text-zinc-400" />
@@ -534,9 +1127,9 @@ export default function AuditoriaClient({
 
                     <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base font-semibold">matriz de conversion comercial de obras</CardTitle>
+                            <CardTitle className="text-base font-semibold">obras con ciclo completo — cobradas al 100%</CardTitle>
                             <CardDescription className="text-xs">
-                                comparacion del costo base original (pb) vs presupuesto cotizado (pf) vs facturado final vs cobrado efectivo
+                                tareas cobradas en su totalidad, ordenadas por ganancia neta. comparacion pb vs pf vs facturado vs cobrado.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 overflow-x-auto">
@@ -545,43 +1138,60 @@ export default function AuditoriaClient({
                                     <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 font-medium">
                                         <th className="p-3">tarea / edificio</th>
                                         <th className="p-3">supervisor</th>
-                                        <th className="p-3 text-right">presup. base (pb)</th>
-                                        <th className="p-3 text-right">presup. final (pf)</th>
-                                        <th className="p-3 text-right">spread pf-pb</th>
+                                        <th className="p-3 text-right">pb</th>
+                                        <th className="p-3 text-right">pf</th>
+                                        <th className="p-3 text-right">spread</th>
                                         <th className="p-3 text-right">facturado</th>
-                                        <th className="p-3 text-right font-bold text-emerald-600">cobrado real</th>
-                                        <th className="p-3 text-right">gastos reales</th>
+                                        <th className="p-3 text-right font-bold text-emerald-600">cobrado</th>
+                                        <th className="p-3 text-right">gastos</th>
+                                        <th className="p-3 text-right font-bold text-emerald-600">% ganancia</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                                    {balancesFiltrados.slice(0, 50).map((b) => (
-                                        <tr key={b.id_tarea} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
-                                            <td className="p-3">
-                                                <div className="font-semibold text-zinc-900 dark:text-zinc-100">{b.titulo_tarea}</div>
-                                                <div className="text-[10px] text-zinc-500">{b.nombre_edificio} ({b.nombre_administrador})</div>
-                                            </td>
-                                            <td className="p-3 text-zinc-600 dark:text-zinc-400">
-                                                {b.nombre_supervisor}
-                                            </td>
-                                            <td className="p-3 text-right">${Math.round(b.total_pb).toLocaleString("es-AR")}</td>
-                                            <td className="p-3 text-right font-medium">${Math.round(b.total_pf).toLocaleString("es-AR")}</td>
-                                            <td className="p-3 text-right text-emerald-600 font-semibold">
-                                                +${Math.round(b.margen_comercial_pf_pb).toLocaleString("es-AR")}
-                                            </td>
-                                            <td className="p-3 text-right">${Math.round(b.total_facturado_neto).toLocaleString("es-AR")}</td>
-                                            <td className="p-3 text-right font-bold text-emerald-600">
-                                                ${Math.round(b.total_cobrado_real).toLocaleString("es-AR")}
-                                            </td>
-                                            <td className="p-3 text-right text-zinc-500">
-                                                ${Math.round(b.gastos_reales_liquidacion).toLocaleString("es-AR")}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {balancesFiltrados.length === 0 && (
-                                        <tr>
-                                            <td colSpan={8} className="p-4 text-center text-zinc-400">no se encontraron registros de obras</td>
-                                        </tr>
-                                    )}
+                                    {(() => {
+                                        const cicloCompleto = balancesFiltrados
+                                            .filter(b => b.total_cobrado_real > 0 && b.saldo_pendiente_factura === 0)
+                                            .sort((a, b) => b.ganancia_liquida_obra - a.ganancia_liquida_obra)
+                                            .slice(0, 100)
+                                        if (cicloCompleto.length === 0) {
+                                            return (
+                                                <tr>
+                                                    <td colSpan={9} className="p-4 text-center text-zinc-400">no se encontraron obras con ciclo completo</td>
+                                                </tr>
+                                            )
+                                        }
+                                        return cicloCompleto.map((b) => {
+                                            const gananciaNeta = b.total_cobrado_real - b.gastos_reales_liquidacion - b.ganancia_supervisor
+                                            const pctGanancia = b.total_cobrado_real > 0
+                                                ? Math.round((gananciaNeta / b.total_cobrado_real) * 100)
+                                                : 0
+                                            const colorGanancia = pctGanancia >= 60 ? "text-emerald-600" : pctGanancia >= 40 ? "text-amber-500" : "text-red-500"
+                                            return (
+                                                <tr key={b.id_tarea} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
+                                                    <td className="p-3">
+                                                        <div className="font-semibold text-zinc-900 dark:text-zinc-100">{b.titulo_tarea}</div>
+                                                        <div className="text-[10px] text-zinc-500">{b.nombre_edificio} ({b.nombre_administrador})</div>
+                                                    </td>
+                                                    <td className="p-3 text-zinc-600 dark:text-zinc-400">{b.nombre_supervisor}</td>
+                                                    <td className="p-3 text-right">${Math.round(b.total_pb).toLocaleString("es-AR")}</td>
+                                                    <td className="p-3 text-right font-medium">${Math.round(b.total_pf).toLocaleString("es-AR")}</td>
+                                                    <td className="p-3 text-right text-emerald-600 font-semibold">
+                                                        +${Math.round(b.margen_comercial_pf_pb).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-right">${Math.round(b.total_facturado_neto).toLocaleString("es-AR")}</td>
+                                                    <td className="p-3 text-right font-bold text-emerald-600">
+                                                        ${Math.round(b.total_cobrado_real).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-right text-zinc-500">
+                                                        ${Math.round(b.gastos_reales_liquidacion).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-right">
+                                                        <span className={`font-bold ${colorGanancia}`}>{pctGanancia}%</span>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })
+                                    })()}
                                 </tbody>
                             </table>
                         </CardContent>
