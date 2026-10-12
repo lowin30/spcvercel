@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { generarAuditoriaPDF } from "@/lib/pdf-auditoria-generator"
 import { 
     Users, 
     Building2, 
@@ -22,7 +23,9 @@ import {
     DollarSign,
     Filter,
     X,
-    Building
+    Building,
+    FileDown,
+    Loader2,
 } from "lucide-react"
 import type { 
     BalanceTareaDTO, 
@@ -51,6 +54,7 @@ export default function AuditoriaClient({
 }: AuditoriaClientProps) {
     const [tabActiva, setTabActiva] = useState("supervisores")
     const [busqueda, setBusqueda] = useState("")
+    const [isExporting, setIsExporting] = useState(false)
 
     // Estados de Filtros Inteligentes
     const [mesDesde, setMesDesde] = useState<string>("todos")
@@ -381,6 +385,38 @@ export default function AuditoriaClient({
         return totalCobradoGeneral - totalGastadoGeneral
     }, [totalCobradoGeneral, totalGastadoGeneral])
 
+    const handleExportPDF = async () => {
+        setIsExporting(true)
+        try {
+            const blob = await generarAuditoriaPDF({
+                balances: balancesFiltrados,
+                supervisores: supervisoresDinamicos,
+                administradores: administradoresDinamicos,
+                totalCobrado: totalCobradoGeneral,
+                totalGastado: totalGastadoGeneral,
+                totalGanancia: totalGananciaEmpresa,
+                filtrosActivos: {
+                    mesDesde,
+                    mesHasta,
+                    filtroEdificio,
+                    filtroAdmin,
+                    filtroSupervisor,
+                    busqueda,
+                },
+            })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement("a")
+            a.href = url
+            a.download = `auditoria-spc-${new Date().toISOString().slice(0, 10)}.pdf`
+            a.click()
+            URL.revokeObjectURL(url)
+        } catch (err) {
+            console.error("error al generar pdf de auditoria:", err)
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     return (
         <div className="space-y-6">
             {/* Header del modulo */}
@@ -393,6 +429,20 @@ export default function AuditoriaClient({
                         panel de control financiero, balance integral y trazabilidad inmutable de operaciones
                     </p>
                 </div>
+                <Button
+                    onClick={handleExportPDF}
+                    disabled={isExporting}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 h-9 px-4 text-xs font-semibold bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-zinc-700 dark:text-zinc-300"
+                >
+                    {isExporting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                        <FileDown className="h-3.5 w-3.5" />
+                    )}
+                    {isExporting ? "generando pdf..." : "exportar auditoria pdf"}
+                </Button>
             </div>
 
             {/* Panel de Filtros Inteligentes Unificados */}
