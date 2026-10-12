@@ -294,7 +294,7 @@ export async function getAuditoriaBalancesData(): Promise<{
     const { data: rawGastosPendientes } = await supabaseAdmin
         .from('gastos_tarea')
         .select('id, id_tarea, id_usuario, monto, liquidado, id_liquidacion')
-        .or('liquidado.is.null,liquidado.eq.false,id_liquidacion.is.null')
+        .or('liquidado.is.null,liquidado.eq.false')
 
     const supMap = new Map<string, BalanceSupervisorAgrupado>()
 

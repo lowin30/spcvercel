@@ -229,7 +229,7 @@ export default function AuditoriaClient({
                 tareas_liquidadas: 0,
                 total_pb: 0,
                 gastos_reales: 0,
-                gastos_pendientes: 0,
+                gastos_pendientes: s.gastos_pendientes,
                 ganancia_supervisor: 0,
                 ganancia_admin: 0,
                 total_cobrado_cliente: 0,
