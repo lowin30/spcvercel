@@ -156,18 +156,29 @@ export async function getTareasData(filters?: TareasFilterParams) {
 
         let filteredData = result.data || [];
 
-        // 6. Post-filtro para tab 'por_cobrar': solo excluir tareas cuyas liquidaciones ya fueron PAGADAS
+        // 6. Post-filtro para tab 'por_cobrar': excluir tareas con liquidacion pagada O presupuesto final rechazado
         const idsEnVista = filteredData.map((t: any) => t.id).filter(Boolean);
         let liqsMap = new Map<number, { pagada: boolean; fecha_pago: string | null; total_supervisor: number | null }>();
+        let tareasConPFRechazado = new Set<number>();
 
         if (idsEnVista.length > 0) {
-            const { data: liqs } = await supabaseAdmin
+            const liqsPromise = supabaseAdmin
                 .from('liquidaciones_nuevas')
                 .select('id_tarea, pagada, fecha_pago, created_at, total_supervisor')
                 .in('id_tarea', idsEnVista);
 
-            if (liqs) {
-                liqs.forEach((l: any) => {
+            const pfRechazadosPromise = filters?.view === 'por_cobrar'
+                ? supabaseAdmin
+                    .from('presupuestos_finales')
+                    .select('id_tarea')
+                    .in('id_tarea', idsEnVista)
+                    .eq('id_estado', 5) // 5 = rechazado (estados_presupuestos)
+                : Promise.resolve({ data: null });
+
+            const [liqsRes, pfRechazadosRes] = await Promise.all([liqsPromise, pfRechazadosPromise]);
+
+            if (liqsRes.data) {
+                liqsRes.data.forEach((l: any) => {
                     liqsMap.set(l.id_tarea, {
                         pagada: !!l.pagada,
                         fecha_pago: l.fecha_pago || l.created_at || null,
@@ -175,12 +186,17 @@ export async function getTareasData(filters?: TareasFilterParams) {
                     });
                 });
             }
+
+            if (pfRechazadosRes.data) {
+                pfRechazadosRes.data.forEach((pf: any) => tareasConPFRechazado.add(pf.id_tarea));
+            }
         }
 
         if (filters?.view === 'por_cobrar') {
             filteredData = filteredData.filter((t: any) => {
+                if (tareasConPFRechazado.has(t.id)) return false; // excluir si tiene PF rechazado
                 const liq = liqsMap.get(t.id);
-                return !liq || !liq.pagada; // Mantener si no tiene liquidacion o si la liquidacion NO fue pagada aun
+                return !liq || !liq.pagada;
             });
         }
 
@@ -329,7 +345,7 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
             .filter(Boolean);
 
         if (idsTerminadas.length > 0) {
-            const [pbPendientes, liquidadasPagadas] = await Promise.all([
+            const [pbPendientes, liquidadasPagadas, pfRechazados] = await Promise.all([
                 supabaseAdmin
                     .from('presupuestos_base')
                     .select('id_tarea')
@@ -338,11 +354,17 @@ export async function getTareasCounts(filters?: TareasFilterParams) {
                     .from('liquidaciones_nuevas')
                     .select('id_tarea')
                     .in('id_tarea', idsTerminadas)
-                    .eq('pagada', true)
+                    .eq('pagada', true),
+                supabaseAdmin
+                    .from('presupuestos_finales')
+                    .select('id_tarea')
+                    .in('id_tarea', idsTerminadas)
+                    .eq('id_estado', 5) // 5 = rechazado (estados_presupuestos)
             ]);
             const idsConPago = new Set((liquidadasPagadas.data || []).map((l: any) => l.id_tarea));
+            const idsConPFRechazado = new Set((pfRechazados.data || []).map((pf: any) => pf.id_tarea));
             counts.por_cobrar = (pbPendientes.data || [])
-                .filter((pb: any) => !idsConPago.has(pb.id_tarea))
+                .filter((pb: any) => !idsConPago.has(pb.id_tarea) && !idsConPFRechazado.has(pb.id_tarea))
                 .length;
         }
 
