@@ -176,17 +176,20 @@ export default function AuditoriaClient({
         })
     }, [initialBalances, busqueda, mesDesde, mesHasta, filtroEdificio, filtroAdmin, filtroSupervisor])
 
-    // Reagregacion por edificio reactiva al filtro
+    // Reagregacion por edificio reactiva al filtro (matriz simbiotica real)
     const edificiosAgrupados = useMemo(() => {
         const map = new Map<string, {
             nombre_edificio: string
             nombre_administrador: string
             tareas_totales: number
-            total_cobrado: number
+            total_facturado: number
+            total_ajustes: number
             gastos_totales: number
             ganancia_supervisor: number
-            ganancia_neta: number
-            margen_pct: number
+            ganancia_neta_spc: number
+            ganancia_combinada: number
+            margen_spc_pct: number
+            margen_supervisor_pct: number
         }>()
 
         balancesFiltrados.forEach(b => {
@@ -196,29 +199,36 @@ export default function AuditoriaClient({
                     nombre_edificio: key,
                     nombre_administrador: b.nombre_administrador || 'sin admin',
                     tareas_totales: 0,
-                    total_cobrado: 0,
+                    total_facturado: 0,
+                    total_ajustes: 0,
                     gastos_totales: 0,
                     ganancia_supervisor: 0,
-                    ganancia_neta: 0,
-                    margen_pct: 0
+                    ganancia_neta_spc: 0,
+                    ganancia_combinada: 0,
+                    margen_spc_pct: 0,
+                    margen_supervisor_pct: 0
                 })
             }
             const item = map.get(key)!
             item.tareas_totales += 1
-            item.total_cobrado += b.total_cobrado_real
+            item.total_facturado += b.total_factura_base
+            item.total_ajustes += b.total_ajustes_aprobados
             item.gastos_totales += b.gastos_reales_liquidacion
             item.ganancia_supervisor += b.ganancia_supervisor
+            item.ganancia_neta_spc += b.ganancia_neta_total_spc
         })
 
         return Array.from(map.values()).map(e => {
-            const gananciaNeta = e.total_cobrado - e.gastos_totales - e.ganancia_supervisor
-            const margen = e.total_cobrado > 0 ? Math.round((gananciaNeta / e.total_cobrado) * 100) : 0
+            const combinada = e.ganancia_neta_spc + e.ganancia_supervisor
+            const margenSpc = e.total_facturado > 0 ? Math.round((e.ganancia_neta_spc / e.total_facturado) * 100) : 0
+            const margenSup = e.total_facturado > 0 ? Math.round((e.ganancia_supervisor / e.total_facturado) * 100) : 0
             return {
                 ...e,
-                ganancia_neta: gananciaNeta,
-                margen_pct: margen
+                ganancia_combinada: combinada,
+                margen_spc_pct: margenSpc,
+                margen_supervisor_pct: margenSup
             }
-        }).sort((a, b) => b.ganancia_neta - a.ganancia_neta)
+        }).sort((a, b) => b.ganancia_neta_spc - a.ganancia_neta_spc)
     }, [balancesFiltrados])
 
     // Supervisores dinamicos reactivos a los filtros
@@ -366,24 +376,45 @@ export default function AuditoriaClient({
     const adminA = useMemo(() => administradoresDinamicos.find(a => a.id_administrador.toString() === admAId) || administradoresDinamicos[0], [administradoresDinamicos, admAId])
     const adminB = useMemo(() => administradoresDinamicos.find(a => a.id_administrador.toString() === admBId) || administradoresDinamicos[1], [administradoresDinamicos, admBId])
 
-    // Totales de Alto Nivel — Reactivos si hay un filtro activo
-    const totalCobradoGeneral = useMemo(() => {
+    // Totales de Alto Nivel — Reactivos al filtro activo con las metricas reales
+    const totalFacturadoGeneral = useMemo(() => {
         if (hayFiltroActivo) {
-            return balancesFiltrados.reduce((acc, b) => acc + b.total_cobrado_real, 0)
+            return balancesFiltrados.reduce((acc, b) => acc + b.total_factura_base, 0)
         }
-        return totalesGlobales?.total_cobrado ?? initialAdministradores.reduce((acc, a) => acc + a.total_cobrado, 0)
-    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales, initialAdministradores])
+        return totalesGlobales?.total_facturado ?? balancesFiltrados.reduce((acc, b) => acc + b.total_factura_base, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales])
+
+    const totalAjustesGeneral = useMemo(() => {
+        if (hayFiltroActivo) {
+            return balancesFiltrados.reduce((acc, b) => acc + b.total_ajustes_aprobados, 0)
+        }
+        return totalesGlobales?.total_ajustes ?? balancesFiltrados.reduce((acc, b) => acc + b.total_ajustes_aprobados, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales])
 
     const totalGastadoGeneral = useMemo(() => {
         if (hayFiltroActivo) {
-            return balancesFiltrados.reduce((acc, b) => acc + b.gastos_reales_liquidacion + b.ganancia_supervisor, 0)
+            return balancesFiltrados.reduce((acc, b) => acc + b.gastos_reales_liquidacion, 0)
         }
-        return totalesGlobales?.total_gastado ?? initialAdministradores.reduce((acc, a) => acc + a.gastos_totales + a.ganancia_supervisor_total, 0)
-    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales, initialAdministradores])
+        return totalesGlobales?.total_gastado ?? balancesFiltrados.reduce((acc, b) => acc + b.gastos_reales_liquidacion, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales])
+
+    const totalGananciaSupervisoresGeneral = useMemo(() => {
+        if (hayFiltroActivo) {
+            return balancesFiltrados.reduce((acc, b) => acc + b.ganancia_supervisor, 0)
+        }
+        return totalesGlobales?.total_ganancia_supervisores ?? balancesFiltrados.reduce((acc, b) => acc + b.ganancia_supervisor, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales])
 
     const totalGananciaEmpresa = useMemo(() => {
-        return totalCobradoGeneral - totalGastadoGeneral
-    }, [totalCobradoGeneral, totalGastadoGeneral])
+        if (hayFiltroActivo) {
+            return balancesFiltrados.reduce((acc, b) => acc + b.ganancia_neta_total_spc, 0)
+        }
+        return totalesGlobales?.total_ganancia_spc ?? balancesFiltrados.reduce((acc, b) => acc + b.ganancia_neta_total_spc, 0)
+    }, [hayFiltroActivo, balancesFiltrados, totalesGlobales])
+
+    const totalCobradoGeneral = useMemo(() => {
+        return balancesFiltrados.reduce((acc, b) => acc + b.total_cobrado_real, 0)
+    }, [balancesFiltrados])
 
     const handleExportPDF = async () => {
         setIsExporting(true)
@@ -392,9 +423,13 @@ export default function AuditoriaClient({
                 balances: balancesFiltrados,
                 supervisores: supervisoresDinamicos,
                 administradores: administradoresDinamicos,
+                edificios: edificiosAgrupados,
                 totalCobrado: totalCobradoGeneral,
                 totalGastado: totalGastadoGeneral,
                 totalGanancia: totalGananciaEmpresa,
+                totalFacturado: totalFacturadoGeneral,
+                totalAjustes: totalAjustesGeneral,
+                totalGananciaSupervisores: totalGananciaSupervisoresGeneral,
                 filtrosActivos: {
                     mesDesde,
                     mesHasta,
@@ -614,43 +649,59 @@ export default function AuditoriaClient({
                 </div>
             </Card>
 
-            {/* Tarjetas KPI de Resumen General */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Tarjetas KPI de Resumen General — Metricas Reales */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs uppercase font-medium">total cobrado real</CardDescription>
-                        <CardTitle className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ${Math.round(totalCobradoGeneral).toLocaleString("es-AR")}
+                    <CardHeader className="pb-1 pt-3 px-3">
+                        <CardDescription className="text-[10px] uppercase font-semibold text-zinc-500">facturacion total obras</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                            ${Math.round(totalFacturadoGeneral).toLocaleString("es-AR")}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">ingresos liquidados en cuenta</span>
+                    <CardContent className="pb-3 px-3 pt-0">
+                        <span className="text-[10px] text-zinc-400">volumen facturado a consorcios</span>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs uppercase font-medium">gastos reales obras</CardDescription>
-                        <CardTitle className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            ${Math.round(totalGastadoGeneral).toLocaleString("es-AR")}
+                    <CardHeader className="pb-1 pt-3 px-3">
+                        <CardDescription className="text-[10px] uppercase font-semibold text-zinc-500">gastos + ajustes 10%</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                            ${Math.round(totalGastadoGeneral + totalAjustesGeneral).toLocaleString("es-AR")}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">materiales + jornales liquidados</span>
+                    <CardContent className="pb-3 px-3 pt-0">
+                        <span className="text-[10px] text-zinc-400">
+                            mat: ${Math.round(totalGastadoGeneral).toLocaleString("es-AR")} | aj: ${Math.round(totalAjustesGeneral).toLocaleString("es-AR")}
+                        </span>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+                    <CardHeader className="pb-1 pt-3 px-3">
+                        <CardDescription className="text-[10px] uppercase font-semibold text-zinc-500">ganancia supervisores</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl font-bold text-blue-600 dark:text-blue-400">
+                            ${Math.round(totalGananciaSupervisoresGeneral).toLocaleString("es-AR")}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3 px-3 pt-0">
+                        <span className="text-[10px] text-zinc-400">honorarios netos liquidados</span>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs uppercase font-medium text-emerald-800 dark:text-emerald-400">
-                            ganancia liquida total
+                    <CardHeader className="pb-1 pt-3 px-3">
+                        <CardDescription className="text-[10px] uppercase font-semibold text-emerald-800 dark:text-emerald-400">
+                            ganancia neta spc
                         </CardDescription>
-                        <CardTitle className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                        <CardTitle className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-emerald-400">
                             ${Math.round(totalGananciaEmpresa).toLocaleString("es-AR")}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <span className="text-xs text-emerald-700 dark:text-emerald-500">margen neto spc</span>
+                    <CardContent className="pb-3 px-3 pt-0">
+                        <span className="text-[10px] text-emerald-700 dark:text-emerald-500">
+                            margen: {totalFacturadoGeneral > 0 ? Math.round((totalGananciaEmpresa / totalFacturadoGeneral) * 100) : 0}% sobre facturacion
+                        </span>
                     </CardContent>
                 </Card>
             </div>
@@ -672,7 +723,7 @@ export default function AuditoriaClient({
                     </TabsTrigger>
                     <TabsTrigger value="trazabilidad" className="text-xs sm:text-sm flex items-center gap-1.5">
                         <Layers className="h-4 w-4" />
-                        <span>pb a cobrado</span>
+                        <span>eficiencia por tarea</span>
                     </TabsTrigger>
                     <TabsTrigger value="logs" className="text-xs sm:text-sm flex items-center gap-1.5">
                         <ShieldAlert className="h-4 w-4" />
@@ -1105,10 +1156,10 @@ export default function AuditoriaClient({
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <Building className="h-4 w-4 text-emerald-600" />
-                                rentabilidad y ganancia neta por edificio
+                                rentabilidad simbiotica por edificio (spc vs supervisor)
                             </CardTitle>
                             <CardDescription className="text-xs">
-                                ranking de consorcios ordenado por ganancia neta spc generada (cobrado menos costos de obra)
+                                ranking de consorcios con medicion de doble beneficio: dinero limpio para el supervisor y para spc
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 overflow-x-auto">
@@ -1118,10 +1169,12 @@ export default function AuditoriaClient({
                                         <th className="p-3">edificio</th>
                                         <th className="p-3">administrador</th>
                                         <th className="p-3 text-center">obras</th>
-                                        <th className="p-3 text-right">total cobrado</th>
-                                        <th className="p-3 text-right">costos obra</th>
+                                        <th className="p-3 text-right">facturado</th>
+                                        <th className="p-3 text-right">ajustes 10%</th>
+                                        <th className="p-3 text-right">materiales</th>
+                                        <th className="p-3 text-right font-bold text-blue-600">ganancia sup.</th>
                                         <th className="p-3 text-right font-bold text-emerald-600">ganancia neta spc</th>
-                                        <th className="p-3 text-center">% margen</th>
+                                        <th className="p-3 text-center">% margen spc</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -1137,24 +1190,30 @@ export default function AuditoriaClient({
                                                 {e.tareas_totales}
                                             </td>
                                             <td className="p-3 text-right font-medium">
-                                                ${Math.round(e.total_cobrado).toLocaleString("es-AR")}
+                                                ${Math.round(e.total_facturado).toLocaleString("es-AR")}
+                                            </td>
+                                            <td className="p-3 text-right text-amber-600">
+                                                ${Math.round(e.total_ajustes).toLocaleString("es-AR")}
                                             </td>
                                             <td className="p-3 text-right text-zinc-500">
-                                                ${Math.round(e.gastos_totales + e.ganancia_supervisor).toLocaleString("es-AR")}
+                                                ${Math.round(e.gastos_totales).toLocaleString("es-AR")}
+                                            </td>
+                                            <td className="p-3 text-right font-bold text-blue-600">
+                                                ${Math.round(e.ganancia_supervisor).toLocaleString("es-AR")}
                                             </td>
                                             <td className="p-3 text-right font-bold text-emerald-600">
-                                                ${Math.round(e.ganancia_neta).toLocaleString("es-AR")}
+                                                ${Math.round(e.ganancia_neta_spc).toLocaleString("es-AR")}
                                             </td>
                                             <td className="p-3 text-center">
-                                                <Badge variant="outline" className={e.margen_pct >= 50 ? "border-emerald-500 text-emerald-600 font-bold" : "border-zinc-400 text-zinc-400"}>
-                                                    {e.margen_pct}%
+                                                <Badge variant="outline" className={e.margen_spc_pct >= 50 ? "border-emerald-500 text-emerald-600 font-bold" : "border-zinc-400 text-zinc-400"}>
+                                                    {e.margen_spc_pct}%
                                                 </Badge>
                                             </td>
                                         </tr>
                                     ))}
                                     {edificiosAgrupados.length === 0 && (
                                         <tr>
-                                            <td colSpan={7} className="p-4 text-center text-zinc-400">no hay registros de edificios para los filtros seleccionados</td>
+                                            <td colSpan={9} className="p-4 text-center text-zinc-400">no hay registros de edificios para los filtros seleccionados</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -1163,7 +1222,7 @@ export default function AuditoriaClient({
                     </Card>
                 </TabsContent>
 
-                {/* 4. SECCION TRAZABILIDAD (PB -> PF -> FACTURADO -> COBRADO) */}
+                {/* 4. SECCION EFICIENCIA POR TAREA */}
                 <TabsContent value="trazabilidad" className="space-y-4 mt-4">
                     <div className="flex items-center gap-2 max-w-sm">
                         <Search className="h-4 w-4 text-zinc-400" />
@@ -1177,9 +1236,9 @@ export default function AuditoriaClient({
 
                     <Card className="border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base font-semibold">obras con ciclo completo — cobradas al 100%</CardTitle>
+                            <CardTitle className="text-base font-semibold">auditoria de eficiencia por tarea (spc vs supervisor)</CardTitle>
                             <CardDescription className="text-xs">
-                                tareas cobradas en su totalidad, ordenadas por ganancia neta. comparacion pb vs pf vs facturado vs cobrado.
+                                balance real obra por obra: presupuesto base vs gastos, ganancia neta supervisor (50%), ajustes 10% y ganancia neta spc
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 overflow-x-auto">
@@ -1189,33 +1248,32 @@ export default function AuditoriaClient({
                                         <th className="p-3">tarea / edificio</th>
                                         <th className="p-3">supervisor</th>
                                         <th className="p-3 text-right">pb</th>
-                                        <th className="p-3 text-right">pf</th>
-                                        <th className="p-3 text-right">spread</th>
+                                        <th className="p-3 text-right">materiales</th>
+                                        <th className="p-3 text-right font-bold text-blue-600">gan. sup.</th>
                                         <th className="p-3 text-right">facturado</th>
-                                        <th className="p-3 text-right font-bold text-emerald-600">cobrado</th>
-                                        <th className="p-3 text-right">gastos</th>
-                                        <th className="p-3 text-right font-bold text-emerald-600">% ganancia</th>
+                                        <th className="p-3 text-right text-amber-600">ajustes 10%</th>
+                                        <th className="p-3 text-right font-bold text-emerald-600">ganancia neta spc</th>
+                                        <th className="p-3 text-center">% margen spc</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                                     {(() => {
-                                        const cicloCompleto = balancesFiltrados
-                                            .filter(b => b.total_cobrado_real > 0 && b.saldo_pendiente_factura === 0)
-                                            .sort((a, b) => b.ganancia_liquida_obra - a.ganancia_liquida_obra)
+                                        const obras = balancesFiltrados
+                                            .filter(b => b.total_factura_base > 0 || b.total_pb > 0)
+                                            .sort((a, b) => b.ganancia_neta_total_spc - a.ganancia_neta_total_spc)
                                             .slice(0, 100)
-                                        if (cicloCompleto.length === 0) {
+                                        if (obras.length === 0) {
                                             return (
                                                 <tr>
-                                                    <td colSpan={9} className="p-4 text-center text-zinc-400">no se encontraron obras con ciclo completo</td>
+                                                    <td colSpan={9} className="p-4 text-center text-zinc-400">no se encontraron obras para los filtros seleccionados</td>
                                                 </tr>
                                             )
                                         }
-                                        return cicloCompleto.map((b) => {
-                                            const gananciaNeta = b.total_cobrado_real - b.gastos_reales_liquidacion - b.ganancia_supervisor
-                                            const pctGanancia = b.total_cobrado_real > 0
-                                                ? Math.round((gananciaNeta / b.total_cobrado_real) * 100)
+                                        return obras.map((b) => {
+                                            const pctMargen = b.total_factura_base > 0
+                                                ? Math.round((b.ganancia_neta_total_spc / b.total_factura_base) * 100)
                                                 : 0
-                                            const colorGanancia = pctGanancia >= 60 ? "text-emerald-600" : pctGanancia >= 40 ? "text-amber-500" : "text-red-500"
+                                            const colorGanancia = pctMargen >= 50 ? "text-emerald-600" : pctMargen >= 30 ? "text-amber-500" : "text-red-500"
                                             return (
                                                 <tr key={b.id_tarea} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/30">
                                                     <td className="p-3">
@@ -1224,19 +1282,23 @@ export default function AuditoriaClient({
                                                     </td>
                                                     <td className="p-3 text-zinc-600 dark:text-zinc-400">{b.nombre_supervisor}</td>
                                                     <td className="p-3 text-right">${Math.round(b.total_pb).toLocaleString("es-AR")}</td>
-                                                    <td className="p-3 text-right font-medium">${Math.round(b.total_pf).toLocaleString("es-AR")}</td>
-                                                    <td className="p-3 text-right text-emerald-600 font-semibold">
-                                                        +${Math.round(b.margen_comercial_pf_pb).toLocaleString("es-AR")}
-                                                    </td>
-                                                    <td className="p-3 text-right">${Math.round(b.total_facturado_neto).toLocaleString("es-AR")}</td>
-                                                    <td className="p-3 text-right font-bold text-emerald-600">
-                                                        ${Math.round(b.total_cobrado_real).toLocaleString("es-AR")}
-                                                    </td>
                                                     <td className="p-3 text-right text-zinc-500">
                                                         ${Math.round(b.gastos_reales_liquidacion).toLocaleString("es-AR")}
                                                     </td>
-                                                    <td className="p-3 text-right">
-                                                        <span className={`font-bold ${colorGanancia}`}>{pctGanancia}%</span>
+                                                    <td className="p-3 text-right font-bold text-blue-600">
+                                                        ${Math.round(b.ganancia_supervisor).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-right font-medium">
+                                                        ${Math.round(b.total_factura_base).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-right text-amber-600">
+                                                        ${Math.round(b.total_ajustes_aprobados).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-right font-bold text-emerald-600">
+                                                        ${Math.round(b.ganancia_neta_total_spc).toLocaleString("es-AR")}
+                                                    </td>
+                                                    <td className="p-3 text-center">
+                                                        <span className={`font-bold ${colorGanancia}`}>{pctMargen}%</span>
                                                     </td>
                                                 </tr>
                                             )

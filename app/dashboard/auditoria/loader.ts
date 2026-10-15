@@ -33,11 +33,13 @@ export type BalanceTareaDTO = {
     monto_sobrecosto: number
     total_factura_base: number
     total_ajustes_aprobados: number
+    total_ajustes_reales: number
     total_facturado_neto: number
     total_cobrado_real: number
     saldo_pendiente_factura: number
     margen_comercial_pf_pb: number
     ganancia_liquida_obra: number
+    ganancia_neta_total_spc: number
     fecha_ultimo_cobro: string | null
 }
 
@@ -97,6 +99,10 @@ export type BalanceGlobalDTO = {
     total_cobrado: number
     total_gastado: number
     total_ganancia: number
+    total_facturado: number
+    total_ajustes: number
+    total_ganancia_supervisores: number
+    total_ganancia_spc: number
 }
 
 export async function getAuditoriaBalancesData(): Promise<{
@@ -149,11 +155,13 @@ export async function getAuditoriaBalancesData(): Promise<{
         monto_sobrecosto: Number(r.monto_sobrecosto) || 0,
         total_factura_base: Number(r.total_factura_base) || 0,
         total_ajustes_aprobados: Number(r.total_ajustes_aprobados) || 0,
+        total_ajustes_reales: Number(r.total_ajustes_aprobados) || 0,
         total_facturado_neto: Number(r.total_facturado_neto) || 0,
         total_cobrado_real: Number(r.total_cobrado_real) || 0,
         saldo_pendiente_factura: Number(r.saldo_pendiente_factura) || 0,
         margen_comercial_pf_pb: Number(r.margen_comercial_pf_pb) || 0,
         ganancia_liquida_obra: Number(r.ganancia_liquida_obra) || 0,
+        ganancia_neta_total_spc: Number(r.ganancia_neta_total_spc) || 0,
         fecha_ultimo_cobro: r.fecha_ultimo_cobro || null
     }))
 
@@ -368,13 +376,24 @@ export async function getAuditoriaBalancesData(): Promise<{
         })
         .sort((a, b) => b.ganancia_real_spc - a.ganancia_real_spc)
 
-    // Totales globales a nivel empresa (sin perder obras historicas de administradores inactivos)
+    // Totales globales a nivel empresa (reales y directos)
+    const totalFacturadoEmpresa = balances.reduce((acc, b) => acc + b.total_factura_base, 0)
+    const totalAjustesEmpresa = balances.reduce((acc, b) => acc + b.total_ajustes_aprobados, 0)
+    const totalGastosEmpresa = balances.reduce((acc, b) => acc + b.gastos_reales_liquidacion, 0)
+    const totalGananciaSupervisoresEmpresa = balances.reduce((acc, b) => acc + b.ganancia_supervisor, 0)
+    const totalGananciaSpcEmpresa = balances.reduce((acc, b) => acc + b.ganancia_neta_total_spc, 0)
+
     const totalCobradoGeneral = (rawFacturas || []).reduce((acc: number, f: any) => acc + (Number(f.total_pagado) || 0), 0)
     const totalGastadoGeneral = (rawLiqs || []).reduce((acc: number, l: any) => acc + (Number(l.gastos_reales) || 0) + (Number(l.ganancia_supervisor) || 0), 0)
+
     const totalesGlobales: BalanceGlobalDTO = {
         total_cobrado: Math.round(totalCobradoGeneral),
-        total_gastado: Math.round(totalGastadoGeneral),
-        total_ganancia: Math.round(totalCobradoGeneral - totalGastadoGeneral)
+        total_gastado: Math.round(totalGastosEmpresa),
+        total_ganancia: Math.round(totalGananciaSpcEmpresa),
+        total_facturado: Math.round(totalFacturadoEmpresa),
+        total_ajustes: Math.round(totalAjustesEmpresa),
+        total_ganancia_supervisores: Math.round(totalGananciaSupervisoresEmpresa),
+        total_ganancia_spc: Math.round(totalGananciaSpcEmpresa)
     }
 
     // 4. Cargar ultimos logs de auditoria inmutable

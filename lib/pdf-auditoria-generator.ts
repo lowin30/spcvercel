@@ -47,9 +47,23 @@ export interface DatosAuditoriaPDF {
   balances: BalanceTareaDTO[]
   supervisores: BalanceSupervisorAgrupado[]
   administradores: BalanceAdministradorAgrupado[]
+  edificios?: Array<{
+    nombre_edificio: string
+    nombre_administrador: string
+    tareas_totales: number
+    total_facturado: number
+    total_ajustes: number
+    gastos_totales: number
+    ganancia_supervisor: number
+    ganancia_neta_spc: number
+    margen_spc_pct: number
+  }>
   totalCobrado: number
   totalGastado: number
   totalGanancia: number
+  totalFacturado?: number
+  totalAjustes?: number
+  totalGananciaSupervisores?: number
   filtrosActivos?: {
     mesDesde?: string
     mesHasta?: string
@@ -63,7 +77,19 @@ export interface DatosAuditoriaPDF {
 // ─── generador principal ─────────────────────────────────────────────────────
 
 export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blob> {
-  const { balances, supervisores, administradores, totalCobrado, totalGastado, totalGanancia, filtrosActivos } = datos
+  const { 
+    balances, 
+    supervisores, 
+    administradores, 
+    edificios, 
+    totalCobrado, 
+    totalGastado, 
+    totalGanancia, 
+    totalFacturado, 
+    totalAjustes, 
+    totalGananciaSupervisores, 
+    filtrosActivos 
+  } = datos
 
   const doc = new jsPDF({
     orientation: "portrait",
@@ -125,41 +151,48 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
     y += 23
   }
 
-  // ─── KPI cards en fila 3 columnas ────────────────────────────────────────
-  const colW = (W - ML - MR - 8) / 3
-  const cardH = 28
+  // ─── KPI cards en fila 4 columnas ────────────────────────────────────────
+  const facturadoReal = totalFacturado ?? balances.reduce((acc, b) => acc + b.total_factura_base, 0)
+  const ajustesReal = totalAjustes ?? balances.reduce((acc, b) => acc + b.total_ajustes_aprobados, 0)
+  const gastosMat = totalGastado ?? balances.reduce((acc, b) => acc + b.gastos_reales_liquidacion, 0)
+  const ganSupervisores = totalGananciaSupervisores ?? balances.reduce((acc, b) => acc + b.ganancia_supervisor, 0)
+  const ganSpcReal = totalGanancia ?? balances.reduce((acc, b) => acc + b.ganancia_neta_total_spc, 0)
+
+  const colW = (W - ML - MR - 9) / 4
+  const cardH = 26
 
   type KPI = { label: string; valor: string; sub?: string; color: [number, number, number] }
   const kpis: KPI[] = [
-    { label: "total cobrado real", valor: $(totalCobrado), sub: "ingresos efectivos en cuenta", color: [50, 100, 160] },
-    { label: "costos totales obras", valor: $(totalGastado), sub: "materiales + jornales + sup.", color: [120, 70, 30] },
-    { label: "ganancia neta SPC", valor: $(totalGanancia), sub: `margen: ${totalCobrado > 0 ? Math.round((totalGanancia / totalCobrado) * 100) : 0}%`, color: [30, 120, 60] },
+    { label: "facturacion obras", valor: $(facturadoReal), sub: "volumen cotizado", color: [50, 100, 160] },
+    { label: "gastos + ajustes", valor: $(gastosMat + ajustesReal), sub: `mat: ${$(gastosMat)}`, color: [120, 70, 30] },
+    { label: "gan. supervisores", valor: $(ganSupervisores), sub: "honorarios netos", color: [40, 80, 180] },
+    { label: "ganancia neta SPC", valor: $(ganSpcReal), sub: `margen: ${facturadoReal > 0 ? Math.round((ganSpcReal / facturadoReal) * 100) : 0}%`, color: [30, 120, 60] },
   ]
 
   kpis.forEach((kpi, i) => {
-    const x = ML + i * (colW + 4)
-    const isNeto = i === 2
+    const x = ML + i * (colW + 3)
+    const isNeto = i === 3
     doc.setFillColor(isNeto ? 235 : 248, isNeto ? 250 : 248, isNeto ? 242 : 248)
     doc.setDrawColor(...kpi.color)
     doc.setLineWidth(isNeto ? 0.8 : 0.3)
     doc.rect(x, y, colW, cardH, "FD")
     doc.setLineWidth(0.2)
     // etiqueta
-    doc.setFontSize(7)
+    doc.setFontSize(6.5)
     doc.setFont("helvetica", "normal")
     doc.setTextColor(100, 100, 100)
     doc.text(kpi.label, x + colW / 2, y + 6, { align: "center" })
     // valor (dominante si es ganancia)
-    doc.setFontSize(isNeto ? 14 : 11)
+    doc.setFontSize(isNeto ? 11 : 9.5)
     doc.setFont("helvetica", "bold")
     doc.setTextColor(...kpi.color)
-    doc.text(kpi.valor, x + colW / 2, y + 16, { align: "center" })
+    doc.text(kpi.valor, x + colW / 2, y + 15, { align: "center" })
     // subtexto
     if (kpi.sub) {
-      doc.setFontSize(6.5)
+      doc.setFontSize(6)
       doc.setFont("helvetica", "normal")
       doc.setTextColor(130, 130, 130)
-      doc.text(kpi.sub, x + colW / 2, y + 23, { align: "center" })
+      doc.text(kpi.sub, x + colW / 2, y + 21, { align: "center" })
     }
   })
 
@@ -303,58 +336,66 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
   y = (doc as any).lastAutoTable.finalY + 8
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECCION 3 — TRAZABILIDAD PB → PF → FACTURADO → COBRADO (obras ciclo completo)
+  // SECCION 3 — EFICIENCIA POR TAREA (SPC VS SUPERVISOR)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  if (y > H - 80) { doc.addPage(); y = addPageHeader(doc, "trazabilidad de obras", 10) }
+  if (y > H - 80) { doc.addPage(); y = addPageHeader(doc, "eficiencia de obras", 10) }
 
-  const cicloCompleto = balances
-    .filter(b => b.total_cobrado_real > 0 && b.saldo_pendiente_factura === 0)
-    .sort((a, b) => b.ganancia_liquida_obra - a.ganancia_liquida_obra)
-    .slice(0, 60)
+  const obrasEficientes = balances
+    .filter(b => b.total_factura_base > 0 || b.total_pb > 0)
+    .sort((a, b) => b.ganancia_neta_total_spc - a.ganancia_neta_total_spc)
+    .slice(0, 50)
 
-  y = addSection(doc, `3. trazabilidad pb → cobrado — obras con ciclo completo (${cicloCompleto.length})`, y)
+  y = addSection(doc, `3. auditoria de eficiencia por tarea (${obrasEficientes.length} obras)`, y)
 
-  const tracRows = cicloCompleto.map(b => {
-    const gan = b.total_cobrado_real - b.gastos_reales_liquidacion - b.ganancia_supervisor
-    const pctGan = b.total_cobrado_real > 0 ? Math.round((gan / b.total_cobrado_real) * 100) : 0
+  const tracRows = obrasEficientes.map(b => {
+    const pctMargen = b.total_factura_base > 0
+      ? Math.round((b.ganancia_neta_total_spc / b.total_factura_base) * 100)
+      : 0
     return [
       b.codigo_tarea,
       `${b.titulo_tarea}\n${b.nombre_edificio}`,
       b.nombre_supervisor || "-",
       $(b.total_pb),
-      $(b.total_pf),
-      $(b.total_cobrado_real),
       $(b.gastos_reales_liquidacion),
-      `${pctGan}%`,
+      $(b.ganancia_supervisor),
+      $(b.total_factura_base),
+      $(b.total_ajustes_aprobados),
+      $(b.ganancia_neta_total_spc),
+      `${pctMargen}%`,
     ]
   })
 
   autoTable(doc, {
-    head: [["cod.", "obra / edificio", "supervisor", "pb", "pf", "cobrado", "gastos", "% gan."]],
+    head: [["cod.", "obra / edificio", "sup.", "pb", "mat.", "gan. sup.", "facturado", "ajustes", "gan. spc", "margen"]],
     body: tracRows,
     startY: y,
     theme: "striped",
-    styles: { fontSize: 7, cellPadding: 1.5, overflow: "linebreak" },
-    headStyles: { fillColor: [30, 120, 60], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+    styles: { fontSize: 6.5, cellPadding: 1.5, overflow: "linebreak" },
+    headStyles: { fillColor: [30, 120, 60], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 6.5 },
     columnStyles: {
-      0: { cellWidth: 18 },
-      1: { cellWidth: 42 },
-      2: { cellWidth: 24 },
-      3: { cellWidth: 18, halign: "right" },
-      4: { cellWidth: 18, halign: "right" },
-      5: { cellWidth: 22, halign: "right", fontStyle: "bold" },
-      6: { cellWidth: 18, halign: "right" },
-      7: { cellWidth: 12, halign: "center" },
+      0: { cellWidth: 16 },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 15, halign: "right" },
+      4: { cellWidth: 15, halign: "right" },
+      5: { cellWidth: 17, halign: "right", fontStyle: "bold" },
+      6: { cellWidth: 17, halign: "right" },
+      7: { cellWidth: 15, halign: "right" },
+      8: { cellWidth: 18, halign: "right", fontStyle: "bold" },
+      9: { cellWidth: 11, halign: "center" },
     },
     didParseCell: (data) => {
-      if (data.column.index === 7 && data.section === "body") {
-        const val = parseInt(data.cell.text[0] || "0")
-        data.cell.styles.textColor = val >= 60 ? [30, 130, 60] : val >= 40 ? [180, 130, 0] : [180, 50, 50]
-        data.cell.styles.fontStyle = "bold"
-      }
       if (data.column.index === 5 && data.section === "body") {
+        data.cell.styles.textColor = [40, 80, 180]
+      }
+      if (data.column.index === 8 && data.section === "body") {
         data.cell.styles.textColor = [30, 120, 60]
+      }
+      if (data.column.index === 9 && data.section === "body") {
+        const val = parseInt(data.cell.text[0] || "0")
+        data.cell.styles.textColor = val >= 50 ? [30, 130, 60] : val >= 30 ? [180, 130, 0] : [180, 50, 50]
+        data.cell.styles.fontStyle = "bold"
       }
     },
   })
