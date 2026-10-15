@@ -58,6 +58,18 @@ export interface DatosAuditoriaPDF {
     ganancia_neta_spc: number
     margen_spc_pct: number
   }>
+  rubros?: Array<{
+    rubro: string
+    obras_totales: number
+    obras_liquidadas: number
+    total_facturado: number
+    total_ajustes: number
+    gastos_totales: number
+    gastos_pendientes: number
+    ganancia_supervisor: number
+    ganancia_neta_spc: number
+    margen_spc_pct: number
+  }>
   totalCobrado: number
   totalGastado: number
   totalGanancia: number
@@ -82,6 +94,7 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
     supervisores, 
     administradores, 
     edificios, 
+    rubros,
     totalCobrado, 
     totalGastado, 
     totalGanancia, 
@@ -298,6 +311,7 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
     `${i + 1}. ${a.nombre_administrador}`,
     `${a.tareas_cobradas_100} / ${a.tareas_totales}`,
     $(a.total_facturado),
+    a.total_ajustes > 0 ? $(a.total_ajustes) : "$0",
     $(a.total_cobrado),
     a.saldo_adeudado > 0 ? $(a.saldo_adeudado) : "$0",
     $(a.costo_total_obras),
@@ -306,28 +320,33 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
   ])
 
   autoTable(doc, {
-    head: [["administrador", "cerradas", "facturado", "cobrado", "deuda", "costo obras", "gan. liquida", "aporte %"]],
+    head: [["administrador", "cerradas", "facturado", "ajustes", "cobrado", "deuda", "costo obras", "gan. liquida", "aporte %"]],
     body: admRows,
     startY: y,
     theme: "striped",
-    styles: { fontSize: 7.5, cellPadding: 2 },
-    headStyles: { fillColor: [80, 50, 130], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
+    styles: { fontSize: 7, cellPadding: 2 },
+    headStyles: { fillColor: [80, 50, 130], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
     columnStyles: {
-      0: { cellWidth: 38 },
+      0: { cellWidth: 36 },
       1: { cellWidth: 14, halign: "center" },
-      2: { cellWidth: 24, halign: "right" },
-      3: { cellWidth: 24, halign: "right" },
-      4: { cellWidth: 22, halign: "right" },
-      5: { cellWidth: 24, halign: "right" },
-      6: { cellWidth: 24, halign: "right", fontStyle: "bold" },
-      7: { cellWidth: 12, halign: "center" },
+      2: { cellWidth: 21, halign: "right" },
+      3: { cellWidth: 18, halign: "right" },
+      4: { cellWidth: 21, halign: "right" },
+      5: { cellWidth: 18, halign: "right" },
+      6: { cellWidth: 21, halign: "right" },
+      7: { cellWidth: 21, halign: "right", fontStyle: "bold" },
+      8: { cellWidth: 12, halign: "center" },
     },
     didParseCell: (data) => {
-      if (data.column.index === 4 && data.section === "body") {
+      if (data.column.index === 3 && data.section === "body") {
         const val = data.cell.text[0]
         if (val && val !== "$0") data.cell.styles.textColor = [180, 100, 0]
       }
-      if (data.column.index === 6 && data.section === "body") {
+      if (data.column.index === 5 && data.section === "body") {
+        const val = data.cell.text[0]
+        if (val && val !== "$0") data.cell.styles.textColor = [180, 100, 0]
+      }
+      if (data.column.index === 7 && data.section === "body") {
         data.cell.styles.textColor = [30, 120, 60]
       }
     },
@@ -354,15 +373,15 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
       : 0
     return [
       b.codigo_tarea,
-      `${b.titulo_tarea}\n${b.nombre_edificio}`,
+      `${b.titulo_tarea}\n${b.nombre_edificio}${!b.id_liquidacion ? ' (sin liq)' : ''}`,
       b.nombre_supervisor || "-",
       $(b.total_pb),
-      $(b.gastos_reales_liquidacion),
+      b.gastos_reales_liquidacion > 0 ? $(b.gastos_reales_liquidacion) : (b.gastos_pendientes > 0 ? `(p: ${$(b.gastos_pendientes)})` : "$0"),
       $(b.ganancia_supervisor),
       $(b.total_factura_base),
       $(b.total_ajustes_aprobados),
       $(b.ganancia_neta_total_spc),
-      `${pctMargen}%`,
+      b.id_liquidacion ? `${pctMargen}%` : `p: ${pctMargen}%`,
     ]
   })
 
@@ -403,7 +422,65 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
   y = (doc as any).lastAutoTable.finalY + 8
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECCION 4 — ALERTAS FORENSES: SOBRECOSTOS + SALDOS PENDIENTES
+  // SECCION 4 — RENTABILIDAD POR RUBRO / TIPOLOGIA DE OBRA
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (rubros && rubros.length > 0) {
+    if (y > H - 75) { doc.addPage(); y = addPageHeader(doc, "rubros de obra", 10) }
+    y = addSection(doc, "4. rentabilidad por rubro y especialidad de obra", y)
+
+    const rubroRows = rubros.map(r => [
+      r.rubro,
+      `${r.obras_liquidadas} / ${r.obras_totales}`,
+      $(r.total_facturado),
+      r.total_ajustes > 0 ? $(r.total_ajustes) : "$0",
+      $(r.gastos_totales),
+      $(r.ganancia_supervisor),
+      $(r.ganancia_neta_spc),
+      `${r.margen_spc_pct}%`,
+    ])
+
+    autoTable(doc, {
+      head: [["rubro / especialidad", "obras liq/tot", "facturado", "ajustes", "materiales", "gan. sup.", "gan. spc", "margen"]],
+      body: rubroRows,
+      startY: y,
+      theme: "striped",
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [40, 110, 80], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+      columnStyles: {
+        0: { cellWidth: 44 },
+        1: { cellWidth: 18, halign: "center" },
+        2: { cellWidth: 20, halign: "right" },
+        3: { cellWidth: 18, halign: "right" },
+        4: { cellWidth: 20, halign: "right" },
+        5: { cellWidth: 22, halign: "right", fontStyle: "bold" },
+        6: { cellWidth: 24, halign: "right", fontStyle: "bold" },
+        7: { cellWidth: 16, halign: "center" },
+      },
+      didParseCell: (data) => {
+        if (data.column.index === 3 && data.section === "body") {
+          const val = data.cell.text[0]
+          if (val && val !== "$0") data.cell.styles.textColor = [180, 100, 0]
+        }
+        if (data.column.index === 5 && data.section === "body") {
+          data.cell.styles.textColor = [40, 80, 180]
+        }
+        if (data.column.index === 6 && data.section === "body") {
+          data.cell.styles.textColor = [30, 120, 60]
+        }
+        if (data.column.index === 7 && data.section === "body") {
+          const val = parseInt(data.cell.text[0] || "0")
+          data.cell.styles.textColor = val >= 50 ? [30, 130, 60] : val >= 30 ? [180, 130, 0] : [180, 50, 50]
+          data.cell.styles.fontStyle = "bold"
+        }
+      },
+    })
+
+    y = (doc as any).lastAutoTable.finalY + 8
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SECCION 5 — ALERTAS FORENSES: SOBRECOSTOS + SALDOS PENDIENTES
   // ═══════════════════════════════════════════════════════════════════════════
 
   const conSobrecosto = balances.filter(b => b.hay_sobrecosto).sort((a, b) => b.monto_sobrecosto - a.monto_sobrecosto)
@@ -411,7 +488,7 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
 
   if (conSobrecosto.length > 0 || conSaldoPendiente.length > 0) {
     if (y > H - 80) { doc.addPage(); y = addPageHeader(doc, "alertas forenses", 10) }
-    y = addSection(doc, "4. alertas forenses — sobrecostos y saldos pendientes de cobro", y)
+    y = addSection(doc, "5. alertas forenses — sobrecostos y saldos pendientes de cobro", y)
 
     if (conSobrecosto.length > 0) {
       doc.setFontSize(7.5)
@@ -495,13 +572,13 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECCION 5 — GASTOS PENDIENTES DE RENDICION POR SUPERVISOR
+  // SECCION 6 — GASTOS PENDIENTES DE RENDICION POR SUPERVISOR
   // ═══════════════════════════════════════════════════════════════════════════
 
   const supersConPendientes = supervisores.filter(s => s.gastos_pendientes > 0)
   if (supersConPendientes.length > 0) {
     if (y > H - 60) { doc.addPage(); y = addPageHeader(doc, "gastos pendientes", 10) }
-    y = addSection(doc, "5. gastos pendientes de rendicion por supervisor", y)
+    y = addSection(doc, "6. gastos pendientes de rendicion por supervisor", y)
 
     autoTable(doc, {
       head: [["supervisor", "tareas liq.", "gastos reales liquidados", "pendiente de rendicion"]],

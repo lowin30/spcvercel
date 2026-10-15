@@ -40,6 +40,7 @@ export type BalanceTareaDTO = {
     margen_comercial_pf_pb: number
     ganancia_liquida_obra: number
     ganancia_neta_total_spc: number
+    gastos_pendientes: number
     fecha_ultimo_cobro: string | null
 }
 
@@ -72,6 +73,7 @@ export type BalanceAdministradorAgrupado = {
     total_pb: number
     total_pf: number
     total_facturado: number
+    total_ajustes: number
     total_cobrado: number
     saldo_adeudado: number
     gastos_totales: number
@@ -122,6 +124,18 @@ export async function getAuditoriaBalancesData(): Promise<{
         console.error("error al cargar vista_auditoria_admin_balances:", errBalances)
     }
 
+    const { data: rawGastosPendientes } = await supabaseAdmin
+        .from('gastos_tarea')
+        .select('id, id_tarea, id_usuario, monto, liquidado, id_liquidacion')
+        .or('liquidado.is.null,liquidado.eq.false')
+
+    const taskPendingGastosMap = new Map<number, number>()
+    ;(rawGastosPendientes || []).forEach((g: any) => {
+        if (g.id_tarea) {
+            taskPendingGastosMap.set(g.id_tarea, (taskPendingGastosMap.get(g.id_tarea) || 0) + (Number(g.monto) || 0))
+        }
+    })
+
     const balances: BalanceTareaDTO[] = (rawBalances || []).map((r: any) => ({
         id_tarea: r.id_tarea,
         codigo_tarea: r.codigo_tarea || `TAR-${r.id_tarea}`,
@@ -162,6 +176,7 @@ export async function getAuditoriaBalancesData(): Promise<{
         margen_comercial_pf_pb: Number(r.margen_comercial_pf_pb) || 0,
         ganancia_liquida_obra: Number(r.ganancia_liquida_obra) || 0,
         ganancia_neta_total_spc: Number(r.ganancia_neta_total_spc) || 0,
+        gastos_pendientes: taskPendingGastosMap.get(r.id_tarea) || 0,
         fecha_ultimo_cobro: r.fecha_ultimo_cobro || null
     }))
 
@@ -208,6 +223,7 @@ export async function getAuditoriaBalancesData(): Promise<{
             total_pb: 0,
             total_pf: 0,
             total_facturado: 0,
+            total_ajustes: 0,
             total_cobrado: 0,
             saldo_adeudado: 0,
             gastos_totales: 0,
@@ -243,9 +259,11 @@ export async function getAuditoriaBalancesData(): Promise<{
         const tot = Number(f.total) || 0
         const pag = Number(f.total_pagado) || 0
         const sald = Number(f.saldo_pendiente) || 0
+        const aj = Number(f.total_ajustes) || 0
         adm.total_facturado += tot
         adm.total_cobrado += pag
         adm.saldo_adeudado += sald
+        adm.total_ajustes += aj
     })
 
     // Sumar gastos directos y ganancias de supervisor por administrador
@@ -298,11 +316,6 @@ export async function getAuditoriaBalancesData(): Promise<{
     const { data: rawSuperTareas } = await supabaseAdmin
         .from('supervisores_tareas')
         .select('id_supervisor, id_tarea')
-
-    const { data: rawGastosPendientes } = await supabaseAdmin
-        .from('gastos_tarea')
-        .select('id, id_tarea, id_usuario, monto, liquidado, id_liquidacion')
-        .or('liquidado.is.null,liquidado.eq.false')
 
     const supMap = new Map<string, BalanceSupervisorAgrupado>()
 
