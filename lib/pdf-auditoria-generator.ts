@@ -253,7 +253,7 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
 
   const supRows = supervisores.map((s, i) => [
     `${i + 1}. ${s.nombre_supervisor}`,
-    `${s.tareas_liquidadas} / ${s.tareas_totales}`,
+    String(s.tareas_liquidadas),
     $(s.total_cobrado_cliente),
     $(s.gastos_reales),
     s.gastos_pendientes > 0 ? $(s.gastos_pendientes) : "$0",
@@ -263,7 +263,7 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
   ])
 
   autoTable(doc, {
-    head: [["supervisor", "liq/tot", "cobrado cliente", "gastos reales", "gastos pend.", "gan. supervisor", "ganancia SPC", "eficiencia"]],
+    head: [["supervisor", "obras cerr.", "cobrado cliente", "gastos reales", "gastos pend.", "gan. supervisor", "ganancia SPC", "eficiencia"]],
     body: supRows,
     startY: y,
     theme: "striped",
@@ -365,7 +365,7 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
     .sort((a, b) => b.ganancia_neta_total_spc - a.ganancia_neta_total_spc)
     .slice(0, 50)
 
-  y = addSection(doc, `3. auditoria de eficiencia por tarea (${obrasEficientes.length} obras)`, y)
+  y = addSection(doc, `3. auditoria de eficiencia por tarea (${obrasEficientes.length} obras cerradas)`, y)
 
   const tracRows = obrasEficientes.map(b => {
     const pctMargen = b.total_factura_base > 0
@@ -373,15 +373,15 @@ export async function generarAuditoriaPDF(datos: DatosAuditoriaPDF): Promise<Blo
       : 0
     return [
       b.codigo_tarea,
-      `${b.titulo_tarea}\n${b.nombre_edificio}${!b.id_liquidacion ? ' (sin liq)' : ''}`,
+      `${b.titulo_tarea}\n${b.nombre_edificio}`,
       b.nombre_supervisor || "-",
       $(b.total_pb),
-      b.gastos_reales_liquidacion > 0 ? $(b.gastos_reales_liquidacion) : (b.gastos_pendientes > 0 ? `(p: ${$(b.gastos_pendientes)})` : "$0"),
+      b.gastos_reales_liquidacion > 0 ? $(b.gastos_reales_liquidacion) : "$0",
       $(b.ganancia_supervisor),
       $(b.total_factura_base),
       $(b.total_ajustes_aprobados),
       $(b.ganancia_neta_total_spc),
-      b.id_liquidacion ? `${pctMargen}%` : `p: ${pctMargen}%`,
+      `${pctMargen}%`,
     ]
   })
 

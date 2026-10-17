@@ -258,10 +258,8 @@ export default function AuditoriaClient({
         }).sort((a, b) => b.ganancia_neta_spc - a.ganancia_neta_spc)
     }, [balancesFiltrados])
 
-    // Supervisores dinamicos reactivos a los filtros
+    // Supervisores dinamicos reactivos a los filtros (ciclo cerrado)
     const supervisoresDinamicos = useMemo(() => {
-        if (!hayFiltroActivo) return initialSupervisores
-
         const supMap = new Map<string, BalanceSupervisorAgrupado>()
         initialSupervisores.forEach(s => {
             supMap.set(s.id_supervisor, {
@@ -283,36 +281,31 @@ export default function AuditoriaClient({
             if (!b.id_supervisor || !supMap.has(b.id_supervisor)) return
             const sup = supMap.get(b.id_supervisor)!
             sup.tareas_totales += 1
-            if (b.id_liquidacion) {
-                sup.tareas_liquidadas += 1
-            }
+            sup.tareas_liquidadas += 1
             sup.total_pb += b.total_pb
             sup.gastos_reales += b.gastos_reales_liquidacion
             sup.ganancia_supervisor += b.ganancia_supervisor
             sup.ganancia_admin += b.ganancia_admin
             sup.total_cobrado_cliente += b.total_cobrado_real
+            sup.ganancia_real_spc += b.ganancia_neta_total_spc
         })
 
         return Array.from(supMap.values())
-            .filter(s => s.tareas_totales > 0 || s.tareas_liquidadas > 0)
+            .filter(s => s.tareas_totales > 0)
             .map(s => {
                 const eficiencia = s.total_pb > 0 
                     ? Math.round(((s.total_pb - s.gastos_reales) / s.total_pb) * 100)
                     : 0
-                const gananciaReal = Math.round(s.total_cobrado_cliente - s.gastos_reales - s.ganancia_supervisor)
                 return {
                     ...s,
-                    ganancia_real_spc: gananciaReal,
                     eficiencia_pct: eficiencia
                 }
             })
             .sort((a, b) => b.ganancia_real_spc - a.ganancia_real_spc)
-    }, [hayFiltroActivo, initialSupervisores, balancesFiltrados])
+    }, [initialSupervisores, balancesFiltrados])
 
-    // Administradores dinamicos reactivos a los filtros
+    // Administradores dinamicos reactivos a los filtros (ciclo cerrado)
     const administradoresDinamicos = useMemo(() => {
-        if (!hayFiltroActivo) return initialAdministradores
-
         const admMap = new Map<number, BalanceAdministradorAgrupado>()
         initialAdministradores.forEach(a => {
             admMap.set(a.id_administrador, {
@@ -350,7 +343,7 @@ export default function AuditoriaClient({
             }
             adm.total_pb += b.total_pb
             adm.total_pf += b.total_pf
-            adm.total_facturado += b.total_facturado_neto
+            adm.total_facturado += b.total_factura_base
             adm.total_ajustes += b.total_ajustes_aprobados
             adm.total_cobrado += b.total_cobrado_real
             adm.saldo_adeudado += b.saldo_pendiente_factura
@@ -359,7 +352,7 @@ export default function AuditoriaClient({
         })
 
         const totalGananciaFiltrada = Array.from(admMap.values()).reduce((acc, a) => {
-            const g = a.total_cobrado - a.gastos_totales - a.ganancia_supervisor_total
+            const g = a.total_facturado - a.total_ajustes - a.gastos_totales - a.ganancia_supervisor_total
             return acc + (g > 0 ? g : 0)
         }, 0)
 
@@ -370,12 +363,12 @@ export default function AuditoriaClient({
                     ? Math.round((a.total_cobrado / a.total_facturado) * 100)
                     : 0
                 const costoTotal = a.gastos_totales + a.ganancia_supervisor_total
-                const gananciaLiquida = a.total_cobrado - costoTotal
+                const gananciaLiquida = a.total_facturado - a.total_ajustes - costoTotal
                 const aportePct = totalGananciaFiltrada > 0 && gananciaLiquida > 0
                     ? Math.round((gananciaLiquida / totalGananciaFiltrada) * 100)
                     : 0
-                const margenNeto = a.total_cobrado > 0
-                    ? Math.round((gananciaLiquida / a.total_cobrado) * 100)
+                const margenNeto = a.total_facturado > 0
+                    ? Math.round((gananciaLiquida / a.total_facturado) * 100)
                     : 0
 
                 return {
@@ -388,7 +381,7 @@ export default function AuditoriaClient({
                 }
             })
             .sort((a, b) => b.ganancia_liquida - a.ganancia_liquida)
-    }, [hayFiltroActivo, initialAdministradores, balancesFiltrados])
+    }, [initialAdministradores, balancesFiltrados])
 
     // Agrupacion inteligente por rubro / tipologia de obra
     const rubrosAgrupados = useMemo(() => {
@@ -572,11 +565,9 @@ export default function AuditoriaClient({
                         <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                             <Filter className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                             <span>filtros inteligentes de auditoria</span>
-                            {hayFiltroActivo && (
-                                <Badge variant="secondary" className="text-[10px] bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-0">
-                                    filtro activo ({balancesFiltrados.length} obras)
-                                </Badge>
-                            )}
+                            <Badge variant="secondary" className="text-[10px] bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-0">
+                                {hayFiltroActivo ? `filtro activo (${balancesFiltrados.length} obras cerradas)` : `ciclo cerrado (${balancesFiltrados.length} obras)`}
+                            </Badge>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] text-zinc-400 font-medium mr-1 hidden sm:inline">atajos:</span>
@@ -968,7 +959,7 @@ export default function AuditoriaClient({
                                 <thead>
                                     <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 font-medium">
                                         <th className="p-3">supervisor</th>
-                                        <th className="p-3 text-center">tareas liq.</th>
+                                        <th className="p-3 text-center">obras cerradas</th>
                                         <th className="p-3 text-right">presup. base</th>
                                         <th className="p-3 text-right">gastos reales</th>
                                         <th className="p-3 text-right text-amber-600 dark:text-amber-400">gastos pend.</th>
@@ -985,7 +976,7 @@ export default function AuditoriaClient({
                                                 <div className="font-semibold">{sup.nombre_supervisor}</div>
                                                 <div className="text-[10px] text-zinc-400 font-mono">{sup.email_supervisor}</div>
                                             </td>
-                                            <td className="p-3 text-center">{sup.tareas_liquidadas} / {sup.tareas_totales}</td>
+                                            <td className="p-3 text-center font-semibold text-zinc-800 dark:text-zinc-200">{sup.tareas_liquidadas}</td>
                                             <td className="p-3 text-right">${Math.round(sup.total_pb).toLocaleString("es-AR")}</td>
                                             <td className="p-3 text-right">${Math.round(sup.gastos_reales).toLocaleString("es-AR")}</td>
                                             <td className="p-3 text-right">

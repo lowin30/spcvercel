@@ -114,10 +114,11 @@ export async function getAuditoriaBalancesData(): Promise<{
     logs: AuditoriaForenseLogDTO[]
     totalesGlobales: BalanceGlobalDTO
 }> {
-    // 1. Cargar balances principales por tarea (1 fila por obra)
+    // 1. Cargar balances principales por tarea (solo ciclo cerrado / liquidaciones cerradas)
     const { data: rawBalances, error: errBalances } = await supabaseAdmin
         .from('vista_auditoria_admin_balances')
         .select('*')
+        .not('id_liquidacion', 'is', null)
         .order('fecha_tarea', { ascending: false })
 
     if (errBalances) {
@@ -180,38 +181,14 @@ export async function getAuditoriaBalancesData(): Promise<{
         fecha_ultimo_cobro: r.fecha_ultimo_cobro || null
     }))
 
-    // 2. Carga DIRECTA de Administradores sin duplicacion (desde vista_facturas_completa)
-    const { data: rawFacturas } = await supabaseAdmin
-        .from('vista_facturas_completa')
-        .select('id, tarea_id, total, saldo_pendiente, total_pagado, id_administrador, nombre_edificio, pagada, total_ajustes')
-
+    // 2. Administradores agrupados desde balances de ciclo cerrado
     const { data: rawAdmins } = await supabaseAdmin
         .from('administradores')
         .select('id, nombre')
         .eq('estado', 'activo')
         .order('nombre')
 
-    const { data: rawTareasAdmin } = await supabaseAdmin
-        .from('tareas')
-        .select('id, id_edificio, edificios(id_administrador)')
-
-    const { data: rawLiqs } = await supabaseAdmin
-        .from('liquidaciones_nuevas')
-        .select('id, id_tarea, total_base, gastos_reales, ganancia_supervisor, ganancia_admin, tareas(id_edificio, edificios(id_administrador))')
-
-    const taskSaldoMap = new Map<number, { count: number; saldo: number }>()
-    ;(rawFacturas || []).forEach((f: any) => {
-        if (!f.tarea_id) return
-        if (!taskSaldoMap.has(f.tarea_id)) {
-            taskSaldoMap.set(f.tarea_id, { count: 0, saldo: 0 })
-        }
-        const tInfo = taskSaldoMap.get(f.tarea_id)!
-        tInfo.count += 1
-        tInfo.saldo += Number(f.saldo_pendiente) || 0
-    })
-
-    const admMap = new Map<number, BalanceAdministradorAgrupado>();
-
+    const admMap = new Map<number, BalanceAdministradorAgrupado>()
     ;(rawAdmins || []).forEach((a: any) => {
         admMap.set(a.id, {
             id_administrador: a.id,
@@ -236,48 +213,29 @@ export async function getAuditoriaBalancesData(): Promise<{
         })
     })
 
-    ;(rawTareasAdmin || []).forEach((t: any) => {
-        const idAdm = t.edificios?.id_administrador
-        if (idAdm && admMap.has(idAdm)) {
-            const adm = admMap.get(idAdm)!
-            adm.tareas_totales += 1
-            const taskInfo = taskSaldoMap.get(t.id)
-            if (taskInfo && taskInfo.count > 0 && taskInfo.saldo === 0) {
-                adm.tareas_cobradas_100 += 1
-            }
-        }
-    })
-
-    // Sumar facturas por administrador
-    ;(rawFacturas || []).forEach((f: any) => {
-        if (!f.id_administrador || !admMap.has(f.id_administrador)) return
-        const adm = admMap.get(f.id_administrador)!
+    balances.forEach((b) => {
+        if (!b.id_administrador || !admMap.has(b.id_administrador)) return
+        const adm = admMap.get(b.id_administrador)!
+        adm.tareas_totales += 1
         adm.total_obras += 1
-        if (!f.pagada) {
+        if (b.total_cobrado_real > 0 && b.saldo_pendiente_factura === 0) {
+            adm.tareas_cobradas_100 += 1
+        }
+        if (b.saldo_pendiente_factura > 0) {
             adm.facturas_pendientes_count += 1
         }
-        const tot = Number(f.total) || 0
-        const pag = Number(f.total_pagado) || 0
-        const sald = Number(f.saldo_pendiente) || 0
-        const aj = Number(f.total_ajustes) || 0
-        adm.total_facturado += tot
-        adm.total_cobrado += pag
-        adm.saldo_adeudado += sald
-        adm.total_ajustes += aj
-    })
-
-    // Sumar gastos directos y ganancias de supervisor por administrador
-    ;(rawLiqs || []).forEach((l: any) => {
-        const idAdm = l.tareas?.edificios?.id_administrador
-        if (idAdm && admMap.has(idAdm)) {
-            const adm = admMap.get(idAdm)!
-            adm.gastos_totales += Number(l.gastos_reales) || 0
-            adm.ganancia_supervisor_total += Number(l.ganancia_supervisor) || 0
-        }
+        adm.total_pb += b.total_pb
+        adm.total_pf += b.total_pf
+        adm.total_facturado += b.total_factura_base
+        adm.total_ajustes += b.total_ajustes_aprobados
+        adm.total_cobrado += b.total_cobrado_real
+        adm.saldo_adeudado += b.saldo_pendiente_factura
+        adm.gastos_totales += b.gastos_reales_liquidacion
+        adm.ganancia_supervisor_total += b.ganancia_supervisor
     })
 
     const totalGananciaEmpresaCompleta = Array.from(admMap.values()).reduce((acc, a) => {
-        const g = a.total_cobrado - a.gastos_totales - a.ganancia_supervisor_total
+        const g = a.total_facturado - a.total_ajustes - a.gastos_totales - a.ganancia_supervisor_total
         return acc + (g > 0 ? g : 0)
     }, 0)
 
@@ -287,13 +245,13 @@ export async function getAuditoriaBalancesData(): Promise<{
             const ratio = a.total_facturado > 0 
                 ? Math.round((a.total_cobrado / a.total_facturado) * 100)
                 : 0
-            const gananciaLiquida = a.total_cobrado - a.gastos_totales - a.ganancia_supervisor_total
             const costoTotal = a.gastos_totales + a.ganancia_supervisor_total
+            const gananciaLiquida = a.total_facturado - a.total_ajustes - costoTotal
             const aportePct = totalGananciaEmpresaCompleta > 0 && gananciaLiquida > 0
                 ? Math.round((gananciaLiquida / totalGananciaEmpresaCompleta) * 100)
                 : 0
-            const margenNeto = a.total_cobrado > 0
-                ? Math.round((gananciaLiquida / a.total_cobrado) * 100)
+            const margenNeto = a.total_facturado > 0
+                ? Math.round((gananciaLiquida / a.total_facturado) * 100)
                 : 0
 
             return {
@@ -307,26 +265,20 @@ export async function getAuditoriaBalancesData(): Promise<{
         })
         .sort((a, b) => b.ganancia_liquida - a.ganancia_liquida)
 
-    // 3. Carga DIRECTA de Supervisores sin duplicacion (desde liquidaciones_nuevas)
+    // 3. Supervisores agrupados desde balances de ciclo cerrado
     const { data: rawSupers } = await supabaseAdmin
         .from('usuarios')
         .select('id, nombre, email, es_propietario')
         .eq('rol', 'supervisor')
 
-    const { data: rawSuperTareas } = await supabaseAdmin
-        .from('supervisores_tareas')
-        .select('id_supervisor, id_tarea')
-
     const supMap = new Map<string, BalanceSupervisorAgrupado>()
-
     ;(rawSupers || []).forEach((s: any) => {
-        const tareasCount = (rawSuperTareas || []).filter((st: any) => st.id_supervisor === s.id).length
         supMap.set(s.id, {
             id_supervisor: s.id,
             email_supervisor: s.email,
             nombre_supervisor: s.nombre || s.email,
             es_propietario: !!s.es_propietario,
-            tareas_totales: tareasCount,
+            tareas_totales: 0,
             tareas_liquidadas: 0,
             total_pb: 0,
             gastos_reales: 0,
@@ -341,20 +293,24 @@ export async function getAuditoriaBalancesData(): Promise<{
         })
     })
 
-    ;(rawLiqs || []).forEach((l: any) => {
-        // Encontrar supervisor de la tarea
-        const rel = (rawSuperTareas || []).find((st: any) => st.id_tarea === l.id_tarea)
-        if (rel && supMap.has(rel.id_supervisor)) {
-            const sup = supMap.get(rel.id_supervisor)!
-            sup.tareas_liquidadas += 1
-            sup.total_pb += Number(l.total_base) || 0
-            sup.gastos_reales += Number(l.gastos_reales) || 0
-            sup.ganancia_supervisor += Number(l.ganancia_supervisor) || 0
-            sup.ganancia_admin += Number(l.ganancia_admin) || 0
-        }
+    balances.forEach((b) => {
+        if (!b.id_supervisor || !supMap.has(b.id_supervisor)) return
+        const sup = supMap.get(b.id_supervisor)!
+        sup.tareas_totales += 1
+        sup.tareas_liquidadas += 1
+        sup.total_pb += b.total_pb
+        sup.gastos_reales += b.gastos_reales_liquidacion
+        sup.ganancia_supervisor += b.ganancia_supervisor
+        sup.ganancia_admin += b.ganancia_admin
+        sup.total_cobrado_cliente += b.total_cobrado_real
+        sup.ganancia_real_spc += b.ganancia_neta_total_spc
     })
 
-    // Sumar gastos pendientes (comprobantes sin liquidar en tareas asignadas o subidos por supervisor)
+    // Sumar gastos pendientes (comprobantes sin liquidar de tareas abiertas asignadas al supervisor)
+    const { data: rawSuperTareas } = await supabaseAdmin
+        .from('supervisores_tareas')
+        .select('id_supervisor, id_tarea')
+
     ;(rawGastosPendientes || []).forEach((g: any) => {
         const rel = (rawSuperTareas || []).find((st: any) => st.id_tarea === g.id_tarea)
         const idSup = rel ? rel.id_supervisor : g.id_usuario
@@ -364,26 +320,14 @@ export async function getAuditoriaBalancesData(): Promise<{
         }
     })
 
-    // Sumar cobrado real de clientes por facturas de tareas del supervisor
-    ;(rawFacturas || []).forEach((f: any) => {
-        if (!f.tarea_id) return
-        const rel = (rawSuperTareas || []).find((st: any) => st.id_tarea === f.tarea_id)
-        if (rel && supMap.has(rel.id_supervisor)) {
-            const sup = supMap.get(rel.id_supervisor)!
-            sup.total_cobrado_cliente += Number(f.total_pagado) || 0
-        }
-    })
-
     const supervisores: BalanceSupervisorAgrupado[] = Array.from(supMap.values())
-        .filter(s => s.tareas_totales > 0 || s.tareas_liquidadas > 0)
+        .filter(s => s.tareas_totales > 0)
         .map((s) => {
             const eficiencia = s.total_pb > 0 
                 ? Math.round(((s.total_pb - s.gastos_reales) / s.total_pb) * 100)
                 : 0
-            const gananciaReal = Math.round(s.total_cobrado_cliente - s.gastos_reales - s.ganancia_supervisor)
             return {
                 ...s,
-                ganancia_real_spc: gananciaReal,
                 eficiencia_pct: eficiencia
             }
         })
@@ -395,9 +339,7 @@ export async function getAuditoriaBalancesData(): Promise<{
     const totalGastosEmpresa = balances.reduce((acc, b) => acc + b.gastos_reales_liquidacion, 0)
     const totalGananciaSupervisoresEmpresa = balances.reduce((acc, b) => acc + b.ganancia_supervisor, 0)
     const totalGananciaSpcEmpresa = balances.reduce((acc, b) => acc + b.ganancia_neta_total_spc, 0)
-
-    const totalCobradoGeneral = (rawFacturas || []).reduce((acc: number, f: any) => acc + (Number(f.total_pagado) || 0), 0)
-    const totalGastadoGeneral = (rawLiqs || []).reduce((acc: number, l: any) => acc + (Number(l.gastos_reales) || 0) + (Number(l.ganancia_supervisor) || 0), 0)
+    const totalCobradoGeneral = balances.reduce((acc, b) => acc + b.total_cobrado_real, 0)
 
     const totalesGlobales: BalanceGlobalDTO = {
         total_cobrado: Math.round(totalCobradoGeneral),
