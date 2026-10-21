@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 // import { DepartamentoForm } from "@/components/departamento-form" // Replaced
 // import { UnifiedDeptContactForm } from "@/components/unified-dept-contact-form" // Replaced
 import { QuickDeptCreateForm } from "@/components/quick-dept-create-form"
+import { Switch } from "@/components/ui/switch"
 
 // ... existing imports ...
 import { getEdificiosAction, getDepartamentosAction } from "@/app/dashboard/tareas/actions"
@@ -96,7 +97,8 @@ export function TaskWizard({
         prioridad: "media",
         id_supervisor: "",
         id_asignado: "",
-        fecha_visita: null,
+        
+        es_particular: false,
         id_estado_nuevo: "1", // Pendiente
         ...defaultValues
     })
@@ -504,6 +506,21 @@ export function TaskWizard({
                             {supervisores.map(s => <SelectItem key={s.id} value={s.id}>{s.email}</SelectItem>)}
                         </SelectContent>
                     </Select>
+                </div>
+            )}
+
+            {/* switch trabajo particular — solo admin */}
+            {currentUserRole === 'admin' && (
+                <div className="flex items-center justify-between rounded-lg border p-3 gap-3">
+                    <div>
+                        <Label htmlFor="es_particular" className="font-medium text-sm">trabajo particular</Label>
+                        <p className="text-xs text-muted-foreground">el cobro al cliente lo gestiona el admin directamente. no genera factura al consorcio.</p>
+                    </div>
+                    <Switch
+                        id="es_particular"
+                        checked={!!formData.es_particular}
+                        onCheckedChange={(v) => setFormData(prev => ({ ...prev, es_particular: v }))}
+                    />
                 </div>
             )}
         </div>

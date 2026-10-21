@@ -31,6 +31,7 @@ interface Task {
   created_at: string
   code: string
   finalizada: boolean
+  es_particular?: boolean
   // Campos de la vista optimizada vista_tareas_completa
   nombre_edificio: string // campo de la vista en lugar de edificio_nombre
   direccion_edificio: string // campo de la vista en lugar de edificio_direccion
@@ -290,6 +291,11 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                           <Badge className={getEstadoColor(task.id_estado_nuevo)}>
                             {task.estado_tarea?.toLowerCase()}
                           </Badge>
+                          {task.es_particular && (
+                            <Badge variant="outline" className="border-purple-500/50 text-purple-600 dark:text-purple-400 bg-purple-500/10 text-xs px-2 py-0.5 font-semibold">
+                              particular
+                            </Badge>
+                          )}
                           {(task as any).tiene_liquidacion_impaga && (
                             <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10 text-xs px-2 py-0.5 font-semibold">
                               liquidada (impaga)
@@ -362,6 +368,11 @@ export function TaskList({ tasks, userRole, currentUserEmail, supervisoresMap }:
                           <Badge className={`${getEstadoColor(task.id_estado_nuevo)} text-xs px-2 py-0.5`}>
                             {task.estado_tarea?.toLowerCase()}
                           </Badge>
+                          {task.es_particular && (
+                            <Badge variant="outline" className="border-purple-500/50 text-purple-600 dark:text-purple-400 bg-purple-500/10 text-[10px] px-1.5 py-0.5 font-semibold">
+                              particular
+                            </Badge>
+                          )}
                           {(task as any).tiene_liquidacion_impaga && (
                             <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/10 text-[10px] px-1.5 py-0.5 font-semibold">
                               liquidada (impaga)

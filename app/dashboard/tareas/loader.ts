@@ -29,6 +29,7 @@ export type Tarea = {
     departamentos_json?: any[]
     finanzas_json?: any // Solo Admin
     gastos_json?: any // Solo Supervisor
+    es_particular?: boolean
     // Flags de permisos (opcional, calculado)
     can_edit: boolean
 }

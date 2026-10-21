@@ -293,6 +293,9 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                                     )}
                                     <CardDescription className="mt-2 flex flex-wrap gap-2">
                                         <Badge variant="outline">ID: {tarea.id}</Badge>
+                                        {(tarea as any).es_particular && (
+                                            <Badge variant="outline" className="border-purple-500/50 text-purple-600 dark:text-purple-400 bg-purple-500/10 font-semibold">particular</Badge>
+                                        )}
                                         <PrioridadInteractiva
                                             tareaId={tarea.id}
                                             prioridadActual={prioridadActual as "baja" | "media" | "alta" | "urgente"}

@@ -212,7 +212,8 @@ export async function updateTask(taskId: number, data: any) {
         prioridad: data.prioridad,
         fecha_visita: data.fecha_visita,
         id_edificio: data.id_edificio,
-        id_administrador: data.id_administrador
+        id_administrador: data.id_administrador,
+        es_particular: data.es_particular ?? false
       })
       .eq('id', taskId)
 
@@ -314,7 +315,8 @@ export async function createTask(data: any) {
       p_fecha_visita: data.fecha_visita || null,
       p_id_supervisor: data.id_supervisor || null,
       p_id_trabajador: data.id_asignado || null,
-      p_departamentos_ids: data.departamentos_ids?.map(Number) || []
+      p_departamentos_ids: data.departamentos_ids?.map(Number) || [],
+      p_es_particular: data.es_particular ?? false
     }
 
     // usamos supabaseadmin para ejecutar el rpc con privilegios
