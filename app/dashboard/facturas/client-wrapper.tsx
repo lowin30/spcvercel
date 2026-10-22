@@ -152,18 +152,18 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
 
             {/* KPIs Admin */}
             {kpis && (
-                <Card className="bg-amber-50 border-amber-200">
-                    <CardHeader>
-                        <CardTitle className="flex items-center text-amber-800">
-                            <AlertTriangle className="h-4 w-4 mr-2 text-amber-600" /> Recordatorios de administración
+                <Card className="bg-amber-50/70 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center text-amber-800 dark:text-amber-300 text-sm font-semibold">
+                            <AlertTriangle className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" /> Recordatorios de administración
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <KpiCard label="Falta crear PF" count={kpis.pbSinPf_count} items={kpis.pbSinPf || []} link="/dashboard/presupuestos-finales/nuevo?tipo=final" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <KpiCard label="Falta crear PF" count={kpis.pbSinPf_count} items={kpis.pbSinPf || []} />
                             <KpiCard label="Falta crear PF (activas)" count={kpis.tareasActivasSinPf_count} items={kpis.tareasActivasSinPf || []} warning />
                             <KpiCard label="PF Enviado sin resp" count={kpis.pfEnviado_count} items={kpis.pfEnviado || []} critical />
-                            <KpiCard label="PF Aprobado sin fac" count={kpis.pfSinFac_count} items={kpis.pfSinFac || []} link="/dashboard/facturas/nueva" />
+                            <KpiCard label="PF Aprobado sin fac" count={kpis.pfSinFac_count} items={kpis.pfSinFac || []} />
                         </div>
                     </CardContent>
                 </Card>
@@ -300,22 +300,40 @@ export default function FacturasClientWrapper({ initialFacturas, kpis, filtros, 
 }
 
 // Mini Component for KPI
-function KpiCard({ label, count = 0, items = [], link, warning, critical }: any) {
-    const borderColor = critical ? 'border-l-red-500' : warning ? 'border-l-yellow-500' : 'border-l-blue-500'
-    const textColor = critical ? 'text-red-700' : warning ? 'text-yellow-700' : 'text-blue-700'
+function KpiCard({ label, count = 0, items = [], warning, critical }: any) {
+    const borderColor = critical ? 'border-l-red-500' : warning ? 'border-l-amber-500' : 'border-l-blue-500'
+    const textColor = critical ? 'text-red-700 dark:text-red-400' : warning ? 'text-amber-700 dark:text-amber-400' : 'text-blue-700 dark:text-blue-400'
 
     return (
-        <div className={`border-l-4 ${borderColor} pl-3 py-1 bg-white rounded shadow-sm`}>
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className={`text-2xl font-bold ${textColor}`}>{count}</div>
-            <div className="mt-2 space-y-1">
-                {items.map((it: any) => (
-                    <Link key={it.id_presupuesto_final || it.id_tarea} href={`/dashboard/tareas/${it.id_tarea}`} className="block text-[10px] hover:underline truncate">
-                        {it.titulo_tarea || `Tarea #${it.id_tarea}`}
-                    </Link>
-                ))}
+        <div className={`border-l-4 ${borderColor} p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded shadow-sm flex flex-col justify-between`}>
+            <div>
+                <div className="text-xs text-muted-foreground">{label}</div>
+                <div className={`text-2xl font-bold ${textColor}`}>{count}</div>
             </div>
-            {link && <Button variant="outline" size="sm" asChild className="w-full mt-2 h-6 text-xs"><Link href={link}>Ver/Crear</Link></Button>}
+            <div className={`mt-2 space-y-1 ${items.length > 5 ? 'max-h-[120px] overflow-y-auto pr-1' : ''}`}>
+                {items.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground italic">sin pendientes</p>
+                ) : (
+                    items.map((it: any) => (
+                        <Link
+                            key={it.id_presupuesto_final ? `pf-${it.id_presupuesto_final}` : `t-${it.id_tarea}`}
+                            href={`/dashboard/tareas/${it.id_tarea}`}
+                            className="flex items-center justify-between gap-1 text-[10px] text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline py-0.5"
+                        >
+                            <span className="truncate flex-1">{it.titulo_tarea || `Tarea #${it.id_tarea}`}</span>
+                            {it.dias_sin_respuesta !== undefined && (
+                                <span className={`shrink-0 font-medium px-1 rounded text-[9px] ${
+                                    it.prioridad === 'critico'
+                                        ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                                }`}>
+                                    {it.dias_sin_respuesta}d
+                                </span>
+                            )}
+                        </Link>
+                    ))
+                )}
+            </div>
         </div>
     )
 }

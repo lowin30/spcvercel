@@ -103,24 +103,20 @@ export async function getInvoiceKPIs(rol: string) {
     const supabase = await createServerClient();
     const [
         kpiResponse,
-        liqSinPfResponse,
         pfSinFacResponse,
         pbSinPfResponse,
         tareasActivasSinPfResponse,
         pfEnviadoResponse
     ] = await Promise.all([
         supabase.from('vista_finanzas_admin').select('*').single(),
-        supabase.from('vista_admin_liquidaciones_sin_pf').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
-        supabase.from('vista_admin_pf_aprobado_sin_factura').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
-        supabase.from('vista_admin_pb_finalizada_sin_pf').select('*', { count: 'exact' }).limit(5),
-        supabase.from('vista_tareas_admin').select('id, titulo, created_at', { count: 'exact' }).eq('finalizada', false).not('id_estado_nuevo', 'in', '(4,7,9,11)').eq('tiene_presupuesto_base', true).eq('tiene_presupuesto_final', false).order('created_at', { ascending: true }).limit(5),
-        supabase.from('vista_admin_pf_enviado_sin_aprobar').select('*', { count: 'exact' }).order('updated_at', { ascending: true }).limit(5)
+        supabase.from('vista_admin_pf_aprobado_sin_factura').select('*', { count: 'exact' }).order('created_at', { ascending: false }),
+        supabase.from('vista_admin_pb_finalizada_sin_pf').select('*', { count: 'exact' }),
+        supabase.from('vista_tareas_admin').select('id, titulo, created_at', { count: 'exact' }).eq('finalizada', false).not('id_estado_nuevo', 'in', '(4,7,9,11)').eq('tiene_presupuesto_base', true).eq('tiene_presupuesto_final', false).eq('es_particular', false).order('created_at', { ascending: true }),
+        supabase.from('vista_admin_pf_enviado_sin_aprobar').select('*', { count: 'exact' }).order('updated_at', { ascending: true })
     ]);
 
     return {
         kpis: kpiResponse.data,
-        liqSinPf: liqSinPfResponse.data || [],
-        liqSinPf_count: liqSinPfResponse.count || 0,
         pfSinFac: pfSinFacResponse.data || [],
         pfSinFac_count: pfSinFacResponse.count || 0,
         pbSinPf: pbSinPfResponse.data || [],
