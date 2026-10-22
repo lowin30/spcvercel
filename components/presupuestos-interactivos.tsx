@@ -46,6 +46,14 @@ export interface PresupuestoType {
   // Estado de facturación (solo para presupuestos finales)
   tiene_facturas?: boolean
   facturas_pagadas?: boolean
+  factura?: {
+    id: number
+    code: string
+    total?: number
+    saldo_pendiente?: number
+    pagada?: boolean
+    estado_nombre?: string
+  } | null
 }
 
 interface PresupuestosInteractivosProps {
@@ -284,8 +292,8 @@ export function PresupuestosInteractivos({
         )
       }
 
-      // Mostrar opción para crear presupuesto final si hay presupuesto base, no hay presupuesto final, y el usuario es admin o supervisor
-      if (tipo === "final" && presupuestoBaseLocal && !presupuestoFinalLocal && (userRol === "admin" || userRol === "supervisor")) {
+      // Mostrar opción para crear presupuesto final si hay presupuesto base, no hay presupuesto final, y el usuario es admin (solo admin)
+      if (tipo === "final" && presupuestoBaseLocal && !presupuestoFinalLocal && userRol === "admin") {
         return (
           <div className="space-y-3 p-4 rounded-xl border border-indigo-100/60 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/40 to-transparent dark:from-indigo-950/20 shadow-sm flex flex-col justify-center h-full">
             <div className="flex items-center justify-between">
@@ -527,9 +535,39 @@ export function PresupuestosInteractivos({
                 CONTROL PLATINUM
               </h3>
               {presupuestoFinalLocal && (
-                <Badge className="bg-indigo-500 text-[9px] h-4 px-1.5 font-black rounded-md border-none text-white">
-                  MODO DIOS
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {/* Badge de estado real del PF y Factura desde la base de datos */}
+                  {presupuestoFinalLocal.tiene_facturas ? (
+                    presupuestoFinalLocal.facturas_pagadas ? (
+                      <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[9px] h-5 px-2 font-black uppercase tracking-wider">
+                        COBRADO
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[9px] h-5 px-2 font-black uppercase tracking-wider">
+                        FACTURADO (PENDIENTE)
+                      </Badge>
+                    )
+                  ) : presupuestoFinalLocal.aprobado ? (
+                    <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border border-green-500/30 text-[9px] h-5 px-2 font-black uppercase tracking-wider">
+                      APROBADO
+                    </Badge>
+                  ) : presupuestoFinalLocal.estado_codigo === "enviado" ? (
+                    <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-[9px] h-5 px-2 font-black uppercase tracking-wider">
+                      ENVIADO
+                    </Badge>
+                  ) : presupuestoFinalLocal.rechazado ? (
+                    <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30 text-[9px] h-5 px-2 font-black uppercase tracking-wider">
+                      RECHAZADO
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-zinc-500/20 text-zinc-700 dark:text-zinc-300 border border-zinc-500/30 text-[9px] h-5 px-2 font-black uppercase tracking-wider">
+                      BORRADOR
+                    </Badge>
+                  )}
+                  <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[9px] h-5 px-1.5 font-bold">
+                    MODO DIOS
+                  </Badge>
+                </div>
               )}
             </div>
 
@@ -548,12 +586,16 @@ export function PresupuestosInteractivos({
               )
             ) : (
               <Card className="border shadow-none bg-white/50 dark:bg-black/20 backdrop-blur-sm overflow-hidden rounded-xl">
-                <CardContent className="p-3.5 space-y-3.5">
+                <CardContent className="p-3.5 space-y-3">
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="flex items-center gap-1.5 mb-1">
                         <span className="text-[10px] font-bold text-muted-foreground tracking-wider">{presupuestoFinalLocal.code}</span>
-                        {presupuestoFinalLocal.aprobado && <Check className="h-3 w-3 text-green-600" />}
+                        {presupuestoFinalLocal.aprobado && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1 rounded border border-emerald-200 dark:border-emerald-800/40">
+                            <Check className="h-2.5 w-2.5" /> Aprobado
+                          </span>
+                        )}
                       </div>
                       <p className="text-xl font-black tracking-tighter text-indigo-700 dark:text-indigo-400 leading-none">
                         {formatCurrency(presupuestoFinalLocal.total || 0)}
@@ -581,7 +623,7 @@ export function PresupuestosInteractivos({
                           variant="default"
                         />
                       )}
-                      <Button asChild size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg hover:bg-indigo-50 border-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30">
+                      <Button asChild size="sm" variant="outline" className="h-8 w-8 p-0 rounded-lg hover:bg-indigo-50 border-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30" title="Ver detalle del presupuesto final">
                         <Link href={`/dashboard/presupuestos-finales/${presupuestoFinalLocal.id}`}>
                           <ExternalLink className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                         </Link>
@@ -589,7 +631,7 @@ export function PresupuestosInteractivos({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-center border-t border-indigo-100/80 dark:border-indigo-900/50 pt-3">
+                  <div className="grid grid-cols-2 gap-3 text-center border-t border-indigo-100/80 dark:border-indigo-900/50 pt-2.5">
                     <div className="bg-white/40 dark:bg-black/30 rounded-lg py-1.5">
                       <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-0.5">Materiales</span>
                       <span className="text-xs font-bold text-foreground">{formatCurrency(presupuestoFinalLocal.materiales || 0)}</span>
@@ -600,12 +642,60 @@ export function PresupuestosInteractivos({
                     </div>
                   </div>
 
-                  <Button asChild className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-10 text-xs shadow-md shadow-indigo-200/50 dark:shadow-none border-none transition-all hover:scale-[1.02]">
-                    <Link href={`?edit-pf=${presupuestoFinalLocal.id}`}>
-                      <Zap className="mr-1.5 h-3.5 w-3.5 fill-white/20" />
-                      Gestionar Platinum
-                    </Link>
-                  </Button>
+                  {/* Fila Informativa de Factura AFIP (si existe en base de datos) */}
+                  {presupuestoFinalLocal.factura && (
+                    <div className="rounded-lg p-2.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800/40 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-indigo-900 dark:text-indigo-200">
+                          <FileText className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <span>Factura AFIP: {presupuestoFinalLocal.factura.code}</span>
+                        </div>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          presupuestoFinalLocal.factura.pagada
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                        }`}>
+                          {presupuestoFinalLocal.factura.pagada ? 'Cobrada' : (presupuestoFinalLocal.factura.estado_nombre || 'Enviada')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                        <span>Monto: {formatCurrency(presupuestoFinalLocal.factura.total || presupuestoFinalLocal.total || 0)}</span>
+                        {!presupuestoFinalLocal.factura.pagada && (
+                          <span className="font-semibold text-amber-700 dark:text-amber-400">
+                            Saldo: {formatCurrency(presupuestoFinalLocal.factura.saldo_pendiente ?? presupuestoFinalLocal.total ?? 0)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Botones de acción para admin */}
+                  <div className="flex gap-2 pt-1">
+                    {presupuestoFinalLocal.factura ? (
+                      <Button asChild variant="outline" size="sm" className="flex-1 h-9 rounded-xl border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs font-bold">
+                        <Link href={`/dashboard/facturas?search=${presupuestoFinalLocal.factura.code}`}>
+                          <FileText className="mr-1.5 h-3.5 w-3.5" />
+                          Ver Factura
+                        </Link>
+                      </Button>
+                    ) : (
+                      presupuestoFinalLocal.aprobado && (
+                        <Button asChild variant="outline" size="sm" className="flex-1 h-9 rounded-xl border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950/40 text-xs font-bold">
+                          <Link href={`/dashboard/facturas/nueva?id_presupuesto_final=${presupuestoFinalLocal.id}`}>
+                            <FileText className="mr-1.5 h-3.5 w-3.5" />
+                            Emitir Factura
+                          </Link>
+                        </Button>
+                      )
+                    )}
+
+                    <Button asChild className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-9 text-xs shadow-md shadow-indigo-200/50 dark:shadow-none border-none transition-all hover:scale-[1.02]">
+                      <Link href={`?edit-pf=${presupuestoFinalLocal.id}`}>
+                        <Zap className="mr-1.5 h-3.5 w-3.5 fill-white/20" />
+                        Gestionar Platinum
+                      </Link>
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}

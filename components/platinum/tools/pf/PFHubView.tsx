@@ -8,7 +8,7 @@ import {
     FileText, Building2, Calendar, DollarSign, Wallet,
     ChevronDown, ChevronUp, ReceiptText, Send, CheckCircle,
     ExternalLink, Loader2, Plus, Trash2, Hammer, Package,
-    Pencil, Check, X, User, Zap
+    Pencil, Check, X, User, Zap, History
 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { formatDate } from "@/lib/date-utils"
@@ -459,6 +459,52 @@ export function PFHubView({ data, catalogs, onClose, onDataChange }: PFHubViewPr
                     </div>
                 )}
             </CollapsibleSection>
+
+            {/* ─── Sección Versiones Anteriores (Historial Seguro) ─── */}
+            {Array.isArray(pf.historial_versiones) && pf.historial_versiones.length > 0 && (
+                <CollapsibleSection
+                    title={`Versiones Anteriores (${pf.historial_versiones.length})`}
+                    icon={<History className="h-4 w-4 text-purple-500" />}
+                    isExpanded={expandedSection === "versiones"}
+                    onToggle={() => setExpandedSection(expandedSection === "versiones" ? "" : "versiones")}
+                    badge={pf.historial_versiones.length}
+                >
+                    <div className="space-y-3">
+                        {pf.historial_versiones.map((v: any, vIdx: number) => (
+                            <div key={vIdx} className="p-3 bg-muted/40 rounded-xl border border-muted-foreground/10 space-y-2 text-xs">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-[10px] font-bold border-purple-200 text-purple-700 bg-purple-50 dark:bg-purple-950/40">
+                                            Versión {v.version || vIdx + 1}
+                                        </Badge>
+                                        <span className="text-muted-foreground text-[10px]">
+                                            {v.fecha ? formatDate(v.fecha) : 'Sin fecha'}
+                                        </span>
+                                    </div>
+                                    <span className="font-black text-sm text-foreground">
+                                        {formatCurrency(v.total)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-[11px] text-muted-foreground px-1">
+                                    <span>Materiales: {formatCurrency(v.materiales || 0)}</span>
+                                    <span>Mano de Obra: {formatCurrency(v.mano_obra || 0)}</span>
+                                </div>
+                                {v.items && v.items.length > 0 && (
+                                    <div className="pt-2 border-t border-muted/50 space-y-1">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Ítems cotizados en esta versión:</p>
+                                        {v.items.map((it: any, itIdx: number) => (
+                                            <div key={itIdx} className="flex justify-between text-[11px] pl-2 border-l-2 border-purple-200">
+                                                <span className="truncate max-w-[200px]">{it.descripcion}</span>
+                                                <span className="font-mono text-muted-foreground">{it.cantidad} x {formatCurrency(it.precio)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </CollapsibleSection>
+            )}
 
             {/* ─── Sticky Bottom Actions ─── */}
             <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/90 backdrop-blur-xl border-t p-4 safe-area-inset-bottom">

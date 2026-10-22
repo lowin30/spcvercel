@@ -693,7 +693,7 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
             />
 
             <ToolPBWrapper onPresupuestoCreado={() => refreshData()} />
-            <ToolPFWrapper onPresupuestoChange={() => refreshData()} />
+            {esAdmin && <ToolPFWrapper onPresupuestoChange={() => refreshData()} userRol={userDetails?.rol} />}
         </div>
     )
 }

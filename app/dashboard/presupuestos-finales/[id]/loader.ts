@@ -2,7 +2,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export type PresupuestoFinalLoaderData = {
-    presupuesto: any // Se tipará mejor si hay types definidos, por ahora any para compatibilidad
+    presupuesto: any
     items: any[]
     error?: string
 }
@@ -21,11 +21,11 @@ export async function getPresupuestoFinalById(id: string): Promise<PresupuestoFi
             return null
         }
 
-        // 2. Cargar Estado (Relación directa para asegurar colores/datos frescos)
+        // 2. Cargar Estado e Historial de Versiones
         const { data: presupuestoConEstado } = await supabaseAdmin
             .from("presupuestos_finales")
             .select(`
-                id, id_estado, 
+                id, id_estado, historial_versiones,
                 estados_presupuestos:id_estado (id, nombre, codigo, color)
             `)
             .eq("id", id)
@@ -49,13 +49,10 @@ export async function getPresupuestoFinalById(id: string): Promise<PresupuestoFi
             .eq("id_presupuesto", id)
             .order("id", { ascending: true })
 
-        // 5. Comparación con Base (para el cálculo de ajuste)
-        // La vista ya trae 'presupuestos_base'? Si no, lo cargamos.
-        // La vista vista_presupuestos_finales_completa suele tener relaciones.
-        // Pero para asegurar el 'total' del base:
+        // 5. Comparación con Base
         let pbFull = null;
         let presupuestoBaseTotal = 0;
-        if (presupuesto.id_presupuesto_base) { // Si existe la columna de relación
+        if (presupuesto.id_presupuesto_base) {
             const { data: pb } = await supabaseAdmin
                 .from("presupuestos_base")
                 .select("id, code, total, items_json")
@@ -65,20 +62,15 @@ export async function getPresupuestoFinalById(id: string): Promise<PresupuestoFi
                 presupuestoBaseTotal = pb.total
                 pbFull = pb
             }
-        } else {
-            // Intentar buscar por relación inversa o lógica negocio?
-            // En el componente original: presupuesto.presupuestos_base?.total
-            // Asumimos que la vista lo trae o supabase lo resuelve si está en select.
-            // Vamos a hacer un fetch explícito si la vista no lo trajo anidado rico.
-            // Para el loader, mejor traerlo explícito si es crítico.
         }
 
         // MIXIN: Combinar datos
         const dataCompleta = {
             ...presupuesto,
+            historial_versiones: presupuestoConEstado?.historial_versiones || [],
             estados_presupuestos: presupuestoConEstado?.estados_presupuestos || null,
             edificio_info: edificioInfo,
-            presupuestos_base: pbFull || { total: presupuestoBaseTotal } // Fallback/Enhance
+            presupuestos_base: pbFull || { total: presupuestoBaseTotal }
         }
 
         return {

@@ -41,12 +41,13 @@ interface PresupuestoFinalInput {
  */
 export async function savePresupuestoFinal(data: PresupuestoFinalInput) {
     try {
-        const { id: userId, rol } = await validateSessionAndGetUser()
+        const user = await validateSessionAndGetUser()
 
         // 1. rbac: solo admin crea/edita finales
-        if (rol !== 'admin') {
+        if (!user || user.rol !== 'admin') {
             return { success: false, error: "solo administradores pueden crear o editar presupuestos finales" }
         }
+        const userId = user.id
 
         // 2. calculo de totales en servidor (security)
         let materiales = 0
@@ -67,7 +68,7 @@ export async function savePresupuestoFinal(data: PresupuestoFinalInput) {
         // 3. transaccion secuencial
         // a. header
         let pfId = data.id
-        const headerData = {
+        const headerData: any = {
             id_tarea: data.id_tarea,
             id_presupuesto_base: data.id_presupuesto_base,
             id_edificio: data.id_edificio,
@@ -80,6 +81,37 @@ export async function savePresupuestoFinal(data: PresupuestoFinalInput) {
         }
 
         if (pfId) {
+            // versionado automatico platinum: si se edita un presupuesto final, archivar snapshot previo
+            try {
+                const { data: pfPrevio } = await supabaseAdmin
+                    .from('presupuestos_finales')
+                    .select('id, materiales, mano_obra, total, descuento_monto, observaciones_admin, historial_versiones, updated_at, created_at, items(*)')
+                    .eq('id', pfId)
+                    .single()
+
+                if (pfPrevio) {
+                    const versionesPrevias = Array.isArray(pfPrevio.historial_versiones) ? pfPrevio.historial_versiones : []
+                    const snapshot = {
+                        version: versionesPrevias.length + 1,
+                        fecha: pfPrevio.updated_at || pfPrevio.created_at || new Date().toISOString(),
+                        materiales: pfPrevio.materiales,
+                        mano_obra: pfPrevio.mano_obra,
+                        total: pfPrevio.total,
+                        descuento_monto: pfPrevio.descuento_monto || 0,
+                        observaciones_admin: pfPrevio.observaciones_admin,
+                        items: (pfPrevio.items || []).map((it: any) => ({
+                            descripcion: it.descripcion,
+                            cantidad: it.cantidad,
+                            precio: it.precio,
+                            es_material: it.es_material
+                        }))
+                    }
+                    headerData.historial_versiones = [...versionesPrevias, snapshot]
+                }
+            } catch (histErr) {
+                console.warn('error al generar snapshot de version previa en savePresupuestoFinal:', histErr)
+            }
+
             // update
             const { error: updateError } = await supabaseAdmin
                 .from('presupuestos_finales')

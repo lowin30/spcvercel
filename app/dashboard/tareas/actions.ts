@@ -1183,6 +1183,39 @@ export async function saveBudgetAction(params: {
       // --- logica de edicion ---
       const table = tipo === "base" ? "presupuestos_base" : "presupuestos_finales";
 
+      // versionado automatico platinum: si se edita un presupuesto final, archivar snapshot previo
+      if (tipo === "final") {
+        try {
+          const { data: pfPrevio } = await supabaseAdmin
+            .from("presupuestos_finales")
+            .select("id, materiales, mano_obra, total, descuento_monto, observaciones_admin, historial_versiones, updated_at, created_at, items(*)")
+            .eq("id", budgetId)
+            .single();
+
+          if (pfPrevio) {
+            const versionesPrevias = Array.isArray(pfPrevio.historial_versiones) ? pfPrevio.historial_versiones : [];
+            const snapshot = {
+              version: versionesPrevias.length + 1,
+              fecha: pfPrevio.updated_at || pfPrevio.created_at || new Date().toISOString(),
+              materiales: pfPrevio.materiales,
+              mano_obra: pfPrevio.mano_obra,
+              total: pfPrevio.total,
+              descuento_monto: pfPrevio.descuento_monto || 0,
+              observaciones_admin: pfPrevio.observaciones_admin,
+              items: (pfPrevio.items || []).map((it: any) => ({
+                descripcion: it.descripcion,
+                cantidad: it.cantidad,
+                precio: it.precio,
+                es_material: it.es_material
+              }))
+            };
+            budgetData.historial_versiones = [...versionesPrevias, snapshot];
+          }
+        } catch (histErr) {
+          console.warn("error al generar snapshot de version previa en saveBudgetAction:", histErr);
+        }
+      }
+
       const { data, error } = await supabaseAdmin
         .from(table)
         .update(budgetData)

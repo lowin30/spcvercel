@@ -12,7 +12,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { ArrowLeft, Loader2, PlusCircle, Send, MoreVertical, FileText, Edit, LayoutDashboard, Wallet, ReceiptText } from "lucide-react"
+import { ArrowLeft, Loader2, PlusCircle, Send, MoreVertical, FileText, Edit, LayoutDashboard, Wallet, ReceiptText, History } from "lucide-react"
 import { formatDate } from "@/lib/date-utils"
 import { formatCurrency } from "@/lib/utils"
 import { ExportPresupuestoButton } from "@/components/export-presupuesto-button"
@@ -405,6 +405,63 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                         <p className="text-sm text-amber-900/80 leading-relaxed italic">
                             &quot;{presupuesto.observaciones_admin}&quot;
                         </p>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Historial de Versiones Previas */}
+            {Array.isArray(presupuesto.historial_versiones) && presupuesto.historial_versiones.length > 0 && (
+                <Card className="shadow-sm border-purple-200/50 bg-gradient-to-b from-purple-50/20 to-transparent dark:from-purple-950/10">
+                    <CardHeader className="bg-purple-50/40 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/30">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-base flex items-center gap-2 text-purple-950 dark:text-purple-200">
+                                <History className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                Historial de Versiones Previas ({presupuesto.historial_versiones.length})
+                            </CardTitle>
+                            <Badge variant="outline" className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 border-none font-bold">
+                                {presupuesto.historial_versiones.length} {presupuesto.historial_versiones.length === 1 ? 'Versión Anterior' : 'Versiones Anteriores'}
+                            </Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6 space-y-4">
+                        {presupuesto.historial_versiones.map((v: any, idx: number) => (
+                            <div key={idx} className="p-4 rounded-xl border border-muted bg-background/60 space-y-3">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-purple-600 text-white font-bold text-xs">
+                                            Versión {v.version || idx + 1}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                            Guardada el {v.fecha ? formatDate(v.fecha) : 'S/F'}
+                                        </span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-xs text-muted-foreground uppercase font-bold mr-2">Total:</span>
+                                        <span className="text-lg font-black text-foreground">
+                                            {formatCurrency(v.total)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-4 text-xs text-muted-foreground border-y py-2 border-muted/50">
+                                    <span>Materiales: <strong className="text-foreground">{formatCurrency(v.materiales || 0)}</strong></span>
+                                    <span>Mano de Obra: <strong className="text-foreground">{formatCurrency(v.mano_obra || 0)}</strong></span>
+                                    {v.descuento_monto > 0 && <span>Descuento: <strong className="text-foreground">{formatCurrency(v.descuento_monto)}</strong></span>}
+                                </div>
+                                {v.items && v.items.length > 0 && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Ítems de esta versión ({v.items.length}):</p>
+                                        <div className="divide-y divide-muted/30">
+                                            {v.items.map((it: any, iIdx: number) => (
+                                                <div key={iIdx} className="flex justify-between items-center py-1 text-xs">
+                                                    <span className="truncate max-w-[280px] sm:max-w-md">{it.descripcion}</span>
+                                                    <span className="font-mono text-muted-foreground">{it.cantidad} x {formatCurrency(it.precio)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
             )}

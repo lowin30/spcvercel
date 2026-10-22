@@ -499,6 +499,27 @@ export async function getTareaDetail(id: string) {
                 // estados_presupuestos: 1=borrador, 2=enviado, 3=aceptado, 4=facturado, 5=rechazado
                 const estadosMap: Record<number, string> = { 1: 'borrador', 2: 'enviado', 3: 'aceptado', 4: 'facturado', 5: 'rechazado' }
                 pfFinal.estado_codigo = estadosMap[pfFinal.id_estado] || null
+
+                // Cargar factura real directamente desde la base de datos si tiene facturas
+                if (finanzas.tiene_facturas && pfFinal.id) {
+                    const { data: fac } = await supabaseAdmin
+                        .from('facturas')
+                        .select('id, code, total, saldo_pendiente, pagada, id_estado_nuevo, estados_facturas:id_estado_nuevo(nombre)')
+                        .eq('id_presupuesto_final', pfFinal.id)
+                        .order('id', { ascending: false })
+                        .maybeSingle();
+
+                    if (fac) {
+                        pfFinal.factura = {
+                            id: fac.id,
+                            code: fac.code,
+                            total: fac.total,
+                            saldo_pendiente: fac.saldo_pendiente ? Number(fac.saldo_pendiente) : 0,
+                            pagada: !!fac.pagada,
+                            estado_nombre: (fac.estados_facturas as any)?.nombre || null
+                        };
+                    }
+                }
             }
         }
         // B. Gastos y PB (Supervisor)

@@ -10,7 +10,7 @@ import { loadPFHub, loadPFCatalogs, getTareasConPBAprobadoSinPF, type PFHubData 
 import { ExpressPFWizard } from "./ExpressPFWizard"
 import { PFHubView } from "./PFHubView"
 
-export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: () => void }) {
+export function ToolPFWrapper({ onPresupuestoChange, userRol }: { onPresupuestoChange?: () => void, userRol?: string }) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [isOpen, setIsOpen] = useState(false)
@@ -29,8 +29,10 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
     const editPf = searchParams.get('edit-pf')
     const currentTaskId = searchParams.get('id_tarea')
 
-    // Listen to URL params
+    // Listen to URL params - Blindaje estricto: solo admin puede interactuar con el Hub Financiero
     useEffect(() => {
+        if (userRol && userRol !== 'admin') return
+
         if (action === 'crear-pf') {
             setMode("crear")
             setIsOpen(true)
@@ -45,7 +47,9 @@ export function ToolPFWrapper({ onPresupuestoChange }: { onPresupuestoChange?: (
             setHubData(null)
             setExpressCreatedPfId(null)
         }
-    }, [action, editPf])
+    }, [action, editPf, userRol])
+
+    if (userRol && userRol !== 'admin') return null
 
     // Express created a PF → switch to edit mode
     useEffect(() => {
