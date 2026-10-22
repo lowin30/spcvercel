@@ -427,7 +427,7 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                         {presupuesto.historial_versiones.map((v: any, idx: number) => (
                             <div key={idx} className="p-4 rounded-xl border border-muted bg-background/60 space-y-3">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <Badge className="bg-purple-600 text-white font-bold text-xs">
                                             Versión {v.version || idx + 1}
                                         </Badge>
@@ -435,11 +435,32 @@ export function PresupuestoFinalDetail({ presupuesto, items }: PresupuestoFinalD
                                             Guardada el {v.fecha ? formatDate(v.fecha) : 'S/F'}
                                         </span>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-xs text-muted-foreground uppercase font-bold mr-2">Total:</span>
+                                    <div className="flex items-center gap-3">
                                         <span className="text-lg font-black text-foreground">
                                             {formatCurrency(v.total)}
                                         </span>
+                                        {v.items && v.items.length > 0 && (
+                                            <ExportPresupuestoButton
+                                                presupuestoId={String(presupuesto.id)}
+                                                codigo={`${presupuesto.code || presupuesto.id} (v${v.version || idx + 1})`}
+                                                fecha={v.fecha ? new Date(v.fecha) : new Date(presupuesto.created_at)}
+                                                referencia=""
+                                                cliente={{
+                                                    nombre: presupuesto.nombre_edificio || 'N/A',
+                                                    cuit: presupuesto.edificio_info?.cuit || '',
+                                                    tarea: presupuesto.titulo_tarea || ''
+                                                }}
+                                                items={v.items.map((it: any, i: number) => ({
+                                                    id: i,
+                                                    descripcion: it.descripcion,
+                                                    cantidad: it.cantidad,
+                                                    tarifa: it.precio,
+                                                    total: it.cantidad * it.precio,
+                                                }))}
+                                                totalPresupuesto={v.total}
+                                                descuentoMonto={v.descuento_monto || 0}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex gap-4 text-xs text-muted-foreground border-y py-2 border-muted/50">
