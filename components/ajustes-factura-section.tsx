@@ -90,7 +90,7 @@ export function AjustesFacturaSection({ factura, esFacturaMateriales, adminConfi
   const tieneAjustes = ajustes.length > 0
 
   const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('es-AR')}`
+    return `$ ${Math.round(amount).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
   }
 
   return (
