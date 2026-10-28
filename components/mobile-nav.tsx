@@ -44,6 +44,11 @@ export function MobileNav({ userDetails, colorPerfil }: MobileNavProps) {
     }
   }, [pathname])
 
+  // v930: evitar disparidad de hidratacion en SSR/React 19 para navbars moviles
+  if (!mounted) {
+    return null
+  }
+
   return (
     <header className="md:hidden" role="banner" suppressHydrationWarning>
       <nav className="flex h-14 items-center justify-between border-b px-3" role="navigation" aria-label="Navegación principal">
