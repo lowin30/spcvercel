@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/use-toast"
-import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X, Pencil, Zap, Handshake } from "lucide-react"
+import { Calculator, FileText, AlertTriangle, Check, Ban, ExternalLink, Loader2, Plus, X, Pencil, Zap, Handshake, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency, cn } from "@/lib/utils"
 import { toast as sonnerToast } from "sonner"
@@ -100,6 +100,29 @@ export function PresupuestosInteractivos({
     setPresupuestoBaseLocal(presupuestoBase)
     setPresupuestoFinalLocal(presupuestoFinal)
   }, [presupuestoBase, presupuestoFinal])
+
+  // Estado de persistencia para ocultar/mostrar Control Platinum (solo admin)
+  const [ocultarControlPlatinum, setOcultarControlPlatinum] = useState<boolean>(false)
+
+  // Cargar preferencia persistente desde localStorage al montar
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("spc_ocultar_control_platinum")
+      if (saved === "true") {
+        setOcultarControlPlatinum(true)
+      }
+    }
+  }, [])
+
+  const toggleControlPlatinum = () => {
+    setOcultarControlPlatinum((prev) => {
+      const nuevoEstado = !prev
+      if (typeof window !== "undefined") {
+        localStorage.setItem("spc_ocultar_control_platinum", nuevoEstado ? "true" : "false")
+      }
+      return nuevoEstado
+    })
+  }
 
   // Funciones auxiliares
   const formatFecha = (fecha: string) => {
@@ -521,13 +544,39 @@ export function PresupuestosInteractivos({
       </Dialog>
 
 
-      <h3 className="text-lg font-semibold">Presupuestos</h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Presupuestos</h3>
+        {userRol === "admin" && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleControlPlatinum}
+            className="h-8 px-2.5 rounded-lg text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors flex items-center gap-1.5"
+            title={ocultarControlPlatinum ? "Mostrar Control Platinum en todas las tareas" : "Ocultar Control Platinum en todas las tareas"}
+          >
+            {ocultarControlPlatinum ? (
+              <>
+                <Eye className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden sm:inline">Mostrar Control Platinum</span>
+                <span className="sm:hidden">Mostrar PF</span>
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Ocultar Control Platinum</span>
+                <span className="sm:hidden">Ocultar PF</span>
+              </>
+            )}
+          </Button>
+        )}
+      </div>
 
-      <div className={`grid grid-cols-1 ${userRol === "admin" ? "md:grid-cols-2" : ""} gap-4`}>
+      <div className={`grid grid-cols-1 ${userRol === "admin" && !ocultarControlPlatinum ? "md:grid-cols-2" : ""} gap-4`}>
         {/* Presupuesto Base - visible para admins y supervisores */}
         {renderPresupuestoCard(presupuestoBaseLocal, "base")}
 
-        {userRol === "admin" && (
+        {userRol === "admin" && !ocultarControlPlatinum && (
           <div className="space-y-3 p-4 rounded-xl border border-indigo-100/60 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/40 to-transparent dark:from-indigo-950/20 shadow-sm flex flex-col justify-center">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
