@@ -244,6 +244,34 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
         }
     };
 
+    const renderNotasEdificio = () => (
+        tarea.edificios?.notas ? (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 shadow-sm dark:shadow-none animate-in fade-in zoom-in slide-in-from-top-4 duration-500 mb-2">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <div className="p-1 bg-red-100 dark:bg-red-900/50 rounded-md">
+                                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                            </div>
+                            <h3 className="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wider">NOTAS DEL EDIFICIO</h3>
+                        </div>
+                        <p className="text-xs text-red-800/80 dark:text-red-200/80 whitespace-pre-line leading-relaxed pl-1">
+                            {tarea.edificios.notas}
+                        </p>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => { setNotasEdificioTemp(tarea.edificios.notas || ""); setNotasEdificioDialogOpen(true); }} className="flex-shrink-0 h-8 px-2.5 text-red-600 hover:bg-red-500/20 rounded-lg">
+                        <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
+            </div>
+        ) : (
+            <Button variant="outline" size="sm" onClick={() => { setNotasEdificioTemp(""); setNotasEdificioDialogOpen(true); }} className="w-full h-10 text-xs text-muted-foreground border-dashed border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 mb-2 rounded-xl">
+                <AlertTriangle className="h-3.5 w-3.5 mr-2" />
+                Agregar nota de advertencia al edificio
+            </Button>
+        )
+    );
+
     return (
         <div className="container mx-auto py-6 space-y-8">
             <div className="flex justify-between items-center mb-6">
@@ -337,6 +365,11 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                             <div className="absolute -z-10 bg-indigo-500/5 blur-3xl w-40 h-40 rounded-full top-0 right-10 pointer-events-none"></div>
                         </CardHeader>
                     </Card>
+
+                    {/* Notas de Advertencia del Edificio - SOLO MOVIL (entre tarjeta de título y tarjeta de descripción) */}
+                    <div className="block lg:hidden">
+                        {renderNotasEdificio()}
+                    </div>
 
                     {/* ISLA 2: Narrativa (Descripción + Bitácora) */}
                     <Card className="border shadow-sm bg-card/60 overflow-hidden">
@@ -465,32 +498,10 @@ export function TaskDetailView({ initialData }: TaskDetailViewProps) {
                 {/* COLUMNA DERECHA: Logística y Herramientas (35% - Sticky) */}
                 <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
 
-                    {/* Alerta Roja Crítica - Arriba de la logística */}
-                    {tarea.edificios?.notas ? (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 shadow-sm dark:shadow-none animate-in fade-in zoom-in slide-in-from-top-4 duration-500 mb-2">
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                        <div className="p-1 bg-red-100 dark:bg-red-900/50 rounded-md">
-                                            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
-                                        </div>
-                                        <h3 className="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wider">NOTAS DEL EDIFICIO</h3>
-                                    </div>
-                                    <p className="text-xs text-red-800/80 dark:text-red-200/80 whitespace-pre-line leading-relaxed pl-1">
-                                        {tarea.edificios.notas}
-                                    </p>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => { setNotasEdificioTemp(tarea.edificios.notas || ""); setNotasEdificioDialogOpen(true); }} className="flex-shrink-0 h-8 px-2.5 text-red-600 hover:bg-red-500/20 rounded-lg">
-                                    <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                            </div>
-                        </div>
-                    ) : (
-                        <Button variant="outline" size="sm" onClick={() => { setNotasEdificioTemp(""); setNotasEdificioDialogOpen(true); }} className="w-full h-10 text-xs text-muted-foreground border-dashed border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400 mb-2 rounded-xl">
-                            <AlertTriangle className="h-3.5 w-3.5 mr-2" />
-                            Agregar nota de advertencia al edificio
-                        </Button>
-                    )}
+                    {/* Notas de Advertencia del Edificio - SOLO DESKTOP (en barra lateral) */}
+                    <div className="hidden lg:block">
+                        {renderNotasEdificio()}
+                    </div>
 
                     {/* ISLA 5: Panel de Logística (Bento interno) */}
                     <Card className="border shadow-sm bg-card/60">
