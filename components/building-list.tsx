@@ -4,7 +4,7 @@ import { getEstadoEdificioColor } from "@/lib/utils"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MapPin, Building2, Copy, Map, Edit2, Eye } from "lucide-react"
+import { MapPin, Building2, Copy, Map, Edit2, Eye, AlertTriangle } from "lucide-react"
 import { DepartamentosDialog } from "@/components/departamentos-dialog"
 import { toast } from "sonner"
 
@@ -135,9 +135,10 @@ export function BuildingList({ buildings, onBuildingUpdated, permissions }: Buil
                 </p>
 
                 {building.notas && (
-                  <p className="italic line-clamp-2 pt-1 border-t">
-                    💬 {building.notas}
-                  </p>
+                  <div className="flex items-start gap-1.5 pt-1 border-t">
+                    <AlertTriangle className="h-3 w-3 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="italic line-clamp-2 text-red-600 dark:text-red-400">{building.notas}</p>
+                  </div>
                 )}
               </div>
 

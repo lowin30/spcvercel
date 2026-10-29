@@ -23,6 +23,7 @@ export async function createBuilding(data: {
     mapa_url?: string | null
     latitud?: string | number | null
     longitud?: string | number | null
+    notas?: string | null
 }) {
     // Validar sesión con Descope (reemplaza supabase.auth.getUser())
     let user
@@ -118,6 +119,7 @@ export async function updateBuilding(id: number, data: {
             mapa_url: data.mapa_url || null,
             latitud: data.latitud ? Number(data.latitud) : null,
             longitud: data.longitud ? Number(data.longitud) : null,
+            notas: data.notas !== undefined ? data.notas : null,
         }).eq('id', id)
 
         if (error) throw error

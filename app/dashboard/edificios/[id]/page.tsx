@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { Building, MapPin, User, Calendar, ExternalLink, AlertTriangle, Loader2, ArrowLeft, Plus, Phone, Star } from "lucide-react"
+import { Building, MapPin, User, Calendar, ExternalLink, AlertTriangle, Loader2, ArrowLeft, Plus, Phone, Star, Pencil } from "lucide-react"
 import { DepartamentosDialog } from "@/components/departamentos-dialog"
 
 interface EdificioPageProps {
@@ -271,12 +271,41 @@ export default function EdificioPage() {
     <div className="container mx-auto p-3 sm:p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl sm:text-2xl font-bold">{edificio.nombre}</h1>
-        <Badge className={getEstadoEdificioColor(edificio.estado)}>
-          {edificio.estado === "en_obra"
-            ? "En Obra"
-            : edificio.estado.charAt(0).toUpperCase() + edificio.estado.slice(1)}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={getEstadoEdificioColor(edificio.estado)}>
+            {edificio.estado === "en_obra"
+              ? "En Obra"
+              : edificio.estado.charAt(0).toUpperCase() + edificio.estado.slice(1)}
+          </Badge>
+          {permissions.canEditBuilding && (
+            <Link href={`/dashboard/edificios/${edificioId}/editar`}>
+              <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1.5">
+                <Pencil className="h-3.5 w-3.5" />
+                <span>editar</span>
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
+
+      {/* banner de notas del edificio */}
+      {edificio.notas && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 shadow-sm dark:shadow-none mb-4 animate-in fade-in zoom-in slide-in-from-top-4 duration-500">
+          <div className="flex items-start gap-2">
+            <div className="p-1 bg-red-100 dark:bg-red-900/50 rounded-md flex-shrink-0 mt-0.5">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wider mb-1">
+                notas de advertencia del edificio
+              </h3>
+              <p className="text-xs text-red-800/80 dark:text-red-200/80 whitespace-pre-line leading-relaxed pl-0.5">
+                {edificio.notas}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Card className="mb-4">
         <CardHeader className="p-4 pb-3">
@@ -426,13 +455,6 @@ export default function EdificioPage() {
       />
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
-        {permissions.canEditBuilding && (
-          <Link href={`/dashboard/edificios/${edificioId}/editar`}>
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
-              Editar Edificio
-            </Button>
-          </Link>
-        )}
         <Link href="/dashboard/edificios">
           <Button variant="secondary" size="sm" className="w-full sm:w-auto">
             Volver a lista

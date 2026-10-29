@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/components/ui/use-toast"
 import { Loader2, MapPin, Save, Building, ArrowRight, ArrowLeft } from "lucide-react"
@@ -26,6 +27,7 @@ const formSchema = z.object({
     mapa_url: z.string().optional(),
     latitud: z.any().optional(), // Allow string/number -> convert on submit
     longitud: z.any().optional(),
+    notas: z.string().optional(),
 })
 
 interface Administrador {
@@ -76,6 +78,7 @@ export function BuildingWizard({ administradores, initialData = {}, mode = 'crea
             mapa_url: initialData.mapa_url || "",
             latitud: initialData.latitud || "",
             longitud: initialData.longitud || "",
+            notas: initialData.notas || "",
         },
     })
 
@@ -163,7 +166,11 @@ export function BuildingWizard({ administradores, initialData = {}, mode = 'crea
                 toast({ title: "Éxito", description: `Edificio ${mode === 'create' ? 'creado' : 'actualizado'} correctamente.` })
                 if (onSuccess) onSuccess()
                 else {
-                    router.push("/dashboard/edificios")
+                    if (mode === 'edit' && initialData?.id) {
+                        router.push(`/dashboard/edificios/${initialData.id}`)
+                    } else {
+                        router.push("/dashboard/edificios")
+                    }
                     router.refresh()
                 }
             } else {
@@ -348,6 +355,26 @@ export function BuildingWizard({ administradores, initialData = {}, mode = 'crea
                                                     <SelectItem value="inactivo">Inactivo</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="notas"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Notas del Edificio (Opcional)</FormLabel>
+                                            <FormControl>
+                                                <Textarea
+                                                    {...field}
+                                                    placeholder="Ej: El encargado es muy colaborativo, acceso por lateral..."
+                                                    rows={3}
+                                                    className="resize-none"
+                                                />
+                                            </FormControl>
+                                            <FormDescription>Notas internas visibles al visitar las tareas del edificio.</FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}
