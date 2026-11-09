@@ -9,6 +9,8 @@ Resumen actualizado y operativo de:
 - Integraciones en UI/PDF y automatizaciones en DB
 
 ## Ajustes en Facturas
+- configuracion por administrador: el ajuste es el porcentaje descontado de la factura que corresponde a mano de obra. el porcentaje depende de la configuracion de la tabla `administradores`, en su columna `porcentaje_default`. es configurable de manera particular para cada administrador (por ejemplo 10%, 15%, etc.).
+- aplicacion sobre mano de obra: cuando una tarea tiene dos facturas (mano de obra y materiales), el ajuste se aplica y retiene habitualmente sobre la factura de mano de obra.
 - Trigger `trigger_auto_aprobar_ajustes` (BEFORE INSERT) aprueba automáticamente ajustes NUEVOS cuando la factura está pagada (id_estado_nuevo = 5).
 - Resultado: Ajustes aparecen inmediatamente en "Para Liquidar" sin paso manual.
 - Retroactividad: No modifica ajustes existentes (migración manual cuando aplica).
@@ -19,6 +21,35 @@ Resumen actualizado y operativo de:
 - Calculados: generados pero aún no aprobados para liquidar.
 - Pendientes: aprobados para liquidar (pagados en factura), aún sin liquidación.
 - Liquidados: ya contabilizados en una liquidación.
+
+## Liquidaciones y Reparto de Ganancias
+
+### Ceguera Comercial del Supervisor
+- el supervisor **no tiene visibilidad ("no huele")** sobre los presupuestos finales (pf), facturas al cliente ni ajustes comerciales.
+- su calculo economico se basa estricta y unicamente en su presupuesto base (`presupuestos_base.total` / `liquidaciones_nuevas.total_base`) y los gastos reales incurridos en la obra.
+
+### Formula de Ganancia del Supervisor
+- el supervisor solo gana sobre la diferencia entre su presupuesto base y los gastos totales reales de la tarea:
+  $$\text{ganancia disponible} = \text{presupuesto base} - \text{gastos reales}$$
+- lo que queda se divide en 2: 50% para el supervisor y 50% para la administracion de obra de spc:
+  $$\text{ganancia supervisor} = \frac{\text{presupuesto base} - \text{gastos reales}}{2}$$
+  $$\text{ganancia admin obra} = \frac{\text{presupuesto base} - \text{gastos reales}}{2}$$
+- estos valores ya existen persistidos en la tabla `liquidaciones_nuevas` en las columnas `total_base`, `gastos_reales`, `ganancia_supervisor` y `ganancia_admin`.
+
+### Formula de Ganancia Neta Total de SPC
+- es la ganancia real y neta consolidada que le queda a spc por la totalidad de la obra:
+  $$\text{ganancia neta spc} = \text{facturado total} - \text{ajustes retenidos} - \text{gastos reales} - \text{ganancia supervisor}$$
+- donde:
+  - `facturado total`: suma de todas las facturas asociadas a la tarea (mano de obra + materiales).
+  - `ajustes retenidos`: suma de los ajustes aprobados (`ajustes_facturas.monto_ajuste`) calculados segun `administradores.porcentaje_default`.
+  - `gastos reales`: costos directos de la tarea (`liquidaciones_nuevas.gastos_reales`).
+  - `ganancia supervisor`: honorarios liquidados al supervisor (`liquidaciones_nuevas.ganancia_supervisor`).
+- estos calculos se encuentran consolidados a nivel de base de datos en la vista `vista_auditoria_admin_balances`.
+
+### Regla de Auditoria: Ciclo Cerrado Estricto
+- en los balances contables, reportes de rentabilidad y modulos de auditoria solo se consideran tareas con **ciclo cerrado completo** (`id_liquidacion IS NOT NULL`).
+- las tareas abiertas (en ejecucion, sin liquidacion o con pagos provisionales) no entran a los balances contables para evitar distorsiones en eficiencia de presupuesto base y margenes proyectados irreales antes de cerrar costos.
+- los comprobantes cargados en tareas abiertas se registran como `gastos_pendientes` unicamente a modo de alerta operativa para supervisores.
 
 ## Liquidaciones
 - Requisitos: Todas las facturas de la tarea deben estar pagadas (validación en `validarGenerarLiquidacion(idTarea)`).

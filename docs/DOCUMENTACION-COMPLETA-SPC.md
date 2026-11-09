@@ -2075,3 +2075,54 @@ La interfaz permite una gestión intuitiva de las políticas de ajuste por admin
 2. **Historial de cambios de ajustes** para auditoría y transparencia.
 3. **Notificaciones** cuando se generan ajustes automáticamente.
 4. **Reportes específicos** para analizar los ajustes aplicados por administrador o período.
+
+---
+
+## 📊 modulo de auditoria forense, balances y modelo financiero spc (actualizado 2026)
+
+### 1. separacion comercial de roles (ceguera del supervisor)
+- **presupuesto base (pb)**: es el presupuesto pactado con el supervisor. define el tope maximo operativo de costos de obra (`total_base`).
+- **presupuestos finales (pf) y facturas**: armados y facturados al consorcio exclusivamente por la administracion de spc. usualmente una tarea genera dos facturas: una de mano de obra y otra de materiales.
+- **ceguera del supervisor**: el supervisor **no tiene visibilidad ("no huele")** sobre presupuestos finales, facturas a clientes ni ajustes comerciales. su liquidacion se circunscribe unicamente al presupuesto base y a los gastos reales de la tarea.
+
+### 2. logica de ajustes de administradores
+- el ajuste representa el porcentaje retenido o descontado sobre la factura correspondiente a **mano de obra**.
+- **configuracion individual**: el porcentaje no es fijo universalmente; se define en la columna `porcentaje_default` de la tabla `administradores`. cada administrador tiene su porcentaje parametrizado de manera particular (por ejemplo 10%, 15%, etc.).
+- la factura de materiales no lleva ajuste comercial por retencion de mano de obra.
+- los ajustes aprobados impactan en la tabla `ajustes_facturas` (`monto_ajuste`).
+
+### 3. modelo matematico de distribucion de ganancias
+- **ganancia del supervisor (y ganancia admin de obra)**:
+  $$\text{ganancia disponible} = \text{presupuesto base} - \text{gastos reales}$$
+  $$\text{ganancia supervisor} = \frac{\text{presupuesto base} - \text{gastos reales}}{2}$$
+  $$\text{ganancia admin obra} = \frac{\text{presupuesto base} - \text{gastos reales}}{2}$$
+  valores persistidos en `liquidaciones_nuevas` (`total_base`, `gastos_reales`, `ganancia_supervisor`, `ganancia_admin`).
+
+- **ganancia neta total de spc**:
+  $$\text{ganancia neta spc} = \text{facturado base} - \text{ajustes retenidos} - \text{gastos reales} - \text{ganancia supervisor}$$
+  - `facturado base`: suma de los totales de todas las facturas asociadas a la tarea (`facturas.total`).
+  - `ajustes retenidos`: suma de todos los ajustes aprobados (`ajustes_facturas.monto_ajuste`).
+  - `gastos reales`: costos liquidados de compras y comprobantes (`liquidaciones_nuevas.gastos_reales`).
+  - `ganancia supervisor`: honorarios liquidados al supervisor (`liquidaciones_nuevas.ganancia_supervisor`).
+
+### 4. regla de oro: auditoria de ciclo cerrado estricto
+- para evitar distorsiones en la medicion de rendimientos financieros, en los balances contables, rankings y reportes ejecutivos **unicamente ingresan tareas con liquidacion confirmada (`id_liquidacion IS NOT NULL`)**.
+- **razon tecnica**: si una tarea abierta (en curso) se incluye en la auditoria, sus facturas cobradas se computan como ganancia pura antes de que el supervisor rinda comprobantes o liquide honorarios, y los presupuestos base de tareas abiertas inflan artificialmente el porcentaje de eficiencia de los supervisores.
+- **gastos pendientes**: los comprobantes cargados en tareas que aun no se liquidaron se totalizan como `gastos_pendientes` unicamente como indicador de alerta operativa para que administracion exija su rendicion.
+
+### 5. arquitectura del modulo de auditoria (`/dashboard/auditoria`)
+- **vista sql `vista_auditoria_admin_balances`**:
+  - consolida 1 fila por tarea con facturacion agrupada (`f_agg`), ultima liquidacion (`ln_last`), gastos reales, ajustes aprobados y ganancia neta spc.
+  - calcula `total_pb` tomando `COALESCE(ln.total_base, pb.total, 0)`.
+- **servidor (`loader.ts`)**:
+  - carga de datos con filtro estricto `.not('id_liquidacion', 'is', null)`.
+  - agrupaciones reactivas y consistentes en memoria para administradores y supervisores.
+- **frontend (`auditoria-client.tsx`)**:
+  - tab **supervisores**: comparador cara a cara y ranking general con columnas: obras cerradas, presup. base, gastos reales, gastos pend. (alerta), ganancia sup., cobrado cliente, ganancia real spc y eficiencia pb.
+  - tab **administradores**: comparador cara a cara con "ajustes retenidos" y tabla de rentabilidad con columna especifica `ajustes 10%`.
+  - tab **edificios**: rentabilidad simbiotica con margen spc y margen supervisor.
+  - tab **rubros**: clasificacion automatica mediante `clasificarRubro` en 8 especialidades (plomeria, pintura, impermeabilizacion, albanileria, construccion en seco/durlock, gas, electricidad, mantenimiento general y otros).
+  - tab **eficiencia por tarea**: trazabilidad inmutable obra por obra con margenes netos reales.
+  - tab **logs forenses**: auditoria de modificaciones a tablas sensibles.
+- **reporte pdf (`lib/pdf-auditoria-generator.ts`)**:
+  - formato vertical (portrait) mobile-first, kpis consolidados, desglose de administradores con ajustes, ranking de supervisores, auditoria de eficiencia por tarea y seccion de analisis por rubros.
