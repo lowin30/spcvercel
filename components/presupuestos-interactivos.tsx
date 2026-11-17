@@ -381,7 +381,7 @@ export function PresupuestosInteractivos({
                 </p>
               </div>
               <div className="flex gap-2">
-                {userRol === "admin" && estadoPresupuesto === "pendiente" && (
+                {userRol === "admin" && (estadoPresupuesto === "pendiente" || estadoPresupuesto === "rechazado") && (
                   <>
                     <BudgetApproveAction
                       budgetId={presupuesto.id}
@@ -400,20 +400,22 @@ export function PresupuestosInteractivos({
                       className="bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg h-8 px-3 text-xs shadow-none"
                       variant="default"
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 rounded-lg dark:bg-red-950/30 dark:border-red-900/50"
-                      onClick={() => {
-                        setPresupuestoARechazar(presupuesto);
-                        setObservacionRechazo("");
-                        setShowRechazarDialog(true);
-                      }}
-                      disabled={isAprobando || isRechazando}
-                      title="Rechazar"
-                    >
-                      <Ban className="h-3.5 w-3.5" />
-                    </Button>
+                    {estadoPresupuesto === "pendiente" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 rounded-lg dark:bg-red-950/30 dark:border-red-900/50"
+                        onClick={() => {
+                          setPresupuestoARechazar(presupuesto);
+                          setObservacionRechazo("");
+                          setShowRechazarDialog(true);
+                        }}
+                        disabled={isAprobando || isRechazando}
+                        title="Rechazar"
+                      >
+                        <Ban className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </>
                 )}
 

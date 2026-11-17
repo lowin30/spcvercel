@@ -887,15 +887,51 @@ export async function aprobarPresupuestoAction(id: number, tipo: 'base' | 'final
 
     const tabla = tipo === 'base' ? 'presupuestos_base' : 'presupuestos_finales'
     const now = new Date().toISOString();
+    // Si es presupuesto final, sincronizar su estado a 'aceptado'
+    let idEstadoAceptado: number | null = null;
+    if (tipo === 'final') {
+      const { data: estAceptado } = await supabaseAdmin
+        .from('estados_presupuestos')
+        .select('id')
+        .eq('codigo', 'aceptado')
+        .single();
+      idEstadoAceptado = estAceptado?.id || null;
+    }
+
+    const updateBudgetPayload: any = {
+      aprobado: true,
+      rechazado: false,
+      fecha_aprobacion: now,
+      updated_at: now
+    };
+    if (idEstadoAceptado) {
+      updateBudgetPayload.id_estado = idEstadoAceptado;
+    }
+
     const { error } = await supabaseAdmin
       .from(tabla)
-      .update({
-        aprobado: true,
-        rechazado: false,
-        fecha_aprobacion: now,
-        updated_at: now
-      })
+      .update(updateBudgetPayload)
       .eq('id', id)
+
+    // Reactivar tarea explícitamente si estaba vencida o finalizada
+    if (taskId) {
+      const { data: estTareaAprobado } = await supabaseAdmin
+        .from('estados_tareas')
+        .select('id')
+        .eq('codigo', 'aprobado')
+        .single();
+      if (estTareaAprobado) {
+        await supabaseAdmin
+          .from('tareas')
+          .update({
+            id_estado_nuevo: estTareaAprobado.id,
+            finalizada: false,
+            updated_at: now
+          })
+          .eq('id', taskId)
+          .not('id_estado_nuevo', 'in', '(7,9)');
+      }
+    }
 
     if (error) throw error
 

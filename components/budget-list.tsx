@@ -176,7 +176,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                             </Button>
                           )}
 
-                          {(codigo === 'enviado' || (budget.aprobado === true && codigo !== 'facturado')) && (
+                          {(codigo === 'enviado' || codigo === 'rechazado' || budget.rechazado === true || (budget.aprobado === true && codigo !== 'facturado')) && (
                             <BudgetApproveAction
                               budgetId={budget.id}
                               tipo="final"
@@ -300,7 +300,7 @@ export function BudgetList({ budgets, userRole }: BudgetListProps) {
                             </Button>
                           )}
                           {/* Botón de Aprobar / Facturar Unificado */}
-                          {(codigo === 'enviado' || (budget.aprobado === true && codigo !== 'facturado')) && (
+                          {(codigo === 'enviado' || codigo === 'rechazado' || budget.rechazado === true || (budget.aprobado === true && codigo !== 'facturado')) && (
                             <BudgetApproveAction
                               budgetId={budget.id}
                               tipo="final"

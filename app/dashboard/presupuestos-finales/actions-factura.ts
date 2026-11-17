@@ -124,8 +124,22 @@ export async function convertirPresupuestoADosFacturas(presupuestoId: number) {
     if (estFacturado) {
       await supabase.from('presupuestos_finales').update({
         id_estado: estFacturado.id,
-        aprobado: true
+        aprobado: true,
+        rechazado: false,
+        updated_at: new Date().toISOString()
       }).eq('id', presupuestoId)
+
+      // Reactivar tarea asociada si estaba vencida o finalizada
+      if (presupuesto.id_tarea) {
+        const { data: estFacturadoTarea } = await supabase.from('estados_tareas').select('id').eq('codigo', 'facturado').single()
+        if (estFacturadoTarea) {
+          await supabase.from('tareas').update({
+            id_estado_nuevo: estFacturadoTarea.id,
+            finalizada: false,
+            updated_at: new Date().toISOString()
+          }).eq('id', presupuesto.id_tarea)
+        }
+      }
     }
 
     revalidatePath('/dashboard/presupuestos-finales')
