@@ -144,48 +144,44 @@ export default function ConfiguracionTabs({
         </Select>
       </div>
 
-      {/* Tabs para escritorio - grid */}
+      {/* Tabs para escritorio - flex wrap adaptativo */}
       <div className="hidden md:block">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9">
-          <TabsTrigger value="usuarios" className="flex items-center">
-            <Shield className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="hidden xl:inline">Gestión de Usuarios</span>
-            <span className="xl:hidden">Usuarios</span>
+        <TabsList className="h-auto flex flex-wrap gap-1 p-1 w-full bg-muted/60 dark:bg-zinc-900/60 rounded-lg border border-border/40 justify-start">
+          <TabsTrigger value="usuarios" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Shield className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>usuarios</span>
           </TabsTrigger>
-          <TabsTrigger value="trabajadores" className="flex items-center">
-            <UserCheck className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="hidden xl:inline">Configuración Trabajadores</span>
-            <span className="xl:hidden">Trabajadores</span>
+          <TabsTrigger value="trabajadores" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <UserCheck className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>trabajadores</span>
           </TabsTrigger>
-          <TabsTrigger value="sistema" className="flex items-center">
-            <Database className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="hidden xl:inline">Configuración del Sistema</span>
-            <span className="xl:hidden">Sistema</span>
+          <TabsTrigger value="sistema" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Database className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>sistema</span>
           </TabsTrigger>
-          <TabsTrigger value="productos" className="flex items-center">
-            <Package className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>Productos</span>
+          <TabsTrigger value="productos" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Package className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>productos</span>
           </TabsTrigger>
-          <TabsTrigger value="categorias" className="flex items-center">
-            <Tag className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>Categorías</span>
+          <TabsTrigger value="categorias" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Tag className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>categorias</span>
           </TabsTrigger>
-          <TabsTrigger value="administradores" className="flex items-center">
-            <Users2 className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span className="hidden xl:inline">Administradores</span>
-            <span className="xl:hidden">Admins</span>
+          <TabsTrigger value="administradores" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Users2 className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>administradores</span>
           </TabsTrigger>
-          <TabsTrigger value="estados" className="flex items-center">
-            <ActivitySquare className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>Estados</span>
+          <TabsTrigger value="estados" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <ActivitySquare className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>estados</span>
           </TabsTrigger>
-          <TabsTrigger value="cloudinary" className="flex items-center">
-            <Cloud className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>Cloudinary</span>
+          <TabsTrigger value="cloudinary" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Cloud className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>cloudinary</span>
           </TabsTrigger>
-          <TabsTrigger value="ia" className="flex items-center">
-            <Cpu className="mr-2 h-4 w-4 flex-shrink-0" />
-            <span>Inteligencia Artificial</span>
+          <TabsTrigger value="ia" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+            <Cpu className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>ia</span>
           </TabsTrigger>
         </TabsList>
       </div>
